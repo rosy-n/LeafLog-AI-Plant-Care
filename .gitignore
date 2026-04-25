@@ -1,0 +1,45 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Local files
+uploads/
+media/
+*.sqlite3
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# Data
+data/raw/
+data/private/
+data/large/
+
+# AI models
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+models/
+checkpoints/
