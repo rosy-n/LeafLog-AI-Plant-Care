@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "LeafLog",
+    "slug": "leaflog",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "leaflog",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "assets/*"
+    ],
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#fffdf5"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
