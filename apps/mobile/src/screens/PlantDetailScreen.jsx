@@ -17,6 +17,7 @@ import ResourceCounter from "../components/ResourceCounter";
 import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
+import PixelOutlineText from "../components/PixelOutlineText";
 
 const MENU_ITEMS = [
     "프로필",
@@ -105,8 +106,15 @@ export default function PlantDetailScreen({ navigation }) {
                     <View style={styles.mainPlantArea}>
                         <PlantImage imageKey="spaghetti" width={230} height={230} />
 
-                        <Text style={styles.plantName}>스파게티</Text>
-                        <Text style={styles.affinityText}>D + 45</Text>
+                        <View style={styles.plantLabelGroup}>
+                            <PixelOutlineText style={styles.plantName} strokeWidth={2}>
+                                스파게티
+                            </PixelOutlineText>
+
+                            <PixelOutlineText style={styles.dayText} strokeWidth={2}>
+                                D+45
+                            </PixelOutlineText>
+                        </View>
                     </View>
 
                     {menuVisible && (
@@ -283,6 +291,19 @@ const styles = StyleSheet.create({
         transform: [{ rotate: "45deg" }],
     },
 
+    plantLabelGroup: {
+        position: "absolute",
+
+        // 원하는 높이만 조정
+        top: 210,
+
+        // 화면 전체 기준 가로 중앙
+        left: 0,
+        right: 0,
+
+        alignItems: "center",
+        zIndex: 30,
+    },
     mainPlantArea: {
         position: "absolute",
         top: 355,
@@ -292,12 +313,27 @@ const styles = StyleSheet.create({
         zIndex: 5,
     },
     plantName: {
-        marginTop: 4,
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 35,
+        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontSize: 30,
+        color: "#FFFFFF",
+        letterSpacing: 1,
+        lineHeight: 50,
+    },
+
+    dayText: {
+        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontSize: 20,
+        color: "#FFFFFF",
+        letterSpacing: 1,
+        lineHeight: 32,
+    },
+
+    smallDayText: {
+        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontSize: 18,
         color: "#FFFFFF",
         letterSpacing: 0.5,
-        ...pixelShadow,
+        lineHeight: 24,
     },
     affinityText: {
         marginTop: 2,
