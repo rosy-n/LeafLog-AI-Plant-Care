@@ -20,12 +20,12 @@ import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 
 const MENU_ITEMS = [
-    "프로필",
-    "식물 꾸미기",
-    "돌보기 정보",
-    "센서 데이터",
-    "분갈이",
-    "영양제",
+    { label: "프로필", screen: "Profile" },
+    { label: "식물 꾸미기", screen: "PlantDecorate" },
+    { label: "돌보기 정보", screen: "CareInfo" },
+    { label: "센서 데이터", screen: "SensorData" },
+    { label: "분갈이", screen: "Repotting" },
+    { label: "영양제", screen: "Nutrient" },
 ];
 
 export default function PlantDetailScreen({ navigation }) {
@@ -119,12 +119,12 @@ export default function PlantDetailScreen({ navigation }) {
 
                     {menuVisible && (
                         <View style={styles.menuPopup}>
-                            {MENU_ITEMS.map((label, index) => {
+                            {MENU_ITEMS.map((item, index) => {
                                 const anim = menuAnimations[index];
 
                                 return (
                                     <Animated.View
-                                        key={label}
+                                        key={item.label}
                                         style={[
                                             styles.menuItemWrapper,
                                             {
@@ -151,10 +151,7 @@ export default function PlantDetailScreen({ navigation }) {
                                             style={styles.menuItemTouch}
                                             onPress={() => {
                                                 closeMenu();
-
-                                                if (label === "프로필") {
-                                                    navigation.navigate("Profile");
-                                                }
+                                                navigation.navigate(item.screen);
                                             }}
                                         >
                                             <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>
@@ -169,7 +166,7 @@ export default function PlantDetailScreen({ navigation }) {
                                                     style={styles.menuItemGlass}
                                                 >
                                                     <View style={styles.menuItemHighlight} />
-                                                    <Text style={styles.menuItemText}>{label}</Text>
+                                                    <Text style={styles.menuItemText}>{item.label}</Text>
                                                 </LinearGradient>
                                             </BlurView>
                                         </TouchableOpacity>
