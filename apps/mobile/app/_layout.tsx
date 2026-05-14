@@ -2,13 +2,12 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
-import { Fonts } from '../constants/fonts';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
     const [fontsLoaded, fontError] = useFonts({
-        [Fonts.neoDunggeunmo]: require('../assets/fonts/NeoDunggeunmoPro-Regular.ttf'),
+        'NeoDunggeunmoPro-Regular': require('../assets/fonts/NeoDunggeunmoPro-Regular.ttf'),
     });
 
     useEffect(() => {
@@ -18,6 +17,9 @@ export default function RootLayout() {
     if (!fontsLoaded && !fontError) return null;
 
     return (
-        <Stack screenOptions={{ headerShown: false }} />
+        <Stack>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="add-plant" options={{ headerShown: false }} />
+        </Stack>
     );
 }
