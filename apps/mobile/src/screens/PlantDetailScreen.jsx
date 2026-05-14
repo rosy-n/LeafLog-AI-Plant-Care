@@ -143,6 +143,10 @@ export default function PlantDetailScreen({ navigation }) {
                                             style={styles.menuItemTouch}
                                             onPress={() => {
                                                 closeMenu();
+
+                                                if (label === "프로필") {
+                                                    navigation.navigate("Profile");
+                                                }
                                             }}
                                         >
                                             <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>

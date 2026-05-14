@@ -8,6 +8,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import HomeScreen from "./src/screens/HomeScreen";
 import GardenScreen from "./src/screens/GardenScreen";
 import PlantDetailScreen from "./src/screens/PlantDetailScreen";
+import ProfileScreen from "./src/screens/ProfileScreen";
 import { gardenPlants } from "./src/data/plants";
 
 const Stack = createNativeStackNavigator();
@@ -114,6 +115,12 @@ export default function App() {
                         animation: "none",
                         gestureEnabled: false,
                     }}
+                />
+
+                <Stack.Screen
+                    name="Profile"
+                    component={ProfileScreen}
+                    options={{ headerShown: false }}
                 />
             </Stack.Navigator>
         </NavigationContainer>
