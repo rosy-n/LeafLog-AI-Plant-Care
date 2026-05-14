@@ -10,6 +10,9 @@ import GardenScreen from "./src/screens/GardenScreen";
 import PlantDetailScreen from "./src/screens/PlantDetailScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import CareInfoScreen from "./src/screens/CareInfoScreen";
+import ConsultationHistoryScreen from "./src/screens/ConsultationHistoryScreen"
+//import ConsultationScreen from "./src/screens/ConsultationScreen";
+//import ConsultationStartScreen from "./src/screens/ConsultationStartScreen"
 import { gardenPlants } from "./src/data/plants";
 
 const Stack = createNativeStackNavigator();
@@ -128,6 +131,13 @@ export default function App() {
                     component={CareInfoScreen}
                     options={{ headerShown: false }}
                 />
+                <Stack.Screen
+                    name="ConsultationHistory"
+                    component={ConsultationHistoryScreen}
+                    options={{ headerShown: false }}
+                />
+
+
 
             </Stack.Navigator>
         </NavigationContainer>

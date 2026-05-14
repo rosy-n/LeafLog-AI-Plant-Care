@@ -194,7 +194,10 @@ export default function PlantDetailScreen({ navigation }) {
                     </View>
 
                     <View style={styles.rightButtons}>
-                        <LiquidGlassButton size={54}>
+                        <LiquidGlassButton
+                            size={54}
+                            onPress={() => navigation.navigate("ConsultationHistory")}
+                        >
                             <Ionicons
                                 name="chatbubble-ellipses-outline"
                                 size={29}
