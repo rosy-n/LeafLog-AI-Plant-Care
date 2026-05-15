@@ -1,7 +1,7 @@
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -10,19 +10,17 @@ import {
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { Colors } from '../../constants/colors';
-import { Fonts } from '../../constants/fonts';
+import { styles } from './styles/name.styles';
 
 const MAX_LENGTH = 8;
 
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
+// TODO: FLUX 연동 시 characterImageUrl param으로 교체. assets/dot-character-placeholder.png 필요.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const PLACEHOLDER_CHARACTER = require('../../assets/dot-character-placeholder.png');
 
 export default function NameScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-
   const [nickname, setNickname] = useState('');
 
   const isValid = nickname.trim().length > 0;
@@ -40,14 +38,19 @@ export default function NameScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
-        <Text style={styles.title}>식물에게{'\n'}이름을 붙여줄까요?</Text>
+        <Image
+          source={PLACEHOLDER_CHARACTER}
+          style={styles.characterImage}
+          resizeMode="contain"
+        />
 
-        {/* Input row */}
+        <Text style={styles.title}>이름을{'\n'}붙여주세요</Text>
+
         <View style={styles.inputWrapper}>
           <TextInput
             style={styles.input}
             placeholder="이름 입력"
-            placeholderTextColor={Colors.textGray}
+            placeholderTextColor="#A0A0A0"
             value={nickname}
             onChangeText={setNickname}
             maxLength={MAX_LENGTH}
@@ -55,9 +58,7 @@ export default function NameScreen() {
             returnKeyType="done"
             onSubmitEditing={isValid ? handleConfirm : undefined}
           />
-          <Text style={styles.charCount}>
-            {nickname.length}/{MAX_LENGTH}
-          </Text>
+          <Text style={styles.charCount}>{nickname.length}/{MAX_LENGTH}</Text>
         </View>
 
         <View style={styles.spacer} />
@@ -76,76 +77,3 @@ export default function NameScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
-const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
-  },
-
-  title: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 22,
-    color: Colors.textBlack,
-    lineHeight: 32,
-    marginBottom: 36,
-  },
-
-  // input
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
-  input: {
-    flex: 1,
-    height: 52,
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 18,
-    color: Colors.textBlack,
-  },
-  charCount: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
-    color: Colors.textGray,
-    marginLeft: 8,
-  },
-
-  spacer: {
-    flex: 1,
-  },
-
-  // confirm button
-  confirmBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  confirmBtnDisabled: {
-    backgroundColor: '#D8D8D8',
-  },
-  confirmBtnText: {
-    color: Colors.white,
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
-  },
-  confirmBtnTextDisabled: {
-    color: Colors.textGray,
-  },
-});
