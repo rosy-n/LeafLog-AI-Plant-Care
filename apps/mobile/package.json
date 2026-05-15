@@ -9,7 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@react-native-community/datetimepicker": "^9.1.0",
+    "@react-native-community/datetimepicker": "8.4.4",
     "axios": "^1.16.0",
     "expo": "~54.0.33",
     "expo-camera": "~17.0.10",
@@ -24,8 +24,8 @@
     "fast-xml-parser": "^5.8.0",
     "react": "19.1.0",
     "react-native": "0.81.5",
-    "react-native-gesture-handler": "^2.31.2",
-    "react-native-safe-area-context": "^5.7.0",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "regenerator-runtime": "^0.14.1"
   },

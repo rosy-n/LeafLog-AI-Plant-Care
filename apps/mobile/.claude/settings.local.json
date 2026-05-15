@@ -3,7 +3,11 @@
     "allow": [
       "Bash(git *)",
       "Bash(npx tsc *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(npx react-native *)",
+      "Bash(kill %1)",
+      "Bash(npx expo-doctor *)",
+      "Bash(npx expo *)"
     ]
   }
 }
