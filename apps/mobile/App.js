@@ -13,6 +13,7 @@ import CareInfoScreen from "./src/screens/CareInfoScreen";
 import ConsultationHistoryScreen from "./src/screens/ConsultationHistoryScreen"
 import ConsultationScreen from "./src/screens/ConsultationScreen";
 import ConsultationStartScreen from "./src/screens/ConsultationStartScreen"
+import PlantDecorateScreen from "./src/screens/PlantDecorateScreen";
 import { gardenPlants } from "./src/data/plants";
 
 const Stack = createNativeStackNavigator();
@@ -26,6 +27,17 @@ const imageAssets = [
     require("./assets/plants/sansevieria.png"),
     require("./assets/plants/pachira.png"),
     require("./assets/plants/myeongrani.png"),
+
+    require("./assets/items/level1_item.png"),
+    require("./assets/items/level1_plants.png"),
+    require("./assets/items/level2_item.png"),
+    require("./assets/items/level2_plants.png"),
+    require("./assets/items/level3_item.png"),
+    require("./assets/items/level3_plants.png"),
+    require("./assets/items/level4_item.png"),
+    require("./assets/items/level4_plants.png"),
+    require("./assets/items/level5_item.png"),
+    require("./assets/items/level5_plants.png"),
 ];
 
 async function preloadImages() {
@@ -38,6 +50,7 @@ async function preloadImages() {
 
 export default function App() {
     const [plants, setPlants] = useState(gardenPlants);
+    const [appliedItem, setAppliedItem] = useState(null);
     const [imagesLoaded, setImagesLoaded] = useState(false);
 
     const [fontsLoaded] = useFonts({
@@ -114,13 +127,16 @@ export default function App() {
 
                 <Stack.Screen
                     name="PlantDetail"
-                    component={PlantDetailScreen}
                     options={{
                         presentation: "card",
                         animation: "none",
                         gestureEnabled: false,
                     }}
-                />
+                >
+                    {(props) => (
+                        <PlantDetailScreen {...props} appliedItem={appliedItem} />
+                    )}
+                </Stack.Screen>
 
                 <Stack.Screen
                     name="Profile"
@@ -147,7 +163,18 @@ export default function App() {
                     component={ConsultationScreen}
                     options={{ headerShown: false }}
                 />
-
+                <Stack.Screen
+                    name="PlantDecorate"
+                    options={{ headerShown: false }}
+                >
+                    {(props) => (
+                        <PlantDecorateScreen
+                            {...props}
+                            appliedItem={appliedItem}
+                            setAppliedItem={setAppliedItem}
+                        />
+                    )}
+                </Stack.Screen>
 
             </Stack.Navigator>
         </NavigationContainer>

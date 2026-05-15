@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import {
     ImageBackground,
+    Image,
     View,
     Text,
     StyleSheet,
@@ -28,7 +29,7 @@ const MENU_ITEMS = [
     { label: "영양제", screen: "Nutrient" },
 ];
 
-export default function PlantDetailScreen({ navigation }) {
+export default function PlantDetailScreen({ navigation, appliedItem }) {
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
 
@@ -104,7 +105,15 @@ export default function PlantDetailScreen({ navigation }) {
                     </View>
 
                     <View style={styles.mainPlantArea}>
-                        <PlantImage imageKey="spaghetti" width={230} height={230} />
+                        {appliedItem ? (
+                            <Image
+                                source={appliedItem.plantImage}
+                                style={{ width: 230, height: 230 }}
+                                resizeMode="contain"
+                            />
+                        ) : (
+                            <PlantImage imageKey="spaghetti" width={230} height={230} />
+                        )}
 
                         <View style={styles.plantLabelGroup}>
                             <PixelOutlineText style={styles.plantName} strokeWidth={2}>
