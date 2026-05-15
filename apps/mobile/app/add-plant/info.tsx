@@ -1,10 +1,10 @@
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -13,31 +13,29 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
-import { Colors } from '../../constants/colors';
-import { Fonts } from '../../constants/fonts';
-import type { NewPlantPayload } from '../../types/plant';
+import { styles } from './styles/info.styles';
+import type { NewPlantPayload, NongsaroPlantDetail } from '../../types/plant';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 
-const LOCATIONS = ['거실', '침실', '베란다', '주방', '사무실'];
-const LIGHT_LEVELS = ['직사광', '밝은 간접광', '간접광', '어두움'];
+// ── Constants ────────────────────────────────────────────────────────────────
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+const LOCATIONS = ['거실', '침실', '베란다', '주방', '사무실'] as const;
 
-function formatDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}.${m}.${d}`;
-}
+const LIGHT_OPTIONS = [
+  { label: '직사광',     sub: '햇빛 직접' },
+  { label: '밝은 간접광', sub: '창가 근처' },
+  { label: '간접광',     sub: '밝은 실내' },
+  { label: '어두움',     sub: '빛 적음'  },
+] as const;
 
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
+const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
+const DAYS   = Array.from({ length: 31 }, (_, i) => i + 1);
+
+type MonthDay = { month: number; day: number } | null;
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function SectionLabel({ text, required }: { text: string; required?: boolean }) {
   return (
@@ -48,95 +46,90 @@ function SectionLabel({ text, required }: { text: string; required?: boolean }) 
   );
 }
 
-function SelectGroup({
-  options,
+function Stepper({
   value,
-  onSelect,
+  onChange,
+  unit,
+  min = 1,
+  max = 999,
 }: {
-  options: string[];
-  value: string | null;
-  onSelect: (v: string) => void;
+  value: string;
+  onChange: (v: string) => void;
+  unit: string;
+  min?: number;
+  max?: number;
 }) {
-  return (
-    <View style={styles.selectGroup}>
-      {options.map((opt) => (
-        <TouchableOpacity
-          key={opt}
-          style={[styles.selectBtn, value === opt && styles.selectBtnActive]}
-          onPress={() => onSelect(opt)}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.selectBtnText, value === opt && styles.selectBtnTextActive]}>
-            {opt}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-}
+  const num = parseInt(value, 10) || 0;
 
-function DatePickerField({
-  value,
-  onSelect,
-}: {
-  value: Date | null;
-  onSelect: (date: Date) => void;
-}) {
-  const [show, setShow] = useState(false);
-  const current = value ?? new Date();
-
-  const handleChange = (_: DateTimePickerEvent, picked?: Date) => {
-    if (Platform.OS === 'android') setShow(false);
-    if (picked) onSelect(picked);
+  const decrement = () => {
+    if (num > min) onChange(String(num - 1));
+  };
+  const increment = () => {
+    if (num < max) onChange(String(num + 1));
   };
 
   return (
-    <View>
-      <TouchableOpacity style={styles.dateBtn} onPress={() => setShow(true)} activeOpacity={0.8}>
-        <Text style={[styles.dateBtnText, !value && styles.dateBtnPlaceholder]}>
-          {value ? formatDate(value) : '날짜 선택'}
-        </Text>
-        <Text style={styles.dateIcon}>📅</Text>
+    <View style={styles.stepper}>
+      <TouchableOpacity style={styles.stepperBtn} onPress={decrement} activeOpacity={0.7}>
+        <Text style={styles.stepperBtnText}>−</Text>
       </TouchableOpacity>
-
-      {/* iOS: Modal + spinner */}
-      {Platform.OS === 'ios' && (
-        <Modal visible={show} transparent animationType="slide">
-          <View style={styles.pickerBackdrop}>
-            <View style={styles.pickerSheet}>
-              <TouchableOpacity style={styles.pickerDoneRow} onPress={() => setShow(false)}>
-                <Text style={styles.pickerDoneText}>완료</Text>
-              </TouchableOpacity>
-              <DateTimePicker
-                value={current}
-                mode="date"
-                display="spinner"
-                maximumDate={new Date()}
-                onChange={handleChange}
-                locale="ko"
-              />
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {/* Android: native dialog */}
-      {Platform.OS !== 'ios' && show && (
-        <DateTimePicker
-          value={current}
-          mode="date"
-          display="default"
-          maximumDate={new Date()}
-          onChange={handleChange}
+      <View style={styles.stepperValueWrap}>
+        <TextInput
+          style={styles.stepperInput}
+          value={value}
+          onChangeText={(t) => {
+            const n = parseInt(t.replace(/[^0-9]/g, ''), 10);
+            if (!isNaN(n)) onChange(String(Math.min(max, Math.max(min, n))));
+            else if (t === '') onChange('');
+          }}
+          keyboardType="numeric"
+          maxLength={3}
+          selectTextOnFocus
         />
-      )}
+        <Text style={styles.stepperUnit}>{unit}</Text>
+      </View>
+      <TouchableOpacity style={styles.stepperBtn} onPress={increment} activeOpacity={0.7}>
+        <Text style={styles.stepperBtnText}>+</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
+type PickerTarget = 'water-month' | 'water-day' | 'repot-month' | 'repot-day';
+
+function DatePairPicker({
+  label,
+  value,
+  onMonthPress,
+  onDayPress,
+}: {
+  label: string;
+  value: MonthDay;
+  onMonthPress: () => void;
+  onDayPress: () => void;
+}) {
+  return (
+    <View style={styles.dateBlock}>
+      <Text style={styles.dateBlockLabel}>{label}</Text>
+      <View style={styles.datePickerRow}>
+        <TouchableOpacity style={styles.dateDropdown} onPress={onMonthPress} activeOpacity={0.8}>
+          <Text style={[styles.dateDropdownText, !value && styles.dateDropdownPlaceholder]}>
+            {value ? `${value.month}월` : '월'}
+          </Text>
+          <Text style={styles.dateDropdownArrow}>▾</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.dateDropdown} onPress={onDayPress} activeOpacity={0.8}>
+          <Text style={[styles.dateDropdownText, !value && styles.dateDropdownPlaceholder]}>
+            {value ? `${value.day}일` : '일'}
+          </Text>
+          <Text style={styles.dateDropdownArrow}>▾</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function InfoScreen() {
   const router = useRouter();
@@ -147,38 +140,88 @@ export default function InfoScreen() {
     nickname?: string;
     characterImageUrl?: string;
     capturedPhotoUri?: string;
+    plantDetail?: string;
   }>();
 
+  const plantDetail: NongsaroPlantDetail | null = params.plantDetail
+    ? JSON.parse(params.plantDetail)
+    : null;
+
+  // Form state
   const [location, setLocation] = useState<string | null>(null);
   const [lightLevel, setLightLevel] = useState<string | null>(null);
   const [plantHeight, setPlantHeight] = useState('');
   const [potDiameter, setPotDiameter] = useState('');
+  const todayDate = new Date();
+  const [lastWatered, setLastWatered] = useState<MonthDay>({
+    month: todayDate.getMonth() + 1,
+    day: todayDate.getDate(),
+  });
+  const [lastRepotted, setLastRepotted] = useState<MonthDay>(null);
   const [soilNote, setSoilNote] = useState('');
-  const [lastWateredAt, setLastWateredAt] = useState<Date | null>(null);
-  const [lastRepottedAt, setLastRepottedAt] = useState<Date | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Picker modal state
+  const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
 
   const isValid = Boolean(location && lightLevel);
 
-  const handleSubmit = async () => {
-    if (!isValid) return;
+  const openPicker = (target: PickerTarget) => setPickerTarget(target);
+  const closePicker = () => setPickerTarget(null);
 
+  const handlePickerSelect = (value: number) => {
+    if (!pickerTarget) return;
+    if (pickerTarget === 'water-month') {
+      setLastWatered((prev) => ({ month: value, day: prev?.day ?? 1 }));
+    } else if (pickerTarget === 'water-day') {
+      setLastWatered((prev) => ({ month: prev?.month ?? new Date().getMonth() + 1, day: value }));
+    } else if (pickerTarget === 'repot-month') {
+      setLastRepotted((prev) => ({ month: value, day: prev?.day ?? 1 }));
+    } else if (pickerTarget === 'repot-day') {
+      setLastRepotted((prev) => ({ month: prev?.month ?? new Date().getMonth() + 1, day: value }));
+    }
+    closePicker();
+  };
+
+  const pickerItems = pickerTarget?.endsWith('month') ? MONTHS : DAYS;
+  const pickerTitle = pickerTarget?.endsWith('month') ? '월 선택' : '일 선택';
+
+  const getSelectedPickerValue = (): number | null => {
+    if (!pickerTarget) return null;
+    if (pickerTarget === 'water-month') return lastWatered?.month ?? null;
+    if (pickerTarget === 'water-day')   return lastWatered?.day   ?? null;
+    if (pickerTarget === 'repot-month') return lastRepotted?.month ?? null;
+    if (pickerTarget === 'repot-day')   return lastRepotted?.day   ?? null;
+    return null;
+  };
+
+  // Build ISO date string from MonthDay (assumes current year)
+  const toISODate = (md: MonthDay): string | null => {
+    if (!md) return null;
+    const year = new Date().getFullYear();
+    const m = String(md.month).padStart(2, '0');
+    const d = String(md.day).padStart(2, '0');
+    return new Date(`${year}-${m}-${d}T00:00:00.000Z`).toISOString();
+  };
+
+  const handleSave = async () => {
+    if (!isValid) return;
     setIsSubmitting(true);
     try {
       const payload: NewPlantPayload = {
-        cntntsNo: params.cntntsNo ?? '',
-        scientificName: params.scientificName || null,
-        commonNameKo: params.commonNameKo ?? '',
-        nickname: params.nickname ?? '',
+        cntntsNo:          params.cntntsNo ?? '',
+        scientificName:    params.scientificName ?? null,
+        commonNameKo:      params.commonNameKo ?? '',
+        nickname:          params.nickname ?? '',
         characterImageUrl: params.characterImageUrl ?? '',
-        capturedPhotoUri: params.capturedPhotoUri ?? '',
-        location: location!,
-        lightLevel: lightLevel!,
-        plantHeight: Number(plantHeight) || 0,
-        potDiameter: Number(potDiameter) || 0,
+        capturedPhotoUri:  params.capturedPhotoUri ?? '',
+        location:          location!,
+        lightLevel:        lightLevel!,
+        plantHeight:       Number(plantHeight) || 0,
+        potDiameter:       Number(potDiameter) || 0,
         soilNote,
-        lastWateredAt: (lastWateredAt ?? new Date()).toISOString(),
-        lastRepottedAt: lastRepottedAt?.toISOString() ?? null,
+        lastWateredAt:     toISODate(lastWatered) ?? new Date().toISOString(),
+        lastRepottedAt:    toISODate(lastRepotted),
       };
 
       const res = await fetch(`${API_BASE_URL}/api/plants`, {
@@ -186,19 +229,24 @@ export default function InfoScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
       if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
 
       router.replace('/');
     } catch (e: any) {
-      Alert.alert(
-        '저장 실패',
-        e.message ?? '식물을 저장하는 중 문제가 발생했어요. 다시 시도해주세요.',
-      );
+      Alert.alert('저장 실패', e.message ?? '다시 시도해주세요.');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Plant header image: use PlantNet reference or 농사로 thumb
+  const headerImageUri = (() => {
+    if (params.plantDetail) {
+      const d: NongsaroPlantDetail = JSON.parse(params.plantDetail);
+      if (d.imageUrls?.[0]?.thumb) return d.imageUrls[0].thumb;
+    }
+    return null;
+  })();
 
   return (
     <KeyboardAvoidingView
@@ -210,250 +258,165 @@ export default function InfoScreen() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>마지막으로{'\n'}정보를 입력해주세요</Text>
+        {/* Plant header */}
+        <View style={styles.plantHeader}>
+          {headerImageUri ? (
+            <Image source={{ uri: headerImageUri }} style={styles.plantHeaderImage} resizeMode="cover" />
+          ) : (
+            <View style={styles.plantHeaderImage} />
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.plantHeaderName} numberOfLines={1}>
+              {params.nickname || params.commonNameKo || '내 식물'}
+            </Text>
+            {plantDetail?.scientificName ? (
+              <Text style={styles.plantHeaderScientific} numberOfLines={1}>
+                {plantDetail.scientificName}
+              </Text>
+            ) : null}
+          </View>
+        </View>
 
         {/* 위치 */}
         <View style={styles.section}>
-          <SectionLabel text="위치" required />
-          <SelectGroup options={LOCATIONS} value={location} onSelect={setLocation} />
+          <SectionLabel text="어디에 두셨나요?" required />
+          <View style={styles.chipGroup}>
+            {LOCATIONS.map((loc) => (
+              <TouchableOpacity
+                key={loc}
+                style={[styles.chip, location === loc && styles.chipActive]}
+                onPress={() => setLocation(loc)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipLabel, location === loc && styles.chipLabelActive]}>
+                  {loc}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* 햇빛 */}
         <View style={styles.section}>
-          <SectionLabel text="햇빛" required />
-          <SelectGroup options={LIGHT_LEVELS} value={lightLevel} onSelect={setLightLevel} />
+          <SectionLabel text="햇빛은 어느 정도 들어오나요?" required />
+          <View style={styles.chipGroup}>
+            {LIGHT_OPTIONS.map(({ label, sub }) => (
+              <TouchableOpacity
+                key={label}
+                style={[styles.chip, lightLevel === label && styles.chipActive]}
+                onPress={() => setLightLevel(label)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipLabel, lightLevel === label && styles.chipLabelActive]}>
+                  {label}
+                </Text>
+                <Text style={[styles.chipSub, lightLevel === label && styles.chipSubActive]}>
+                  {sub}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* 식물 길이 */}
         <View style={styles.section}>
-          <SectionLabel text="식물 길이" />
-          <View style={styles.numericWrapper}>
-            <TextInput
-              style={styles.numericInput}
-              placeholder="0"
-              placeholderTextColor={Colors.textGray}
-              value={plantHeight}
-              onChangeText={setPlantHeight}
-              keyboardType="numeric"
-              maxLength={3}
-            />
-            <Text style={styles.unit}>cm</Text>
-          </View>
+          <SectionLabel text={`식물 길이${plantHeight ? ` — ${plantHeight}cm` : ''}`} />
+          <Stepper value={plantHeight} onChange={setPlantHeight} unit="cm" max={300} />
         </View>
 
         {/* 화분 지름 */}
         <View style={styles.section}>
-          <SectionLabel text="화분 지름" />
-          <View style={styles.numericWrapper}>
-            <TextInput
-              style={styles.numericInput}
-              placeholder="0"
-              placeholderTextColor={Colors.textGray}
-              value={potDiameter}
-              onChangeText={setPotDiameter}
-              keyboardType="numeric"
-              maxLength={2}
+          <SectionLabel text={`화분 지름${potDiameter ? ` — ${potDiameter}cm` : ''}`} />
+          <Stepper value={potDiameter} onChange={setPotDiameter} unit="cm" max={100} />
+        </View>
+
+        {/* 날짜 (두 날짜 나란히) */}
+        <View style={styles.section}>
+          <View style={styles.dateRow}>
+            <DatePairPicker
+              label="마지막으로 물 준 날"
+              value={lastWatered}
+              onMonthPress={() => openPicker('water-month')}
+              onDayPress={() => openPicker('water-day')}
             />
-            <Text style={styles.unit}>cm</Text>
+            <DatePairPicker
+              label="분갈이 한 날"
+              value={lastRepotted}
+              onMonthPress={() => openPicker('repot-month')}
+              onDayPress={() => openPicker('repot-day')}
+            />
           </View>
         </View>
 
         {/* 흙 정보 */}
         <View style={styles.section}>
-          <SectionLabel text="흙 정보" />
+          <SectionLabel text="어떤 흙을 쓰셨나요? (선택)" />
           <TextInput
             style={styles.soilInput}
-            placeholder="사용한 흙이나 배합 비율을 적어두세요 (선택)"
-            placeholderTextColor={Colors.textGray}
+            placeholder="예: 분갈이흙 + 펄라이트 조금, 마사토 섞음..."
+            placeholderTextColor="#A0A0A0"
             value={soilNote}
             onChangeText={setSoilNote}
-            maxLength={100}
+            maxLength={80}
             multiline
             textAlignVertical="top"
           />
-          <Text style={styles.charCount}>{soilNote.length}/100</Text>
+          <Text style={styles.charCount}>{soilNote.length}/80</Text>
         </View>
 
-        {/* 마지막 물 준 날 */}
-        <View style={styles.section}>
-          <SectionLabel text="마지막 물 준 날" />
-          <DatePickerField value={lastWateredAt} onSelect={setLastWateredAt} />
-        </View>
-
-        {/* 마지막 분갈이 날 */}
-        <View style={styles.section}>
-          <SectionLabel text="마지막 분갈이 날" />
-          <DatePickerField value={lastRepottedAt} onSelect={setLastRepottedAt} />
-        </View>
-
-        {/* 완료 버튼 */}
+        {/* Save */}
         <TouchableOpacity
-          style={[styles.submitBtn, !isValid && styles.submitBtnDisabled]}
-          onPress={handleSubmit}
+          style={[styles.saveBtn, !isValid && styles.saveBtnDisabled]}
+          onPress={handleSave}
           disabled={!isValid || isSubmitting}
           activeOpacity={0.8}
         >
           {isSubmitting ? (
-            <ActivityIndicator color={Colors.white} />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={[styles.submitBtnText, !isValid && styles.submitBtnTextDisabled]}>
-              완료
+            <Text style={[styles.saveBtnText, !isValid && styles.saveBtnTextDisabled]}>
+              저장
             </Text>
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Month / Day picker modal */}
+      <Modal
+        visible={pickerTarget !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={closePicker}
+      >
+        <TouchableOpacity style={styles.pickerBackdrop} activeOpacity={1} onPress={closePicker}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+            <View style={styles.pickerSheet}>
+              <View style={styles.pickerHeader}>
+                <Text style={styles.pickerTitle}>{pickerTitle}</Text>
+                <TouchableOpacity onPress={closePicker}>
+                  <Text style={styles.pickerDoneText}>완료</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={{ maxHeight: 240 }}>
+                {pickerItems.map((item) => {
+                  const isSelected = getSelectedPickerValue() === item;
+                  return (
+                    <TouchableOpacity
+                      key={item}
+                      style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
+                      onPress={() => handlePickerSelect(item)}
+                    >
+                      <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
+                        {pickerTarget?.endsWith('month') ? `${item}월` : `${item}일`}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  container: {
-    backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 48,
-  },
-
-  title: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 22,
-    color: Colors.textBlack,
-    lineHeight: 32,
-    marginBottom: 32,
-  },
-
-  // section
-  section: { marginBottom: 28 },
-  sectionLabel: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 14,
-    color: Colors.textBlack,
-    marginBottom: 10,
-  },
-  requiredMark: { color: Colors.primary },
-
-  // select group
-  selectGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  selectBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#D0D0D0',
-    backgroundColor: Colors.white,
-  },
-  selectBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primary },
-  selectBtnText: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
-    color: Colors.textGray,
-  },
-  selectBtnTextActive: { color: Colors.white },
-
-  // numeric input
-  numericWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#D0D0D0',
-    paddingHorizontal: 14,
-    alignSelf: 'flex-start',
-    minWidth: 120,
-  },
-  numericInput: {
-    height: 48,
-    fontSize: 16,
-    color: Colors.textBlack,
-    minWidth: 60,
-  },
-  unit: { fontSize: 14, color: Colors.textGray, marginLeft: 4 },
-
-  // soil note
-  soilInput: {
-    backgroundColor: Colors.white,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#D0D0D0',
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 12,
-    fontSize: 14,
-    color: Colors.textBlack,
-    minHeight: 88,
-  },
-  charCount: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 12,
-    color: Colors.textGray,
-    textAlign: 'right',
-    marginTop: 4,
-  },
-
-  // date picker
-  dateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.white,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#D0D0D0',
-    paddingHorizontal: 14,
-    height: 48,
-  },
-  dateBtnText: {
-    fontSize: 15,
-    color: Colors.textBlack,
-    fontFamily: Fonts.neoDunggeunmo,
-  },
-  dateBtnPlaceholder: { color: Colors.textGray },
-  dateIcon: { fontSize: 18 },
-
-  // iOS date picker modal
-  pickerBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'flex-end',
-  },
-  pickerSheet: {
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 32,
-  },
-  pickerDoneRow: {
-    alignItems: 'flex-end',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  pickerDoneText: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 15,
-    color: Colors.primary,
-  },
-
-  // submit button
-  submitBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  submitBtnDisabled: { backgroundColor: '#D8D8D8' },
-  submitBtnText: {
-    color: Colors.white,
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
-  },
-  submitBtnTextDisabled: { color: Colors.textGray },
-});
