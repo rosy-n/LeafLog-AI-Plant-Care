@@ -2,16 +2,18 @@ import {
   Alert,
   FlatList,
   Image,
+  Modal,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { searchPlants, getPlantDetail } from '../../services/nongsaro';
 import type { PlantNetResult } from '../../types/plant';
+import { common } from './styles/common.styles';
 import { styles } from './styles/plant-results.styles';
 
 export default function PlantResultsScreen() {
@@ -25,6 +27,14 @@ export default function PlantResultsScreen() {
   const plantNetResults: PlantNetResult[] = JSON.parse(results ?? '[]');
   const userPhotos: string[] = JSON.parse(photoUris ?? '[]');
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
+  const [modalImage, setModalImage] = useState<string | null>(null);
+  const [heroRatio, setHeroRatio] = useState<number>(4 / 3);
+
+  useEffect(() => {
+    if (userPhotos[0]) {
+      Image.getSize(userPhotos[0], (w, h) => setHeroRatio(w / h), () => {});
+    }
+  }, []);
 
   const handleSelect = async (item: PlantNetResult, index: number) => {
     setLoadingIndex(index);
@@ -82,73 +92,93 @@ export default function PlantResultsScreen() {
   }
 
   return (
-    <ScrollView style={styles.flex} contentContainerStyle={styles.container}>
-      <Text style={styles.title}>식물 검색 결과</Text>
+    <>
+      <ScrollView style={styles.flex} contentContainerStyle={styles.container}>
+        <Text style={[common.title, styles.titleOverride]} numberOfLines={1}>식물 검색 결과</Text>
 
-      {/* 사용자가 찍은 사진 (상단 가로 스크롤) */}
-      {userPhotos.length > 0 && (
-        <View style={styles.userPhotoSection}>
-          <Text style={styles.userPhotoLabel}>내가 찍은 사진</Text>
-          <FlatList
-            horizontal
-            data={userPhotos}
-            keyExtractor={(_, i) => String(i)}
-            contentContainerStyle={styles.userPhotoScroll}
-            showsHorizontalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <Image source={{ uri: item }} style={styles.userPhoto} resizeMode="cover" />
-            )}
+        {userPhotos[0] && (
+          <Image
+            source={{ uri: userPhotos[0] }}
+            style={[styles.heroPhoto, { aspectRatio: heroRatio }]}
+            resizeMode="contain"
           />
-        </View>
-      )}
+        )}
 
-      {/* 결과 카드 */}
-      {plantNetResults.map((item, index) => (
-        <View key={index} style={styles.card}>
-          {/* PlantNet 참고 이미지 가로 스크롤 */}
-          {item.referenceImages.length > 0 && (
-            <FlatList
-              horizontal
-              data={item.referenceImages}
-              keyExtractor={(_, i) => String(i)}
-              contentContainerStyle={styles.refImageRow}
-              showsHorizontalScrollIndicator={false}
-              renderItem={({ item: img }) =>
-                img.url ? (
-                  <Image source={{ uri: img.url }} style={styles.refImage} resizeMode="cover" />
-                ) : (
-                  <View style={styles.refImage} />
-                )
-              }
+        {plantNetResults.map((item, index) => (
+          <View key={index} style={styles.card}>
+            {item.referenceImages.length > 0 && (
+              <FlatList
+                horizontal
+                data={item.referenceImages}
+                keyExtractor={(_, i) => String(i)}
+                contentContainerStyle={styles.refImageRow}
+                showsHorizontalScrollIndicator={false}
+                renderItem={({ item: img }) =>
+                  img.url ? (
+                    <TouchableOpacity
+                      onPress={() => setModalImage(img.url)}
+                      activeOpacity={0.85}
+                    >
+                      <Image
+                        source={{ uri: img.url }}
+                        style={styles.refImage}
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.refImage} />
+                  )
+                }
+              />
+            )}
+
+            <View style={styles.cardBody}>
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardScore}>{Math.round(item.score * 100)}%</Text>
+                <Text style={styles.cardScientific} numberOfLines={1}>
+                  {item.scientificName}
+                </Text>
+                {item.commonNames.length > 0 && (
+                  <Text style={styles.cardCommon} numberOfLines={1}>
+                    {item.commonNames.join(' · ')}
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity
+                style={styles.confirmBtn}
+                onPress={() => handleSelect(item, index)}
+                disabled={loadingIndex !== null}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.confirmBtnText}>
+                  {loadingIndex === index ? '...' : '네, 맞아요'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+
+      <Modal
+        visible={modalImage !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalImage(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setModalImage(null)}
+        >
+          {modalImage && (
+            <Image
+              source={{ uri: modalImage }}
+              style={styles.modalImage}
+              resizeMode="contain"
             />
           )}
-
-          {/* 식물 정보 + 버튼 */}
-          <View style={styles.cardBody}>
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardScore}>{Math.round(item.score * 100)}%</Text>
-              <Text style={styles.cardScientific} numberOfLines={1}>
-                {item.scientificName}
-              </Text>
-              {item.commonNames.length > 0 && (
-                <Text style={styles.cardCommon} numberOfLines={1}>
-                  {item.commonNames.join(' · ')}
-                </Text>
-              )}
-            </View>
-            <TouchableOpacity
-              style={styles.confirmBtn}
-              onPress={() => handleSelect(item, index)}
-              disabled={loadingIndex !== null}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.confirmBtnText}>
-                {loadingIndex === index ? '...' : '네, 맞아요'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ))}
-    </ScrollView>
+        </TouchableOpacity>
+      </Modal>
+    </>
   );
 }

@@ -1,8 +1,15 @@
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
 import { Fonts } from '../../../constants/fonts';
 
+const { width } = Dimensions.get('window');
+// 3:4 portrait 이미지 — iPhone SE(667pt)까지 화면 넘침 없도록 140pt 상한 적용
+const CHAR_SIZE = Math.min((width - 64) / 2, 140);
+const CHAR_HEIGHT = Math.round(CHAR_SIZE * (4 / 3));
+
 export const styles = StyleSheet.create({
+  flex: { flex: 1 },
+
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -11,66 +18,129 @@ export const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  title: {
+  spacer: { flex: 1 },
+
+  // ── Intro ──────────────────────────────────────────────────────────────────
+
+  introSubtitle: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 22,
+    fontSize: 13,
+    color: Colors.textGray,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+
+  charSampleWrap: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  charTopRow: {
+    flexDirection: 'row',
+    gap: 24,
+  },
+  // 원본이 3:4 portrait(1792×2388, 768×1024)이므로 높이를 4/3 비율로 설정
+  charSampleImg: {
+    width: CHAR_SIZE,
+    height: CHAR_HEIGHT,
+  },
+  charSampleCenter: {
+    alignSelf: 'center',
+  },
+
+  // ── Button helpers ─────────────────────────────────────────────────────────
+
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  // ── Guide ──────────────────────────────────────────────────────────────────
+
+  guideScreen: {
+    backgroundColor: Colors.background,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
+  },
+
+  guideFooter: {
+    backgroundColor: Colors.background,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    paddingTop: 12,
+  },
+
+  guideCategory: {
+    marginBottom: 24,
+  },
+
+  guideCategoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  guideCategoryLabel: {
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: 15,
+  },
+
+  guideCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 14,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+  },
+  guideCardGood: {
+    borderLeftColor: Colors.primary,
+  },
+  // 원본 140×162 → 비율 보존하여 화분 잘림 방지 (110 × 162/140 ≈ 128)
+  guideCardImage: {
+    width: 110,
+    height: 128,
+  },
+  guideCardTextWrap: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    justifyContent: 'center',
+    gap: 6,
+  },
+  guidePoint: {
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: 13,
     color: Colors.textBlack,
-    lineHeight: 32,
-    marginBottom: 28,
+    lineHeight: 20,
+  },
+
+  badExampleRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  badExampleItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  badExampleImg: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 10,
+    backgroundColor: Colors.primaryLight,
+  },
+  badExampleLabel: {
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: 11,
+    color: Colors.textGray,
     textAlign: 'center',
   },
 
-  spacer: { flex: 1 },
+  // ── Preview ────────────────────────────────────────────────────────────────
 
-  // Intro: sample characters row
-  sampleRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-    marginBottom: 32,
-  },
-  sampleChar: {
-    width: 90,
-    height: 90,
-    borderRadius: 16,
-    backgroundColor: Colors.primaryLight,
-  },
-
-  // Guide: good/bad boxes
-  guideSection: { gap: 14 },
-  guideBox: {
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-    gap: 8,
-  },
-  guideBoxBad: { borderLeftColor: '#E53935' },
-  guideBoxTitle: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 14,
-    color: Colors.textBlack,
-    marginBottom: 4,
-  },
-  guideItem: {
-    fontSize: 14,
-    color: Colors.textGray,
-    lineHeight: 22,
-  },
-  guideImageRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-  guideImage: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: 8,
-    backgroundColor: Colors.primaryLight,
-  },
-
-  // Preview
   previewImage: {
     flex: 1,
     borderRadius: 16,
@@ -83,11 +153,14 @@ export const styles = StyleSheet.create({
   },
   btn: { flex: 1 },
 
+  // ── Buttons ────────────────────────────────────────────────────────────────
+
   primaryBtn: {
     backgroundColor: Colors.primary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   primaryBtnText: {
     color: Colors.white,
@@ -108,7 +181,8 @@ export const styles = StyleSheet.create({
     fontSize: 16,
   },
 
-  // Generating
+  // ── Generating ─────────────────────────────────────────────────────────────
+
   generatingContainer: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -142,10 +216,12 @@ export const styles = StyleSheet.create({
     color: Colors.textGray,
   },
 
-  // Result: completed character
+  // ── Result ─────────────────────────────────────────────────────────────────
+
+  // placeholder 원본 1792×2388 = 3:4 portrait
   characterImage: {
-    width: '70%',
-    aspectRatio: 1,
+    width: '55%',
+    aspectRatio: 3 / 4,
     alignSelf: 'center',
     marginBottom: 32,
     borderRadius: 20,

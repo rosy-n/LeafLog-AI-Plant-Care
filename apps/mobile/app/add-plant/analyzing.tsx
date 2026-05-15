@@ -1,9 +1,16 @@
-import { Animated, Text, View } from 'react-native';
-import { useEffect, useRef } from 'react';
+import { Animated, Image, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { identifyPlant } from '../../services/plantnet';
+import { common } from './styles/common.styles';
 import { styles } from './styles/analyzing.styles';
+
+const SUBTITLES = [
+  '사진을 살펴보고 있어요...',
+  '어떤 식물인지 알아보는 중이에요...',
+  '거의 다 됐어요!',
+];
 
 export default function AnalyzingScreen() {
   const router = useRouter();
@@ -12,49 +19,89 @@ export default function AnalyzingScreen() {
     organs: string;
   }>();
 
-  const pulse = useRef(new Animated.Value(0.4)).current;
+  const previewUri: string | null = (() => {
+    try { return (JSON.parse(photoUris ?? '[]') as string[])[0] ?? null; }
+    catch { return null; }
+  })();
+
+  const progress = useRef(new Animated.Value(0)).current;
+  const [subtitleIdx, setSubtitleIdx] = useState(0);
+  // 실제 사진 비율로 표시 (잘림 없음). 기본값은 4:3.
+  const [photoRatio, setPhotoRatio] = useState<number>(4 / 3);
 
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0.4, duration: 700, useNativeDriver: true }),
-      ]),
-    ).start();
+    if (previewUri) {
+      Image.getSize(previewUri, (w, h) => setPhotoRatio(w / h), () => {});
+    }
+  }, [previewUri]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSubtitleIdx(i => (i + 1) % SUBTITLES.length);
+    }, 2500);
+
+    // 30초에 걸쳐 50%까지 채움
+    Animated.timing(progress, {
+      toValue: 0.5,
+      duration: 30000,
+      useNativeDriver: false,
+    }).start();
+
+    const navigateTo = (params: Record<string, string>) => {
+      clearInterval(interval);
+      progress.stopAnimation();
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      }).start(() => {
+        setTimeout(() => router.replace({ pathname: '/add-plant/plant-results', params }), 400);
+      });
+    };
 
     (async () => {
       try {
         const uris: string[] = JSON.parse(photoUris ?? '[]');
         const organList: string[] = JSON.parse(organs ?? '[]');
         const results = await identifyPlant(uris, organList);
-
-        router.replace({
-          pathname: '/add-plant/plant-results',
-          params: { results: JSON.stringify(results), photoUris: photoUris ?? '[]' },
-        });
+        navigateTo({ results: JSON.stringify(results), photoUris: photoUris ?? '[]' });
       } catch (e: any) {
         console.error('[PlantNet]', e?.message ?? e);
-        router.replace({
-          pathname: '/add-plant/plant-results',
-          params: {
-            results: JSON.stringify([]),
-            photoUris: photoUris ?? '[]',
-            errorMsg: e?.message ?? '알 수 없는 오류가 발생했어요.',
-          },
+        navigateTo({
+          results: JSON.stringify([]),
+          photoUris: photoUris ?? '[]',
+          errorMsg: e?.message ?? '알 수 없는 오류가 발생했어요.',
         });
       }
     })();
+
+    return () => clearInterval(interval);
   }, []);
+
+  const progressWidth = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>AI가 식물을{'\n'}분석하고 있어요</Text>
-      <Text style={styles.subtitle}>PlantNet으로 식물 종을 분석하는 중이에요...</Text>
+      <Text style={[common.title, { marginBottom: 24 }]} numberOfLines={1}>AI가 식물을 분석하고 있어요</Text>
 
-      <Animated.View style={[styles.skeletonImage, { opacity: pulse }]} />
-      <Animated.View style={[styles.skeletonLine, { opacity: pulse }]} />
-      <Animated.View style={[styles.skeletonLine, styles.skeletonLineShort, { opacity: pulse }]} />
-      <Animated.View style={[styles.skeletonLine, { opacity: pulse }]} />
+      {previewUri ? (
+        <Image
+          source={{ uri: previewUri }}
+          style={[styles.photoPreview, { aspectRatio: photoRatio }]}
+          resizeMode="contain"
+        />
+      ) : (
+        <View style={styles.photoPreviewPlaceholder} />
+      )}
+
+      <View style={styles.progressTrack}>
+        <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+      </View>
+
+      <Text style={styles.subtitle}>{SUBTITLES[subtitleIdx]}</Text>
     </View>
   );
 }

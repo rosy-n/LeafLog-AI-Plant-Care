@@ -2,6 +2,7 @@ import {
   Alert,
   Animated,
   Image,
+  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -9,24 +10,35 @@ import {
 import { useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 
+import { common } from './styles/common.styles';
 import { styles } from './styles/character.styles';
+import { Colors } from '../../constants/colors';
 
 type ScreenState = 'intro' | 'guide' | 'preview' | 'generating' | 'result';
 
 // TODO: FLUX 모델 프롬프트 확정 후 실제 API 연동으로 교체 예정.
-// 현재는 임시방편으로 캐릭터 생성 결과 화면에 로컬 asset 이미지를 출력함.
 const PLACEHOLDER_CHARACTER = require('../../assets/dot-character-placeholder.png');
 
-const GUIDE_GOOD = [
-  '식물 전체 + 화분이 모두 보이게',
-  '밝은 환경에서 촬영',
-  '화면 정중앙에 배치',
+const CHAR_SAMPLE_1 = require('../../assets/char-sample-1.png');
+const CHAR_SAMPLE_2 = require('../../assets/char-sample-2.png');
+const CHAR_SAMPLE_3 = require('../../assets/char-sample-3.png');
+
+const GUIDE_GOOD   = require('../../assets/guide-good.png');
+const GUIDE_BAD_1  = require('../../assets/guide-bad-1.png');
+const GUIDE_BAD_2  = require('../../assets/guide-bad-2.png');
+const GUIDE_BAD_3  = require('../../assets/guide-bad-3.png');
+
+const GUIDE_GOOD_POINTS = [
+  '화분까지 전체가 보여요',
+  '정면에서 촬영했어요',
+  '밝은 곳에서 찍었어요',
 ];
-const GUIDE_BAD = [
-  '잎만 클로즈업',
-  '어두운 곳에서 촬영',
-  '흔들린 사진',
+const GUIDE_BAD_ITEMS = [
+  { src: GUIDE_BAD_1, label: '화분이 안 나와요' },
+  { src: GUIDE_BAD_2, label: '잎만 보여요' },
+  { src: GUIDE_BAD_3, label: '배경이 복잡해요' },
 ];
 
 export default function CharacterScreen() {
@@ -86,11 +98,9 @@ export default function CharacterScreen() {
     setPhase(1);
     setScreenState('generating');
 
-    // Phase 1: 식물 특징 분석 (0 → 50%)
     Animated.timing(progressAnim, { toValue: 0.5, duration: 1200, useNativeDriver: false }).start();
     await new Promise<void>((r) => setTimeout(r, 1400));
 
-    // Phase 2: 도트 캐릭터 만들기 (50% → 100%)
     setPhase(2);
     await new Promise<void>((r) => {
       Animated.timing(progressAnim, { toValue: 1, duration: 1000, useNativeDriver: false })
@@ -106,7 +116,6 @@ export default function CharacterScreen() {
       pathname: '/add-plant/name',
       params: {
         ...params,
-        // TODO: FLUX 연동 시 API 응답 URL로 교체
         characterImageUrl: '',
         capturedPhotoUri: photoUri ?? '',
       },
@@ -123,19 +132,26 @@ export default function CharacterScreen() {
   if (screenState === 'intro') {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>도트 친구{'\n'}만들기</Text>
-        <View style={styles.sampleRow}>
-          <View style={styles.sampleChar} />
-          <View style={styles.sampleChar} />
-          <View style={styles.sampleChar} />
+        <Text style={[common.title, { marginBottom: 8 }]}>도트 친구 만들기</Text>
+        <Text style={styles.introSubtitle}>
+          식물의 사진을 찍어{'\n'}나만의 도트 캐릭터를 만들어볼까요?
+        </Text>
+
+        <View style={styles.charSampleWrap}>
+          <View style={styles.charTopRow}>
+            <Image source={CHAR_SAMPLE_1} style={styles.charSampleImg} resizeMode="contain" />
+            <Image source={CHAR_SAMPLE_2} style={styles.charSampleImg} resizeMode="contain" />
+          </View>
+          <Image source={CHAR_SAMPLE_3} style={[styles.charSampleImg, styles.charSampleCenter]} resizeMode="contain" />
         </View>
+
         <View style={styles.spacer} />
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={() => setScreenState('guide')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.primaryBtnText}>사진 촬영 가이드</Text>
+
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => setScreenState('guide')} activeOpacity={0.8}>
+          <View style={styles.btnRow}>
+            <Ionicons name="camera-outline" size={20} color={Colors.white} />
+            <Text style={styles.primaryBtnText}>사진 촬영 가이드</Text>
+          </View>
         </TouchableOpacity>
       </View>
     );
@@ -145,30 +161,55 @@ export default function CharacterScreen() {
 
   if (screenState === 'guide') {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>이렇게{'\n'}찍어주세요</Text>
-        <View style={styles.guideSection}>
-          <View style={styles.guideBox}>
-            <Text style={styles.guideBoxTitle}>✅  좋은 예</Text>
-            {GUIDE_GOOD.map((text) => (
-              <Text key={text} style={styles.guideItem}>• {text}</Text>
-            ))}
-          </View>
-          <View style={[styles.guideBox, styles.guideBoxBad]}>
-            <Text style={styles.guideBoxTitle}>❌  나쁜 예</Text>
-            {GUIDE_BAD.map((text) => (
-              <Text key={text} style={styles.guideItem}>• {text}</Text>
-            ))}
-          </View>
-        </View>
-        <View style={styles.spacer} />
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={handleStartPhoto}
-          activeOpacity={0.8}
+      <View style={styles.flex}>
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.guideScreen}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.primaryBtnText}>사진 촬영 시작</Text>
-        </TouchableOpacity>
+          <Text style={[common.title, { marginBottom: 8 }]}>이렇게 찍어주세요</Text>
+
+          {/* 좋은 예 */}
+          <View style={styles.guideCategory}>
+            <View style={styles.guideCategoryHeader}>
+              <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
+              <Text style={[styles.guideCategoryLabel, { color: Colors.primary }]}>좋은 예</Text>
+            </View>
+            <View style={[styles.guideCard, styles.guideCardGood]}>
+              <Image source={GUIDE_GOOD} style={styles.guideCardImage} resizeMode="cover" />
+              <View style={styles.guideCardTextWrap}>
+                {GUIDE_GOOD_POINTS.map((text) => (
+                  <Text key={text} style={styles.guidePoint}>{text}</Text>
+                ))}
+              </View>
+            </View>
+          </View>
+
+          {/* 나쁜 예 */}
+          <View style={styles.guideCategory}>
+            <View style={styles.guideCategoryHeader}>
+              <Ionicons name="close-circle" size={22} color="#E53935" />
+              <Text style={[styles.guideCategoryLabel, { color: '#E53935' }]}>나쁜 예</Text>
+            </View>
+            <View style={styles.badExampleRow}>
+              {GUIDE_BAD_ITEMS.map(({ src, label }) => (
+                <View key={label} style={styles.badExampleItem}>
+                  <Image source={src} style={styles.badExampleImg} resizeMode="cover" />
+                  <Text style={styles.badExampleLabel}>{label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
+
+        <View style={styles.guideFooter}>
+          <TouchableOpacity style={styles.primaryBtn} onPress={handleStartPhoto} activeOpacity={0.8}>
+            <View style={styles.btnRow}>
+              <Ionicons name="camera-outline" size={20} color={Colors.white} />
+              <Text style={styles.primaryBtnText}>사진 촬영 시작</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -178,7 +219,7 @@ export default function CharacterScreen() {
   if (screenState === 'preview' && photoUri) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>이 사진으로{'\n'}캐릭터를 만들 건가요?</Text>
+        <Text style={[common.title, { marginBottom: 8 }]}>이 사진으로 캐릭터를 만들 건가요?</Text>
         <Image source={{ uri: photoUri }} style={styles.previewImage} resizeMode="cover" />
         <View style={styles.rowBtns}>
           <TouchableOpacity
@@ -222,7 +263,7 @@ export default function CharacterScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>도트 캐릭터가{'\n'}완성됐어요!</Text>
+      <Text style={[common.title, { marginBottom: 8 }]} numberOfLines={1}>도트 캐릭터가 완성됐어요!</Text>
       <Image source={PLACEHOLDER_CHARACTER} style={styles.characterImage} resizeMode="contain" />
       <View style={styles.spacer} />
       <View style={styles.rowBtns}>

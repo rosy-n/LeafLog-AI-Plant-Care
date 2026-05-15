@@ -1,56 +1,38 @@
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
 import { Fonts } from '../../../constants/fonts';
+
+const { width, height } = Dimensions.get('window');
 
 export const styles = StyleSheet.create({
   flex: { flex: 1 },
 
   container: {
     backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
+    paddingBottom: 24,
   },
 
-  title: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 22,
-    color: Colors.textBlack,
+  // common.title 위에 덮는 오버라이드만 남김 (heroPhoto 풀너비 때문에 패딩 직접 지정)
+  titleOverride: {
+    marginTop: 20,
     marginBottom: 16,
-    textAlign: 'center',
+    paddingHorizontal: 20,
   },
 
-  // 사용자 입력 사진 (상단 크게)
-  userPhotoSection: {
+  // 사용자 촬영 사진 (전체 너비, aspectRatio는 런타임에 설정)
+  heroPhoto: {
+    width: '100%',
     marginBottom: 20,
-  },
-  userPhotoLabel: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
-    color: Colors.textGray,
-    marginBottom: 8,
-  },
-  userPhotoScroll: {
-    gap: 8,
-  },
-  userPhoto: {
-    width: 160,
-    height: 160,
-    borderRadius: 12,
     backgroundColor: Colors.primaryLight,
   },
 
   // Result card
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surfaceGray,
     borderRadius: 14,
     overflow: 'hidden',
     marginBottom: 14,
-    shadowColor: Colors.textBlack,
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
+    marginHorizontal: 20,
   },
 
   // 가로 스크롤 참고 이미지
@@ -103,6 +85,18 @@ export const styles = StyleSheet.create({
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
     fontSize: 13,
+  },
+
+  // 참고 이미지 풀스크린 모달
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalImage: {
+    width: width,
+    height: height * 0.75,
   },
 
   // 결과 없음

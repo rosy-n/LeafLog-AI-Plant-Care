@@ -8,17 +8,19 @@ import {
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { common } from './styles/common.styles';
 import { styles } from './styles/organ-select.styles';
 
-const ORGANS = ['잎', '꽃', '열매', '줄기', '전체'] as const;
-type Organ = typeof ORGANS[number];
+const ORGANS = ['잎', '꽃', '열매', '줄기'] as const;
+const AUTO_ORGAN = '잘 모르겠어요' as const;
+type Organ = typeof ORGANS[number] | typeof AUTO_ORGAN;
 
 const ORGAN_EMOJI: Record<Organ, string> = {
   '잎': '🌿',
   '꽃': '🌸',
   '열매': '🍎',
   '줄기': '🌱',
-  '전체': '🌳',
+  '잘 모르겠어요': '❓',
 };
 
 const ORGAN_API_MAP: Record<Organ, string> = {
@@ -26,7 +28,7 @@ const ORGAN_API_MAP: Record<Organ, string> = {
   '꽃': 'flower',
   '열매': 'fruit',
   '줄기': 'bark',
-  '전체': 'auto',
+  '잘 모르겠어요': 'auto',
 };
 
 export default function OrganSelectScreen() {
@@ -44,15 +46,13 @@ export default function OrganSelectScreen() {
     setOrganMap((prev) => ({ ...prev, [selectedPhotoIdx]: organ }));
   };
 
-  const handleSkip = () => {
-    const filled: Record<number, Organ> = { ...organMap };
-    uris.forEach((_, i) => { if (!filled[i]) filled[i] = '전체'; });
-    navigate(filled);
-  };
-
   const handleNext = () => {
     if (allAssigned) {
-      navigate(organMap);
+      const organs = uris.map((_, i) => ORGAN_API_MAP[organMap[i]] ?? 'auto');
+      router.push({
+        pathname: '/add-plant/analyzing',
+        params: { photoUris, organs: JSON.stringify(organs) },
+      });
     } else {
       let next = uris.findIndex((_, i) => i > selectedPhotoIdx && organMap[i] === undefined);
       if (next === -1) next = uris.findIndex((_, i) => organMap[i] === undefined);
@@ -60,19 +60,11 @@ export default function OrganSelectScreen() {
     }
   };
 
-  const navigate = (map: Record<number, Organ>) => {
-    const organs = uris.map((_, i) => ORGAN_API_MAP[map[i] ?? '전체']);
-    router.push({
-      pathname: '/add-plant/analyzing',
-      params: { photoUris, organs: JSON.stringify(organs) },
-    });
-  };
-
   const currentOrgan = organMap[selectedPhotoIdx];
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title} numberOfLines={1}>
+      <Text style={[common.title, styles.titleOverride]} numberOfLines={1}>
         {isMultiple ? '사진마다 부위를 선택해주세요' : '사진의 부위를 선택해주세요'}
       </Text>
 
@@ -132,16 +124,25 @@ export default function OrganSelectScreen() {
             </TouchableOpacity>
           ))}
         </View>
+        <TouchableOpacity
+          style={[styles.organChipWide, currentOrgan === AUTO_ORGAN && styles.organChipActive]}
+          onPress={() => handleOrganSelect(AUTO_ORGAN)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.organChipEmoji}>{ORGAN_EMOJI[AUTO_ORGAN]}</Text>
+          <View>
+            <Text style={[styles.organChipText, currentOrgan === AUTO_ORGAN && styles.organChipTextActive]}>
+              잘 모르겠어요
+            </Text>
+            <Text style={styles.organChipSub}>AI가 부위를 식별해요</Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
       {/* Footer */}
       <View style={styles.footer}>
-        <TouchableOpacity style={[styles.btn, styles.grayBtn]} onPress={handleSkip} activeOpacity={0.8}>
-          <Text style={styles.grayBtnText}>잘 모르겠어요</Text>
-          <Text style={styles.grayBtnSub}>내가 부위를 식별해요</Text>
-        </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.btn, styles.primaryBtn]}
+          style={styles.primaryBtn}
           onPress={handleNext}
           activeOpacity={0.8}
         >

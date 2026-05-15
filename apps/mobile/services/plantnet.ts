@@ -1,14 +1,27 @@
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import type { PlantNetResult } from '../types/plant';
 
 const API_KEY = process.env.EXPO_PUBLIC_PLANTNET_API_KEY ?? '';
 const BASE_URL = 'https://my-api.plantnet.org/v2/identify/all';
 
+const JPEG_PNG_EXTS = ['.jpg', '.jpeg', '.png'];
+
+async function toJpeg(uri: string): Promise<string> {
+  if (JPEG_PNG_EXTS.some((ext) => uri.toLowerCase().endsWith(ext))) return uri;
+  const ctx = ImageManipulator.manipulate(uri);
+  const ref = await ctx.renderAsync();
+  const result = await ref.saveAsync({ compress: 0.85, format: SaveFormat.JPEG });
+  return result.uri;
+}
+
 export async function identifyPlant(
   imageUris: string | string[],
   organs: string | string[] = 'auto',
 ): Promise<PlantNetResult[]> {
-  const uriList = Array.isArray(imageUris) ? imageUris : [imageUris];
-  const organList = Array.isArray(organs) ? organs : Array(uriList.length).fill(organs);
+  const rawList = Array.isArray(imageUris) ? imageUris : [imageUris];
+  const organList = Array.isArray(organs) ? organs : Array(rawList.length).fill(organs);
+
+  const uriList = await Promise.all(rawList.map(toJpeg));
 
   const formData = new FormData();
   uriList.forEach((uri, i) => {
