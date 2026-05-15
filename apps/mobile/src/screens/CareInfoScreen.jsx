@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import {
     View,
     Text,
@@ -9,6 +9,9 @@ import {
     SafeAreaView,
     StatusBar,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 
 const FONT = "NeoDunggeunmoPro-Regular";
 
@@ -26,37 +29,61 @@ const CARE_SECTIONS = [
 
 export default function CareInfoScreen({ navigation }) {
     const scrollRef = useRef(null);
+    const tabScrollRef = useRef(null);
     const sectionY = useRef({});
+    const tabPositions = useRef({});
+    const activeKeyRef = useRef("plantInfo");
     const [activeKey, setActiveKey] = useState("plantInfo");
 
     const scrollToSection = (key) => {
         setActiveKey(key);
+        activeKeyRef.current = key;
 
         const y = sectionY.current[key] ?? 0;
+        scrollRef.current?.scrollTo({ y: Math.max(y - 16, 0), animated: true });
 
-        scrollRef.current?.scrollTo({
-            y: Math.max(y - 16, 0),
-            animated: true,
-        });
+        const x = tabPositions.current[key] ?? 0;
+        tabScrollRef.current?.scrollTo({ x: Math.max(x - 16, 0), animated: true });
     };
 
     const saveSectionY = (key, event) => {
         sectionY.current[key] = event.nativeEvent.layout.y;
     };
 
+    const saveTabPosition = (key, event) => {
+        tabPositions.current[key] = event.nativeEvent.layout.x;
+    };
+
+    const handleScroll = useCallback((event) => {
+        const scrollY = event.nativeEvent.contentOffset.y + 60;
+
+        let newKey = CARE_SECTIONS[0].key;
+        for (const { key } of CARE_SECTIONS) {
+            if ((sectionY.current[key] ?? 0) <= scrollY) {
+                newKey = key;
+            }
+        }
+
+        if (activeKeyRef.current !== newKey) {
+            activeKeyRef.current = newKey;
+            setActiveKey(newKey);
+            const x = tabPositions.current[newKey] ?? 0;
+            tabScrollRef.current?.scrollTo({ x: Math.max(x - 16, 0), animated: true });
+        }
+    }, []);
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
 
             <View style={styles.container}>
-                {/* 상단 제목 / 뒤로가기 버튼 */}
                 <View style={styles.header}>
                     <TouchableOpacity
                         activeOpacity={0.75}
                         style={styles.backButton}
                         onPress={() => navigation.goBack()}
                     >
-                        <Text style={styles.backText}>‹</Text>
+                        <Ionicons name="chevron-back" size={32} color="#222222" />
                     </TouchableOpacity>
 
                     <Text style={styles.title}>돌보기 정보</Text>
@@ -64,34 +91,66 @@ export default function CareInfoScreen({ navigation }) {
                     <View style={styles.headerSpacer} />
                 </View>
 
-                {/* 가로 스크롤 바로가기 버튼 */}
                 <View style={styles.tabWrapper}>
                     <ScrollView
+                        ref={tabScrollRef}
                         horizontal
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={styles.tabContainer}
                     >
-                        {CARE_SECTIONS.map((item) => (
-                            <TouchableOpacity
-                                key={item.key}
-                                style={[
-                                    styles.tabButton,
-                                    activeKey === item.key && styles.activeTabButton,
-                                ]}
-                                activeOpacity={0.8}
-                                onPress={() => scrollToSection(item.key)}
-                            >
-                                <Text style={styles.tabText}>{item.label}</Text>
-                            </TouchableOpacity>
-                        ))}
+                        {CARE_SECTIONS.map((item) => {
+                            const isActive = activeKey === item.key;
+                            return (
+                                <TouchableOpacity
+                                    key={item.key}
+                                    style={styles.tabButton}
+                                    activeOpacity={0.78}
+                                    onPress={() => scrollToSection(item.key)}
+                                    onLayout={(e) => saveTabPosition(item.key, e)}
+                                >
+                                    <BlurView
+                                        intensity={isActive ? 38 : 24}
+                                        tint="light"
+                                        style={[
+                                            styles.tabBlur,
+                                            {
+                                                borderColor: isActive
+                                                    ? "rgba(80,155,30,0.65)"
+                                                    : "rgba(255,255,255,0.68)",
+                                            },
+                                        ]}
+                                    >
+                                        <LinearGradient
+                                            colors={
+                                                isActive
+                                                    ? ["rgba(190,228,155,0.92)", "rgba(110,178,60,0.78)", "rgba(50,120,10,0.62)"]
+                                                    : ["rgba(255,255,255,0.68)", "rgba(230,246,220,0.50)", "rgba(207,232,197,0.36)"]
+                                            }
+                                            start={{ x: 0.12, y: 0.05 }}
+                                            end={{ x: 0.9, y: 1 }}
+                                            style={styles.tabGradient}
+                                        >
+                                            <View style={styles.tabHighlight} />
+                                            <Text style={[
+                                                styles.tabText,
+                                                isActive && styles.activeTabText,
+                                            ]}>
+                                                {item.label}
+                                            </Text>
+                                        </LinearGradient>
+                                    </BlurView>
+                                </TouchableOpacity>
+                            );
+                        })}
                     </ScrollView>
                 </View>
 
-                {/* 내용 영역 */}
                 <ScrollView
                     ref={scrollRef}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.content}
+                    onScroll={handleScroll}
+                    scrollEventThrottle={100}
                 >
                     {/* 식물정보 */}
                     <View
@@ -333,15 +392,6 @@ const styles = StyleSheet.create({
         height: 44,
         alignItems: "center",
         justifyContent: "center",
-        marginTop: 0,
-    },
-
-    backText: {
-        fontFamily: FONT,
-        fontSize: 42,
-        color: "#1F5D01",
-        lineHeight: 42,
-        includeFontPadding: false,
     },
 
     title: {
@@ -370,58 +420,85 @@ const styles = StyleSheet.create({
 
     tabButton: {
         height: 32,
-        paddingHorizontal: 13,
+        overflow: "hidden",
         borderRadius: 11,
-        borderWidth: 1.5,
-        borderColor: "#1F5D01",
-        backgroundColor: "#D7EDC5",
-        justifyContent: "center",
-        alignItems: "center",
+        shadowColor: "#385236",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.16,
+        shadowRadius: 4,
+        elevation: 4,
     },
 
-    activeTabButton: {
-        backgroundColor: "#C6E4B2",
+    tabBlur: {
+        flex: 1,
+        overflow: "hidden",
+        borderWidth: 1,
+        borderRadius: 11,
+    },
+
+    tabGradient: {
+        flex: 1,
+        paddingHorizontal: 13,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 0.8,
+        borderColor: "rgba(255,255,255,0.45)",
+        borderRadius: 11,
+    },
+
+    tabHighlight: {
+        position: "absolute",
+        top: 4,
+        left: 9,
+        width: "32%",
+        height: "36%",
+        borderRadius: 99,
+        backgroundColor: "rgba(255,255,255,0.55)",
     },
 
     tabText: {
         fontFamily: FONT,
         fontSize: 14,
-        color: "#111111",
+        color: "#2A4A18",
         includeFontPadding: false,
     },
 
+    activeTabText: {
+        color: "#0D3500",
+    },
+
     content: {
-        paddingTop: 12,
-        paddingBottom: 50,
+        paddingTop: 8,
+        paddingBottom: 30,
     },
 
     card: {
         width: "100%",
         backgroundColor: "#FFFFFF",
-        borderRadius: 24,
-        paddingHorizontal: 28,
-        paddingVertical: 26,
-        marginBottom: 22,
+        borderRadius: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 18,
+        marginBottom: 14,
         borderWidth: 1.5,
         borderColor: "#E0EBCD",
     },
 
     lastCard: {
-        marginBottom: 80,
+        marginBottom: 50,
     },
 
     cardTitle: {
         fontFamily: FONT,
-        fontSize: 22,
+        fontSize: 17,
         color: "#111111",
-        marginBottom: 24,
+        marginBottom: 14,
         includeFontPadding: false,
     },
 
     cardText: {
         fontFamily: FONT,
-        fontSize: 16,
-        lineHeight: 30,
+        fontSize: 13,
+        lineHeight: 22,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -432,73 +509,73 @@ const styles = StyleSheet.create({
     },
 
     textGroup: {
-        marginLeft: 24,
-        gap: 12,
+        marginLeft: 18,
+        gap: 8,
     },
 
     mainInfo: {
         fontFamily: FONT,
-        fontSize: 16,
+        fontSize: 13,
         color: "#111111",
         includeFontPadding: false,
     },
 
     subInfo: {
         fontFamily: FONT,
-        fontSize: 16,
+        fontSize: 13,
         color: "#111111",
         includeFontPadding: false,
     },
 
     circleBlue: {
-        width: 76,
-        height: 76,
-        borderRadius: 38,
+        width: 58,
+        height: 58,
+        borderRadius: 29,
         backgroundColor: "#EAF3FF",
         justifyContent: "center",
         alignItems: "center",
     },
 
     circlePeach: {
-        width: 76,
-        height: 76,
-        borderRadius: 38,
+        width: 58,
+        height: 58,
+        borderRadius: 29,
         backgroundColor: "#FFEBD9",
         justifyContent: "center",
         alignItems: "center",
-        marginRight: 24,
+        marginRight: 18,
     },
 
     circleOrange: {
-        width: 76,
-        height: 76,
-        borderRadius: 38,
+        width: 58,
+        height: 58,
+        borderRadius: 29,
         backgroundColor: "#FFE7D2",
         justifyContent: "center",
         alignItems: "center",
-        marginRight: 24,
+        marginRight: 18,
     },
 
     bigNumber: {
         fontFamily: FONT,
-        fontSize: 40,
+        fontSize: 30,
         color: "#000000",
         includeFontPadding: false,
     },
 
     sunEmoji: {
-        fontSize: 34,
+        fontSize: 26,
     },
 
     rangeBlock: {
-        marginTop: 10,
-        marginBottom: 30,
+        marginTop: 8,
+        marginBottom: 20,
     },
 
     rangeBar: {
         width: "100%",
-        height: 28,
-        borderRadius: 20,
+        height: 22,
+        borderRadius: 16,
         backgroundColor: "#E7E7E7",
         overflow: "hidden",
         position: "relative",
@@ -507,8 +584,8 @@ const styles = StyleSheet.create({
     rangeFillPink: {
         position: "absolute",
         top: 0,
-        height: 28,
-        borderRadius: 20,
+        height: 22,
+        borderRadius: 16,
         backgroundColor: "#F29AA2",
         justifyContent: "center",
         alignItems: "center",
@@ -517,8 +594,8 @@ const styles = StyleSheet.create({
     rangeFillBlue: {
         position: "absolute",
         top: 0,
-        height: 28,
-        borderRadius: 20,
+        height: 22,
+        borderRadius: 16,
         backgroundColor: "#9EBEF1",
         justifyContent: "center",
         alignItems: "center",
@@ -526,7 +603,7 @@ const styles = StyleSheet.create({
 
     rangeText: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: 12,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -534,12 +611,12 @@ const styles = StyleSheet.create({
     rangeLabelRow: {
         flexDirection: "row",
         justifyContent: "space-between",
-        marginTop: 10,
+        marginTop: 8,
     },
 
     rangeLabel: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: 12,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -547,23 +624,23 @@ const styles = StyleSheet.create({
     bulletRow: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 22,
+        marginBottom: 14,
     },
 
     circleYellow: {
-        width: 46,
-        height: 46,
-        borderRadius: 23,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         backgroundColor: "#FFF1BE",
-        marginRight: 22,
+        marginRight: 16,
     },
 
     circlePink: {
-        width: 46,
-        height: 46,
-        borderRadius: 23,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         backgroundColor: "#FFE5F5",
-        marginRight: 22,
+        marginRight: 16,
     },
 
     toxicityRow: {
@@ -577,14 +654,14 @@ const styles = StyleSheet.create({
     },
 
     toxicityImage: {
-        width: 72,
-        height: 72,
-        marginBottom: 10,
+        width: 56,
+        height: 56,
+        marginBottom: 8,
     },
 
     toxicityLabel: {
         fontFamily: FONT,
-        fontSize: 16,
+        fontSize: 13,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -592,19 +669,19 @@ const styles = StyleSheet.create({
     chipContainer: {
         flexDirection: "row",
         flexWrap: "wrap",
-        gap: 12,
+        gap: 10,
     },
 
     chip: {
         backgroundColor: "#EFEFEF",
-        borderRadius: 18,
-        paddingHorizontal: 18,
-        paddingVertical: 10,
+        borderRadius: 14,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
     },
 
     chipText: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: 12,
         color: "#111111",
         includeFontPadding: false,
     },
