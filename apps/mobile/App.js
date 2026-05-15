@@ -11,7 +11,7 @@ import PlantDetailScreen from "./src/screens/PlantDetailScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import CareInfoScreen from "./src/screens/CareInfoScreen";
 import ConsultationHistoryScreen from "./src/screens/ConsultationHistoryScreen"
-//import ConsultationScreen from "./src/screens/ConsultationScreen";
+import ConsultationScreen from "./src/screens/ConsultationScreen";
 import ConsultationStartScreen from "./src/screens/ConsultationStartScreen"
 import { gardenPlants } from "./src/data/plants";
 
@@ -140,6 +140,11 @@ export default function App() {
                 <Stack.Screen
                     name="ConsultationStart"
                     component={ConsultationStartScreen}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="Consultation"
+                    component={ConsultationScreen}
                     options={{ headerShown: false }}
                 />
 

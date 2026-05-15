@@ -8,6 +8,7 @@ import {
     ScrollView,
     SafeAreaView,
     StatusBar,
+    Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -16,37 +17,47 @@ const FONT = "NanumSquareNeo";
 export default function ConsultationHistoryScreen({ navigation }) {
     const [searchQuery, setSearchQuery] = useState("");
 
-    const consultations = [
+    const [consultations, setConsultations] = useState([
         {
             id: 1,
             title: "잎의 변색 원인",
-            summary: "과습 때문일 가능성이 높아요.",
-            detail: "흙이 충분히 마른 뒤에 물을 주고, 배수가 잘 되는지도 확인해보세요",
+            summary: "잎 끝 갈변은 대부분 수분 스트레스나 환경 문제에서 비롯돼요.",
+            detail: "수분 부족, 낮은 공중 습도, 수돗물 수질, 비료 과다 등이 원인일 수 있어요.",
         },
         {
             id: 2,
-            title: "잎의 변색 원인",
-            summary: "과습때문일 가능성이 높아요.",
-            detail: "흙이 충분히 마른뒤에 물을 주고, 배수가 잘되는지도 확인해보세요",
+            title: "잎의 상처 원인",
+            summary: "총채벌레 피해일 가능성이 높아요.",
+            detail: "다른 식물과 격리 후 살충제를 뿌려 방제해보세요.",
         },
         {
             id: 3,
-            title: "잎의 변색 원인",
-            summary: "과습 때문일 가능성이 높아요.",
-            detail: "흙이 충분히 마른 뒤에 물을 주고, 배수가 잘 되는지도 확인해보세요",
+            title: "흙에 피는 곰팡이 문제",
+            summary: "통풍 부족과 유기물이 많은 흙이 주원인이에요.",
+            detail: "곰팡이를 걷어내고 습하지 않게 관리해보세요.",
         },
-    ];
+    ]);
+
+    const deleteConsultation = (id) => {
+        Alert.alert("상담 기록 삭제", "이 상담 기록을 삭제할까요?", [
+            { text: "취소", style: "cancel" },
+            {
+                text: "삭제",
+                style: "destructive",
+                onPress: () => setConsultations((prev) => prev.filter((item) => item.id !== id)),
+            },
+        ]);
+    };
 
     const filteredConsultations = [...consultations]
-        .reverse()
         .filter((item) =>
             item.title.includes(searchQuery.trim()) ||
             item.summary.includes(searchQuery.trim()) ||
             item.detail.includes(searchQuery.trim())
         );
 
-    const goToConsultationStart = () => {
-        navigation.navigate("ConsultationStart");
+    const goToConsultation = (item) => {
+        navigation.navigate("Consultation", { consultation: item });
     };
 
     return (
@@ -99,9 +110,19 @@ export default function ConsultationHistoryScreen({ navigation }) {
                                 key={item.id}
                                 style={styles.card}
                                 activeOpacity={0.85}
-                                onPress={goToConsultationStart}
+                                onPress={() => goToConsultation(item)}
                             >
-                                <Text style={styles.cardTitle}>{item.title}</Text>
+                                <View style={styles.cardHeader}>
+                                    <Text style={styles.cardTitle}>{item.title}</Text>
+                                    <TouchableOpacity
+                                        style={styles.deleteButton}
+                                        onPress={() => deleteConsultation(item.id)}
+                                        activeOpacity={0.6}
+                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                    >
+                                        <Ionicons name="trash-outline" size={15} color="#BBBBBB" />
+                                    </TouchableOpacity>
+                                </View>
                                 <Text style={styles.cardSummary}>{item.summary}</Text>
                                 <Text style={styles.cardDetail}>{item.detail}</Text>
                             </TouchableOpacity>
@@ -112,7 +133,7 @@ export default function ConsultationHistoryScreen({ navigation }) {
                 <TouchableOpacity
                     style={styles.chatButton}
                     activeOpacity={0.85}
-                    onPress={goToConsultationStart}
+                    onPress={() => navigation.navigate("ConsultationStart")}
                 >
                     <Ionicons name="chatbox-outline" size={32} color="#1F5D01" />
                 </TouchableOpacity>
@@ -209,12 +230,24 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
 
+    cardHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 8,
+    },
+
     cardTitle: {
+        flex: 1,
         fontSize: 15,
         color: "#111",
         fontFamily: FONT,
         includeFontPadding: false,
-        marginBottom: 8,
+        marginRight: 8,
+    },
+
+    deleteButton: {
+        padding: 2,
     },
 
     cardSummary: {
