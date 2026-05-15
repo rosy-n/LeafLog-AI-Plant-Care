@@ -15,10 +15,10 @@ export const common = StyleSheet.create({
 
   title: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 22,
-    color: Colors.textBlack,
-    lineHeight: 32,
-    marginBottom: 28,
+    fontSize: 18,
+    color: Colors.primary,
+    textAlign: 'center' as const,
+    marginBottom: 20,
   },
 
   // Primary filled button

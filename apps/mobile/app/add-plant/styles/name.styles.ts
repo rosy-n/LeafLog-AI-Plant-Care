@@ -23,15 +23,6 @@ export const styles = StyleSheet.create({
     backgroundColor: Colors.primaryLight,
   },
 
-  title: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 22,
-    color: Colors.textBlack,
-    lineHeight: 32,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-
   // Input
   inputWrapper: {
     flexDirection: 'row',

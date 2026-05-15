@@ -10,13 +10,10 @@ export const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  title: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 18,
-    color: Colors.primary,
+  // common.title 위에 덮는 오버라이드만 남김
+  titleOverride: {
     marginBottom: 16,
     paddingHorizontal: 20,
-    textAlign: 'center',
   },
 
   // Thumbnail strip (multiple photos only)
@@ -124,15 +121,26 @@ export const styles = StyleSheet.create({
   organChipTextActive: {
     color: Colors.primary,
   },
+  organChipWide: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    gap: 10,
+  },
+  organChipSub: {
+    fontSize: 10,
+    color: Colors.textGray,
+    marginTop: 2,
+  },
 
   // Footer
   footer: {
     paddingHorizontal: 20,
-    flexDirection: 'row',
-    gap: 12,
   },
-  btn: { flex: 1 },
-
   primaryBtn: {
     backgroundColor: Colors.primary,
     borderRadius: 12,
@@ -144,22 +152,5 @@ export const styles = StyleSheet.create({
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
     fontSize: 16,
-  },
-  grayBtn: {
-    backgroundColor: Colors.disabled,
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  grayBtnText: {
-    color: Colors.textBlack,
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 14,
-  },
-  grayBtnSub: {
-    fontSize: 10,
-    color: Colors.textGray,
   },
 });

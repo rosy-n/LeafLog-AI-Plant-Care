@@ -10,6 +10,7 @@ import {
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { common } from './styles/common.styles';
 import { styles } from './styles/name.styles';
 
 const MAX_LENGTH = 8;
@@ -44,7 +45,7 @@ export default function NameScreen() {
           resizeMode="contain"
         />
 
-        <Text style={styles.title}>이름을{'\n'}붙여주세요</Text>
+        <Text style={common.title} numberOfLines={1}>이름을 붙여주세요</Text>
 
         <View style={styles.inputWrapper}>
           <TextInput
