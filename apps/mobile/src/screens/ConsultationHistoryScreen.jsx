@@ -109,12 +109,6 @@ export default function ConsultationHistoryScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#FAFFF0",
-    },
-
-
 
     safeArea: {
         flex: 1,

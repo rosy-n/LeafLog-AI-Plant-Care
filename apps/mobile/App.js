@@ -12,7 +12,7 @@ import ProfileScreen from "./src/screens/ProfileScreen";
 import CareInfoScreen from "./src/screens/CareInfoScreen";
 import ConsultationHistoryScreen from "./src/screens/ConsultationHistoryScreen"
 //import ConsultationScreen from "./src/screens/ConsultationScreen";
-//import ConsultationStartScreen from "./src/screens/ConsultationStartScreen"
+import ConsultationStartScreen from "./src/screens/ConsultationStartScreen"
 import { gardenPlants } from "./src/data/plants";
 
 const Stack = createNativeStackNavigator();
@@ -42,6 +42,7 @@ export default function App() {
 
     const [fontsLoaded] = useFonts({
         NeoDunggeunmo: require("./assets/fonts/NeoDunggeunmoPro-Regular.ttf"),
+        NanumSquareNeo: require("./assets/fonts/NanumSquareNeo-cBd.ttf"),
     });
 
     useEffect(() => {
@@ -136,7 +137,11 @@ export default function App() {
                     component={ConsultationHistoryScreen}
                     options={{ headerShown: false }}
                 />
-
+                <Stack.Screen
+                    name="ConsultationStart"
+                    component={ConsultationStartScreen}
+                    options={{ headerShown: false }}
+                />
 
 
             </Stack.Navigator>
