@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
     View,
     Text,
@@ -10,9 +10,12 @@ import {
     StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-const FONT = "NeoDunggeunmoPro-Regular";
+
+const FONT = "NanumSquareNeo";
 
 export default function ConsultationHistoryScreen({ navigation }) {
+    const [searchQuery, setSearchQuery] = useState("");
+
     const consultations = [
         {
             id: 1,
@@ -34,9 +37,13 @@ export default function ConsultationHistoryScreen({ navigation }) {
         },
     ];
 
-    const goToConsultation = () => {
-        navigation.navigate("Consultation");
-    };
+    const filteredConsultations = [...consultations]
+        .reverse()
+        .filter((item) =>
+            item.title.includes(searchQuery.trim()) ||
+            item.summary.includes(searchQuery.trim()) ||
+            item.detail.includes(searchQuery.trim())
+        );
 
     const goToConsultationStart = () => {
         navigation.navigate("ConsultationStart");
@@ -63,18 +70,20 @@ export default function ConsultationHistoryScreen({ navigation }) {
 
                 <View style={styles.searchRow}>
                     <View style={styles.searchBox}>
+                        <Ionicons name="search-outline" size={18} color="#666" style={styles.searchIcon} />
                         <TextInput
                             style={styles.searchInput}
-                            placeholder="Search"
+                            placeholder="검색"
                             placeholderTextColor="#B5B5B5"
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
                         />
-                        <Ionicons name="search-outline" size={21} color="#111" />
+                        {searchQuery.length > 0 && (
+                            <TouchableOpacity onPress={() => setSearchQuery("")} activeOpacity={0.7}>
+                                <Ionicons name="close-circle" size={16} color="#999" />
+                            </TouchableOpacity>
+                        )}
                     </View>
-
-                    <TouchableOpacity style={styles.sortButton} activeOpacity={0.8}>
-                        <Text style={styles.sortText}>날짜순</Text>
-                        <Ionicons name="caret-down" size={14} color="#111" />
-                    </TouchableOpacity>
                 </View>
 
                 <ScrollView
@@ -82,18 +91,22 @@ export default function ConsultationHistoryScreen({ navigation }) {
                     contentContainerStyle={styles.cardListContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {consultations.map((item) => (
-                        <TouchableOpacity
-                            key={item.id}
-                            style={styles.card}
-                            activeOpacity={0.85}
-                            onPress={goToConsultation}
-                        >
-                            <Text style={styles.cardTitle}>{item.title}</Text>
-                            <Text style={styles.cardSummary}>{item.summary}</Text>
-                            <Text style={styles.cardDetail}>{item.detail}</Text>
-                        </TouchableOpacity>
-                    ))}
+                    {filteredConsultations.length === 0 ? (
+                        <Text style={styles.emptyText}>검색 결과가 없어요.</Text>
+                    ) : (
+                        filteredConsultations.map((item) => (
+                            <TouchableOpacity
+                                key={item.id}
+                                style={styles.card}
+                                activeOpacity={0.85}
+                                onPress={goToConsultationStart}
+                            >
+                                <Text style={styles.cardTitle}>{item.title}</Text>
+                                <Text style={styles.cardSummary}>{item.summary}</Text>
+                                <Text style={styles.cardDetail}>{item.detail}</Text>
+                            </TouchableOpacity>
+                        ))
+                    )}
                 </ScrollView>
 
                 <TouchableOpacity
@@ -101,7 +114,7 @@ export default function ConsultationHistoryScreen({ navigation }) {
                     activeOpacity={0.85}
                     onPress={goToConsultationStart}
                 >
-                    <Ionicons name="chatbox-outline" size={38} color="#1F5D01" />
+                    <Ionicons name="chatbox-outline" size={32} color="#1F5D01" />
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -109,7 +122,6 @@ export default function ConsultationHistoryScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-
     safeArea: {
         flex: 1,
         backgroundColor: "#FAFFF0",
@@ -118,7 +130,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: "#FAFFF0",
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
     },
 
     header: {
@@ -133,7 +145,6 @@ const styles = StyleSheet.create({
         height: 44,
         alignItems: "center",
         justifyContent: "center",
-        marginTop: 0,
     },
 
     headerSpacer: {
@@ -142,61 +153,39 @@ const styles = StyleSheet.create({
 
     title: {
         fontFamily: FONT,
-        fontSize: 27,
+        fontSize: 22,
         color: "#111111",
         includeFontPadding: false,
-        marginTop: 0,
     },
 
     searchRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        marginTop: 20,
-        marginBottom: 24,
-        gap: 10,
+        marginTop: 8,
+        marginBottom: 18,
     },
 
     searchBox: {
-        width: 130,
-        height: 35,
-        borderWidth: 2.5,
-        borderColor: "#1F5D01",
-        borderRadius: 19,
-        backgroundColor: "#FAFFF0",
         flexDirection: "row",
         alignItems: "center",
-        paddingLeft: 18,
-        paddingRight: 10,
+        height: 40,
+        borderWidth: 1.5,
+        borderColor: "rgba(31, 93, 1, 0.4)",
+        borderRadius: 20,
+        backgroundColor: "#FFFFFF",
+        paddingHorizontal: 14,
+        gap: 8,
+    },
+
+    searchIcon: {
+        marginRight: 2,
     },
 
     searchInput: {
         flex: 1,
         height: "100%",
-        fontSize: 14,
+        fontSize: 13,
         color: "#111",
         fontFamily: FONT,
         paddingVertical: 0,
-        includeFontPadding: false,
-    },
-
-    sortButton: {
-        width: 85,
-        height: 35,
-        borderWidth: 2.5,
-        borderColor: "#1F5D01",
-        borderRadius: 19,
-        backgroundColor: "#FAFFF0",
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 5,
-    },
-
-    sortText: {
-        fontSize: 12,
-        color: "#111",
-        fontFamily: FONT,
         includeFontPadding: false,
     },
 
@@ -205,55 +194,62 @@ const styles = StyleSheet.create({
     },
 
     cardListContent: {
-        paddingBottom: 120,
+        paddingBottom: 100,
     },
 
     card: {
         width: "100%",
-        minHeight: 118,
-        borderWidth: 3,
-        borderColor: "#1F5D01",
-        borderRadius: 10,
+        borderWidth: 1.5,
+        borderColor: "rgba(31, 93, 1, 0.5)",
+        borderRadius: 12,
         backgroundColor: "#FFFFFF",
-        paddingTop: 20,
-        paddingHorizontal: 22,
-        paddingBottom: 18,
-        marginBottom: 20,
+        paddingTop: 14,
+        paddingHorizontal: 16,
+        paddingBottom: 14,
+        marginBottom: 12,
     },
 
     cardTitle: {
-        fontSize: 21,
+        fontSize: 15,
         color: "#111",
         fontFamily: FONT,
         includeFontPadding: false,
-        marginBottom: 22,
+        marginBottom: 8,
     },
 
     cardSummary: {
-        fontSize: 14,
-        color: "#222",
+        fontSize: 12,
+        color: "#333",
         fontFamily: FONT,
         includeFontPadding: false,
-        marginBottom: 10,
-        lineHeight: 20,
+        marginBottom: 6,
+        lineHeight: 18,
     },
 
     cardDetail: {
-        fontSize: 13,
-        color: "#222",
+        fontSize: 11,
+        color: "#555",
         fontFamily: FONT,
         includeFontPadding: false,
-        lineHeight: 19,
+        lineHeight: 17,
+    },
+
+    emptyText: {
+        fontFamily: FONT,
+        fontSize: 13,
+        color: "#999",
+        textAlign: "center",
+        marginTop: 40,
     },
 
     chatButton: {
         position: "absolute",
-        right: 28,
+        right: 20,
         bottom: 20,
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-        borderWidth: 4,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        borderWidth: 2,
         borderColor: "#1F5D01",
         backgroundColor: "#FAFFF0",
         alignItems: "center",
