@@ -14,6 +14,7 @@ import ConsultationHistoryScreen from "./src/screens/ConsultationHistoryScreen"
 import ConsultationScreen from "./src/screens/ConsultationScreen";
 import ConsultationStartScreen from "./src/screens/ConsultationStartScreen"
 import PlantDecorateScreen from "./src/screens/PlantDecorateScreen";
+import SensorDataScreen from "./src/screens/SensorDataScreen";
 import { gardenPlants } from "./src/data/plants";
 
 const Stack = createNativeStackNavigator();
@@ -161,6 +162,11 @@ export default function App() {
                 <Stack.Screen
                     name="Consultation"
                     component={ConsultationScreen}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="SensorData"
+                    component={SensorDataScreen}
                     options={{ headerShown: false }}
                 />
                 <Stack.Screen
