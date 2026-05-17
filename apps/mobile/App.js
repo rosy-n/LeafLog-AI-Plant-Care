@@ -16,6 +16,7 @@ import ConsultationStartScreen from "./src/screens/ConsultationStartScreen"
 import PlantDecorateScreen from "./src/screens/PlantDecorateScreen";
 import SensorDataScreen from "./src/screens/SensorDataScreen";
 import RepottingScreen from "./src/screens/RepottingScreen";
+import SettingsScreen from "./src/screens/SettingsScreen";
 import { gardenPlants } from "./src/data/plants";
 
 const Stack = createNativeStackNavigator();
@@ -53,6 +54,7 @@ async function preloadImages() {
 export default function App() {
     const [plants, setPlants] = useState(gardenPlants);
     const [appliedItem, setAppliedItem] = useState(null);
+    const [username, setUsername] = useState("식물집사");
     const [imagesLoaded, setImagesLoaded] = useState(false);
 
     const [fontsLoaded] = useFonts({
@@ -123,6 +125,7 @@ export default function App() {
                             {...props}
                             plants={plants}
                             setPlants={setPlants}
+                            username={username}
                         />
                     )}
                 </Stack.Screen>
@@ -175,6 +178,18 @@ export default function App() {
                     component={RepottingScreen}
                     options={{ headerShown: false }}
                 />
+                <Stack.Screen
+                    name="Settings"
+                    options={{ headerShown: false }}
+                >
+                    {(props) => (
+                        <SettingsScreen
+                            {...props}
+                            username={username}
+                            setUsername={setUsername}
+                        />
+                    )}
+                </Stack.Screen>
                 <Stack.Screen
                     name="PlantDecorate"
                     options={{ headerShown: false }}

@@ -50,7 +50,7 @@ function applySortFilter(plantList, sort, query) {
     return result;
 }
 
-export default function GardenScreen({ navigation, plants, setPlants }) {
+export default function GardenScreen({ navigation, plants, setPlants, username }) {
     const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
     const searchAnim = useRef(new Animated.Value(0)).current;
 
@@ -198,7 +198,7 @@ export default function GardenScreen({ navigation, plants, setPlants }) {
 
                     <View style={styles.header}>
                         {!isSearchActive && (
-                            <Text style={styles.title}>정원 11/50</Text>
+                            <Text style={styles.title}>{username}의 정원</Text>
                         )}
 
                         <View style={[styles.headerRight, isSearchActive && styles.headerRightExpanded]}>
@@ -385,10 +385,11 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
     },
     title: {
-        fontSize: 25,
+        fontSize: 20,
         fontFamily: "NeoDunggeunmoPro-Regular",
         color: "#2F702D",
         letterSpacing: 0.3,
+        flexShrink: 1,
         ...greenTextShadow,
     },
     headerRight: {

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import {
     ImageBackground,
     View,
@@ -6,12 +6,62 @@ import {
     StyleSheet,
     Image,
     TouchableOpacity,
+    Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
+const HOME_MENU_ITEMS = [
+    { label: "설정", icon: "settings-outline", screen: "Settings" },
+    { label: "스토어", icon: "storefront-outline", screen: null },
+];
+
 export default function HomeScreen({ navigation }) {
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+
+    const menuAnimations = useRef(
+        HOME_MENU_ITEMS.map(() => new Animated.Value(0))
+    ).current;
+
+    const openMenu = () => {
+        setMenuVisible(true);
+        setMenuOpen(true);
+
+        const bottomToTopAnimations = [...menuAnimations].reverse();
+        Animated.stagger(
+            45,
+            bottomToTopAnimations.map((anim) =>
+                Animated.timing(anim, {
+                    toValue: 1,
+                    duration: 180,
+                    useNativeDriver: true,
+                })
+            )
+        ).start();
+    };
+
+    const closeMenu = () => {
+        setMenuOpen(false);
+
+        Animated.stagger(
+            35,
+            [...menuAnimations].map((anim) =>
+                Animated.timing(anim, {
+                    toValue: 0,
+                    duration: 140,
+                    useNativeDriver: true,
+                })
+            )
+        ).start(() => setMenuVisible(false));
+    };
+
+    const toggleMenu = () => {
+        if (menuOpen) closeMenu();
+        else openMenu();
+    };
+
     return (
         <View style={styles.root}>
             <ImageBackground
@@ -71,10 +121,86 @@ export default function HomeScreen({ navigation }) {
                     resizeMode="contain"
                 />
 
+                {/* 햄버거 메뉴 팝업 */}
+                {menuVisible && (
+                    <>
+                        <TouchableOpacity
+                            style={StyleSheet.absoluteFill}
+                            activeOpacity={1}
+                            onPress={closeMenu}
+                        />
+                        <View style={styles.menuPopup}>
+                            {HOME_MENU_ITEMS.map((item, index) => {
+                                const anim = menuAnimations[index];
+                                return (
+                                    <Animated.View
+                                        key={item.label}
+                                        style={[
+                                            styles.menuItemWrapper,
+                                            {
+                                                opacity: anim,
+                                                transform: [
+                                                    {
+                                                        translateY: anim.interpolate({
+                                                            inputRange: [0, 1],
+                                                            outputRange: [14, 0],
+                                                        }),
+                                                    },
+                                                    {
+                                                        scale: anim.interpolate({
+                                                            inputRange: [0, 1],
+                                                            outputRange: [0.92, 1],
+                                                        }),
+                                                    },
+                                                ],
+                                            },
+                                        ]}
+                                    >
+                                        <TouchableOpacity
+                                            activeOpacity={0.82}
+                                            style={styles.menuItemTouch}
+                                            onPress={() => {
+                                                closeMenu();
+                                                if (item.screen) navigation.navigate(item.screen);
+                                            }}
+                                        >
+                                            <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>
+                                                <LinearGradient
+                                                    colors={[
+                                                        "rgba(255,255,255,0.72)",
+                                                        "rgba(235,248,228,0.52)",
+                                                        "rgba(211,235,201,0.38)",
+                                                    ]}
+                                                    start={{ x: 0.12, y: 0.05 }}
+                                                    end={{ x: 1, y: 1 }}
+                                                    style={styles.menuItemGlass}
+                                                >
+                                                    <View style={styles.menuItemHighlight} />
+                                                    <Ionicons
+                                                        name={item.icon}
+                                                        size={14}
+                                                        color="#263326"
+                                                        style={styles.menuItemIcon}
+                                                    />
+                                                    <Text style={styles.menuItemText}>{item.label}</Text>
+                                                </LinearGradient>
+                                            </BlurView>
+                                        </TouchableOpacity>
+                                    </Animated.View>
+                                );
+                            })}
+                        </View>
+                    </>
+                )}
+
                 {/* 좌측 하단: 햄버거 */}
                 <View style={styles.menuArea}>
-                    <GlassButton size={60}>
-                        <Ionicons name="menu" size={36} color="#344537" />
+                    <GlassButton size={60} onPress={toggleMenu}>
+                        <Ionicons
+                            name={menuOpen ? "close" : "menu"}
+                            size={36}
+                            color="#344537"
+                        />
                     </GlassButton>
                 </View>
 
@@ -255,6 +381,65 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: 16,
         zIndex: 50,
+    },
+
+    // 햄버거 메뉴 팝업
+    menuPopup: {
+        position: "absolute",
+        left: 20,
+        bottom: 130,
+        zIndex: 80,
+        alignItems: "flex-start",
+    },
+    menuItemWrapper: {
+        marginBottom: 8,
+    },
+    menuItemTouch: {
+        width: 126,
+        height: 31,
+        borderRadius: 16,
+        overflow: "hidden",
+        shadowColor: "#2D3B2C",
+        shadowOpacity: 0.18,
+        shadowRadius: 7,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 5,
+    },
+    menuItemBlur: {
+        flex: 1,
+        borderRadius: 16,
+        overflow: "hidden",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.72)",
+    },
+    menuItemGlass: {
+        flex: 1,
+        borderRadius: 16,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.46)",
+    },
+    menuItemHighlight: {
+        position: "absolute",
+        top: 4,
+        left: 10,
+        width: 34,
+        height: 8,
+        borderRadius: 99,
+        backgroundColor: "rgba(255,255,255,0.62)",
+    },
+    menuItemIcon: {
+        marginRight: 5,
+    },
+    menuItemText: {
+        fontFamily: "NeoDunggeunmo",
+        fontSize: 13,
+        color: "#263326",
+        textShadowColor: "rgba(255,255,255,0.65)",
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 0,
     },
 
     glassTouch: {
