@@ -12,6 +12,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import LiquidGlassButton from "../components/LiquidGlassButton";
 
 const ITEMS = [
     {
@@ -91,13 +92,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
 
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity
-                        onPress={() => navigation.goBack()}
-                        style={styles.headerButton}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="chevron-back" size={28} color="#2B3E25" />
-                    </TouchableOpacity>
+                    <View style={styles.headerButton} />
                     <Text style={styles.headerTitle}>식물 꾸미기</Text>
                     <View style={styles.headerButton} />
                 </View>
@@ -321,7 +316,14 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                     </BlurView>
                 </View>
 
-                {/* Remove Button */}
+                <LiquidGlassButton
+                    size={60}
+                    onPress={() => navigation.goBack()}
+                    style={styles.closeBtn}
+                >
+                    <Ionicons name="close" size={30} color="#2B3E25" />
+                </LiquidGlassButton>
+
                 {selectedItem && (
                     <TouchableOpacity
                         style={styles.removeButton}
@@ -642,10 +644,18 @@ const styles = StyleSheet.create({
         textAlign: "center",
     },
 
-    // Remove Button
+    closeBtn: {
+        position: "absolute",
+        bottom: 32,
+        left: 24,
+        zIndex: 100,
+    },
+
     removeButton: {
-        alignSelf: "center",
-        marginTop: 14,
+        position: "absolute",
+        bottom: 42,
+        right: 24,
+        zIndex: 100,
         paddingHorizontal: 28,
         paddingVertical: 9,
         backgroundColor: "rgba(200,80,60,0.14)",

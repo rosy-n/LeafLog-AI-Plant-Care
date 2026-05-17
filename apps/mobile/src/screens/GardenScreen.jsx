@@ -255,6 +255,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
                 </View>
 
                 <FlatList
+                    style={{ flex: 1 }}
                     data={displayPlants}
                     keyExtractor={(item) => item.id}
                     numColumns={3}
@@ -300,6 +301,14 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
                         </View>
                     )}
                 />
+
+                <LiquidGlassButton
+                    size={60}
+                    onPress={closeGarden}
+                    style={styles.closeBtn}
+                >
+                    <Ionicons name="close" size={30} color="#2F6D2E" />
+                </LiquidGlassButton>
 
                 {showSortMenu && (
                     <>
@@ -504,6 +513,13 @@ const styles = StyleSheet.create({
         textShadowColor: "#5F644F",
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 0,
+    },
+
+    closeBtn: {
+        position: "absolute",
+        bottom: 32,
+        left: 24,
+        zIndex: 100,
     },
 
     emptyState: {

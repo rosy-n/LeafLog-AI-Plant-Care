@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import LiquidGlassButton from "../components/LiquidGlassButton";
 
 const FONT = "NeoDunggeunmoPro-Regular";
 
@@ -76,13 +77,7 @@ export default function StoreScreen({
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
                 {/* 헤더 */}
                 <View style={styles.header}>
-                    <TouchableOpacity
-                        style={styles.headerButton}
-                        onPress={() => navigation.goBack()}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="chevron-back" size={28} color="#2B3E25" />
-                    </TouchableOpacity>
+                    <View style={styles.headerButton} />
                     <Text style={styles.headerTitle}>스토어</Text>
                     <View style={styles.coinBadge}>
                         <Ionicons name="ellipse" size={13} color="#F4B63F" />
@@ -175,6 +170,15 @@ export default function StoreScreen({
                         );
                     })}
                 </ScrollView>
+
+                <View style={styles.footer}>
+                    <LiquidGlassButton
+                        size={48}
+                        onPress={() => navigation.goBack()}
+                    >
+                        <Ionicons name="close" size={24} color="#2B3E25" />
+                    </LiquidGlassButton>
+                </View>
             </SafeAreaView>
         </View>
     );
@@ -288,6 +292,15 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: "#C8870A",
         includeFontPadding: false,
+    },
+
+    footer: {
+        height: 76,
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 20,
+        borderTopWidth: 1,
+        borderTopColor: "#EEF5E6",
     },
 
     actionArea: {
