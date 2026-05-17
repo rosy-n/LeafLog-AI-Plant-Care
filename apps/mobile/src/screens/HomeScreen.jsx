@@ -215,7 +215,7 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
 
                 {/* 우측 하단: 캘린더, 메모, 전체개체 */}
                 <View style={styles.rightButtonArea}>
-                    <GlassButton size={60}>
+                    <GlassButton size={60} onPress={() => navigation.navigate("Calendar")}>
                         <Ionicons name="calendar" size={36} color="#23A7D3" />
                     </GlassButton>
 
