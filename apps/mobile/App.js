@@ -17,12 +17,15 @@ import PlantDecorateScreen from "./src/screens/PlantDecorateScreen";
 import SensorDataScreen from "./src/screens/SensorDataScreen";
 import RepottingScreen from "./src/screens/RepottingScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
+import StoreScreen from "./src/screens/StoreScreen";
 import { gardenPlants } from "./src/data/plants";
 
 const Stack = createNativeStackNavigator();
 
 const imageAssets = [
     require("./assets/images/home-bg.png"),
+    require("./assets/images/store_bg1.png"),
+    require("./assets/images/store_bg2.png"),
     require("./assets/images/detail-bg.png"),
 
     require("./assets/plants/spaghetti.png"),
@@ -56,6 +59,9 @@ export default function App() {
     const [appliedItem, setAppliedItem] = useState(null);
     const [username, setUsername] = useState("식물집사");
     const [imagesLoaded, setImagesLoaded] = useState(false);
+    const [coins, setCoins] = useState(450);
+    const [purchasedBgs, setPurchasedBgs] = useState([]);
+    const [appliedBg, setAppliedBg] = useState("home-bg");
 
     const [fontsLoaded] = useFonts({
         NeoDunggeunmo: require("./assets/fonts/NeoDunggeunmoPro-Regular.ttf"),
@@ -107,7 +113,11 @@ export default function App() {
                     animation: "none",
                 }}
             >
-                <Stack.Screen name="Home" component={HomeScreen} />
+                <Stack.Screen name="Home">
+                    {(props) => (
+                        <HomeScreen {...props} appliedBg={appliedBg} />
+                    )}
+                </Stack.Screen>
 
                 <Stack.Screen
                     name="Garden"
@@ -199,6 +209,23 @@ export default function App() {
                             {...props}
                             appliedItem={appliedItem}
                             setAppliedItem={setAppliedItem}
+                        />
+                    )}
+                </Stack.Screen>
+
+                <Stack.Screen
+                    name="Store"
+                    options={{ headerShown: false }}
+                >
+                    {(props) => (
+                        <StoreScreen
+                            {...props}
+                            coins={coins}
+                            setCoins={setCoins}
+                            purchasedBgs={purchasedBgs}
+                            setPurchasedBgs={setPurchasedBgs}
+                            appliedBg={appliedBg}
+                            setAppliedBg={setAppliedBg}
                         />
                     )}
                 </Stack.Screen>

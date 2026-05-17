@@ -12,12 +12,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
+const BG_IMAGES = {
+    "home-bg": require("../../assets/images/home-bg.png"),
+    "store_bg1": require("../../assets/images/store_bg1.png"),
+    "store_bg2": require("../../assets/images/store_bg2.png"),
+};
+
 const HOME_MENU_ITEMS = [
     { label: "설정", icon: "settings-outline", screen: "Settings" },
-    { label: "스토어", icon: "storefront-outline", screen: null },
+    { label: "스토어", icon: "storefront-outline", screen: "Store" },
 ];
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation, appliedBg = "home-bg" }) {
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
 
@@ -65,7 +71,7 @@ export default function HomeScreen({ navigation }) {
     return (
         <View style={styles.root}>
             <ImageBackground
-                source={require("../../assets/images/home-bg.png")}
+                source={BG_IMAGES[appliedBg] ?? BG_IMAGES["home-bg"]}
                 resizeMode="cover"
                 style={styles.background}
             >
