@@ -18,6 +18,7 @@ import SensorDataScreen from "./src/screens/SensorDataScreen";
 import RepottingScreen from "./src/screens/RepottingScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import StoreScreen from "./src/screens/StoreScreen";
+import NotificationsScreen from "./src/screens/NotificationsScreen";
 import { gardenPlants } from "./src/data/plants";
 
 const Stack = createNativeStackNavigator();
@@ -62,6 +63,44 @@ export default function App() {
     const [coins, setCoins] = useState(450);
     const [purchasedBgs, setPurchasedBgs] = useState([]);
     const [appliedBg, setAppliedBg] = useState("home-bg");
+    const [notifications, setNotifications] = useState([
+        {
+            id: "1",
+            plantKey: "spaghetti",
+            title: "스파게티 물 주는 날",
+            speech: "너무 목 말라요..💧",
+            time: "오전 9:00",
+            read: false,
+            isToday: true,
+        },
+        {
+            id: "2",
+            plantKey: "rubber",
+            title: "미세먼지 좋음",
+            speech: "신선한 바람을 쐬고 싶어요 🌿",
+            time: "오전 8:30",
+            read: false,
+            isToday: true,
+        },
+        {
+            id: "3",
+            plantKey: "sansevieria",
+            title: "산세베리아 분갈이 시기",
+            speech: "슬슬 새 집이 필요해요!",
+            time: "어제",
+            read: true,
+            isToday: false,
+        },
+        {
+            id: "4",
+            plantKey: "pachira",
+            title: "파키라 건강 이상",
+            speech: "잎이 노랗게 변하고 있어요 🍂",
+            time: "2일 전",
+            read: true,
+            isToday: false,
+        },
+    ]);
 
     const [fontsLoaded] = useFonts({
         NeoDunggeunmo: require("./assets/fonts/NeoDunggeunmoPro-Regular.ttf"),
@@ -115,7 +154,11 @@ export default function App() {
             >
                 <Stack.Screen name="Home">
                     {(props) => (
-                        <HomeScreen {...props} appliedBg={appliedBg} />
+                        <HomeScreen
+                            {...props}
+                            appliedBg={appliedBg}
+                            hasUnread={notifications.some((n) => !n.read)}
+                        />
                     )}
                 </Stack.Screen>
 
@@ -209,6 +252,19 @@ export default function App() {
                             {...props}
                             appliedItem={appliedItem}
                             setAppliedItem={setAppliedItem}
+                        />
+                    )}
+                </Stack.Screen>
+
+                <Stack.Screen
+                    name="Notifications"
+                    options={{ headerShown: false }}
+                >
+                    {(props) => (
+                        <NotificationsScreen
+                            {...props}
+                            notifications={notifications}
+                            setNotifications={setNotifications}
                         />
                     )}
                 </Stack.Screen>

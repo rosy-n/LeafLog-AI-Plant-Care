@@ -23,7 +23,7 @@ const HOME_MENU_ITEMS = [
     { label: "스토어", icon: "storefront-outline", screen: "Store" },
 ];
 
-export default function HomeScreen({ navigation, appliedBg = "home-bg" }) {
+export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnread = false }) {
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
 
@@ -88,10 +88,13 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg" }) {
 
                 {/* 상단 오른쪽: 알림 */}
                 <View style={styles.notificationArea}>
-                    <GlassButton size={65}>
+                    <GlassButton
+                        size={65}
+                        onPress={() => navigation.navigate("Notifications")}
+                    >
                         <View>
                             <Ionicons name="notifications" size={44} color="#F4B63F" />
-                            <View style={styles.redDot} />
+                            {hasUnread && <View style={styles.redDot} />}
                         </View>
                     </GlassButton>
                 </View>
