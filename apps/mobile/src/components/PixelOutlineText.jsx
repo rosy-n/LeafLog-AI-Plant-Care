@@ -1,56 +1,45 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
-export default function PixelOutlineText({
-                                             children,
-                                             style,
-                                             strokeWidth = 2,
-                                         }) {
-    const strokeOffsets = [
-        [-strokeWidth, 0],
-        [strokeWidth, 0],
-        [0, -strokeWidth],
-        [0, strokeWidth],
-        [-strokeWidth, -strokeWidth],
-        [strokeWidth, -strokeWidth],
-        [-strokeWidth, strokeWidth],
-        [strokeWidth, strokeWidth],
-    ];
+const STROKE_DIRS = [
+    [-1,  0], [ 1,  0],
+    [ 0, -1], [ 0,  1],
+    [-1, -1], [ 1, -1],
+    [-1,  1], [ 1,  1],
+];
+
+export default function PixelOutlineText({ children, style, strokeWidth = 2 }) {
+    const p = strokeWidth;
 
     return (
-        <View style={styles.container}>
-            {strokeOffsets.map(([x, y], index) => (
+        <View style={[styles.container, { padding: p }]}>
+            {STROKE_DIRS.map(([dx, dy], index) => (
                 <Text
                     key={index}
                     style={[
-                        styles.strokeText,
                         style,
                         {
+                            position: "absolute",
+                            top:  p + dy * p,
+                            left: p + dx * p,
                             color: "#000000",
-                            transform: [{ translateX: x }, { translateY: y }],
                         },
                     ]}
                 >
                     {children}
                 </Text>
             ))}
-
-            <Text style={[styles.fillText, style]}>{children}</Text>
+            {/* Fill layer — in-flow, always on top of absolute stroke layers */}
+            <Text style={[style, styles.fill]}>{children}</Text>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        position: "relative",
         alignSelf: "center",
     },
-    strokeText: {
-        position: "absolute",
-        fontFamily: "NeoDunggeunmoPro-Regular",
-    },
-    fillText: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+    fill: {
         color: "#FFFFFF",
     },
 });

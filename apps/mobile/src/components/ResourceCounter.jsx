@@ -1,39 +1,35 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
+const STROKE_DIRS = [
+    [-1,  0], [ 1,  0],
+    [ 0, -1], [ 0,  1],
+    [-1, -1], [ 1, -1],
+    [-1,  1], [ 1,  1],
+];
+
 function OutlineText({ children, style, strokeWidth = 2 }) {
-    const offsets = [
-        [-strokeWidth, 0],
-        [strokeWidth, 0],
-        [0, -strokeWidth],
-        [0, strokeWidth],
-        [-strokeWidth, -strokeWidth],
-        [strokeWidth, -strokeWidth],
-        [-strokeWidth, strokeWidth],
-        [strokeWidth, strokeWidth],
-    ];
+    const p = strokeWidth;
 
     return (
-        <View style={styles.outlineWrapper}>
-            {offsets.map(([x, y], index) => (
+        <View style={[styles.outlineWrapper, { padding: p }]}>
+            {STROKE_DIRS.map(([dx, dy], index) => (
                 <Text
                     key={index}
                     style={[
                         style,
-                        styles.outlineStroke,
                         {
+                            position: "absolute",
+                            top:  p + dy * p,
+                            left: p + dx * p,
                             color: "#000000",
-                            transform: [{ translateX: x }, { translateY: y }],
                         },
                     ]}
                 >
                     {children}
                 </Text>
             ))}
-
-            <Text style={[style, styles.outlineFill]}>
-                {children}
-            </Text>
+            <Text style={[style, styles.outlineFill]}>{children}</Text>
         </View>
     );
 }
@@ -86,12 +82,7 @@ const styles = StyleSheet.create({
     },
 
     outlineWrapper: {
-        position: "relative",
         alignSelf: "center",
-    },
-
-    outlineStroke: {
-        position: "absolute",
     },
 
     outlineFill: {

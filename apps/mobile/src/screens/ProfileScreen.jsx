@@ -68,10 +68,7 @@ export default function ProfileScreen({ navigation }) {
                 <TouchableOpacity
                     activeOpacity={0.85}
                     style={styles.memoryButton}
-                    onPress={() => {
-                        // 추억 화면 연결 전이면 임시로 주석 처리해도 됩니다.
-                        // navigation.navigate("Memory");
-                    }}
+                    onPress={() => navigation.navigate("MemorialPlant")}
                 >
                     <Text style={styles.memoryButtonText}>
                         나의 정원에서 추억으로 이동

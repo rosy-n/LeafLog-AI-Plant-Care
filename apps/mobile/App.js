@@ -20,6 +20,7 @@ import SettingsScreen from "./src/screens/SettingsScreen";
 import StoreScreen from "./src/screens/StoreScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
+import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
 import { gardenPlants } from "./src/data/plants";
 
 const Stack = createNativeStackNavigator();
@@ -275,6 +276,19 @@ export default function App() {
                     options={{ headerShown: false }}
                 >
                     {(props) => <CalendarScreen {...props} />}
+                </Stack.Screen>
+
+                <Stack.Screen
+                    name="MemorialPlant"
+                    options={{
+                        presentation: "card",
+                        animation: "none",
+                        gestureEnabled: false,
+                    }}
+                >
+                    {(props) => (
+                        <MemorialPlantScreen {...props} appliedItem={appliedItem} />
+                    )}
                 </Stack.Screen>
 
                 <Stack.Screen
