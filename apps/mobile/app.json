@@ -1,24 +1,33 @@
 {
   "expo": {
-    "name": "LeafLog",
-    "slug": "leaflog",
-    "version": "0.1.0",
+<<<<<<< HEAD
+    "name": "mobile",
+    "slug": "mobile",
+    "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "leaflog",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "assetBundlePatterns": [
-      "assets/*"
-    ],
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#fffdf5"
-      }
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
     },
     "web": {
-      "bundler": "metro"
-    }
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
