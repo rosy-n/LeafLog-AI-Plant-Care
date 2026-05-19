@@ -21,8 +21,9 @@ import {
   signup,
   type AuthResponse,
 } from "./src/api";
+import MainApp from "./App.js";
 
-type Screen = "home" | "login" | "signup" | "nickname" | "done";
+type Screen = "home" | "login" | "signup" | "nickname";
 type CheckStatus = "idle" | "checking" | "available" | "taken";
 type FormErrors = Partial<{
   loginEmail: string;
@@ -215,7 +216,6 @@ export default function App() {
     try {
       const response = await login({ email, password: loginPassword });
       setAuth(response);
-      setScreen("done");
     } catch (error) {
       setFormErrors({
         api: error instanceof Error ? error.message : "다시 시도해주세요.",
@@ -243,7 +243,6 @@ export default function App() {
         marketing_opt_in: agreeMarketing,
       });
       setAuth(response);
-      setScreen("done");
     } catch (error) {
       setFormErrors({
         api: error instanceof Error ? error.message : "다시 시도해주세요.",
@@ -295,6 +294,10 @@ export default function App() {
           error instanceof Error ? error.message : "이메일 중복확인에 실패했어요.",
       }));
     }
+  }
+
+  if (auth) {
+    return <MainApp />;
   }
 
   const frameStyle = {
@@ -398,16 +401,6 @@ export default function App() {
                 clearError("nickname", "api");
               }}
               onSubmit={handleSignup}
-            />
-          )}
-          {screen === "done" && (
-            <DoneScreen
-              nickname={auth?.user.nickname || "초록"}
-              onLogout={() => {
-                setAuth(null);
-                resetAuthForms();
-                setScreen("home");
-              }}
             />
           )}
         </View>
