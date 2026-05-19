@@ -57,7 +57,7 @@ async function preloadImages() {
     await Promise.all(cacheImages);
 }
 
-export default function App() {
+export default function MainApp() {
     const [plants, setPlants] = useState(gardenPlants);
     const [appliedItem, setAppliedItem] = useState(null);
     const [username, setUsername] = useState("식물집사");
