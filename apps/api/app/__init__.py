@@ -1,0 +1,1 @@
+"""LeafLog FastAPI application package."""
