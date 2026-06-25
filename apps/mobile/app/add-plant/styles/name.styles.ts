@@ -7,14 +7,17 @@ const CHAR_IMG_W = Math.round(screenWidth * 0.55);
 const CHAR_IMG_H = Math.min(Math.round(CHAR_IMG_W * (4 / 3)), Math.round(screenHeight * 0.35));
 
 export const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   flex: { flex: 1 },
 
   scrollContent: {
-    flexGrow: 1,
     backgroundColor: Colors.background,
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 40,
+    paddingBottom: 16,
   },
 
   // Character image at top — Dimensions 기반 명시적 픽셀로 고정
@@ -52,7 +55,13 @@ export const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  spacer: { flex: 1 },
+  // 버튼 고정 컨테이너 — root View 하단, 키보드/스크롤 어떤 상태에도 위치 불변
+  buttonContainer: {
+    backgroundColor: Colors.background,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 40,
+  },
 
   // Confirm button
   confirmBtn: {
