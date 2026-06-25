@@ -18,6 +18,7 @@ import { styles } from './styles/info.styles';
 import type { NewPlantPayload, NongsaroPlantDetail } from '../../types/plant';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
+const PLACEHOLDER_CHARACTER = require('../../assets/dot-character-placeholder.png');
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -240,10 +241,11 @@ export default function InfoScreen() {
   };
 
   // Plant header image: use PlantNet reference or 농사로 thumb
+  // params.plantDetail이 "null"(문자열)일 수 있으므로 parse 후 null 체크 필수
   const headerImageUri = (() => {
     if (params.plantDetail) {
-      const d: NongsaroPlantDetail = JSON.parse(params.plantDetail);
-      if (d.imageUrls?.[0]?.thumb) return d.imageUrls[0].thumb;
+      const d: NongsaroPlantDetail | null = JSON.parse(params.plantDetail);
+      if (d && d.imageUrls?.[0]?.thumb) return d.imageUrls[0].thumb;
     }
     return null;
   })();
@@ -262,8 +264,10 @@ export default function InfoScreen() {
         <View style={styles.plantHeader}>
           {headerImageUri ? (
             <Image source={{ uri: headerImageUri }} style={styles.plantHeaderImage} resizeMode="cover" />
+          ) : params.capturedPhotoUri ? (
+            <Image source={{ uri: params.capturedPhotoUri }} style={styles.plantHeaderImage} resizeMode="cover" />
           ) : (
-            <View style={styles.plantHeaderImage} />
+            <Image source={PLACEHOLDER_CHARACTER} style={styles.plantHeaderImage} resizeMode="contain" />
           )}
           <View style={{ flex: 1 }}>
             <Text style={styles.plantHeaderName} numberOfLines={1}>
