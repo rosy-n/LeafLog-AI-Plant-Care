@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useState } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
 import { styles } from './styles/info.styles';
 import type { NewPlantPayload, NongsaroPlantDetail } from '../../types/plant';

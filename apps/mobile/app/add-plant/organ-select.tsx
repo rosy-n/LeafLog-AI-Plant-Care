@@ -6,7 +6,7 @@ import {
   View,
 } from 'react-native';
 import { useState } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
 import { common } from './styles/common.styles';
 import { styles } from './styles/organ-select.styles';

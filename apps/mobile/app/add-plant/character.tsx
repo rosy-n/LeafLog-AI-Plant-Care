@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useRef, useState } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -262,26 +262,32 @@ export default function CharacterScreen() {
   // ── render: result ────────────────────────────────────────────────────────
 
   return (
-    <View style={styles.container}>
-      <Text style={[common.title, { marginBottom: 8 }]} numberOfLines={1}>도트 캐릭터가 완성됐어요!</Text>
-      <Image source={PLACEHOLDER_CHARACTER} style={styles.characterImage} resizeMode="contain" />
-      <View style={styles.spacer} />
-      <View style={styles.rowBtns}>
-        <TouchableOpacity
-          style={[styles.btn, styles.outlineBtn]}
-          onPress={() => { setPhotoUri(null); setScreenState('guide'); }}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.outlineBtnText}>다시 만들기</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.btn, styles.primaryBtn]}
-          onPress={handleNext}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.primaryBtnText}>확인</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={styles.flex}>
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={[common.title, { marginBottom: 8 }]} numberOfLines={1}>도트 캐릭터가 완성됐어요!</Text>
+        <Image source={PLACEHOLDER_CHARACTER} style={styles.characterImage} resizeMode="contain" />
+        <View style={styles.spacer} />
+        <View style={styles.rowBtns}>
+          <TouchableOpacity
+            style={[styles.btn, styles.outlineBtn]}
+            onPress={() => { setPhotoUri(null); setScreenState('guide'); }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.outlineBtnText}>다시 만들기</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.btn, styles.primaryBtn]}
+            onPress={handleNext}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.primaryBtnText}>확인</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </View>
   );
 }

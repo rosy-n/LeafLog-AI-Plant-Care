@@ -1,22 +1,26 @@
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
 import { Fonts } from '../../../constants/fonts';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const CHAR_IMG_W = Math.round(screenWidth * 0.55);
+const CHAR_IMG_H = Math.min(Math.round(CHAR_IMG_W * (4 / 3)), Math.round(screenHeight * 0.35));
 
 export const styles = StyleSheet.create({
   flex: { flex: 1 },
 
-  container: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     backgroundColor: Colors.background,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 40,
   },
 
-  // Character image at top
+  // Character image at top — Dimensions 기반 명시적 픽셀로 고정
   characterImage: {
-    width: '55%',
-    aspectRatio: 1,
+    width: CHAR_IMG_W,
+    height: CHAR_IMG_H,
     alignSelf: 'center',
     marginBottom: 24,
     borderRadius: 20,

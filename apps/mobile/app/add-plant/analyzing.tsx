@@ -1,6 +1,6 @@
 import { Animated, Image, Text, View } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
 import { identifyPlant } from '../../services/plantnet';
 import { common } from './styles/common.styles';

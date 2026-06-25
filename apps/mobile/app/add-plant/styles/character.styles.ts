@@ -2,10 +2,14 @@ import { Dimensions, StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
 import { Fonts } from '../../../constants/fonts';
 
-const { width } = Dimensions.get('window');
+const { width, height: screenHeight } = Dimensions.get('window');
 // 3:4 portrait 이미지 — iPhone SE(667pt)까지 화면 넘침 없도록 140pt 상한 적용
 const CHAR_SIZE = Math.min((width - 64) / 2, 140);
 const CHAR_HEIGHT = Math.round(CHAR_SIZE * (4 / 3));
+
+// result 화면의 캐릭터 이미지: 화면 높이의 40%를 상한으로 명시적 픽셀 계산
+const CHAR_IMG_W = Math.round(width * 0.55);
+const CHAR_IMG_H = Math.min(Math.round(CHAR_IMG_W * (4 / 3)), Math.round(screenHeight * 0.4));
 
 export const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -219,9 +223,10 @@ export const styles = StyleSheet.create({
   // ── Result ─────────────────────────────────────────────────────────────────
 
   // placeholder 원본 1792×2388 = 3:4 portrait
+  // 퍼센트 width는 flex 컨테이너에서 해석이 불안정 → Dimensions 기반 명시적 픽셀로 고정
   characterImage: {
-    width: '55%',
-    aspectRatio: 3 / 4,
+    width: CHAR_IMG_W,
+    height: CHAR_IMG_H,
     alignSelf: 'center',
     marginBottom: 32,
     borderRadius: 20,
