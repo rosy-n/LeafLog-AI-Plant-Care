@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
@@ -6,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from .config import settings
 from .database import Base, engine, get_db
-from .models import User
-from .schemas import AvailabilityResponse, AuthResponse, LoginRequest, SignupRequest, UserRead
+from .models import Plant, User
+from .schemas import AvailabilityResponse, AuthResponse, LoginRequest, PlantCreate, PlantRead, SignupRequest, UserRead
 from .security import create_access_token, decode_access_token, hash_password, verify_password
 
 app = FastAPI(title="LeafLog API", version="0.1.0")
@@ -75,6 +77,37 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
         )
 
     return AuthResponse(access_token=create_access_token(str(user.id)), user=UserRead.model_validate(user))
+
+
+@app.post("/api/plants", response_model=PlantRead, status_code=status.HTTP_201_CREATED)
+def create_plant(payload: PlantCreate, db: Session = Depends(get_db)) -> PlantRead:
+    def parse_iso(s: str | None) -> datetime | None:
+        if not s:
+            return None
+        try:
+            return datetime.fromisoformat(s.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+    plant = Plant(
+        cntnts_no=payload.cntntsNo or None,
+        scientific_name=payload.scientificName or None,
+        common_name_ko=payload.commonNameKo,
+        nickname=payload.nickname,
+        character_image_url=payload.characterImageUrl or None,
+        captured_photo_uri=payload.capturedPhotoUri or None,
+        location=payload.location,
+        light_level=payload.lightLevel,
+        plant_height=payload.plantHeight,
+        pot_diameter=payload.potDiameter,
+        soil_note=payload.soilNote or None,
+        last_watered_at=parse_iso(payload.lastWateredAt),
+        last_repotted_at=parse_iso(payload.lastRepottedAt),
+    )
+    db.add(plant)
+    db.commit()
+    db.refresh(plant)
+    return PlantRead.from_plant(plant)
 
 
 @app.get("/auth/me", response_model=UserRead)

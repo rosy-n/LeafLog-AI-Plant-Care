@@ -310,6 +310,14 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
                     <Ionicons name="close" size={30} color="#2F6D2E" />
                 </LiquidGlassButton>
 
+                <LiquidGlassButton
+                    size={60}
+                    onPress={() => navigation.navigate('AddPlant')}
+                    style={styles.addBtn}
+                >
+                    <Ionicons name="add" size={34} color="#2F6D2E" />
+                </LiquidGlassButton>
+
                 {showSortMenu && (
                     <>
                         <TouchableOpacity
@@ -519,6 +527,12 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 32,
         left: 24,
+        zIndex: 100,
+    },
+    addBtn: {
+        position: "absolute",
+        bottom: 32,
+        right: 24,
         zIndex: 100,
     },
 

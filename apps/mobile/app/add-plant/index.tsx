@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useRef, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../../src/hooks/useAddPlantRouter';
 import * as ImagePicker from 'expo-image-picker';
 
 import { searchPlants } from '../../services/nongsaro';

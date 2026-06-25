@@ -65,3 +65,37 @@ class AuthResponse(BaseModel):
 
 class AvailabilityResponse(BaseModel):
     available: bool
+
+
+class PlantCreate(BaseModel):
+    cntntsNo: str | None = None
+    scientificName: str | None = None
+    commonNameKo: str
+    nickname: str
+    characterImageUrl: str = ''
+    capturedPhotoUri: str = ''
+    location: str
+    lightLevel: str
+    plantHeight: int = 0
+    potDiameter: int = 0
+    soilNote: str = ''
+    lastWateredAt: str
+    lastRepottedAt: str | None = None
+
+
+class PlantRead(BaseModel):
+    id: int
+    nickname: str
+    common_name_ko: str
+    created_at: str
+
+    model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_plant(cls, plant: object) -> "PlantRead":
+        return cls(
+            id=plant.id,  # type: ignore[attr-defined]
+            nickname=plant.nickname,  # type: ignore[attr-defined]
+            common_name_ko=plant.common_name_ko,  # type: ignore[attr-defined]
+            created_at=plant.created_at.isoformat(),  # type: ignore[attr-defined]
+        )

@@ -21,6 +21,7 @@ import StoreScreen from "./src/screens/StoreScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
 import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
+import AddPlantNavigator from "./src/screens/AddPlantNavigator";
 import { gardenPlants } from "./src/data/plants";
 
 const Stack = createNativeStackNavigator();
@@ -148,6 +149,7 @@ export default function MainApp() {
     return (
         <NavigationContainer>
             <Stack.Navigator
+                id="MainStack"
                 initialRouteName="Home"
                 screenOptions={{
                     headerShown: false,
@@ -197,6 +199,12 @@ export default function MainApp() {
                         <PlantDetailScreen {...props} appliedItem={appliedItem} />
                     )}
                 </Stack.Screen>
+
+                <Stack.Screen
+                    name="AddPlant"
+                    component={AddPlantNavigator}
+                    options={{ headerShown: false, animation: "slide_from_bottom" }}
+                />
 
                 <Stack.Screen
                     name="Profile"
