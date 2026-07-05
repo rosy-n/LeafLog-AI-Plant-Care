@@ -1,6 +1,6 @@
 image_id,file_name,plant_species,symptom_group,suspected_cause,plant_part,source_url
-1,LL-VR-JE-001.png,몬스테라,잎 반점,곰팡이병(점무늬병/탄저, 잎마름병),잎,https://example.com/source1
+1,LL-VR-JE-001.png,몬스테라,잎 반점,잎마름병,잎,https://example.com/source1
 2,LL-VR-JE-002.png,스투키,줄기 무름,과습,줄기,https://example.com/source2
-3,LL-VR-MN-001.png,홍콩야자,잎 갈변,일소현상(광 과다),잎,https://example.com/source3
+3,LL-VR-MN-001.png,홍콩야자,잎 갈변,일소현상,잎,https://example.com/source3
 4,LL-VR-MN-002.png,고무나무,잎 표면 벌레,깍지벌레,잎,https://example.com/source4
 5,LL-VR-JE-003.png,올리브나무,잎 흰가루,흰가루병,잎,https://example.com/source5
