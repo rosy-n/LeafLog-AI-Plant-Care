@@ -243,7 +243,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity
-                        style={styles.headerBtn}
+                        style={styles.headerButton}
                         onPress={() => navigation.goBack()}
                         activeOpacity={0.7}
                     >
@@ -260,7 +260,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                         </TouchableOpacity>
                     </View>
 
-                    <View style={styles.headerBtn} />
+                    <View style={styles.headerButton} />
                 </View>
 
                 <KeyboardAvoidingView
@@ -605,9 +605,9 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingHorizontal: 20,
+        paddingHorizontal: 24,
     },
-    headerBtn: {
+    headerButton: {
         width: 44,
         height: 44,
         alignItems: "center",

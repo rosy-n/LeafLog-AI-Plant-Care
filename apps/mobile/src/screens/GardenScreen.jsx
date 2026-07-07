@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
 
     addBtn: {
         position: "absolute",
-        bottom: 32,
+        bottom: 28,
         right: 24,
         zIndex: 100,
     },

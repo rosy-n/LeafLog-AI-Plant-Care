@@ -69,10 +69,10 @@ export default function ConsultationHistoryScreen({ navigation }) {
                 <View style={styles.header}>
                     <TouchableOpacity
                         activeOpacity={0.75}
-                        style={styles.headerBackButton}
+                        style={styles.headerButton}
                         onPress={() => navigation.goBack()}
                     >
-                        <Ionicons name="chevron-back" size={32} color={Colors.textBlack} />
+                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
                     </TouchableOpacity>
 
                     <Text style={styles.title}>상담 기록</Text>
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,
-        paddingHorizontal: 20,
+        paddingHorizontal: 24,
     },
 
     header: {
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
     },
 
-    headerBackButton: {
+    headerButton: {
         width: 44,
         height: 44,
         alignItems: "center",
@@ -278,8 +278,8 @@ const styles = StyleSheet.create({
 
     chatButton: {
         position: "absolute",
-        right: 20,
-        bottom: 20,
+        right: 24,
+        bottom: 28,
         width: 60,
         height: 60,
         borderRadius: 30,
