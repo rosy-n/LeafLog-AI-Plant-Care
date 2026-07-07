@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     },
 
     title: {
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.title,
         color: "#111111",
         includeFontPadding: false,
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
         height: "100%",
         fontSize: FontSizes.body,
         color: "#111",
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         paddingVertical: 0,
         includeFontPadding: false,
     },
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: FontSizes.bodyLarge,
         color: "#111",
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         includeFontPadding: false,
         marginRight: 8,
     },
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     cardSummary: {
         fontSize: FontSizes.small,
         color: "#333",
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         includeFontPadding: false,
         marginBottom: 6,
         lineHeight: 18,
@@ -262,13 +262,13 @@ const styles = StyleSheet.create({
     cardDetail: {
         fontSize: FontSizes.small,
         color: "#555",
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         includeFontPadding: false,
         lineHeight: 17,
     },
 
     emptyText: {
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.body,
         color: "#999",
         textAlign: "center",

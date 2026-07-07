@@ -1,6 +1,12 @@
 export const Fonts = {
   neoDunggeunmo: 'NeoDunggeunmoPro-Regular',
-  nanumSquareNeo: 'NanumSquareNeo',
+  nanumSquareNeo: {
+    light: 'NanumSquareNeo-Light',
+    regular: 'NanumSquareNeo-Regular',
+    bold: 'NanumSquareNeo-Bold',
+    extraBold: 'NanumSquareNeo-ExtraBold',
+    heavy: 'NanumSquareNeo-Heavy',
+  },
 } as const;
 
 export const FontSizes = {

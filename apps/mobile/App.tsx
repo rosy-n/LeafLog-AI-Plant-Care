@@ -966,10 +966,9 @@ const styles = StyleSheet.create({
   brandText: {
     marginTop: 19,
     color: "#3e7c37",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.displayLarge,
     lineHeight: 54,
-    fontWeight: "900",
     textShadowColor: "#235c2b",
     textShadowOffset: { width: 1, height: 2 },
     textShadowRadius: 0,
@@ -977,14 +976,12 @@ const styles = StyleSheet.create({
   tagline: {
     marginTop: 14,
     color: "#807a70",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.bodyLarge,
-    fontWeight: "800",
   },
   heart: {
     color: colors.heart,
-    fontFamily: Fonts.nanumSquareNeo,
-    fontWeight: "900",
+    fontFamily: Fonts.nanumSquareNeo.heavy,
   },
   landingPlant: {
     top: 323,
@@ -1028,9 +1025,8 @@ const styles = StyleSheet.create({
   },
   pixelButtonText: {
     color: "#fff",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.subtitle,
-    fontWeight: "900",
   },
   pixelButtonSecondaryText: {
     color: colors.green,
@@ -1057,10 +1053,9 @@ const styles = StyleSheet.create({
   },
   backText: {
     color: "#111",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.display,
     lineHeight: 38,
-    fontWeight: "300",
   },
   authHead: {
     marginTop: 68,
@@ -1079,18 +1074,16 @@ const styles = StyleSheet.create({
   },
   authTitle: {
     color: colors.greenDark,
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.display,
     lineHeight: 38,
-    fontWeight: "900",
   },
   authSubtitle: {
     marginTop: 8,
     color: "#7f7c74",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.bodyLarge,
     lineHeight: 19,
-    fontWeight: "700",
   },
   form: {
     marginTop: 28,
@@ -1108,9 +1101,8 @@ const styles = StyleSheet.create({
     marginLeft: 2,
     marginBottom: 8,
     color: "#242424",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.small,
-    fontWeight: "900",
   },
   inputWrap: {
     position: "relative",
@@ -1131,9 +1123,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fffef9",
     paddingHorizontal: 15,
     color: "#373737",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.body,
-    fontWeight: "700",
   },
   signupInput: {
     height: 44,
@@ -1154,26 +1145,23 @@ const styles = StyleSheet.create({
   },
   passwordToggleText: {
     color: "#6f6a61",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.small,
-    fontWeight: "900",
   },
   errorText: {
     marginTop: 6,
     marginLeft: 2,
     color: colors.heart,
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
     lineHeight: 15,
-    fontWeight: "800",
   },
   formMessage: {
     marginTop: 10,
     color: colors.heart,
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
     lineHeight: 17,
-    fontWeight: "800",
     textAlign: "center",
   },
   successText: {
@@ -1191,9 +1179,8 @@ const styles = StyleSheet.create({
   },
   smallButtonText: {
     color: colors.green,
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.small,
-    fontWeight: "900",
   },
   forgot: {
     alignSelf: "flex-end",
@@ -1201,9 +1188,8 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     color: "#4d8642",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
-    fontWeight: "800",
     textDecorationLine: "underline",
   },
   loginButton: {
@@ -1223,9 +1209,8 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     color: "#8e877d",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.body,
-    fontWeight: "700",
   },
   socials: {
     flexDirection: "row",
@@ -1245,9 +1230,8 @@ const styles = StyleSheet.create({
   },
   socialIcon: {
     color: "#4285f4",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.subtitle,
-    fontWeight: "900",
   },
   kakaoIcon: {
     width: 18,
@@ -1255,16 +1239,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: "#f8d43e",
     color: "#2d241f",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.caption,
     textAlign: "center",
     lineHeight: 18,
   },
   socialLabel: {
     color: "#33302c",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.body,
-    fontWeight: "800",
   },
   terms: {
     marginTop: 4,
@@ -1297,31 +1280,27 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     color: "#fff",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.caption,
     lineHeight: 12,
-    fontWeight: "900",
   },
   termText: {
     flex: 1,
     color: "#646057",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
-    fontWeight: "800",
   },
   termTextStrong: {
     color: "#4a5046",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.body,
-    fontWeight: "900",
   },
   viewLink: {
     width: 38,
     color: "#56534d",
     textAlign: "right",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
-    fontWeight: "800",
   },
   signupButton: {
     marginTop: 30,
@@ -1404,9 +1383,8 @@ const styles = StyleSheet.create({
   },
   nickBubbleText: {
     color: "#1f2a1e",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.body,
-    fontWeight: "900",
   },
   cursor: {
     width: 2,
@@ -1418,19 +1396,17 @@ const styles = StyleSheet.create({
     marginTop: 24,
     color: colors.greenDark,
     textAlign: "center",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.screenTitle,
     lineHeight: 33,
-    fontWeight: "900",
   },
   nickCopy: {
     marginTop: 18,
     color: "#76736c",
     textAlign: "center",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.bodyLarge,
     lineHeight: 23,
-    fontWeight: "700",
   },
   nickForm: {
     marginTop: 42,
@@ -1443,17 +1419,15 @@ const styles = StyleSheet.create({
     top: 16,
     right: 13,
     color: "#8f8980",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
-    fontWeight: "800",
   },
   hint: {
     marginTop: -14,
     marginLeft: 2,
     color: "#a5a097",
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
-    fontWeight: "800",
   },
   startButton: {
     marginTop: 36,
@@ -1473,17 +1447,15 @@ const styles = StyleSheet.create({
   doneTitle: {
     marginTop: 28,
     color: colors.greenDark,
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.screenTitle,
-    fontWeight: "900",
     textAlign: "center",
   },
   doneCopy: {
     marginTop: 12,
     color: colors.muted,
-    fontFamily: Fonts.nanumSquareNeo,
+    fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.bodyLarge,
-    fontWeight: "700",
   },
   doneButton: {
     alignSelf: "stretch",
