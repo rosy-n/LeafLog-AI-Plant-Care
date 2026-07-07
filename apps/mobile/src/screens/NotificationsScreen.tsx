@@ -13,8 +13,6 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.neoDunggeunmo;
-
 const PLANT_IMAGES: Record<string, any> = {
     spaghetti: require("../../assets/plants/spaghetti.png"),
     rubber: require("../../assets/plants/rubber.png"),
@@ -145,7 +143,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     headerTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
@@ -164,7 +162,7 @@ const styles = StyleSheet.create({
     },
 
     sectionLabel: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#5A8A5A",
         includeFontPadding: false,
@@ -218,20 +216,20 @@ const styles = StyleSheet.create({
         gap: 5,
     },
     title: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#8AA880",
         includeFontPadding: false,
     },
     speech: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#1E3D1C",
         includeFontPadding: false,
         lineHeight: 20,
     },
     time: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#9AAA90",
         includeFontPadding: false,
@@ -245,7 +243,7 @@ const styles = StyleSheet.create({
         paddingTop: 80,
     },
     emptyText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#B0C0A8",
         includeFontPadding: false,

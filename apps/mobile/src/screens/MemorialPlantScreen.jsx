@@ -20,8 +20,6 @@ import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.neoDunggeunmo;
-
 const MENU_ITEMS = [
     { label: "프로필", screen: "Profile" },
     { label: "식물 꾸미기", screen: "PlantDecorate" },
@@ -398,7 +396,7 @@ const styles = StyleSheet.create({
         zIndex: 20,
     },
     speechText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
         color: "#1D1D1D",
     },
@@ -438,14 +436,14 @@ const styles = StyleSheet.create({
         zIndex: 30,
     },
     plantName: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
         color: "#FFFFFF",
         letterSpacing: 1,
         lineHeight: 50,
     },
     dayText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
         color: "#FFFFFF",
         letterSpacing: 1,
@@ -524,7 +522,7 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255,255,255,0.62)",
     },
     menuItemText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#263326",
         textShadowColor: "rgba(255,255,255,0.65)",
@@ -566,7 +564,7 @@ const styles = StyleSheet.create({
         marginBottom: 14,
     },
     modalTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
         color: "#2A2A2A",
         textAlign: "center",
@@ -576,7 +574,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     modalDesc: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#999999",
         textAlign: "center",
@@ -599,7 +597,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     modalBtnSecondaryText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#7A6E54",
     },
@@ -618,12 +616,12 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     modalBtnPrimaryText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#FFFFFF",
     },
     modalSparkle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
         color: "#FFFFFF",
     },

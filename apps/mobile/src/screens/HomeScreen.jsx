@@ -13,8 +13,6 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.neoDunggeunmo;
-
 const BG_IMAGES = {
     "home-bg": require("../../assets/images/home-bg.png"),
     "store_bg1": require("../../assets/images/store_bg1.png"),
@@ -446,7 +444,7 @@ const styles = StyleSheet.create({
         marginRight: 5,
     },
     menuItemText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#263326",
         textShadowColor: "rgba(255,255,255,0.65)",
@@ -557,7 +555,7 @@ const styles = StyleSheet.create({
     },
 
     allText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
         color: "#315B3B",
         textTransform: "lowercase",

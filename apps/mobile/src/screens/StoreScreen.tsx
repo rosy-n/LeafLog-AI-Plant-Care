@@ -14,8 +14,6 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.neoDunggeunmo;
-
 const BG_ITEMS = [
     {
         key: "home-bg",
@@ -205,7 +203,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     headerTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
@@ -222,7 +220,7 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
     },
     coinText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#C8870A",
         includeFontPadding: false,
@@ -236,7 +234,7 @@ const styles = StyleSheet.create({
     },
 
     sectionTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#5A8A5A",
         includeFontPadding: false,
@@ -269,13 +267,13 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     itemName: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#222222",
         includeFontPadding: false,
     },
     freeTag: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#5A9A5A",
         includeFontPadding: false,
@@ -286,7 +284,7 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     priceText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#C8870A",
         includeFontPadding: false,
@@ -308,7 +306,7 @@ const styles = StyleSheet.create({
         borderColor: "#5A9A5A",
     },
     btnAppliedText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#5A9A5A",
         includeFontPadding: false,
@@ -317,7 +315,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#2F702D",
     },
     btnApplyText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#FFFFFF",
         includeFontPadding: false,
@@ -329,7 +327,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#E0E0E0",
     },
     btnBuyText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#FFFFFF",
         includeFontPadding: false,

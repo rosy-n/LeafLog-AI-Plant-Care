@@ -19,7 +19,6 @@ import * as ImagePicker from "expo-image-picker";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.neoDunggeunmo;
 const TODAY = "2026-05-17";
 
 const PLANT_IMAGES: Record<string, any> = {
@@ -619,7 +618,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     monthText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
         color: "#111111",
         includeFontPadding: false,
@@ -655,7 +654,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     weekNavText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#5A8A5A",
         includeFontPadding: false,
@@ -687,14 +686,14 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     dayLabel: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#8AB08A",
         includeFontPadding: false,
         paddingVertical: 6,
     },
     dayNum: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#222222",
         includeFontPadding: false,
@@ -738,7 +737,7 @@ const styles = StyleSheet.create({
         borderColor: "#5A9A5A",
     },
     legendText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#7A9A7A",
         includeFontPadding: false,
@@ -759,7 +758,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
     },
     diaryDateText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
         color: "#1A2E1A",
         includeFontPadding: false,
@@ -774,7 +773,7 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
     },
     savedBadgeText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#5A8A5A",
         includeFontPadding: false,
@@ -841,7 +840,7 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     photoAddText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
         color: "#C0C8BC",
         includeFontPadding: false,
@@ -856,7 +855,7 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
     },
     photoBadgeText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
         color: "#FFFFFF",
         includeFontPadding: false,
@@ -876,7 +875,7 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     stickyNoteInput: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#333322",
         minHeight: 80,
@@ -896,7 +895,7 @@ const styles = StyleSheet.create({
         elevation: 3,
     },
     saveBtnText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#FFFFFF",
         includeFontPadding: false,
@@ -922,7 +921,7 @@ const styles = StyleSheet.create({
         elevation: 10,
     },
     pickerTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#2A4020",
         textAlign: "center",
@@ -943,7 +942,7 @@ const styles = StyleSheet.create({
         height: 40,
     },
     pickerName: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#222222",
         flex: 1,

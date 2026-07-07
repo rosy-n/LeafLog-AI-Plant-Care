@@ -15,8 +15,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.neoDunggeunmo;
-
 const ITEMS = [
     {
         id: 1,
@@ -368,7 +366,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     headerTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
@@ -409,12 +407,12 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     affinityLabel: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#4A6240",
     },
     affinityScore: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
         color: "#1F3C18",
     },
@@ -423,7 +421,7 @@ const styles = StyleSheet.create({
         color: "#3A5830",
     },
     affinityLevelText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
         color: "#2B6B20",
     },
@@ -440,7 +438,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 2,
     },
     nextThresholdText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
         color: "#5A7A4A",
     },
@@ -478,12 +476,12 @@ const styles = StyleSheet.create({
         gap: 2,
     },
     plantName: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
         color: "#1F3018",
     },
     plantDay: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#4A6840",
     },
@@ -500,7 +498,7 @@ const styles = StyleSheet.create({
         borderColor: "rgba(60,140,45,0.35)",
     },
     appliedBadgeText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#2E6A22",
     },
@@ -514,7 +512,7 @@ const styles = StyleSheet.create({
         borderColor: "rgba(150,150,150,0.3)",
     },
     noItemBadgeText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#888",
     },
@@ -542,7 +540,7 @@ const styles = StyleSheet.create({
         borderRadius: 22,
     },
     itemSectionTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#2A4020",
         marginLeft: 18,
@@ -633,7 +631,7 @@ const styles = StyleSheet.create({
         borderColor: "rgba(160,160,160,0.35)",
     },
     levelBadgeText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
         color: "#888",
     },
@@ -641,7 +639,7 @@ const styles = StyleSheet.create({
         color: "#2E7020",
     },
     itemLabel: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
         color: "#2A4020",
         textAlign: "center",
@@ -667,7 +665,7 @@ const styles = StyleSheet.create({
         borderColor: "rgba(200,80,60,0.35)",
     },
     removeButtonText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#A03020",
     },
