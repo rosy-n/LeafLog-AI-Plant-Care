@@ -11,7 +11,7 @@ export default function HeartsRow({ count = 5, size = 26 }) {
                         styles.heart,
                         {
                             fontSize: size,
-                            color: item <= count ? "#D83226" : "#FFFFFF",
+                            color: item <= count ? "#D83226" : "#A7A7A7",
                         },
                     ]}
                 >
