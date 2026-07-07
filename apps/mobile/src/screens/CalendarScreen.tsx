@@ -17,7 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.neoDunggeunmo;
 const TODAY = "2026-05-17";
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
     },
     monthText: {
         fontFamily: FONT,
-        fontSize: 18,
+        fontSize: FontSizes.subtitle,
         color: "#111111",
         includeFontPadding: false,
         minWidth: 116,
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
     },
     weekNavText: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#5A8A5A",
         includeFontPadding: false,
     },
@@ -688,14 +688,14 @@ const styles = StyleSheet.create({
     },
     dayLabel: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#8AB08A",
         includeFontPadding: false,
         paddingVertical: 6,
     },
     dayNum: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#222222",
         includeFontPadding: false,
     },
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
     },
     legendText: {
         fontFamily: FONT,
-        fontSize: 11,
+        fontSize: FontSizes.small,
         color: "#7A9A7A",
         includeFontPadding: false,
     },
@@ -760,7 +760,7 @@ const styles = StyleSheet.create({
     },
     diaryDateText: {
         fontFamily: FONT,
-        fontSize: 18,
+        fontSize: FontSizes.subtitle,
         color: "#1A2E1A",
         includeFontPadding: false,
     },
@@ -775,7 +775,7 @@ const styles = StyleSheet.create({
     },
     savedBadgeText: {
         fontFamily: FONT,
-        fontSize: 11,
+        fontSize: FontSizes.small,
         color: "#5A8A5A",
         includeFontPadding: false,
     },
@@ -842,7 +842,7 @@ const styles = StyleSheet.create({
     },
     photoAddText: {
         fontFamily: FONT,
-        fontSize: 10,
+        fontSize: FontSizes.caption,
         color: "#C0C8BC",
         includeFontPadding: false,
     },
@@ -857,7 +857,7 @@ const styles = StyleSheet.create({
     },
     photoBadgeText: {
         fontFamily: FONT,
-        fontSize: 10,
+        fontSize: FontSizes.caption,
         color: "#FFFFFF",
         includeFontPadding: false,
     },
@@ -877,7 +877,7 @@ const styles = StyleSheet.create({
     },
     stickyNoteInput: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#333322",
         minHeight: 80,
         textAlignVertical: "top",
@@ -897,7 +897,7 @@ const styles = StyleSheet.create({
     },
     saveBtnText: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         color: "#FFFFFF",
         includeFontPadding: false,
     },
@@ -923,7 +923,7 @@ const styles = StyleSheet.create({
     },
     pickerTitle: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         color: "#2A4020",
         textAlign: "center",
         paddingVertical: 14,
@@ -944,7 +944,7 @@ const styles = StyleSheet.create({
     },
     pickerName: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#222222",
         flex: 1,
         includeFontPadding: false,

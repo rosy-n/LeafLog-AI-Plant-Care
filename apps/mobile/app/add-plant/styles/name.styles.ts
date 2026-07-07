@@ -1,6 +1,6 @@
 import { Dimensions, StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const CHAR_IMG_W = Math.round(screenWidth * 0.55);
@@ -45,12 +45,12 @@ export const styles = StyleSheet.create({
     flex: 1,
     height: 52,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 18,
+    fontSize: FontSizes.subtitle,
     color: Colors.textBlack,
   },
   charCount: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
     marginLeft: 8,
   },
@@ -74,7 +74,7 @@ export const styles = StyleSheet.create({
   confirmBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
   confirmBtnTextDisabled: { color: Colors.textGray },
 });

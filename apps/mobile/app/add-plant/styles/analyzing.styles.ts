@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
 
 export const styles = StyleSheet.create({
   container: {
@@ -43,7 +43,7 @@ export const styles = StyleSheet.create({
 
   subtitle: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
     textAlign: 'center',
   },

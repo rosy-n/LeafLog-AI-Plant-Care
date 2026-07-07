@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.neoDunggeunmo;
 
@@ -70,13 +70,13 @@ const styles = StyleSheet.create({
 
     drop: {
         width: 38,
-        fontSize: 31,
+        fontSize: FontSizes.display,
         marginRight: 7,
     },
 
     nutrient: {
         width: 38,
-        fontSize: 35,
+        fontSize: FontSizes.display,
         marginRight: 7,
         color: "#39D13A",
         textShadowColor: "#177E25",
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
 
     text: {
         fontFamily: FONT,
-        fontSize: 27,
+        fontSize: FontSizes.screenTitle,
         color: "#FFFFFF",
         letterSpacing: 0.5,
         lineHeight: 32,

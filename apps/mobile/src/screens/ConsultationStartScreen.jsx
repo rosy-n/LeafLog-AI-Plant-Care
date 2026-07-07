@@ -15,7 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.nanumSquareNeo;
 
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
 
     title: {
         fontFamily: FONT,
-        fontSize: 20,
+        fontSize: FontSizes.title,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -244,14 +244,14 @@ const styles = StyleSheet.create({
 
     guideTitle: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#1F5D01",
         marginBottom: 6,
     },
 
     guideText: {
         fontFamily: FONT,
-        fontSize: 11,
+        fontSize: FontSizes.small,
         lineHeight: 17,
         color: "#2F4F20",
     },
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     },
 
     assistantAvatarIcon: {
-        fontSize: 14,
+        fontSize: FontSizes.body,
     },
 
     assistantContent: {
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
 
     assistantText: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         lineHeight: 21,
         color: "#1A1A1A",
     },
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
 
     userText: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         lineHeight: 20,
         color: "#FFFFFF",
         paddingVertical: 10,
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
 
     input: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#2F4F20",
         minHeight: 20,
         maxHeight: 80,

@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import PlantImage from "../components/PlantImage";
 import HeartsRow from "../components/HeartsRow";
 import LiquidGlassButton from "../components/LiquidGlassButton";
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.neoDunggeunmo;
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
     },
     title: {
-        fontSize: 20,
+        fontSize: FontSizes.title,
         fontFamily: FONT,
         color: "#2F702D",
         letterSpacing: 0.3,
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
         marginRight: 18,
     },
     sortButtonText: {
-        fontSize: 16,
+        fontSize: FontSizes.bodyLarge,
         fontFamily: FONT,
         color: "#2F702D",
     },
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
     searchInput: {
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         fontFamily: FONT,
         color: "#2F7830",
         padding: 0,
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
         borderBottomColor: "#EEEAD8",
     },
     sortMenuText: {
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         fontFamily: FONT,
         color: "#5A7A59",
         letterSpacing: -0.3,
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     plantName: {
-        fontSize: 18,
+        fontSize: FontSizes.subtitle,
         fontFamily: FONT,
         color: "#2F7830",
         letterSpacing: -1,
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
     },
     star: {
         marginLeft: 1,
-        fontSize: 21,
+        fontSize: FontSizes.title,
         fontFamily: FONT,
         textShadowColor: "#5F644F",
         textShadowOffset: { width: 1, height: 1 },
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     emptyStateText: {
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         color: "#A7A7A7",
         fontFamily: FONT,
     },

@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
 
 export const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -30,11 +30,11 @@ export const styles = StyleSheet.create({
   },
   plantHeaderName: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 18,
+    fontSize: FontSizes.subtitle,
     color: Colors.textBlack,
   },
   plantHeaderScientific: {
-    fontSize: 12,
+    fontSize: FontSizes.small,
     fontStyle: 'italic',
     color: Colors.textGray,
     marginTop: 2,
@@ -44,7 +44,7 @@ export const styles = StyleSheet.create({
   section: { marginBottom: 28 },
   sectionLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textBlack,
     marginBottom: 12,
   },
@@ -67,12 +67,12 @@ export const styles = StyleSheet.create({
   },
   chipLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
   },
   chipLabelActive: { color: Colors.white },
   chipSub: {
-    fontSize: 10,
+    fontSize: FontSizes.caption,
     color: Colors.textGray,
     marginTop: 2,
   },
@@ -98,7 +98,7 @@ export const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   stepperBtnText: {
-    fontSize: 20,
+    fontSize: FontSizes.title,
     color: Colors.primary,
     fontFamily: Fonts.neoDunggeunmo,
   },
@@ -116,13 +116,13 @@ export const styles = StyleSheet.create({
   },
   stepperInput: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textBlack,
     minWidth: 40,
     textAlign: 'center',
   },
   stepperUnit: {
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
   },
 
@@ -134,7 +134,7 @@ export const styles = StyleSheet.create({
   dateBlock: { flex: 1 },
   dateBlockLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
     marginBottom: 8,
   },
@@ -156,12 +156,12 @@ export const styles = StyleSheet.create({
   },
   dateDropdownText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
   },
   dateDropdownPlaceholder: { color: Colors.textGray },
   dateDropdownArrow: {
-    fontSize: 10,
+    fontSize: FontSizes.caption,
     color: Colors.textGray,
   },
 
@@ -189,12 +189,12 @@ export const styles = StyleSheet.create({
   },
   pickerTitle: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 14,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
   },
   pickerDoneText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.primary,
   },
   pickerItem: {
@@ -208,7 +208,7 @@ export const styles = StyleSheet.create({
   },
   pickerItemText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textBlack,
     textAlign: 'center',
   },
@@ -223,13 +223,13 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 12,
     paddingBottom: 12,
-    fontSize: 14,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
     minHeight: 80,
   },
   charCount: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 12,
+    fontSize: FontSizes.small,
     color: Colors.textGray,
     textAlign: 'right',
     marginTop: 4,
@@ -247,7 +247,7 @@ export const styles = StyleSheet.create({
   saveBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
   saveBtnTextDisabled: { color: Colors.textGray },
 });

@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.nanumSquareNeo;
 
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
 
     title: {
         fontFamily: FONT,
-        fontSize: 22,
+        fontSize: FontSizes.title,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     searchInput: {
         flex: 1,
         height: "100%",
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#111",
         fontFamily: FONT,
         paddingVertical: 0,
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
 
     cardTitle: {
         flex: 1,
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         color: "#111",
         fontFamily: FONT,
         includeFontPadding: false,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     },
 
     cardSummary: {
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#333",
         fontFamily: FONT,
         includeFontPadding: false,
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     },
 
     cardDetail: {
-        fontSize: 11,
+        fontSize: FontSizes.small,
         color: "#555",
         fontFamily: FONT,
         includeFontPadding: false,
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
 
     emptyText: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#999",
         textAlign: "center",
         marginTop: 40,

@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '../../constants/colors';
-import { Fonts } from '../../constants/fonts';
+import { Fonts, FontSizes } from '../../constants/fonts';
 
 const TOTAL = 4;
 
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 20,
+    fontSize: FontSizes.title,
     color: Colors.textBlack,
   },
 
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     width: 32,
     textAlign: 'right',
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 12,
+    fontSize: FontSizes.small,
     color: Colors.textGray,
   },
 });

@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
 
 export const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -15,7 +15,7 @@ export const styles = StyleSheet.create({
 
   title: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 22,
+    fontSize: FontSizes.title,
     color: Colors.textBlack,
     lineHeight: 32,
     marginBottom: 24,
@@ -33,11 +33,11 @@ export const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 20,
   },
-  cameraBtnIcon: { fontSize: 20 },
+  cameraBtnIcon: { fontSize: FontSizes.title },
   cameraBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
 
   // Divider
@@ -54,7 +54,7 @@ export const styles = StyleSheet.create({
   },
   dividerText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
   },
 
@@ -78,13 +78,13 @@ export const styles = StyleSheet.create({
     borderColor: Colors.primary,
   },
   searchIcon: {
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
     height: 48,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textBlack,
   },
   searchSpinner: { marginLeft: 8 },
@@ -95,7 +95,7 @@ export const styles = StyleSheet.create({
   },
   cancelText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 14,
+    fontSize: FontSizes.body,
     color: Colors.primary,
   },
 
@@ -128,7 +128,7 @@ export const styles = StyleSheet.create({
   },
   dropdownText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
   },
   dropdownSeparator: {
@@ -148,7 +148,7 @@ export const styles = StyleSheet.create({
   },
   overlayText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 14,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
   },
 });

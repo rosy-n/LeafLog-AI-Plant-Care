@@ -18,7 +18,7 @@ import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.neoDunggeunmo;
 
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     },
     speechText: {
         fontFamily: FONT,
-        fontSize: 19,
+        fontSize: FontSizes.subtitle,
         color: "#1D1D1D",
     },
     tailBorder: {
@@ -439,14 +439,14 @@ const styles = StyleSheet.create({
     },
     plantName: {
         fontFamily: FONT,
-        fontSize: 30,
+        fontSize: FontSizes.screenTitle,
         color: "#FFFFFF",
         letterSpacing: 1,
         lineHeight: 50,
     },
     dayText: {
         fontFamily: FONT,
-        fontSize: 20,
+        fontSize: FontSizes.title,
         color: "#FFFFFF",
         letterSpacing: 1,
         lineHeight: 32,
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     },
     menuItemText: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#263326",
         textShadowColor: "rgba(255,255,255,0.65)",
         textShadowOffset: { width: 1, height: 1 },
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     },
     modalTitle: {
         fontFamily: FONT,
-        fontSize: 21,
+        fontSize: FontSizes.title,
         color: "#2A2A2A",
         textAlign: "center",
         marginBottom: 8,
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
     },
     modalDesc: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#999999",
         textAlign: "center",
         lineHeight: 21,
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
     },
     modalBtnSecondaryText: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#7A6E54",
     },
     modalBtnPrimary: {
@@ -619,12 +619,12 @@ const styles = StyleSheet.create({
     },
     modalBtnPrimaryText: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#FFFFFF",
     },
     modalSparkle: {
         fontFamily: FONT,
-        fontSize: 10,
+        fontSize: FontSizes.caption,
         color: "#FFFFFF",
     },
 });

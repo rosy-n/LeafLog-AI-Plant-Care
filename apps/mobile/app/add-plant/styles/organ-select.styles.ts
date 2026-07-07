@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
 
 export const styles = StyleSheet.create({
   container: {
@@ -54,14 +54,14 @@ export const styles = StyleSheet.create({
   },
   organTagText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 10,
+    fontSize: FontSizes.caption,
     color: Colors.white,
   },
 
   // "선택된 사진" label (multiple only)
   selectedLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
     paddingHorizontal: 20,
     marginBottom: 8,
@@ -90,7 +90,7 @@ export const styles = StyleSheet.create({
   },
   organLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
   },
   organChips: {
@@ -111,11 +111,11 @@ export const styles = StyleSheet.create({
     backgroundColor: Colors.primaryLight,
   },
   organChipEmoji: {
-    fontSize: 18,
+    fontSize: FontSizes.subtitle,
   },
   organChipText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 11,
+    fontSize: FontSizes.small,
     color: Colors.textGray,
   },
   organChipTextActive: {
@@ -132,7 +132,7 @@ export const styles = StyleSheet.create({
     gap: 10,
   },
   organChipSub: {
-    fontSize: 10,
+    fontSize: FontSizes.caption,
     color: Colors.textGray,
     marginTop: 2,
   },
@@ -151,6 +151,6 @@ export const styles = StyleSheet.create({
   primaryBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
 });

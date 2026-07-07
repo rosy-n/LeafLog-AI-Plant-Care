@@ -13,7 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import LiquidGlassButton from "../components/LiquidGlassButton";
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.neoDunggeunmo;
 
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: FONT,
-        fontSize: 27,
+        fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -410,21 +410,21 @@ const styles = StyleSheet.create({
     },
     affinityLabel: {
         fontFamily: FONT,
-        fontSize: 11,
+        fontSize: FontSizes.small,
         color: "#4A6240",
     },
     affinityScore: {
         fontFamily: FONT,
-        fontSize: 22,
+        fontSize: FontSizes.title,
         color: "#1F3C18",
     },
     affinityUnit: {
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#3A5830",
     },
     affinityLevelText: {
         fontFamily: FONT,
-        fontSize: 22,
+        fontSize: FontSizes.title,
         color: "#2B6B20",
     },
     affinityDivider: {
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     },
     nextThresholdText: {
         fontFamily: FONT,
-        fontSize: 10,
+        fontSize: FontSizes.caption,
         color: "#5A7A4A",
     },
     progressBg: {
@@ -479,12 +479,12 @@ const styles = StyleSheet.create({
     },
     plantName: {
         fontFamily: FONT,
-        fontSize: 20,
+        fontSize: FontSizes.title,
         color: "#1F3018",
     },
     plantDay: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#4A6840",
     },
     appliedBadge: {
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
     },
     appliedBadgeText: {
         fontFamily: FONT,
-        fontSize: 11,
+        fontSize: FontSizes.small,
         color: "#2E6A22",
     },
     noItemBadge: {
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
     },
     noItemBadgeText: {
         fontFamily: FONT,
-        fontSize: 11,
+        fontSize: FontSizes.small,
         color: "#888",
     },
 
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     },
     itemSectionTitle: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#2A4020",
         marginLeft: 18,
         marginBottom: 14,
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
     },
     levelBadgeText: {
         fontFamily: FONT,
-        fontSize: 10,
+        fontSize: FontSizes.caption,
         color: "#888",
     },
     levelBadgeTextUnlocked: {
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
     },
     itemLabel: {
         fontFamily: FONT,
-        fontSize: 10,
+        fontSize: FontSizes.caption,
         color: "#2A4020",
         textAlign: "center",
     },
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     },
     removeButtonText: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#A03020",
     },
 });
