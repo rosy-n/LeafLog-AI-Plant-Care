@@ -11,6 +11,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
+import { Fonts } from "../../constants/fonts";
+
+const FONT = Fonts.neoDunggeunmo;
 
 const BG_IMAGES = {
     "home-bg": require("../../assets/images/home-bg.png"),
@@ -443,7 +446,7 @@ const styles = StyleSheet.create({
         marginRight: 5,
     },
     menuItemText: {
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 13,
         color: "#263326",
         textShadowColor: "rgba(255,255,255,0.65)",
@@ -554,7 +557,7 @@ const styles = StyleSheet.create({
     },
 
     allText: {
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 28,
         color: "#315B3B",
         textTransform: "lowercase",

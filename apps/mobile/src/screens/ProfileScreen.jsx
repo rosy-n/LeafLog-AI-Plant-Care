@@ -13,7 +13,9 @@ import { Ionicons } from "@expo/vector-icons";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-const FONT = "NeoDunggeunmoPro-Regular";
+import { Fonts } from "../../constants/fonts";
+
+const FONT = Fonts.neoDunggeunmo;
 
 export default function ProfileScreen({ navigation }) {
     return (

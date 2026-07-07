@@ -15,6 +15,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Line, Polyline, Circle, Text as SvgText } from "react-native-svg";
 
 import PlantImage from "../components/PlantImage";
+import { Fonts } from "../../constants/fonts";
+
+const FONT = Fonts.neoDunggeunmo;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -508,7 +511,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     headerTitle: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 25,
         color: "#111111",
         includeFontPadding: false,
@@ -543,7 +546,7 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     periodTabText: {
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 15,
         color: "#6A8A5A",
     },
@@ -565,7 +568,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     periodLabel: {
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 15,
         color: "#2B3E25",
         minWidth: 120,
@@ -595,7 +598,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     cardTitle: {
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 14,
         color: "#2A4020",
     },
@@ -608,7 +611,7 @@ const styles = StyleSheet.create({
         marginBottom: -6,
     },
     yAxisUnit: {
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 10,
     },
 
@@ -630,7 +633,7 @@ const styles = StyleSheet.create({
         borderRadius: 99,
     },
     legendText: {
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 11,
         color: "#4A6040",
     },
@@ -660,7 +663,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     conditionBoxText: {
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 11,
         color: "#333",
     },
@@ -688,12 +691,12 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     statLabel: {
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 11,
         color: "#5A7A4A",
     },
     statValue: {
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 18,
         color: "#1F3A14",
     },
@@ -710,7 +713,7 @@ const styles = StyleSheet.create({
         borderColor: "rgba(60,160,50,0.30)",
     },
     ratingText: {
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 11,
         color: "#2E7020",
     },

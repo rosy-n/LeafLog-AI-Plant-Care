@@ -12,7 +12,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-const FONT = "NeoDunggeunmoPro-Regular";
+import { Fonts } from "../../constants/fonts";
+
+const FONT = Fonts.neoDunggeunmo;
 
 const BG_ITEMS = [
     {

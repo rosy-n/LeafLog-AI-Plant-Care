@@ -15,7 +15,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-const FONT = "NeoDunggeunmoPro-Regular";
+import { Fonts } from "../../constants/fonts";
+
+const FONT = Fonts.neoDunggeunmo;
 
 const SOIL_COLORS = ["#A8D5A2", "#F5C87A", "#B8A5D4", "#F5A07A", "#7AC5F5"];
 
