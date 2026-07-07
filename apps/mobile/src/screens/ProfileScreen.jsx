@@ -26,10 +26,10 @@ export default function ProfileScreen({ navigation }) {
                 <View style={styles.header}>
                     <TouchableOpacity
                         activeOpacity={0.75}
-                        style={styles.backButton}
+                        style={styles.headerButton}
                         onPress={() => navigation.goBack()}
                     >
-                        <Ionicons name="chevron-back" size={28} color={Colors.textBlack} />
+                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
                     </TouchableOpacity>
 
                     <Text style={styles.title}>프로필</Text>
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
     },
 
-    backButton: {
+    headerButton: {
         width: 44,
         height: 44,
         alignItems: "center",

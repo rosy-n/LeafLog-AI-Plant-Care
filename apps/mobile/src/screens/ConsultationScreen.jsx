@@ -173,10 +173,10 @@ export default function ConsultationScreen({ navigation, route }) {
                 <View style={styles.header}>
                     <TouchableOpacity
                         activeOpacity={0.75}
-                        style={styles.headerBackButton}
+                        style={styles.headerButton}
                         onPress={() => navigation.goBack()}
                     >
-                        <Ionicons name="chevron-back" size={28} color={Colors.textBlack} />
+                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
                     </TouchableOpacity>
                     <Text style={styles.title} numberOfLines={1}>{consultation.title}</Text>
                     <View style={styles.headerSpacer} />
@@ -275,16 +275,16 @@ const styles = StyleSheet.create({
     },
 
     header: {
-        height: 52,
+        height: 60,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingHorizontal: 8,
+        paddingHorizontal: 24,
     },
 
-    headerBackButton: {
-        width: 40,
-        height: 40,
+    headerButton: {
+        width: 44,
+        height: 44,
         alignItems: "center",
         justifyContent: "center",
     },
