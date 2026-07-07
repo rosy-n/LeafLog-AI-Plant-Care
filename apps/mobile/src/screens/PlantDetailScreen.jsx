@@ -20,6 +20,7 @@ import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint } from "../../constants/colors";
 
 const MENU_ITEMS = [
     { label: "프로필", screen: "Profile" },
@@ -191,7 +192,7 @@ export default function PlantDetailScreen({ navigation, appliedItem }) {
                             <Ionicons
                                 name={menuOpen ? "close" : "menu"}
                                 size={30}
-                                color="#3D4B34"
+                                color={GreenTint.deep}
                             />
                         </LiquidGlassButton>
 
@@ -199,7 +200,7 @@ export default function PlantDetailScreen({ navigation, appliedItem }) {
                             size={54}
                             onPress={() => navigation.navigate("Home")}
                         >
-                            <Ionicons name="home-outline" size={30} color="#315E35" />
+                            <Ionicons name="home-outline" size={30} color={GreenTint.deep} />
                         </LiquidGlassButton>
                     </View>
 
@@ -211,7 +212,7 @@ export default function PlantDetailScreen({ navigation, appliedItem }) {
                             <Ionicons
                                 name="chatbubble-ellipses-outline"
                                 size={29}
-                                color="#3D7842"
+                                color={GreenTint.strong}
                             />
                         </LiquidGlassButton>
 
@@ -234,7 +235,7 @@ export default function PlantDetailScreen({ navigation, appliedItem }) {
 }
 
 const pixelShadow = {
-    textShadowColor: "#171717",
+    textShadowColor: Colors.textBlack,
     textShadowOffset: { width: 2.5, height: 2.5 },
     textShadowRadius: 0,
 };
@@ -242,7 +243,7 @@ const pixelShadow = {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#91C881",
+        backgroundColor: GreenTint.line,
     },
     background: {
         flex: 1,
@@ -270,9 +271,9 @@ const styles = StyleSheet.create({
         right: 42,
         width: 250,
         height: 70,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderWidth: 4,
-        borderColor: "#121212",
+        borderColor: Colors.textBlack,
         alignItems: "center",
         justifyContent: "center",
         zIndex: 20,
@@ -280,7 +281,7 @@ const styles = StyleSheet.create({
     speechText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
-        color: "#1D1D1D",
+        color: Colors.textBlack,
     },
     tailBorder: {
         position: "absolute",
@@ -288,7 +289,7 @@ const styles = StyleSheet.create({
         left: 58,
         width: 31,
         height: 31,
-        backgroundColor: "#121212",
+        backgroundColor: Colors.textBlack,
         transform: [{ rotate: "45deg" }],
     },
     tailInner: {
@@ -297,7 +298,7 @@ const styles = StyleSheet.create({
         left: 64,
         width: 20,
         height: 20,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         transform: [{ rotate: "45deg" }],
     },
 
@@ -325,7 +326,7 @@ const styles = StyleSheet.create({
     plantName: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
-        color: "#FFFFFF",
+        color: Colors.white,
         letterSpacing: 1,
         lineHeight: 50,
     },
@@ -333,7 +334,7 @@ const styles = StyleSheet.create({
     dayText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
-        color: "#FFFFFF",
+        color: Colors.white,
         letterSpacing: 1,
         lineHeight: 32,
     },
@@ -341,7 +342,7 @@ const styles = StyleSheet.create({
     smallDayText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
-        color: "#FFFFFF",
+        color: Colors.white,
         letterSpacing: 0.5,
         lineHeight: 24,
     },
@@ -349,7 +350,7 @@ const styles = StyleSheet.create({
         marginTop: 2,
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
-        color: "#FFFFFF",
+        color: Colors.white,
         ...pixelShadow,
     },
 
@@ -388,7 +389,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         overflow: "hidden",
 
-        shadowColor: "#2D3B2C",
+        shadowColor: Colors.textBlack,
         shadowOpacity: 0.18,
         shadowRadius: 7,
         shadowOffset: { width: 0, height: 4 },
@@ -425,7 +426,7 @@ const styles = StyleSheet.create({
     menuItemText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#263326",
+        color: Colors.textBlack,
         textShadowColor: "rgba(255,255,255,0.65)",
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 0,

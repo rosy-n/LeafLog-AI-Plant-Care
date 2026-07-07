@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint } from "../../constants/colors";
 
 const BG_ITEMS = [
     {
@@ -72,7 +73,7 @@ export default function StoreScreen({
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
                 {/* 헤더 */}
                 <View style={styles.header}>
@@ -81,11 +82,11 @@ export default function StoreScreen({
                         onPress={() => navigation.goBack()}
                         activeOpacity={0.7}
                     >
-                        <Ionicons name="chevron-back" size={28} color="#2B3E25" />
+                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>스토어</Text>
                     <View style={styles.coinBadge}>
-                        <Ionicons name="ellipse" size={13} color="#F4B63F" />
+                        <Ionicons name="ellipse" size={13} color={Colors.coin} />
                         <Text style={styles.coinText}>{coins}</Text>
                     </View>
                 </View>
@@ -122,7 +123,7 @@ export default function StoreScreen({
                                             <Ionicons
                                                 name="ellipse"
                                                 size={11}
-                                                color="#F4B63F"
+                                                color={Colors.coin}
                                             />
                                             <Text style={styles.priceText}>
                                                 {item.price} 코인
@@ -183,7 +184,7 @@ export default function StoreScreen({
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
     safe: {
         flex: 1,
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
     coinBadge: {
@@ -236,7 +237,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#5A8A5A",
+        color: GreenTint.strong,
         includeFontPadding: false,
         marginBottom: 4,
     },
@@ -244,16 +245,16 @@ const styles = StyleSheet.create({
     card: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderRadius: 18,
         borderWidth: 1.5,
-        borderColor: "#E0EBCD",
+        borderColor: GreenTint.soft,
         overflow: "hidden",
         gap: 14,
         paddingRight: 16,
     },
     cardActive: {
-        borderColor: "#5A9A5A",
+        borderColor: GreenTint.medium,
         borderWidth: 2,
     },
 
@@ -269,13 +270,13 @@ const styles = StyleSheet.create({
     itemName: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
-        color: "#222222",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
     freeTag: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#5A9A5A",
+        color: GreenTint.medium,
         includeFontPadding: false,
     },
     priceRow: {
@@ -301,38 +302,38 @@ const styles = StyleSheet.create({
         minWidth: 72,
     },
     btnApplied: {
-        backgroundColor: "#EAF5EA",
+        backgroundColor: Colors.separator,
         borderWidth: 1.5,
-        borderColor: "#5A9A5A",
+        borderColor: GreenTint.medium,
     },
     btnAppliedText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#5A9A5A",
+        color: GreenTint.medium,
         includeFontPadding: false,
     },
     btnApply: {
-        backgroundColor: "#2F702D",
+        backgroundColor: GreenTint.deep,
     },
     btnApplyText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#FFFFFF",
+        color: Colors.white,
         includeFontPadding: false,
     },
     btnBuy: {
-        backgroundColor: "#F4B63F",
+        backgroundColor: Colors.coin,
     },
     btnBuyDisabled: {
-        backgroundColor: "#E0E0E0",
+        backgroundColor: Colors.border,
     },
     btnBuyText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#FFFFFF",
+        color: Colors.white,
         includeFontPadding: false,
     },
     btnBuyTextDisabled: {
-        color: "#AAAAAA",
+        color: Colors.textFaint,
     },
 });

@@ -1,4 +1,5 @@
 import React from "react";
+import { Colors } from "../../constants/colors";
 import { View, Text, StyleSheet } from "react-native";
 
 export default function HeartsRow({ count = 5, size = 26 }) {
@@ -11,7 +12,7 @@ export default function HeartsRow({ count = 5, size = 26 }) {
                         styles.heart,
                         {
                             fontSize: size,
-                            color: item <= count ? "#D83226" : "#A7A7A7",
+                            color: item <= count ? Colors.danger : Colors.textFaint,
                         },
                     ]}
                 >
@@ -30,7 +31,7 @@ const styles = StyleSheet.create({
     heart: {
         marginHorizontal: 1,
         fontWeight: "900",
-        textShadowColor: "#151515",
+        textShadowColor: Colors.textBlack,
         textShadowOffset: { width: 1.5, height: 1.5 },
         textShadowRadius: 0,
     },

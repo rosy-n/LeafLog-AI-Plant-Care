@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint } from "../../constants/colors";
 
 const BG_IMAGES = {
     "home-bg": require("../../assets/images/home-bg.png"),
@@ -94,7 +95,7 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                         onPress={() => navigation.navigate("Notifications")}
                     >
                         <View>
-                            <Ionicons name="notifications" size={44} color="#F4B63F" />
+                            <Ionicons name="notifications" size={44} color={Colors.coin} />
                             {hasUnread && <View style={styles.redDot} />}
                         </View>
                     </GlassButton>
@@ -189,7 +190,7 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                                                     <Ionicons
                                                         name={item.icon}
                                                         size={14}
-                                                        color="#263326"
+                                                        color={Colors.textBlack}
                                                         style={styles.menuItemIcon}
                                                     />
                                                     <Text style={styles.menuItemText}>{item.label}</Text>
@@ -209,7 +210,7 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                         <Ionicons
                             name={menuOpen ? "close" : "menu"}
                             size={36}
-                            color="#344537"
+                            color={Colors.textBlack}
                         />
                     </GlassButton>
                 </View>
@@ -286,7 +287,7 @@ function GlassButton({ children, size = 62, onPress }) {
 function WeatherIcon() {
     return (
         <View style={styles.weatherWrap}>
-            <Ionicons name="cloud" size={43} color="#FFFFFF" />
+            <Ionicons name="cloud" size={43} color={Colors.white} />
             <View style={styles.wind1} />
             <View style={styles.wind2} />
             <View style={styles.wind3} />
@@ -307,7 +308,7 @@ function AirIcon() {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#8BCB7B",
+        backgroundColor: GreenTint.line,
     },
     background: {
         flex: 1,
@@ -409,7 +410,7 @@ const styles = StyleSheet.create({
         height: 31,
         borderRadius: 16,
         overflow: "hidden",
-        shadowColor: "#2D3B2C",
+        shadowColor: Colors.textBlack,
         shadowOpacity: 0.18,
         shadowRadius: 7,
         shadowOffset: { width: 0, height: 4 },
@@ -446,7 +447,7 @@ const styles = StyleSheet.create({
     menuItemText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#263326",
+        color: Colors.textBlack,
         textShadowColor: "rgba(255,255,255,0.65)",
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 0,
@@ -454,7 +455,7 @@ const styles = StyleSheet.create({
 
     glassTouch: {
         overflow: "hidden",
-        shadowColor: "#335235",
+        shadowColor: GreenTint.deep,
         shadowOpacity: 0.2,
         shadowRadius: 7,
         shadowOffset: { width: 0, height: 4 },
@@ -522,7 +523,7 @@ const styles = StyleSheet.create({
         height: 43,
         borderRadius: 22,
         borderWidth: 5,
-        borderColor: "#42D620",
+        borderColor: GreenTint.medium,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -533,7 +534,7 @@ const styles = StyleSheet.create({
         width: 5,
         height: 5,
         borderRadius: 3,
-        backgroundColor: "#42D620",
+        backgroundColor: GreenTint.medium,
     },
     airEyeRight: {
         position: "absolute",
@@ -542,7 +543,7 @@ const styles = StyleSheet.create({
         width: 5,
         height: 5,
         borderRadius: 3,
-        backgroundColor: "#42D620",
+        backgroundColor: GreenTint.medium,
     },
     airMouth: {
         position: "absolute",
@@ -550,14 +551,14 @@ const styles = StyleSheet.create({
         width: 18,
         height: 9,
         borderBottomWidth: 4,
-        borderColor: "#42D620",
+        borderColor: GreenTint.medium,
         borderRadius: 12,
     },
 
     allText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
-        color: "#315B3B",
+        color: GreenTint.deep,
         textTransform: "lowercase",
     },
 });

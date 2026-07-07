@@ -13,6 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors } from "../../constants/colors";
 
 export default function ConsultationHistoryScreen({ navigation }) {
     const [searchQuery, setSearchQuery] = useState("");
@@ -62,7 +63,7 @@ export default function ConsultationHistoryScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
             <View style={styles.container}>
                 <View style={styles.header}>
@@ -71,7 +72,7 @@ export default function ConsultationHistoryScreen({ navigation }) {
                         style={styles.headerBackButton}
                         onPress={() => navigation.goBack()}
                     >
-                        <Ionicons name="chevron-back" size={32} color="#222222" />
+                        <Ionicons name="chevron-back" size={32} color={Colors.textBlack} />
                     </TouchableOpacity>
 
                     <Text style={styles.title}>상담 기록</Text>
@@ -81,17 +82,17 @@ export default function ConsultationHistoryScreen({ navigation }) {
 
                 <View style={styles.searchRow}>
                     <View style={styles.searchBox}>
-                        <Ionicons name="search-outline" size={18} color="#666" style={styles.searchIcon} />
+                        <Ionicons name="search-outline" size={18} color={Colors.textGray} style={styles.searchIcon} />
                         <TextInput
                             style={styles.searchInput}
                             placeholder="검색"
-                            placeholderTextColor="#B5B5B5"
+                            placeholderTextColor={Colors.textFaint}
                             value={searchQuery}
                             onChangeText={setSearchQuery}
                         />
                         {searchQuery.length > 0 && (
                             <TouchableOpacity onPress={() => setSearchQuery("")} activeOpacity={0.7}>
-                                <Ionicons name="close-circle" size={16} color="#999" />
+                                <Ionicons name="close-circle" size={16} color={Colors.textFaint} />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -120,7 +121,7 @@ export default function ConsultationHistoryScreen({ navigation }) {
                                         activeOpacity={0.6}
                                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                     >
-                                        <Ionicons name="trash-outline" size={15} color="#BBBBBB" />
+                                        <Ionicons name="trash-outline" size={15} color={Colors.textFaint} />
                                     </TouchableOpacity>
                                 </View>
                                 <Text style={styles.cardSummary}>{item.summary}</Text>
@@ -135,7 +136,7 @@ export default function ConsultationHistoryScreen({ navigation }) {
                     activeOpacity={0.85}
                     onPress={() => navigation.navigate("ConsultationStart")}
                 >
-                    <Ionicons name="chatbox-outline" size={32} color="#1F5D01" />
+                    <Ionicons name="chatbox-outline" size={32} color={Colors.primary} />
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -145,12 +146,12 @@ export default function ConsultationHistoryScreen({ navigation }) {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
 
     container: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
         paddingHorizontal: 20,
     },
 
@@ -175,7 +176,7 @@ const styles = StyleSheet.create({
     title: {
         fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.title,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -191,7 +192,7 @@ const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderColor: "rgba(31, 93, 1, 0.4)",
         borderRadius: 20,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         paddingHorizontal: 14,
         gap: 8,
     },
@@ -204,7 +205,7 @@ const styles = StyleSheet.create({
         flex: 1,
         height: "100%",
         fontSize: FontSizes.body,
-        color: "#111",
+        color: Colors.textBlack,
         fontFamily: Fonts.nanumSquareNeo.bold,
         paddingVertical: 0,
         includeFontPadding: false,
@@ -223,7 +224,7 @@ const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderColor: "rgba(31, 93, 1, 0.5)",
         borderRadius: 12,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         paddingTop: 14,
         paddingHorizontal: 16,
         paddingBottom: 14,
@@ -240,7 +241,7 @@ const styles = StyleSheet.create({
     cardTitle: {
         flex: 1,
         fontSize: FontSizes.bodyLarge,
-        color: "#111",
+        color: Colors.textBlack,
         fontFamily: Fonts.nanumSquareNeo.bold,
         includeFontPadding: false,
         marginRight: 8,
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
 
     cardSummary: {
         fontSize: FontSizes.small,
-        color: "#333",
+        color: Colors.textBlack,
         fontFamily: Fonts.nanumSquareNeo.bold,
         includeFontPadding: false,
         marginBottom: 6,
@@ -261,7 +262,7 @@ const styles = StyleSheet.create({
 
     cardDetail: {
         fontSize: FontSizes.small,
-        color: "#555",
+        color: Colors.textGray,
         fontFamily: Fonts.nanumSquareNeo.bold,
         includeFontPadding: false,
         lineHeight: 17,
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
     emptyText: {
         fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.body,
-        color: "#999",
+        color: Colors.textFaint,
         textAlign: "center",
         marginTop: 40,
     },
@@ -283,8 +284,8 @@ const styles = StyleSheet.create({
         height: 60,
         borderRadius: 30,
         borderWidth: 2,
-        borderColor: "#1F5D01",
-        backgroundColor: "#FAFFF0",
+        borderColor: Colors.primary,
+        backgroundColor: Colors.background,
         alignItems: "center",
         justifyContent: "center",
     },

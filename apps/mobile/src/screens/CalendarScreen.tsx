@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint } from "../../constants/colors";
 
 const TODAY = "2026-05-17";
 
@@ -236,7 +237,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
 
                 {/* Header */}
@@ -246,16 +247,16 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                         onPress={() => navigation.goBack()}
                         activeOpacity={0.7}
                     >
-                        <Ionicons name="chevron-back" size={28} color="#2B3E25" />
+                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
                     </TouchableOpacity>
 
                     <View style={styles.monthNav}>
                         <TouchableOpacity onPress={prevMonth} hitSlop={{ top:8, bottom:8, left:14, right:14 }}>
-                            <Ionicons name="chevron-back" size={20} color="#5A8A5A" />
+                            <Ionicons name="chevron-back" size={20} color={GreenTint.strong} />
                         </TouchableOpacity>
                         <Text style={styles.monthText}>{monthLabel(viewYear, viewMonth)}</Text>
                         <TouchableOpacity onPress={nextMonth} hitSlop={{ top:8, bottom:8, left:14, right:14 }}>
-                            <Ionicons name="chevron-forward" size={20} color="#5A8A5A" />
+                            <Ionicons name="chevron-forward" size={20} color={GreenTint.strong} />
                         </TouchableOpacity>
                     </View>
 
@@ -285,7 +286,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                         <Ionicons
                                             name="chevron-back"
                                             size={18}
-                                            color={weekViewIdx === 0 ? "#C0D0B8" : "#5A8A5A"}
+                                            color={weekViewIdx === 0 ? Colors.textFaint : GreenTint.strong}
                                         />
                                     </TouchableOpacity>
                                     <TouchableOpacity onPress={exitWeekView}>
@@ -299,7 +300,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                         <Ionicons
                                             name="chevron-forward"
                                             size={18}
-                                            color={weekViewIdx === weeks.length - 1 ? "#C0D0B8" : "#5A8A5A"}
+                                            color={weekViewIdx === weeks.length - 1 ? Colors.textFaint : GreenTint.strong}
                                         />
                                     </TouchableOpacity>
                                 </View>
@@ -335,8 +336,8 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                                     styles.cell,
                                                     styles.dayCell,
                                                     !ds && styles.cellGhost,
-                                                    c?.watered  && !c.fertilized && !isSel && { backgroundColor: "#E0EDFF" },
-                                                    !c?.watered && c?.fertilized && !isSel && { backgroundColor: "#FFF8D0" },
+                                                    c?.watered  && !c.fertilized && !isSel && { backgroundColor: Colors.water },
+                                                    !c?.watered && c?.fertilized && !isSel && { backgroundColor: Colors.fertilizer },
                                                     isSel && styles.cellSel,
                                                     c?.hasJournal && !isSel && styles.cellJournal,
                                                 ]}
@@ -346,17 +347,17 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                             >
                                                 {both && !isSel ? (
                                                     <View style={styles.bothWrap}>
-                                                        <View style={[styles.halfCell, { backgroundColor: "#E0EDFF" }]}>
-                                                            <Ionicons name="water" size={12} color="#3A7ED5" />
+                                                        <View style={[styles.halfCell, { backgroundColor: Colors.water }]}>
+                                                            <Ionicons name="water" size={12} color={Colors.waterIcon} />
                                                         </View>
-                                                        <View style={[styles.halfCell, { backgroundColor: "#FFF8D0" }]}>
-                                                            <PlusIcon size={14} color="#9A7A10" />
+                                                        <View style={[styles.halfCell, { backgroundColor: Colors.fertilizer }]}>
+                                                            <PlusIcon size={14} color={Colors.fertilizerIcon} />
                                                         </View>
                                                     </View>
                                                 ) : c?.watered && !isSel ? (
-                                                    <Ionicons name="water" size={20} color="#3A7ED5" />
+                                                    <Ionicons name="water" size={20} color={Colors.waterIcon} />
                                                 ) : c?.fertilized && !isSel ? (
-                                                    <PlusIcon size={22} color="#9A7A10" />
+                                                    <PlusIcon size={22} color={Colors.fertilizerIcon} />
                                                 ) : (
                                                     <Text style={[
                                                         styles.dayNum,
@@ -378,14 +379,14 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                             {/* Legend */}
                             <View style={styles.legend}>
                                 <View style={styles.legendItem}>
-                                    <View style={[styles.legendDot, { backgroundColor: "#E0EDFF" }]}>
-                                        <Ionicons name="water" size={9} color="#3A7ED5" />
+                                    <View style={[styles.legendDot, { backgroundColor: Colors.water }]}>
+                                        <Ionicons name="water" size={9} color={Colors.waterIcon} />
                                     </View>
                                     <Text style={styles.legendText}>물주기</Text>
                                 </View>
                                 <View style={styles.legendItem}>
-                                    <View style={[styles.legendDot, { backgroundColor: "#FFF8D0" }]}>
-                                        <PlusIcon size={11} color="#9A7A10" />
+                                    <View style={[styles.legendDot, { backgroundColor: Colors.fertilizer }]}>
+                                        <PlusIcon size={11} color={Colors.fertilizerIcon} />
                                     </View>
                                     <Text style={styles.legendText}>비료</Text>
                                 </View>
@@ -405,7 +406,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                     <Text style={styles.diaryDateText}>{diaryDateLabel(selected)}</Text>
                                     {isLocked && (
                                         <View style={styles.savedBadge}>
-                                            <Ionicons name="checkmark-circle" size={13} color="#5A8A5A" />
+                                            <Ionicons name="checkmark-circle" size={13} color={GreenTint.strong} />
                                             <Text style={styles.savedBadgeText}>저장됨</Text>
                                         </View>
                                     )}
@@ -415,8 +416,8 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                 {care && (care.watered || care.fertilized) && (
                                     <View style={styles.diaryIconRow}>
                                         {care.watered && (
-                                            <View style={[styles.diaryCareIcon, { backgroundColor: "#E0EDFF" }]}>
-                                                <Ionicons name="water" size={14} color="#3A7ED5" />
+                                            <View style={[styles.diaryCareIcon, { backgroundColor: Colors.water }]}>
+                                                <Ionicons name="water" size={14} color={Colors.waterIcon} />
                                             </View>
                                         )}
                                         {care.wateredPlants.map(id => {
@@ -428,8 +429,8 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                             ) : null;
                                         })}
                                         {care.fertilized && (
-                                            <View style={[styles.diaryCareIcon, { backgroundColor: "#FFF8D0" }]}>
-                                                <PlusIcon size={16} color="#9A7A10" />
+                                            <View style={[styles.diaryCareIcon, { backgroundColor: Colors.fertilizer }]}>
+                                                <PlusIcon size={16} color={Colors.fertilizerIcon} />
                                             </View>
                                         )}
                                         {care.fertilizedPlants.map(id => {
@@ -470,7 +471,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                             </>
                                         ) : (
                                             <View style={styles.photoPlaceholderInner}>
-                                                <Ionicons name="camera-outline" size={30} color="#C0C8BC" />
+                                                <Ionicons name="camera-outline" size={30} color={Colors.textFaint} />
                                                 <Text style={styles.photoAddText}>이미지 추가</Text>
                                             </View>
                                         )}
@@ -504,7 +505,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                                     </>
                                                 ) : (
                                                     <View style={styles.photoPlaceholderInner}>
-                                                        <Ionicons name="camera-outline" size={20} color="#C0C8BC" />
+                                                        <Ionicons name="camera-outline" size={20} color={Colors.textFaint} />
                                                     </View>
                                                 )}
                                             </TouchableOpacity>
@@ -520,7 +521,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                         onChangeText={setEditNote}
                                         editable={!isLocked}
                                         placeholder={"오늘 하루 식물을 돌보며\n느낀 생각과 감정을 써보세요."}
-                                        placeholderTextColor="#C8BE98"
+                                        placeholderTextColor={Colors.textFaint}
                                         multiline
                                         textAlignVertical="top"
                                     />
@@ -571,18 +572,18 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                     />
                                     <Text style={styles.pickerName}>{p.name}</Text>
                                     {pickerIdx !== null && editSlots[pickerIdx]?.plantId === p.id && (
-                                        <Ionicons name="checkmark" size={18} color="#2F702D" />
+                                        <Ionicons name="checkmark" size={18} color={Colors.primary} />
                                     )}
                                 </TouchableOpacity>
                             ))}
                             {pickerIdx !== null && editSlots[pickerIdx]?.plantId && (
                                 <TouchableOpacity
-                                    style={[styles.pickerRow, { borderTopWidth: 1, borderTopColor: "#F0EEE2" }]}
+                                    style={[styles.pickerRow, { borderTopWidth: 1, borderTopColor: Colors.separator }]}
                                     onPress={() => pickerIdx !== null && clearLabel(pickerIdx)}
                                     activeOpacity={0.8}
                                 >
                                     <View style={styles.pickerImg} />
-                                    <Text style={[styles.pickerName, { color: "#D4887A" }]}>라벨 제거</Text>
+                                    <Text style={[styles.pickerName, { color: Colors.remove }]}>라벨 제거</Text>
                                 </TouchableOpacity>
                             )}
                         </ScrollView>
@@ -596,7 +597,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
 // ── styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: "#FAFFF0" },
+    root: { flex: 1, backgroundColor: Colors.background },
     safe: { flex: 1 },
 
     header: {
@@ -620,7 +621,7 @@ const styles = StyleSheet.create({
     monthText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
         minWidth: 116,
         textAlign: "center",
@@ -635,10 +636,10 @@ const styles = StyleSheet.create({
 
     // ── calendar ──
     calCard: {
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderRadius: 20,
         borderWidth: 1.5,
-        borderColor: "#E0EBCD",
+        borderColor: GreenTint.line,
         paddingHorizontal: 6,
         paddingTop: 10,
         paddingBottom: 12,
@@ -650,13 +651,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         paddingBottom: 8,
         borderBottomWidth: 1,
-        borderBottomColor: "#F4F0E8",
+        borderBottomColor: Colors.separator,
         marginBottom: 4,
     },
     weekNavText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#5A8A5A",
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
     weekRow: { flexDirection: "row" },
@@ -669,12 +670,12 @@ const styles = StyleSheet.create({
         height: 46,
         margin: 2,
         borderRadius: 10,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         overflow: "hidden",
     },
     cellGhost:   { backgroundColor: "transparent" },
-    cellSel:     { backgroundColor: "#2F702D" },
-    cellJournal: { borderWidth: 1.5, borderColor: "#5A9A5A" },
+    cellSel:     { backgroundColor: Colors.primary },
+    cellJournal: { borderWidth: 1.5, borderColor: GreenTint.strong },
     bothWrap: {
         flex: 1,
         width: "100%",
@@ -688,27 +689,27 @@ const styles = StyleSheet.create({
     dayLabel: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#8AB08A",
+        color: GreenTint.medium,
         includeFontPadding: false,
         paddingVertical: 6,
     },
     dayNum: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#222222",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
-    dayNumSel:   { color: "#FFFFFF" },
-    dayNumToday: { color: "#2F702D" },
-    sunColor:    { color: "#D46060" },
-    satColor:    { color: "#5A7AD4" },
+    dayNumSel:   { color: Colors.white },
+    dayNumToday: { color: Colors.primary },
+    sunColor:    { color: Colors.weekendSun },
+    satColor:    { color: Colors.weekendSat },
     todayDot: {
         position: "absolute",
         bottom: 4,
         width: 4,
         height: 4,
         borderRadius: 2,
-        backgroundColor: "#5A9A5A",
+        backgroundColor: GreenTint.strong,
     },
     legend: {
         flexDirection: "row",
@@ -717,7 +718,7 @@ const styles = StyleSheet.create({
         marginTop: 10,
         paddingTop: 10,
         borderTopWidth: 1,
-        borderTopColor: "#F4F0E8",
+        borderTopColor: Colors.separator,
     },
     legendItem: {
         flexDirection: "row",
@@ -732,23 +733,23 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     legendDotJournal: {
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderWidth: 1.5,
-        borderColor: "#5A9A5A",
+        borderColor: GreenTint.strong,
     },
     legendText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#7A9A7A",
+        color: GreenTint.medium,
         includeFontPadding: false,
     },
 
     // ── diary ──
     diaryPage: {
-        backgroundColor: "#FFFEF8",
+        backgroundColor: Colors.white,
         borderRadius: 20,
         borderWidth: 1.5,
-        borderColor: "#E0EBCD",
+        borderColor: GreenTint.line,
         padding: 20,
         gap: 14,
     },
@@ -760,14 +761,14 @@ const styles = StyleSheet.create({
     diaryDateText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
-        color: "#1A2E1A",
+        color: Colors.primary,
         includeFontPadding: false,
     },
     savedBadge: {
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
-        backgroundColor: "#E8F5E8",
+        backgroundColor: GreenTint.soft,
         borderRadius: 12,
         paddingHorizontal: 8,
         paddingVertical: 4,
@@ -775,7 +776,7 @@ const styles = StyleSheet.create({
     savedBadgeText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#5A8A5A",
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
     diaryIconRow: {
@@ -795,11 +796,11 @@ const styles = StyleSheet.create({
         width: 34,
         height: 34,
         borderRadius: 17,
-        backgroundColor: "#F0F8EC",
+        backgroundColor: Colors.background,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: "#D0E8C0",
+        borderColor: GreenTint.line,
         overflow: "hidden",
     },
     diaryCircleImg: {
@@ -817,9 +818,9 @@ const styles = StyleSheet.create({
         flex: 3,
         borderRadius: 14,
         overflow: "hidden",
-        backgroundColor: "#F6FAF0",
+        backgroundColor: Colors.background,
         borderWidth: 1.2,
-        borderColor: "#D8E8C8",
+        borderColor: GreenTint.soft,
     },
     sidePhotos: {
         flex: 2,
@@ -829,9 +830,9 @@ const styles = StyleSheet.create({
         flex: 1,
         borderRadius: 12,
         overflow: "hidden",
-        backgroundColor: "#F6FAF0",
+        backgroundColor: Colors.background,
         borderWidth: 1.2,
-        borderColor: "#D8E8C8",
+        borderColor: GreenTint.soft,
     },
     photoPlaceholderInner: {
         flex: 1,
@@ -842,7 +843,7 @@ const styles = StyleSheet.create({
     photoAddText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
-        color: "#C0C8BC",
+        color: Colors.textFaint,
         includeFontPadding: false,
     },
     photoBadge: {
@@ -857,7 +858,7 @@ const styles = StyleSheet.create({
     photoBadgeText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
-        color: "#FFFFFF",
+        color: Colors.white,
         includeFontPadding: false,
     },
 
@@ -884,11 +885,11 @@ const styles = StyleSheet.create({
     },
 
     saveBtn: {
-        backgroundColor: "#2F702D",
+        backgroundColor: Colors.primary,
         borderRadius: 14,
         paddingVertical: 14,
         alignItems: "center",
-        shadowColor: "#2F702D",
+        shadowColor: Colors.primary,
         shadowOpacity: 0.2,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 3 },
@@ -897,7 +898,7 @@ const styles = StyleSheet.create({
     saveBtnText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
-        color: "#FFFFFF",
+        color: Colors.white,
         includeFontPadding: false,
     },
 
@@ -909,7 +910,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     pickerBox: {
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderRadius: 20,
         paddingTop: 4,
         paddingBottom: 8,
@@ -923,11 +924,11 @@ const styles = StyleSheet.create({
     pickerTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
-        color: "#2A4020",
+        color: Colors.primary,
         textAlign: "center",
         paddingVertical: 14,
         borderBottomWidth: 1,
-        borderBottomColor: "#F0EEE2",
+        borderBottomColor: Colors.separator,
         includeFontPadding: false,
     },
     pickerRow: {
@@ -944,7 +945,7 @@ const styles = StyleSheet.create({
     pickerName: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#222222",
+        color: Colors.textBlack,
         flex: 1,
         includeFontPadding: false,
     },

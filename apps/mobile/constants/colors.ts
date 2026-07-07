@@ -1,14 +1,52 @@
+// LeafLog 색상 토큰
+// ─────────────────────────────────────────────────────────────
+// 앵커 4색은 지정값. 메인↔배경 사이의 "중간 녹색"이 필요하면
+// 새 hex를 만들지 말고 GreenTint(= primary 를 배경 위에 투명도로)를 사용한다.
+
 export const Colors = {
-  primary: '#1F5D01',
-  primaryLight: '#E8F5E9',
-  background: '#FAFFF0',
-  textBlack: '#171717',
-  textGray: '#727272',
+  // ── 브랜드 (지정) ────────────────────────────
+  primary: '#1F5D01',        // 메인 · 진한 녹색
+  background: '#FAFFF0',     // 배경 · 연한 녹색
+
+  // ── 케어 마커 (지정) ─────────────────────────
+  fertilizer: '#FFEDA3',     // 영양제 준 날 (배경)
+  fertilizerIcon: '#9A7A10', // 영양제 아이콘 (✚)
+  water: '#E0EDFF',          // 물 준 날 (배경)
+  waterIcon: '#3A7ED5',      // 물주기 아이콘
+
+  // ── 중성 ────────────────────────────────────
+  textBlack: '#171717',      // 기본 텍스트
+  textGray: '#727272',       // 보조 텍스트
+  textFaint: '#A7A7A7',      // 비활성 · 플레이스홀더
   white: '#FFFFFF',
-  border: '#D0D0D0',
-  disabled: '#D8D8D8',
+  border: '#D0D0D0',         // 보더 · 구분선
+  disabled: '#D8D8D8',       // 비활성 배경
+
+  // ── 시맨틱 ──────────────────────────────────
+  danger: '#D83226',         // 하트 · 삭제 · 경고
+  nutrient: '#2FA352',       // 영양제(✚) 아이콘 등 솔리드 녹색 강조
+  coin: '#F4B63F',           // 코인 · 재화 (골드)
+  remove: '#D4887A',         // 삭제 · 제거 액션 (코랄)
+  weekendSun: '#D46060',     // 캘린더 일요일
+  weekendSat: '#5A7AD4',     // 캘린더 토요일
+
+  // ── 오버레이 ────────────────────────────────
+  overlay: 'rgba(250, 255, 240, 0.88)',  // 배경색 딤 오버레이
+  scrim: 'rgba(0, 0, 0, 0.35)',          // 모달 딤 배경
+
+  // ── 보조 (기존 add-plant 플로우 호환) ─────────
+  primaryLight: '#E8F5E9',   // 연녹 면 배경
   separator: '#F0F0F0',
   surfaceGray: '#E8E8E8',
-  overlay: 'rgba(250, 255, 240, 0.88)',
-  scrim: 'rgba(0, 0, 0, 0.35)',
+} as const;
+
+// 메인↔배경 사이의 녹색: primary(#1F5D01)를 배경 위에 투명도로 표현한다.
+// 필요한 단계만 골라 쓰고, 없으면 rgba(31, 93, 1, α) 형태로 확장한다.
+export const GreenTint = {
+  faint:  'rgba(31, 93, 1, 0.06)',  // 아주 옅은 면 틴트
+  soft:   'rgba(31, 93, 1, 0.12)',  // 칩 · 필 배경
+  line:   'rgba(31, 93, 1, 0.22)',  // 녹색 보더 · 구분선
+  medium: 'rgba(31, 93, 1, 0.40)',  // 중간 녹색
+  strong: 'rgba(31, 93, 1, 0.65)',  // 보조 텍스트 · 아이콘
+  deep:   'rgba(31, 93, 1, 0.82)',  // 강조 녹색 텍스트
 } as const;

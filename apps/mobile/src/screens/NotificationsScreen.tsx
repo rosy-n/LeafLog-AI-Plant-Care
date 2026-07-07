@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint } from "../../constants/colors";
 
 const PLANT_IMAGES: Record<string, any> = {
     spaghetti: require("../../assets/plants/spaghetti.png"),
@@ -68,7 +69,7 @@ export default function NotificationsScreen({
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
                 <View style={styles.header}>
                     <TouchableOpacity
@@ -76,7 +77,7 @@ export default function NotificationsScreen({
                         onPress={() => navigation.goBack()}
                         activeOpacity={0.7}
                     >
-                        <Ionicons name="chevron-back" size={28} color="#2B3E25" />
+                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>알림</Text>
                     <View style={styles.headerButton} />
@@ -109,7 +110,7 @@ export default function NotificationsScreen({
                             <Ionicons
                                 name="notifications-off-outline"
                                 size={40}
-                                color="#C8D8BC"
+                                color={GreenTint.soft}
                             />
                             <Text style={styles.emptyText}>알림이 없어요</Text>
                         </View>
@@ -123,7 +124,7 @@ export default function NotificationsScreen({
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
     safe: {
         flex: 1,
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -164,7 +165,7 @@ const styles = StyleSheet.create({
     sectionLabel: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#5A8A5A",
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
 
@@ -177,24 +178,24 @@ const styles = StyleSheet.create({
     dividerLine: {
         flex: 1,
         height: 1,
-        backgroundColor: "#E0EBCD",
+        backgroundColor: GreenTint.soft,
     },
 
     card: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderRadius: 18,
         borderWidth: 1.5,
-        borderColor: "#E0EBCD",
+        borderColor: GreenTint.soft,
         overflow: "hidden",
         paddingRight: 16,
         paddingVertical: 6,
         gap: 12,
     },
     cardUnread: {
-        backgroundColor: "#F4FBF0",
-        borderColor: "#B8D8A8",
+        backgroundColor: Colors.background,
+        borderColor: GreenTint.soft,
     },
     unreadBar: {
         position: "absolute",
@@ -202,7 +203,7 @@ const styles = StyleSheet.create({
         top: 0,
         bottom: 0,
         width: 4,
-        backgroundColor: "#5A9A5A",
+        backgroundColor: GreenTint.medium,
         borderTopLeftRadius: 16,
         borderBottomLeftRadius: 16,
     },
@@ -218,20 +219,20 @@ const styles = StyleSheet.create({
     title: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#8AA880",
+        color: GreenTint.medium,
         includeFontPadding: false,
     },
     speech: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#1E3D1C",
+        color: Colors.primary,
         includeFontPadding: false,
         lineHeight: 20,
     },
     time: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#9AAA90",
+        color: GreenTint.line,
         includeFontPadding: false,
     },
 
@@ -245,7 +246,7 @@ const styles = StyleSheet.create({
     emptyText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#B0C0A8",
+        color: GreenTint.line,
         includeFontPadding: false,
     },
 

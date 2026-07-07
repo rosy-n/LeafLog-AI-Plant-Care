@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#D8D8D8',
+    backgroundColor: Colors.disabled,
   },
   segmentActive: {
     backgroundColor: Colors.primary,

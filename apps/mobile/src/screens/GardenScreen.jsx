@@ -17,6 +17,7 @@ import PlantImage from "../components/PlantImage";
 import HeartsRow from "../components/HeartsRow";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint } from "../../constants/colors";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SKY_HEIGHT = 126;
@@ -217,7 +218,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
                                         ref={searchInputRef}
                                         style={styles.searchInput}
                                         placeholder="식물 이름 검색"
-                                        placeholderTextColor="#A7A7A7"
+                                        placeholderTextColor={Colors.textFaint}
                                         value={searchQuery}
                                         onChangeText={setSearchQuery}
                                         returnKeyType="search"
@@ -248,7 +249,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
                                 <Ionicons
                                     name={isSearchActive ? "close" : "search"}
                                     size={25}
-                                    color="#2F6D2E"
+                                    color={GreenTint.deep}
                                 />
                             </LiquidGlassButton>
                         </View>
@@ -292,7 +293,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
                                     onPress={() => toggleFavorite(item.id)}
                                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                 >
-                                    <Text style={[styles.star, { color: item.favorite ? "#E2C23A" : "#A7A7A7" }]}>
+                                    <Text style={[styles.star, { color: item.favorite ? "#E2C23A" : Colors.textFaint }]}>
                                         ★
                                     </Text>
                                 </TouchableOpacity>
@@ -308,7 +309,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
                     onPress={() => navigation.navigate('AddPlant')}
                     style={styles.addBtn}
                 >
-                    <Ionicons name="add" size={34} color="#2F6D2E" />
+                    <Ionicons name="add" size={34} color={GreenTint.deep} />
                 </LiquidGlassButton>
 
                 {showSortMenu && (
@@ -351,7 +352,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
 }
 
 const greenTextShadow = {
-    textShadowColor: "#CFE6BE",
+    textShadowColor: GreenTint.soft,
     textShadowOffset: { width: 1.3, height: 1.3 },
     textShadowRadius: 0,
 };
@@ -368,18 +369,18 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: "#FFFDF1",
+        backgroundColor: Colors.white,
     },
 
     dragZone: {
-        backgroundColor: "#FFFDF1",
+        backgroundColor: Colors.white,
     },
     dragHandle: {
         alignSelf: "center",
         width: 70,
         height: 5,
         borderRadius: 3,
-        backgroundColor: "#E3DED1",
+        backgroundColor: Colors.border,
         marginTop: 12,
         marginBottom: 8,
     },
@@ -387,9 +388,9 @@ const styles = StyleSheet.create({
     header: {
         height: 76,
         paddingHorizontal: 18,
-        backgroundColor: "#FFFDF1",
+        backgroundColor: Colors.white,
         borderBottomWidth: 1,
-        borderBottomColor: "#DEDCCB",
+        borderBottomColor: Colors.border,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
@@ -397,7 +398,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: FontSizes.title,
         fontFamily: Fonts.neoDunggeunmo,
-        color: "#2F702D",
+        color: GreenTint.deep,
         letterSpacing: 0.3,
         flexShrink: 1,
         ...greenTextShadow,
@@ -416,7 +417,7 @@ const styles = StyleSheet.create({
     sortButtonText: {
         fontSize: FontSizes.bodyLarge,
         fontFamily: Fonts.neoDunggeunmo,
-        color: "#2F702D",
+        color: GreenTint.deep,
     },
     sortButtonTextMemorial: {
         color: "#8B6B5E",
@@ -430,13 +431,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: "#DEDCCB",
+        borderColor: Colors.border,
         marginRight: 10,
     },
     searchInput: {
         fontSize: FontSizes.bodyLarge,
         fontFamily: Fonts.neoDunggeunmo,
-        color: "#2F7830",
+        color: GreenTint.deep,
         padding: 0,
     },
 
@@ -444,7 +445,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         top: 101,
         right: 70,
-        shadowColor: "#385236",
+        shadowColor: GreenTint.deep,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.14,
         shadowRadius: 8,
@@ -452,10 +453,10 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     sortMenu: {
-        backgroundColor: "#FFFDF1",
+        backgroundColor: Colors.white,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: "#DEDCCB",
+        borderColor: Colors.border,
         minWidth: 130,
         overflow: "hidden",
     },
@@ -470,11 +471,11 @@ const styles = StyleSheet.create({
     sortMenuText: {
         fontSize: FontSizes.bodyLarge,
         fontFamily: Fonts.neoDunggeunmo,
-        color: "#5A7A59",
+        color: GreenTint.strong,
         letterSpacing: -0.3,
     },
     sortMenuTextActive: {
-        color: "#2F7030",
+        color: GreenTint.deep,
         fontFamily: Fonts.neoDunggeunmo,
     },
     sortMenuTextMemorial: {
@@ -503,7 +504,7 @@ const styles = StyleSheet.create({
     plantName: {
         fontSize: FontSizes.subtitle,
         fontFamily: Fonts.neoDunggeunmo,
-        color: "#2F7830",
+        color: GreenTint.deep,
         letterSpacing: -1,
         ...greenTextShadow,
     },
@@ -511,7 +512,7 @@ const styles = StyleSheet.create({
         marginLeft: 1,
         fontSize: FontSizes.title,
         fontFamily: Fonts.neoDunggeunmo,
-        textShadowColor: "#5F644F",
+        textShadowColor: Colors.textGray,
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 0,
     },
@@ -529,7 +530,7 @@ const styles = StyleSheet.create({
     },
     emptyStateText: {
         fontSize: FontSizes.bodyLarge,
-        color: "#A7A7A7",
+        color: Colors.textFaint,
         fontFamily: Fonts.neoDunggeunmo,
     },
 });

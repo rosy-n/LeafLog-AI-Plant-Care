@@ -116,7 +116,7 @@ export const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: FontSizes.small,
-    color: '#E53935',
+    color: Colors.danger,
     textAlign: 'center',
     paddingHorizontal: 16,
   },
