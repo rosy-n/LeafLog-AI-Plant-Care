@@ -1,4 +1,5 @@
 import React from "react";
+import { Colors } from "../../constants/colors";
 import { View, Text, StyleSheet } from "react-native";
 
 const STROKE_DIRS = [
@@ -22,7 +23,7 @@ export default function PixelOutlineText({ children, style, strokeWidth = 2 }) {
                             position: "absolute",
                             top:  p + dy * p,
                             left: p + dx * p,
-                            color: "#000000",
+                            color: Colors.textBlack,
                         },
                     ]}
                 >
@@ -40,6 +41,6 @@ const styles = StyleSheet.create({
         alignSelf: "center",
     },
     fill: {
-        color: "#FFFFFF",
+        color: Colors.white,
     },
 });

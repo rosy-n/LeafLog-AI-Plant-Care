@@ -13,6 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint } from "../../constants/colors";
 
 const ITEMS = [
     {
@@ -87,7 +88,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#E8F5DF" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
 
                 {/* Header */}
@@ -97,7 +98,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                         style={styles.headerButton}
                         onPress={() => navigation.goBack()}
                     >
-                        <Ionicons name="chevron-back" size={28} color="#2B3E25" />
+                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>식물 꾸미기</Text>
                     <View style={styles.headerButton} />
@@ -187,7 +188,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
 
                     {selectedItem ? (
                         <View style={styles.appliedBadge}>
-                            <Ionicons name="checkmark-circle" size={14} color="#3A8C2D" />
+                            <Ionicons name="checkmark-circle" size={14} color={GreenTint.strong} />
                             <Text style={styles.appliedBadgeText}>{selectedItem.label} 적용 중</Text>
                         </View>
                     ) : (
@@ -283,7 +284,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                                                                 <Ionicons
                                                                     name="checkmark"
                                                                     size={13}
-                                                                    color="#FFFFFF"
+                                                                    color={Colors.white}
                                                                 />
                                                             </View>
                                                         )}
@@ -342,7 +343,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#E8F5DF",
+        backgroundColor: Colors.background,
     },
     safe: {
         flex: 1,
@@ -365,7 +366,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -376,7 +377,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         borderRadius: 18,
         overflow: "hidden",
-        shadowColor: "#2D4A20",
+        shadowColor: GreenTint.deep,
         shadowOpacity: 0.14,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
@@ -406,26 +407,26 @@ const styles = StyleSheet.create({
     affinityLabel: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#4A6240",
+        color: GreenTint.deep,
     },
     affinityScore: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
-        color: "#1F3C18",
+        color: Colors.primary,
     },
     affinityUnit: {
         fontSize: FontSizes.body,
-        color: "#3A5830",
+        color: GreenTint.deep,
     },
     affinityLevelText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
-        color: "#2B6B20",
+        color: GreenTint.deep,
     },
     affinityDivider: {
         width: 1,
         height: 36,
-        backgroundColor: "rgba(80,130,60,0.25)",
+        backgroundColor: GreenTint.line,
     },
     progressRow: {
         flexDirection: "row",
@@ -437,12 +438,12 @@ const styles = StyleSheet.create({
     nextThresholdText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
-        color: "#5A7A4A",
+        color: GreenTint.strong,
     },
     progressBg: {
         width: "100%",
         height: 8,
-        backgroundColor: "rgba(100,150,80,0.22)",
+        backgroundColor: GreenTint.soft,
         borderRadius: 99,
         overflow: "hidden",
         marginTop: 2,
@@ -475,12 +476,12 @@ const styles = StyleSheet.create({
     plantName: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
-        color: "#1F3018",
+        color: Colors.primary,
     },
     plantDay: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#4A6840",
+        color: GreenTint.deep,
     },
     appliedBadge: {
         flexDirection: "row",
@@ -489,15 +490,15 @@ const styles = StyleSheet.create({
         marginTop: 8,
         paddingHorizontal: 12,
         paddingVertical: 5,
-        backgroundColor: "rgba(80,180,60,0.18)",
+        backgroundColor: GreenTint.soft,
         borderRadius: 99,
         borderWidth: 1,
-        borderColor: "rgba(60,140,45,0.35)",
+        borderColor: GreenTint.line,
     },
     appliedBadgeText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#2E6A22",
+        color: GreenTint.deep,
     },
     noItemBadge: {
         marginTop: 8,
@@ -511,7 +512,7 @@ const styles = StyleSheet.create({
     noItemBadgeText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#888",
+        color: Colors.textGray,
     },
 
     // Item Section
@@ -519,7 +520,7 @@ const styles = StyleSheet.create({
         marginHorizontal: 16,
         borderRadius: 22,
         overflow: "hidden",
-        shadowColor: "#2D4A20",
+        shadowColor: GreenTint.deep,
         shadowOpacity: 0.12,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
@@ -539,7 +540,7 @@ const styles = StyleSheet.create({
     itemSectionTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#2A4020",
+        color: Colors.primary,
         marginLeft: 18,
         marginBottom: 14,
     },
@@ -559,7 +560,7 @@ const styles = StyleSheet.create({
         height: 80,
         borderRadius: 18,
         overflow: "hidden",
-        shadowColor: "#2D4A20",
+        shadowColor: GreenTint.deep,
         shadowOpacity: 0.16,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 3 },
@@ -568,7 +569,7 @@ const styles = StyleSheet.create({
         borderColor: "rgba(255,255,255,0.6)",
     },
     itemCardSelected: {
-        borderColor: "#5AB840",
+        borderColor: GreenTint.medium,
         borderWidth: 2.5,
     },
     itemCardLocked: {
@@ -608,7 +609,7 @@ const styles = StyleSheet.create({
         width: 18,
         height: 18,
         borderRadius: 99,
-        backgroundColor: "#3E8C2D",
+        backgroundColor: GreenTint.strong,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -618,9 +619,9 @@ const styles = StyleSheet.create({
         borderRadius: 99,
     },
     levelBadgeUnlocked: {
-        backgroundColor: "rgba(70,160,50,0.2)",
+        backgroundColor: GreenTint.soft,
         borderWidth: 1,
-        borderColor: "rgba(70,160,50,0.4)",
+        borderColor: GreenTint.line,
     },
     levelBadgeLocked: {
         backgroundColor: "rgba(160,160,160,0.18)",
@@ -630,15 +631,15 @@ const styles = StyleSheet.create({
     levelBadgeText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
-        color: "#888",
+        color: Colors.textGray,
     },
     levelBadgeTextUnlocked: {
-        color: "#2E7020",
+        color: GreenTint.deep,
     },
     itemLabel: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
-        color: "#2A4020",
+        color: Colors.primary,
         textAlign: "center",
     },
 

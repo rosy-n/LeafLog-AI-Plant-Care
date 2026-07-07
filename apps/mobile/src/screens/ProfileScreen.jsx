@@ -14,11 +14,12 @@ import { Ionicons } from "@expo/vector-icons";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors } from "../../constants/colors";
 
 export default function ProfileScreen({ navigation }) {
     return (
         <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
             <View style={styles.container}>
                 {/* 상단 제목 / 편집 버튼 */}
@@ -28,7 +29,7 @@ export default function ProfileScreen({ navigation }) {
                         style={styles.backButton}
                         onPress={() => navigation.goBack()}
                     >
-                        <Ionicons name="chevron-back" size={28} color="#222222" />
+                        <Ionicons name="chevron-back" size={28} color={Colors.textBlack} />
                     </TouchableOpacity>
 
                     <Text style={styles.title}>프로필</Text>
@@ -41,7 +42,7 @@ export default function ProfileScreen({ navigation }) {
                             // navigation.navigate("ProfileEdit");
                         }}
                     >
-                        <Ionicons name="pencil-outline" size={28} color="#222222" />
+                        <Ionicons name="pencil-outline" size={28} color={Colors.textBlack} />
                         <View style={styles.editUnderline} />
                     </TouchableOpacity>
                 </View>
@@ -91,12 +92,12 @@ const CARD_HEIGHT = CARD_WIDTH * 1.2;
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
 
     container: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
         paddingHorizontal: 24,
     },
 
@@ -117,7 +118,7 @@ const styles = StyleSheet.create({
     title: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
         marginTop: 0,
     },
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
         width: 14,
         height: 3,
         borderRadius: 2,
-        backgroundColor: "#222222",
+        backgroundColor: Colors.textBlack,
         marginTop: -6,
         marginLeft: 20,
     },
@@ -173,7 +174,7 @@ const styles = StyleSheet.create({
         marginTop: 16,
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
         textAlign: "center",
     },
@@ -188,7 +189,7 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         lineHeight: 30,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -199,7 +200,7 @@ const styles = StyleSheet.create({
         width: SCREEN_WIDTH * 0.62,
         height: 46,
         borderRadius: 20,
-        backgroundColor: "#1F5D01",
+        backgroundColor: Colors.primary,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -207,7 +208,7 @@ const styles = StyleSheet.create({
     memoryButtonText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
-        color: "#FFFFFF",
+        color: Colors.white,
         includeFontPadding: false,
     },
 });

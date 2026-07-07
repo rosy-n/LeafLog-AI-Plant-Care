@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint } from "../../constants/colors";
 
 export default function ConsultationScreen({ navigation, route }) {
     const { consultation } = route.params;
@@ -164,7 +165,7 @@ export default function ConsultationScreen({ navigation, route }) {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <KeyboardAvoidingView
                 style={styles.container}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -175,7 +176,7 @@ export default function ConsultationScreen({ navigation, route }) {
                         style={styles.headerBackButton}
                         onPress={() => navigation.goBack()}
                     >
-                        <Ionicons name="chevron-back" size={28} color="#222222" />
+                        <Ionicons name="chevron-back" size={28} color={Colors.textBlack} />
                     </TouchableOpacity>
                     <Text style={styles.title} numberOfLines={1}>{consultation.title}</Text>
                     <View style={styles.headerSpacer} />
@@ -215,7 +216,7 @@ export default function ConsultationScreen({ navigation, route }) {
                         onPress={pickImage}
                         activeOpacity={0.7}
                     >
-                        <Ionicons name="add" size={22} color="#1F5D01" />
+                        <Ionicons name="add" size={22} color={Colors.primary} />
                     </TouchableOpacity>
 
                     <View style={styles.inputBox}>
@@ -230,7 +231,7 @@ export default function ConsultationScreen({ navigation, route }) {
                                     style={styles.removeImageButton}
                                     onPress={() => setPendingImage(null)}
                                 >
-                                    <Ionicons name="close-circle" size={18} color="#555" />
+                                    <Ionicons name="close-circle" size={18} color={Colors.textGray} />
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -239,7 +240,7 @@ export default function ConsultationScreen({ navigation, route }) {
                             value={message}
                             onChangeText={setMessage}
                             placeholder="이어서 질문해 주세요"
-                            placeholderTextColor="#8A9A7A"
+                            placeholderTextColor={GreenTint.medium}
                             multiline
                             textAlignVertical="top"
                         />
@@ -254,7 +255,7 @@ export default function ConsultationScreen({ navigation, route }) {
                         activeOpacity={0.8}
                         disabled={!canSend}
                     >
-                        <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
+                        <Ionicons name="arrow-up" size={20} color={Colors.white} />
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
@@ -265,12 +266,12 @@ export default function ConsultationScreen({ navigation, route }) {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
 
     container: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
 
     header: {
@@ -297,7 +298,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.subtitle,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
         textAlign: "center",
         marginHorizontal: 4,
@@ -329,7 +330,7 @@ const styles = StyleSheet.create({
     historyLabelText: {
         fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.small,
-        color: "#7A9A6A",
+        color: GreenTint.medium,
         includeFontPadding: false,
     },
 
@@ -343,7 +344,7 @@ const styles = StyleSheet.create({
     continueDividerText: {
         fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.small,
-        color: "#7A9A6A",
+        color: GreenTint.medium,
         includeFontPadding: false,
     },
 
@@ -357,7 +358,7 @@ const styles = StyleSheet.create({
         width: 28,
         height: 28,
         borderRadius: 14,
-        backgroundColor: "#DFF0D4",
+        backgroundColor: GreenTint.faint,
         alignItems: "center",
         justifyContent: "center",
         marginRight: 10,
@@ -377,7 +378,7 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.body,
         lineHeight: 21,
-        color: "#1A1A1A",
+        color: Colors.textBlack,
     },
 
     userRow: {
@@ -387,7 +388,7 @@ const styles = StyleSheet.create({
 
     userBubble: {
         maxWidth: "75%",
-        backgroundColor: "#1F5D01",
+        backgroundColor: Colors.primary,
         borderRadius: 18,
         borderTopRightRadius: 4,
         overflow: "hidden",
@@ -402,7 +403,7 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.body,
         lineHeight: 20,
-        color: "#FFFFFF",
+        color: Colors.white,
         paddingVertical: 10,
         paddingHorizontal: 14,
     },
@@ -413,7 +414,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingTop: 8,
         paddingBottom: Platform.OS === "ios" ? 16 : 12,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: "rgba(31, 93, 1, 0.18)",
     },
@@ -422,7 +423,7 @@ const styles = StyleSheet.create({
         width: 34,
         height: 34,
         borderRadius: 17,
-        backgroundColor: "#E4F3DB",
+        backgroundColor: GreenTint.faint,
         alignItems: "center",
         justifyContent: "center",
         marginRight: 8,
@@ -431,7 +432,7 @@ const styles = StyleSheet.create({
 
     inputBox: {
         flex: 1,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderRadius: 20,
         borderWidth: 1,
         borderColor: "rgba(31, 93, 1, 0.2)",
@@ -457,14 +458,14 @@ const styles = StyleSheet.create({
         position: "absolute",
         top: -5,
         left: 56,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
         borderRadius: 9,
     },
 
     input: {
         fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.body,
-        color: "#2F4F20",
+        color: GreenTint.deep,
         minHeight: 20,
         maxHeight: 80,
         padding: 0,
@@ -475,13 +476,13 @@ const styles = StyleSheet.create({
         width: 34,
         height: 34,
         borderRadius: 17,
-        backgroundColor: "#1F5D01",
+        backgroundColor: Colors.primary,
         alignItems: "center",
         justifyContent: "center",
         marginBottom: 3,
     },
 
     sendButtonDisabled: {
-        backgroundColor: "#B5CCA5",
+        backgroundColor: GreenTint.line,
     },
 });

@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint } from "../../constants/colors";
 
 const STROKE_DIRS = [
     [-1,  0], [ 1,  0],
@@ -23,7 +24,7 @@ function OutlineText({ children, style, strokeWidth = 2 }) {
                             position: "absolute",
                             top:  p + dy * p,
                             left: p + dx * p,
-                            color: "#000000",
+                            color: Colors.textBlack,
                         },
                     ]}
                 >
@@ -76,8 +77,8 @@ const styles = StyleSheet.create({
         width: 38,
         fontSize: FontSizes.display,
         marginRight: 7,
-        color: "#39D13A",
-        textShadowColor: "#177E25",
+        color: Colors.nutrient,
+        textShadowColor: GreenTint.deep,
         textShadowOffset: { width: 2, height: 2 },
         textShadowRadius: 0,
     },
@@ -87,13 +88,13 @@ const styles = StyleSheet.create({
     },
 
     outlineFill: {
-        color: "#FFFFFF",
+        color: Colors.white,
     },
 
     text: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
-        color: "#FFFFFF",
+        color: Colors.white,
         letterSpacing: 0.5,
         lineHeight: 32,
     },

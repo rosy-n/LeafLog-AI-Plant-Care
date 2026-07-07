@@ -16,8 +16,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint } from "../../constants/colors";
 
-const SOIL_COLORS = ["#A8D5A2", "#F5C87A", "#B8A5D4", "#F5A07A", "#7AC5F5"];
+const SOIL_COLORS = [GreenTint.line, "#F5C87A", "#B8A5D4", "#F5A07A", "#7AC5F5"];
 
 type SoilEntry = { type: string; ratio: string };
 
@@ -69,7 +70,7 @@ function RecordHeader({
                 onPress={onBack}
                 activeOpacity={0.7}
             >
-                <Ionicons name="chevron-back" size={28} color="#2B3E25" />
+                <Ionicons name="chevron-back" size={28} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{title}</Text>
             <View style={styles.headerButton} />
@@ -137,7 +138,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
     if (view === "list") {
         return (
             <View style={styles.root}>
-                <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+                <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
                 <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
                     <RecordHeader
                         title="분갈이"
@@ -152,7 +153,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                             activeOpacity={0.82}
                             onPress={() => setView("form")}
                         >
-                            <Ionicons name="add-circle-outline" size={22} color="#2F702D" />
+                            <Ionicons name="add-circle-outline" size={22} color={GreenTint.deep} />
                             <Text style={styles.newRecordText}>새 분갈이 기록 작성</Text>
                         </TouchableOpacity>
 
@@ -174,7 +175,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                             }}
                                         >
                                             <View style={styles.recordIconWrap}>
-                                                <Ionicons name="leaf-outline" size={22} color="#3D7842" />
+                                                <Ionicons name="leaf-outline" size={22} color={GreenTint.strong} />
                                             </View>
                                             <View style={styles.recordBody}>
                                                 <Text style={styles.recordDate}>{record.date}</Text>
@@ -200,7 +201,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                                     )}
                                                 </View>
                                             </View>
-                                            <Ionicons name="chevron-forward" size={18} color="#BBCBB8" />
+                                            <Ionicons name="chevron-forward" size={18} color={Colors.textFaint} />
                                         </TouchableOpacity>
                                         <TouchableOpacity
                                             style={styles.deleteButton}
@@ -220,7 +221,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                                 )
                                             }
                                         >
-                                            <Ionicons name="trash-outline" size={19} color="#D4887A" />
+                                            <Ionicons name="trash-outline" size={19} color={Colors.remove} />
                                         </TouchableOpacity>
                                     </View>
                                 ))}
@@ -241,7 +242,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
 
         return (
             <View style={styles.root}>
-                <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+                <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
                 <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
                     <RecordHeader
                         title={selectedRecord.date}
@@ -254,7 +255,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                         {/* 화분 크기 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
-                                <Ionicons name="resize-outline" size={18} color="#5A8A5A" />
+                                <Ionicons name="resize-outline" size={18} color={GreenTint.strong} />
                                 <Text style={styles.cardTitle}>화분 크기</Text>
                             </View>
                             <Text style={styles.cardValueLarge}>
@@ -265,7 +266,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                         {/* 흙 구성 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
-                                <Ionicons name="earth-outline" size={18} color="#5A8A5A" />
+                                <Ionicons name="earth-outline" size={18} color={GreenTint.strong} />
                                 <Text style={styles.cardTitle}>흙 구성</Text>
                             </View>
                             {/* 비율 막대 */}
@@ -311,7 +312,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                     <Ionicons
                                         name="document-text-outline"
                                         size={18}
-                                        color="#5A8A5A"
+                                        color={GreenTint.strong}
                                     />
                                     <Text style={styles.cardTitle}>메모</Text>
                                 </View>
@@ -322,7 +323,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                         {/* 사진 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
-                                <Ionicons name="images-outline" size={18} color="#5A8A5A" />
+                                <Ionicons name="images-outline" size={18} color={GreenTint.strong} />
                                 <Text style={styles.cardTitle}>사진</Text>
                             </View>
                             <Text style={styles.emptySubText}>첨부된 사진이 없습니다</Text>
@@ -336,7 +337,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
     // ─── Form View ────────────────────────────────────────────────────────────
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
                 <RecordHeader
                     title="새 분갈이 기록"
@@ -358,13 +359,13 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                         {/* 화분 크기 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
-                                <Ionicons name="resize-outline" size={18} color="#5A8A5A" />
+                                <Ionicons name="resize-outline" size={18} color={GreenTint.strong} />
                                 <Text style={styles.cardTitle}>화분 크기</Text>
                             </View>
                             <TextInput
                                 style={styles.textInput}
                                 placeholder="예: 12cm, 4호"
-                                placeholderTextColor="#C0C8BC"
+                                placeholderTextColor={Colors.textFaint}
                                 value={potSize}
                                 onChangeText={setPotSize}
                             />
@@ -373,7 +374,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                         {/* 흙 정보 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
-                                <Ionicons name="earth-outline" size={18} color="#5A8A5A" />
+                                <Ionicons name="earth-outline" size={18} color={GreenTint.strong} />
                                 <Text style={styles.cardTitle}>흙 정보</Text>
                             </View>
                             {soilMix.map((entry, index) => (
@@ -390,14 +391,14 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                     <TextInput
                                         style={[styles.textInput, styles.soilTypeInput]}
                                         placeholder="흙 종류"
-                                        placeholderTextColor="#C0C8BC"
+                                        placeholderTextColor={Colors.textFaint}
                                         value={entry.type}
                                         onChangeText={(v) => updateSoilEntry(index, "type", v)}
                                     />
                                     <TextInput
                                         style={[styles.textInput, styles.soilRatioInput]}
                                         placeholder="0"
-                                        placeholderTextColor="#C0C8BC"
+                                        placeholderTextColor={Colors.textFaint}
                                         value={entry.ratio}
                                         onChangeText={(v) =>
                                             updateSoilEntry(
@@ -418,7 +419,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                             <Ionicons
                                                 name="remove-circle-outline"
                                                 size={22}
-                                                color="#D4887A"
+                                                color={Colors.remove}
                                             />
                                         </TouchableOpacity>
                                     )}
@@ -429,7 +430,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                 onPress={addSoilEntry}
                                 activeOpacity={0.75}
                             >
-                                <Ionicons name="add" size={16} color="#2F702D" />
+                                <Ionicons name="add" size={16} color={GreenTint.deep} />
                                 <Text style={styles.addSoilText}>흙 종류 추가</Text>
                             </TouchableOpacity>
                         </View>
@@ -440,14 +441,14 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                 <Ionicons
                                     name="document-text-outline"
                                     size={18}
-                                    color="#5A8A5A"
+                                    color={GreenTint.strong}
                                 />
                                 <Text style={styles.cardTitle}>메모 / 기록</Text>
                             </View>
                             <TextInput
                                 style={[styles.textInput, styles.memoInput]}
                                 placeholder="분갈이 중 특이사항, 식물 상태 등을 기록하세요"
-                                placeholderTextColor="#C0C8BC"
+                                placeholderTextColor={Colors.textFaint}
                                 value={memo}
                                 onChangeText={setMemo}
                                 multiline
@@ -458,11 +459,11 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                         {/* 사진 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
-                                <Ionicons name="images-outline" size={18} color="#5A8A5A" />
+                                <Ionicons name="images-outline" size={18} color={GreenTint.strong} />
                                 <Text style={styles.cardTitle}>사진</Text>
                             </View>
                             <TouchableOpacity style={styles.photoButton} activeOpacity={0.75}>
-                                <Ionicons name="camera-outline" size={28} color="#8AB08A" />
+                                <Ionicons name="camera-outline" size={28} color={GreenTint.line} />
                                 <Text style={styles.photoButtonText}>사진 추가</Text>
                             </TouchableOpacity>
                         </View>
@@ -506,7 +507,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                     activeOpacity={0.8}
                                     onPress={handleCharacterChoice}
                                 >
-                                    <Ionicons name="camera" size={15} color="#FFFFFF" />
+                                    <Ionicons name="camera" size={15} color={Colors.white} />
                                     <Text style={styles.modalButtonGreenText}>새로 생성</Text>
                                 </TouchableOpacity>
                             </View>
@@ -521,7 +522,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
     safe: {
         flex: 1,
@@ -544,7 +545,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -561,16 +562,16 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderRadius: 16,
         borderWidth: 1.5,
-        borderColor: "#A8D5A2",
+        borderColor: GreenTint.line,
         paddingVertical: 16,
     },
     newRecordText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
-        color: "#2F702D",
+        color: GreenTint.deep,
         includeFontPadding: false,
     },
 
@@ -578,7 +579,7 @@ const styles = StyleSheet.create({
     sectionLabel: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#7A9A7A",
+        color: GreenTint.medium,
         includeFontPadding: false,
         marginBottom: -4,
     },
@@ -587,10 +588,10 @@ const styles = StyleSheet.create({
     recordCard: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderRadius: 16,
         borderWidth: 1.5,
-        borderColor: "#E0EBCD",
+        borderColor: GreenTint.soft,
         overflow: "hidden",
     },
     recordMainTouch: {
@@ -613,7 +614,7 @@ const styles = StyleSheet.create({
         width: 42,
         height: 42,
         borderRadius: 21,
-        backgroundColor: "#EEF7E8",
+        backgroundColor: Colors.separator,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -624,7 +625,7 @@ const styles = StyleSheet.create({
     recordDate: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
-        color: "#222222",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
     chipRow: {
@@ -633,7 +634,7 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     chip: {
-        backgroundColor: "#F0F5EC",
+        backgroundColor: Colors.separator,
         borderRadius: 10,
         paddingHorizontal: 9,
         paddingVertical: 4,
@@ -644,7 +645,7 @@ const styles = StyleSheet.create({
     chipText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#4A6A4A",
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
 
@@ -656,23 +657,23 @@ const styles = StyleSheet.create({
     emptyText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#B0B8A8",
+        color: Colors.textFaint,
         includeFontPadding: false,
     },
     emptySubText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#B0B8A8",
+        color: Colors.textFaint,
         includeFontPadding: false,
         marginTop: 2,
     },
 
     // Card
     card: {
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderRadius: 20,
         borderWidth: 1.5,
-        borderColor: "#E0EBCD",
+        borderColor: GreenTint.soft,
         paddingHorizontal: 20,
         paddingVertical: 18,
         gap: 12,
@@ -685,13 +686,13 @@ const styles = StyleSheet.create({
     cardTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
-        color: "#2A4A18",
+        color: Colors.primary,
         includeFontPadding: false,
     },
     cardValueLarge: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -718,20 +719,20 @@ const styles = StyleSheet.create({
     soilDetailType: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#333333",
+        color: Colors.textBlack,
         flex: 1,
         includeFontPadding: false,
     },
     soilDetailRatio: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#666666",
+        color: Colors.textGray,
         includeFontPadding: false,
     },
     memoReadText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#333333",
+        color: Colors.textBlack,
         lineHeight: 22,
         includeFontPadding: false,
     },
@@ -740,11 +741,11 @@ const styles = StyleSheet.create({
     textInput: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#111111",
-        backgroundColor: "#F6FAF0",
+        color: Colors.textBlack,
+        backgroundColor: Colors.background,
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: "#D8E8C8",
+        borderColor: GreenTint.soft,
         paddingHorizontal: 12,
         paddingVertical: 10,
         includeFontPadding: false,
@@ -764,7 +765,7 @@ const styles = StyleSheet.create({
     percentSign: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#5A7A5A",
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
     addSoilButton: {
@@ -777,7 +778,7 @@ const styles = StyleSheet.create({
     addSoilText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#2F702D",
+        color: GreenTint.deep,
         includeFontPadding: false,
     },
     memoInput: {
@@ -788,25 +789,25 @@ const styles = StyleSheet.create({
     photoButton: {
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#F6FAF0",
+        backgroundColor: Colors.background,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: "#D8E8C8",
+        borderColor: GreenTint.soft,
         height: 88,
         gap: 6,
     },
     photoButtonText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#8AB08A",
+        color: GreenTint.line,
         includeFontPadding: false,
     },
     saveButton: {
-        backgroundColor: "#2F702D",
+        backgroundColor: GreenTint.deep,
         borderRadius: 16,
         paddingVertical: 16,
         alignItems: "center",
-        shadowColor: "#2F702D",
+        shadowColor: GreenTint.deep,
         shadowOpacity: 0.25,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 4 },
@@ -815,7 +816,7 @@ const styles = StyleSheet.create({
     saveButtonText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
-        color: "#FFFFFF",
+        color: Colors.white,
         includeFontPadding: false,
     },
 
@@ -827,7 +828,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     modalBox: {
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderRadius: 24,
         paddingHorizontal: 28,
         paddingTop: 32,
@@ -835,7 +836,7 @@ const styles = StyleSheet.create({
         marginHorizontal: 32,
         alignItems: "center",
         gap: 8,
-        shadowColor: "#000000",
+        shadowColor: Colors.textBlack,
         shadowOpacity: 0.15,
         shadowRadius: 20,
         shadowOffset: { width: 0, height: 8 },
@@ -848,13 +849,13 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
     modalBody: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#555555",
+        color: Colors.textGray,
         textAlign: "center",
         lineHeight: 22,
         includeFontPadding: false,
@@ -876,21 +877,21 @@ const styles = StyleSheet.create({
         borderRadius: 14,
     },
     modalButtonGray: {
-        backgroundColor: "#F0F0F0",
+        backgroundColor: Colors.separator,
     },
     modalButtonGreen: {
-        backgroundColor: "#2F702D",
+        backgroundColor: GreenTint.deep,
     },
     modalButtonGrayText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#555555",
+        color: Colors.textGray,
         includeFontPadding: false,
     },
     modalButtonGreenText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#FFFFFF",
+        color: Colors.white,
         includeFontPadding: false,
     },
 });

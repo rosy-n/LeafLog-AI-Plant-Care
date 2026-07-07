@@ -11,6 +11,7 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
+import { Colors } from '../../constants/colors';
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
@@ -358,7 +359,7 @@ export default function InfoScreen() {
           <TextInput
             style={styles.soilInput}
             placeholder="예: 분갈이흙 + 펄라이트 조금, 마사토 섞음..."
-            placeholderTextColor="#A0A0A0"
+            placeholderTextColor={Colors.textFaint}
             value={soilNote}
             onChangeText={setSoilNote}
             maxLength={80}
@@ -376,7 +377,7 @@ export default function InfoScreen() {
           activeOpacity={0.8}
         >
           {isSubmitting ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={Colors.white} />
           ) : (
             <Text style={[styles.saveBtnText, !isValid && styles.saveBtnTextDisabled]}>
               저장

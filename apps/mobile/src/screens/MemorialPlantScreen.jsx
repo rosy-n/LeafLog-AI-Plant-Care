@@ -19,6 +19,7 @@ import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint } from "../../constants/colors";
 
 const MENU_ITEMS = [
     { label: "프로필", screen: "Profile" },
@@ -238,7 +239,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                             <Ionicons
                                 name={menuOpen ? "close" : "menu"}
                                 size={30}
-                                color="#3D4B34"
+                                color={GreenTint.deep}
                             />
                         </LiquidGlassButton>
 
@@ -246,7 +247,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                             size={54}
                             onPress={() => navigation.navigate("Home")}
                         >
-                            <Ionicons name="home-outline" size={30} color="#315E35" />
+                            <Ionicons name="home-outline" size={30} color={GreenTint.deep} />
                         </LiquidGlassButton>
                     </View>
 
@@ -258,7 +259,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                             <Ionicons
                                 name="chatbubble-ellipses-outline"
                                 size={29}
-                                color="#3D7842"
+                                color={GreenTint.strong}
                             />
                         </LiquidGlassButton>
 
@@ -298,7 +299,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                                 style={styles.modalCloseBtn}
                                 onPress={() => setGraveModalVisible(false)}
                             >
-                                <Ionicons name="close" size={20} color="#BBBBBB" />
+                                <Ionicons name="close" size={20} color={Colors.textFaint} />
                             </TouchableOpacity>
 
                             {/* 상단 장식 아이콘 */}
@@ -306,18 +307,18 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                                 <MaterialCommunityIcons
                                     name="leaf"
                                     size={15}
-                                    color="#6BBF6A"
+                                    color={GreenTint.medium}
                                     style={{ transform: [{ rotate: "-35deg" }], marginBottom: 2 }}
                                 />
                                 <MaterialCommunityIcons
                                     name="butterfly"
                                     size={26}
-                                    color="#6BBF6A"
+                                    color={GreenTint.medium}
                                 />
                                 <MaterialCommunityIcons
                                     name="leaf"
                                     size={15}
-                                    color="#6BBF6A"
+                                    color={GreenTint.medium}
                                     style={{ transform: [{ rotate: "35deg" }], marginBottom: 2 }}
                                 />
                             </View>
@@ -349,7 +350,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                                     onPress={handleRevive}
                                 >
                                     <Text style={styles.modalSparkle}>✦ </Text>
-                                    <Ionicons name="heart" size={12} color="#FFFFFF" />
+                                    <Ionicons name="heart" size={12} color={Colors.white} />
                                     <Text style={styles.modalBtnPrimaryText}> 다시 함께하기</Text>
                                     <Text style={styles.modalSparkle}> ✦</Text>
                                 </TouchableOpacity>
@@ -366,7 +367,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#91C881",
+        backgroundColor: GreenTint.line,
     },
     background: {
         flex: 1,
@@ -388,9 +389,9 @@ const styles = StyleSheet.create({
         right: 42,
         width: 250,
         height: 70,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderWidth: 4,
-        borderColor: "#121212",
+        borderColor: Colors.textBlack,
         alignItems: "center",
         justifyContent: "center",
         zIndex: 20,
@@ -398,7 +399,7 @@ const styles = StyleSheet.create({
     speechText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
-        color: "#1D1D1D",
+        color: Colors.textBlack,
     },
     tailBorder: {
         position: "absolute",
@@ -406,7 +407,7 @@ const styles = StyleSheet.create({
         left: 58,
         width: 31,
         height: 31,
-        backgroundColor: "#121212",
+        backgroundColor: Colors.textBlack,
         transform: [{ rotate: "45deg" }],
     },
     tailInner: {
@@ -415,7 +416,7 @@ const styles = StyleSheet.create({
         left: 64,
         width: 20,
         height: 20,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         transform: [{ rotate: "45deg" }],
     },
 
@@ -438,14 +439,14 @@ const styles = StyleSheet.create({
     plantName: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
-        color: "#FFFFFF",
+        color: Colors.white,
         letterSpacing: 1,
         lineHeight: 50,
     },
     dayText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
-        color: "#FFFFFF",
+        color: Colors.white,
         letterSpacing: 1,
         lineHeight: 32,
     },
@@ -491,7 +492,7 @@ const styles = StyleSheet.create({
         height: 31,
         borderRadius: 16,
         overflow: "hidden",
-        shadowColor: "#2D3B2C",
+        shadowColor: Colors.textBlack,
         shadowOpacity: 0.18,
         shadowRadius: 7,
         shadowOffset: { width: 0, height: 4 },
@@ -524,7 +525,7 @@ const styles = StyleSheet.create({
     menuItemText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#263326",
+        color: Colors.textBlack,
         textShadowColor: "rgba(255,255,255,0.65)",
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 0,
@@ -538,7 +539,7 @@ const styles = StyleSheet.create({
     },
     modalBox: {
         width: 300,
-        backgroundColor: "#FAF5E8",
+        backgroundColor: Colors.separator,
         borderRadius: 22,
         borderWidth: 1.5,
         borderColor: "#D8CCAA",
@@ -546,7 +547,7 @@ const styles = StyleSheet.create({
         paddingBottom: 22,
         paddingHorizontal: 20,
         alignItems: "center",
-        shadowColor: "#000000",
+        shadowColor: Colors.textBlack,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.18,
         shadowRadius: 16,
@@ -566,7 +567,7 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
-        color: "#2A2A2A",
+        color: Colors.textBlack,
         textAlign: "center",
         marginBottom: 8,
     },
@@ -576,7 +577,7 @@ const styles = StyleSheet.create({
     modalDesc: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#999999",
+        color: Colors.textFaint,
         textAlign: "center",
         lineHeight: 21,
         marginBottom: 22,
@@ -605,11 +606,11 @@ const styles = StyleSheet.create({
         flex: 1,
         height: 46,
         borderRadius: 23,
-        backgroundColor: "#76C973",
+        backgroundColor: GreenTint.line,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        shadowColor: "#3A8C38",
+        shadowColor: GreenTint.strong,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.35,
         shadowRadius: 6,
@@ -618,11 +619,11 @@ const styles = StyleSheet.create({
     modalBtnPrimaryText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#FFFFFF",
+        color: Colors.white,
     },
     modalSparkle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
-        color: "#FFFFFF",
+        color: Colors.white,
     },
 });

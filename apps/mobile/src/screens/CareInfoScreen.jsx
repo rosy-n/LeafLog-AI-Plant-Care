@@ -14,6 +14,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint } from "../../constants/colors";
 
 const CARE_SECTIONS = [
     { key: "plantInfo", label: "식물정보" },
@@ -74,7 +75,7 @@ export default function CareInfoScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
             <View style={styles.container}>
                 <View style={styles.header}>
@@ -83,7 +84,7 @@ export default function CareInfoScreen({ navigation }) {
                         style={styles.backButton}
                         onPress={() => navigation.goBack()}
                     >
-                        <Ionicons name="chevron-back" size={32} color="#222222" />
+                        <Ionicons name="chevron-back" size={32} color={Colors.textBlack} />
                     </TouchableOpacity>
 
                     <Text style={styles.title}>돌보기 정보</Text>
@@ -371,12 +372,12 @@ export default function CareInfoScreen({ navigation }) {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
 
     container: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
         paddingHorizontal: 24,
     },
 
@@ -397,7 +398,7 @@ const styles = StyleSheet.create({
     title: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
         marginTop: 0,
     },
@@ -422,7 +423,7 @@ const styles = StyleSheet.create({
         height: 32,
         overflow: "hidden",
         borderRadius: 11,
-        shadowColor: "#385236",
+        shadowColor: GreenTint.deep,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.16,
         shadowRadius: 4,
@@ -459,12 +460,12 @@ const styles = StyleSheet.create({
     tabText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#2A4A18",
+        color: Colors.primary,
         includeFontPadding: false,
     },
 
     activeTabText: {
-        color: "#0D3500",
+        color: Colors.primary,
     },
 
     content: {
@@ -474,13 +475,13 @@ const styles = StyleSheet.create({
 
     card: {
         width: "100%",
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderRadius: 20,
         paddingHorizontal: 20,
         paddingVertical: 18,
         marginBottom: 14,
         borderWidth: 1.5,
-        borderColor: "#E0EBCD",
+        borderColor: GreenTint.soft,
     },
 
     lastCard: {
@@ -490,7 +491,7 @@ const styles = StyleSheet.create({
     cardTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
-        color: "#111111",
+        color: Colors.textBlack,
         marginBottom: 14,
         includeFontPadding: false,
     },
@@ -499,7 +500,7 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         lineHeight: 22,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -516,14 +517,14 @@ const styles = StyleSheet.create({
     mainInfo: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
     subInfo: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -531,7 +532,7 @@ const styles = StyleSheet.create({
         width: 58,
         height: 58,
         borderRadius: 29,
-        backgroundColor: "#EAF3FF",
+        backgroundColor: Colors.white,
         justifyContent: "center",
         alignItems: "center",
     },
@@ -559,7 +560,7 @@ const styles = StyleSheet.create({
     bigNumber: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
-        color: "#000000",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -576,7 +577,7 @@ const styles = StyleSheet.create({
         width: "100%",
         height: 22,
         borderRadius: 16,
-        backgroundColor: "#E7E7E7",
+        backgroundColor: Colors.separator,
         overflow: "hidden",
         position: "relative",
     },
@@ -604,7 +605,7 @@ const styles = StyleSheet.create({
     rangeText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -617,7 +618,7 @@ const styles = StyleSheet.create({
     rangeLabel: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -662,7 +663,7 @@ const styles = StyleSheet.create({
     toxicityLabel: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -673,7 +674,7 @@ const styles = StyleSheet.create({
     },
 
     chip: {
-        backgroundColor: "#EFEFEF",
+        backgroundColor: Colors.separator,
         borderRadius: 14,
         paddingHorizontal: 12,
         paddingVertical: 6,
@@ -682,7 +683,7 @@ const styles = StyleSheet.create({
     chipText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 });

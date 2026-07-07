@@ -188,8 +188,8 @@ export default function CharacterScreen() {
           {/* 나쁜 예 */}
           <View style={styles.guideCategory}>
             <View style={styles.guideCategoryHeader}>
-              <Ionicons name="close-circle" size={22} color="#E53935" />
-              <Text style={[styles.guideCategoryLabel, { color: '#E53935' }]}>나쁜 예</Text>
+              <Ionicons name="close-circle" size={22} color={Colors.danger} />
+              <Text style={[styles.guideCategoryLabel, { color: Colors.danger }]}>나쁜 예</Text>
             </View>
             <View style={styles.badExampleRow}>
               {GUIDE_BAD_ITEMS.map(({ src, label }) => (
