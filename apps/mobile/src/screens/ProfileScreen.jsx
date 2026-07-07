@@ -23,7 +23,13 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.container}>
                 {/* 상단 제목 / 편집 버튼 */}
                 <View style={styles.header}>
-                    <View style={styles.headerSpacer} />
+                    <TouchableOpacity
+                        activeOpacity={0.75}
+                        style={styles.backButton}
+                        onPress={() => navigation.goBack()}
+                    >
+                        <Ionicons name="chevron-back" size={28} color="#222222" />
+                    </TouchableOpacity>
 
                     <Text style={styles.title}>프로필</Text>
 
@@ -74,15 +80,6 @@ export default function ProfileScreen({ navigation }) {
                         나의 정원에서 추억으로 이동
                     </Text>
                 </TouchableOpacity>
-
-                {/* 좌측 하단 X 버튼 */}
-                <TouchableOpacity
-                    activeOpacity={0.75}
-                    style={styles.closeButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons name="close" size={36} color="#555555" />
-                </TouchableOpacity>
             </View>
         </SafeAreaView>
     );
@@ -110,8 +107,11 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
     },
 
-    headerSpacer: {
+    backButton: {
         width: 44,
+        height: 44,
+        alignItems: "center",
+        justifyContent: "center",
     },
 
     title: {
@@ -209,26 +209,5 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.bodyLarge,
         color: "#FFFFFF",
         includeFontPadding: false,
-    },
-
-    closeButton: {
-        position: "absolute",
-        left: 20,
-        bottom: 20,
-        width: 60,
-        height: 60,
-        borderRadius: 35,
-        backgroundColor: "rgba(255, 255, 255, 0.85)",
-        alignItems: "center",
-        justifyContent: "center",
-
-        shadowColor: "#000000",
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.13,
-        shadowRadius: 13,
-        elevation: 8,
     },
 });
