@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { FontSizes } from "./constants/fonts";
 import {
   ActivityIndicator,
   Alert,
@@ -965,7 +966,7 @@ const styles = StyleSheet.create({
   brandText: {
     marginTop: 19,
     color: "#3e7c37",
-    fontSize: 51,
+    fontSize: FontSizes.displayLarge,
     lineHeight: 54,
     fontWeight: "900",
     textShadowColor: "#235c2b",
@@ -975,7 +976,7 @@ const styles = StyleSheet.create({
   tagline: {
     marginTop: 14,
     color: "#807a70",
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     fontWeight: "800",
   },
   heart: {
@@ -1024,7 +1025,7 @@ const styles = StyleSheet.create({
   },
   pixelButtonText: {
     color: "#fff",
-    fontSize: 19,
+    fontSize: FontSizes.subtitle,
     fontWeight: "900",
   },
   pixelButtonSecondaryText: {
@@ -1052,7 +1053,7 @@ const styles = StyleSheet.create({
   },
   backText: {
     color: "#111",
-    fontSize: 38,
+    fontSize: FontSizes.display,
     lineHeight: 38,
     fontWeight: "300",
   },
@@ -1073,14 +1074,14 @@ const styles = StyleSheet.create({
   },
   authTitle: {
     color: colors.greenDark,
-    fontSize: 34,
+    fontSize: FontSizes.display,
     lineHeight: 38,
     fontWeight: "900",
   },
   authSubtitle: {
     marginTop: 8,
     color: "#7f7c74",
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     lineHeight: 19,
     fontWeight: "700",
   },
@@ -1100,7 +1101,7 @@ const styles = StyleSheet.create({
     marginLeft: 2,
     marginBottom: 8,
     color: "#242424",
-    fontSize: 12,
+    fontSize: FontSizes.small,
     fontWeight: "900",
   },
   inputWrap: {
@@ -1122,7 +1123,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fffef9",
     paddingHorizontal: 15,
     color: "#373737",
-    fontSize: 14,
+    fontSize: FontSizes.body,
     fontWeight: "700",
   },
   signupInput: {
@@ -1144,21 +1145,21 @@ const styles = StyleSheet.create({
   },
   passwordToggleText: {
     color: "#6f6a61",
-    fontSize: 12,
+    fontSize: FontSizes.small,
     fontWeight: "900",
   },
   errorText: {
     marginTop: 6,
     marginLeft: 2,
     color: colors.heart,
-    fontSize: 11,
+    fontSize: FontSizes.small,
     lineHeight: 15,
     fontWeight: "800",
   },
   formMessage: {
     marginTop: 10,
     color: colors.heart,
-    fontSize: 12,
+    fontSize: FontSizes.small,
     lineHeight: 17,
     fontWeight: "800",
     textAlign: "center",
@@ -1178,7 +1179,7 @@ const styles = StyleSheet.create({
   },
   smallButtonText: {
     color: colors.green,
-    fontSize: 12,
+    fontSize: FontSizes.small,
     fontWeight: "900",
   },
   forgot: {
@@ -1187,7 +1188,7 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     color: "#4d8642",
-    fontSize: 11,
+    fontSize: FontSizes.small,
     fontWeight: "800",
     textDecorationLine: "underline",
   },
@@ -1208,7 +1209,7 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     color: "#8e877d",
-    fontSize: 13,
+    fontSize: FontSizes.body,
     fontWeight: "700",
   },
   socials: {
@@ -1229,7 +1230,7 @@ const styles = StyleSheet.create({
   },
   socialIcon: {
     color: "#4285f4",
-    fontSize: 19,
+    fontSize: FontSizes.subtitle,
     fontWeight: "900",
   },
   kakaoIcon: {
@@ -1238,13 +1239,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: "#f8d43e",
     color: "#2d241f",
-    fontSize: 10,
+    fontSize: FontSizes.caption,
     textAlign: "center",
     lineHeight: 18,
   },
   socialLabel: {
     color: "#33302c",
-    fontSize: 13,
+    fontSize: FontSizes.body,
     fontWeight: "800",
   },
   terms: {
@@ -1278,26 +1279,26 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     color: "#fff",
-    fontSize: 10,
+    fontSize: FontSizes.caption,
     lineHeight: 12,
     fontWeight: "900",
   },
   termText: {
     flex: 1,
     color: "#646057",
-    fontSize: 12,
+    fontSize: FontSizes.small,
     fontWeight: "800",
   },
   termTextStrong: {
     color: "#4a5046",
-    fontSize: 13,
+    fontSize: FontSizes.body,
     fontWeight: "900",
   },
   viewLink: {
     width: 38,
     color: "#56534d",
     textAlign: "right",
-    fontSize: 12,
+    fontSize: FontSizes.small,
     fontWeight: "800",
   },
   signupButton: {
@@ -1381,7 +1382,7 @@ const styles = StyleSheet.create({
   },
   nickBubbleText: {
     color: "#1f2a1e",
-    fontSize: 14,
+    fontSize: FontSizes.body,
     fontWeight: "900",
   },
   cursor: {
@@ -1394,7 +1395,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     color: colors.greenDark,
     textAlign: "center",
-    fontSize: 29,
+    fontSize: FontSizes.screenTitle,
     lineHeight: 33,
     fontWeight: "900",
   },
@@ -1402,7 +1403,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
     color: "#76736c",
     textAlign: "center",
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
     lineHeight: 23,
     fontWeight: "700",
   },
@@ -1417,14 +1418,14 @@ const styles = StyleSheet.create({
     top: 16,
     right: 13,
     color: "#8f8980",
-    fontSize: 12,
+    fontSize: FontSizes.small,
     fontWeight: "800",
   },
   hint: {
     marginTop: -14,
     marginLeft: 2,
     color: "#a5a097",
-    fontSize: 11,
+    fontSize: FontSizes.small,
     fontWeight: "800",
   },
   startButton: {
@@ -1445,14 +1446,14 @@ const styles = StyleSheet.create({
   doneTitle: {
     marginTop: 28,
     color: colors.greenDark,
-    fontSize: 30,
+    fontSize: FontSizes.screenTitle,
     fontWeight: "900",
     textAlign: "center",
   },
   doneCopy: {
     marginTop: 12,
     color: colors.muted,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     fontWeight: "700",
   },
   doneButton: {

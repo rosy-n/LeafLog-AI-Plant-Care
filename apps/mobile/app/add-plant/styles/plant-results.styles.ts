@@ -1,6 +1,6 @@
 import { Dimensions, StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
 
 const { width, height } = Dimensions.get('window');
 
@@ -63,16 +63,16 @@ export const styles = StyleSheet.create({
   },
   cardScore: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.primary,
   },
   cardScientific: {
-    fontSize: 14,
+    fontSize: FontSizes.body,
     fontStyle: 'italic',
     color: Colors.textBlack,
   },
   cardCommon: {
-    fontSize: 12,
+    fontSize: FontSizes.small,
     color: Colors.textGray,
   },
   confirmBtn: {
@@ -84,7 +84,7 @@ export const styles = StyleSheet.create({
   confirmBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
   },
 
   // 참고 이미지 풀스크린 모달
@@ -109,13 +109,13 @@ export const styles = StyleSheet.create({
   },
   emptyText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textGray,
     textAlign: 'center',
     lineHeight: 24,
   },
   errorText: {
-    fontSize: 12,
+    fontSize: FontSizes.small,
     color: '#E53935',
     textAlign: 'center',
     paddingHorizontal: 16,
@@ -129,6 +129,6 @@ export const styles = StyleSheet.create({
   retryBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
   },
 });

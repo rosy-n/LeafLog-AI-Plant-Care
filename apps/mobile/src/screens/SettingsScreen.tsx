@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.neoDunggeunmo;
 
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: FONT,
-        fontSize: 25,
+        fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
     },
     sectionLabelText: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#5A8A5A",
         includeFontPadding: false,
     },
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     },
     rowLabel: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         color: "#222222",
         includeFontPadding: false,
     },
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
     },
     nameValue: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         color: "#2F702D",
         includeFontPadding: false,
     },
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
     },
     nameInput: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#111111",
         backgroundColor: "#F6FAF0",
         borderRadius: 8,
@@ -578,13 +578,13 @@ const styles = StyleSheet.create({
     },
     saveBtnText: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#FFFFFF",
         includeFontPadding: false,
     },
     deleteLabel: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         color: "#D4887A",
         includeFontPadding: false,
     },
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
     },
     timeValue: {
         fontFamily: FONT,
-        fontSize: 22,
+        fontSize: FontSizes.title,
         color: "#111111",
         minWidth: 36,
         textAlign: "center",
@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
     },
     timeColon: {
         fontFamily: FONT,
-        fontSize: 22,
+        fontSize: FontSizes.title,
         color: "#111111",
         includeFontPadding: false,
         marginBottom: 2,
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
     // FAQ
     faqSectionTitle: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#7A9A7A",
         includeFontPadding: false,
         paddingTop: 4,
@@ -660,7 +660,7 @@ const styles = StyleSheet.create({
     },
     faqQuestion: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#222222",
         flex: 1,
         includeFontPadding: false,
@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
     },
     faqAnswerText: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#444444",
         lineHeight: 20,
         includeFontPadding: false,
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
     },
     inquiryInput: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#111111",
         backgroundColor: "#F6FAF0",
         borderRadius: 10,
@@ -718,7 +718,7 @@ const styles = StyleSheet.create({
     },
     inquirySubmitText: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#FFFFFF",
         includeFontPadding: false,
     },
@@ -729,7 +729,7 @@ const styles = StyleSheet.create({
     },
     inquiryDoneText: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#4A7A4A",
         textAlign: "center",
         lineHeight: 22,
@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
 
     versionText: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#B0B8A8",
         textAlign: "center",
         includeFontPadding: false,

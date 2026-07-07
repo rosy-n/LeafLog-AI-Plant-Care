@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.neoDunggeunmo;
 
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
 
     title: {
         fontFamily: FONT,
-        fontSize: 27,
+        fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
         marginTop: 0,
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     daysText: {
         marginTop: 16,
         fontFamily: FONT,
-        fontSize: 16,
+        fontSize: FontSizes.bodyLarge,
         color: "#111111",
         includeFontPadding: false,
         textAlign: "center",
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
 
     infoText: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         lineHeight: 30,
         color: "#111111",
         includeFontPadding: false,
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
 
     memoryButtonText: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         color: "#FFFFFF",
         includeFontPadding: false,
     },

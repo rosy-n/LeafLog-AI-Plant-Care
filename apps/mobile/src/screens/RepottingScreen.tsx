@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.neoDunggeunmo;
 
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: FONT,
-        fontSize: 25,
+        fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
     },
     newRecordText: {
         fontFamily: FONT,
-        fontSize: 16,
+        fontSize: FontSizes.bodyLarge,
         color: "#2F702D",
         includeFontPadding: false,
     },
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
     // Section Label
     sectionLabel: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#7A9A7A",
         includeFontPadding: false,
         marginBottom: -4,
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
     },
     recordDate: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         color: "#222222",
         includeFontPadding: false,
     },
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
     },
     chipText: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#4A6A4A",
         includeFontPadding: false,
     },
@@ -657,13 +657,13 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#B0B8A8",
         includeFontPadding: false,
     },
     emptySubText: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#B0B8A8",
         includeFontPadding: false,
         marginTop: 2,
@@ -686,13 +686,13 @@ const styles = StyleSheet.create({
     },
     cardTitle: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         color: "#2A4A18",
         includeFontPadding: false,
     },
     cardValueLarge: {
         fontFamily: FONT,
-        fontSize: 22,
+        fontSize: FontSizes.title,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -719,20 +719,20 @@ const styles = StyleSheet.create({
     },
     soilDetailType: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#333333",
         flex: 1,
         includeFontPadding: false,
     },
     soilDetailRatio: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#666666",
         includeFontPadding: false,
     },
     memoReadText: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#333333",
         lineHeight: 22,
         includeFontPadding: false,
@@ -741,7 +741,7 @@ const styles = StyleSheet.create({
     // Form Inputs
     textInput: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#111111",
         backgroundColor: "#F6FAF0",
         borderRadius: 10,
@@ -765,7 +765,7 @@ const styles = StyleSheet.create({
     },
     percentSign: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#5A7A5A",
         includeFontPadding: false,
     },
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
     },
     addSoilText: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#2F702D",
         includeFontPadding: false,
     },
@@ -799,7 +799,7 @@ const styles = StyleSheet.create({
     },
     photoButtonText: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#8AB08A",
         includeFontPadding: false,
     },
@@ -816,7 +816,7 @@ const styles = StyleSheet.create({
     },
     saveButtonText: {
         fontFamily: FONT,
-        fontSize: 16,
+        fontSize: FontSizes.bodyLarge,
         color: "#FFFFFF",
         includeFontPadding: false,
     },
@@ -844,18 +844,18 @@ const styles = StyleSheet.create({
         elevation: 12,
     },
     modalEmoji: {
-        fontSize: 48,
+        fontSize: FontSizes.displayLarge,
         marginBottom: 4,
     },
     modalTitle: {
         fontFamily: FONT,
-        fontSize: 22,
+        fontSize: FontSizes.title,
         color: "#111111",
         includeFontPadding: false,
     },
     modalBody: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#555555",
         textAlign: "center",
         lineHeight: 22,
@@ -885,13 +885,13 @@ const styles = StyleSheet.create({
     },
     modalButtonGrayText: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#555555",
         includeFontPadding: false,
     },
     modalButtonGreenText: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#FFFFFF",
         includeFontPadding: false,
     },

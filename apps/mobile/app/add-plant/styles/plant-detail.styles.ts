@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
 
 export const styles = StyleSheet.create({
   container: {
@@ -13,7 +13,7 @@ export const styles = StyleSheet.create({
 
   title: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 22,
+    fontSize: FontSizes.title,
     color: Colors.textBlack,
     marginBottom: 20,
     textAlign: 'center',
@@ -44,7 +44,7 @@ export const styles = StyleSheet.create({
   },
   navBtnText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textBlack,
   },
   navBtnHidden: { opacity: 0 },
@@ -52,7 +52,7 @@ export const styles = StyleSheet.create({
   // Photo counter
   photoCounter: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 12,
+    fontSize: FontSizes.small,
     color: Colors.textGray,
     textAlign: 'center',
     marginBottom: 20,
@@ -61,18 +61,18 @@ export const styles = StyleSheet.create({
   // Plant info
   plantName: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 20,
+    fontSize: FontSizes.title,
     color: Colors.textBlack,
     marginBottom: 4,
   },
   scientificName: {
-    fontSize: 14,
+    fontSize: FontSizes.body,
     fontStyle: 'italic',
     color: Colors.textGray,
     marginBottom: 4,
   },
   familyName: {
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
     marginBottom: 28,
   },
@@ -94,7 +94,7 @@ export const styles = StyleSheet.create({
   primaryBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
   outlineBtn: {
     backgroundColor: Colors.white,
@@ -107,7 +107,7 @@ export const styles = StyleSheet.create({
   outlineBtnText: {
     color: Colors.primary,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
 
   // Loading
@@ -120,7 +120,7 @@ export const styles = StyleSheet.create({
   },
   loadingText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 14,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
   },
 });

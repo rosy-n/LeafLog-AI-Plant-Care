@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Line, Polyline, Circle, Text as SvgText } from "react-native-svg";
 
 import PlantImage from "../components/PlantImage";
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.neoDunggeunmo;
 
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: FONT,
-        fontSize: 25,
+        fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
     },
     periodTabText: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         color: "#6A8A5A",
     },
     periodTabTextActive: {
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
     },
     periodLabel: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         color: "#2B3E25",
         minWidth: 120,
         textAlign: "center",
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
     },
     cardTitle: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#2A4020",
     },
 
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
     },
     yAxisUnit: {
         fontFamily: FONT,
-        fontSize: 10,
+        fontSize: FontSizes.caption,
     },
 
     // Legend
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
     },
     legendText: {
         fontFamily: FONT,
-        fontSize: 11,
+        fontSize: FontSizes.small,
         color: "#4A6040",
     },
 
@@ -660,11 +660,11 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     conditionBoxEmoji: {
-        fontSize: 14,
+        fontSize: FontSizes.body,
     },
     conditionBoxText: {
         fontFamily: FONT,
-        fontSize: 11,
+        fontSize: FontSizes.small,
         color: "#333",
     },
 
@@ -692,12 +692,12 @@ const styles = StyleSheet.create({
     },
     statLabel: {
         fontFamily: FONT,
-        fontSize: 11,
+        fontSize: FontSizes.small,
         color: "#5A7A4A",
     },
     statValue: {
         fontFamily: FONT,
-        fontSize: 18,
+        fontSize: FontSizes.subtitle,
         color: "#1F3A14",
     },
     ratingBadge: {
@@ -714,7 +714,7 @@ const styles = StyleSheet.create({
     },
     ratingText: {
         fontFamily: FONT,
-        fontSize: 11,
+        fontSize: FontSizes.small,
         color: "#2E7020",
     },
 });

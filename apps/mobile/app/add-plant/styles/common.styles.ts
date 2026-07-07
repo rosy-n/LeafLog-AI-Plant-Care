@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
 
 export const common = StyleSheet.create({
   flex: { flex: 1 },
@@ -15,7 +15,7 @@ export const common = StyleSheet.create({
 
   title: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 18,
+    fontSize: FontSizes.subtitle,
     color: Colors.primary,
     textAlign: 'center' as const,
     marginBottom: 20,
@@ -32,7 +32,7 @@ export const common = StyleSheet.create({
   primaryBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
 
   // Outline button
@@ -48,7 +48,7 @@ export const common = StyleSheet.create({
   outlineBtnText: {
     color: Colors.primary,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
 
   // Disabled button
@@ -67,7 +67,7 @@ export const common = StyleSheet.create({
   // Section label
   sectionLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textBlack,
     marginBottom: 12,
   },
@@ -87,7 +87,7 @@ export const common = StyleSheet.create({
   },
   chipText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
   },
   chipTextActive: { color: Colors.white },

@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.neoDunggeunmo;
 
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: FONT,
-        fontSize: 25,
+        fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     },
     coinText: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#C8870A",
         includeFontPadding: false,
     },
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
 
     sectionTitle: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#5A8A5A",
         includeFontPadding: false,
         marginBottom: 4,
@@ -270,13 +270,13 @@ const styles = StyleSheet.create({
     },
     itemName: {
         fontFamily: FONT,
-        fontSize: 15,
+        fontSize: FontSizes.bodyLarge,
         color: "#222222",
         includeFontPadding: false,
     },
     freeTag: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#5A9A5A",
         includeFontPadding: false,
     },
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     },
     priceText: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#C8870A",
         includeFontPadding: false,
     },
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     },
     btnAppliedText: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#5A9A5A",
         includeFontPadding: false,
     },
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     },
     btnApplyText: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#FFFFFF",
         includeFontPadding: false,
     },
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     },
     btnBuyText: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#FFFFFF",
         includeFontPadding: false,
     },

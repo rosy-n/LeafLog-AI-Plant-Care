@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.neoDunggeunmo;
 
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: FONT,
-        fontSize: 25,
+        fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
 
     sectionLabel: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#5A8A5A",
         includeFontPadding: false,
     },
@@ -219,20 +219,20 @@ const styles = StyleSheet.create({
     },
     title: {
         fontFamily: FONT,
-        fontSize: 11,
+        fontSize: FontSizes.small,
         color: "#8AA880",
         includeFontPadding: false,
     },
     speech: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#1E3D1C",
         includeFontPadding: false,
         lineHeight: 20,
     },
     time: {
         fontFamily: FONT,
-        fontSize: 11,
+        fontSize: FontSizes.small,
         color: "#9AAA90",
         includeFontPadding: false,
     },
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#B0C0A8",
         includeFontPadding: false,
     },

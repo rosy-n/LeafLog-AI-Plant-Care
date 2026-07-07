@@ -1,6 +1,6 @@
 import { Dimensions, StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 // 3:4 portrait 이미지 — iPhone SE(667pt)까지 화면 넘침 없도록 140pt 상한 적용
@@ -28,7 +28,7 @@ export const styles = StyleSheet.create({
 
   introSubtitle: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
     textAlign: 'center',
     lineHeight: 20,
@@ -88,7 +88,7 @@ export const styles = StyleSheet.create({
   },
   guideCategoryLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
   },
 
   guideCard: {
@@ -116,7 +116,7 @@ export const styles = StyleSheet.create({
   },
   guidePoint: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
     lineHeight: 20,
   },
@@ -138,7 +138,7 @@ export const styles = StyleSheet.create({
   },
   badExampleLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 11,
+    fontSize: FontSizes.small,
     color: Colors.textGray,
     textAlign: 'center',
   },
@@ -169,7 +169,7 @@ export const styles = StyleSheet.create({
   primaryBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
   outlineBtn: {
     backgroundColor: Colors.white,
@@ -182,7 +182,7 @@ export const styles = StyleSheet.create({
   outlineBtnText: {
     color: Colors.primary,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
 
   // ── Generating ─────────────────────────────────────────────────────────────
@@ -195,7 +195,7 @@ export const styles = StyleSheet.create({
   },
   generatingTitle: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 22,
+    fontSize: FontSizes.title,
     color: Colors.textBlack,
     lineHeight: 32,
     marginBottom: 32,
@@ -216,7 +216,7 @@ export const styles = StyleSheet.create({
   },
   progressLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
   },
 

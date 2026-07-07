@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { Fonts } from "../../constants/fonts";
+import { Fonts, FontSizes } from "../../constants/fonts";
 
 const FONT = Fonts.neoDunggeunmo;
 
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
 
     title: {
         fontFamily: FONT,
-        fontSize: 27,
+        fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
         marginTop: 0,
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
 
     tabText: {
         fontFamily: FONT,
-        fontSize: 14,
+        fontSize: FontSizes.body,
         color: "#2A4A18",
         includeFontPadding: false,
     },
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
 
     cardTitle: {
         fontFamily: FONT,
-        fontSize: 17,
+        fontSize: FontSizes.subtitle,
         color: "#111111",
         marginBottom: 14,
         includeFontPadding: false,
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
 
     cardText: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         lineHeight: 22,
         color: "#111111",
         includeFontPadding: false,
@@ -517,14 +517,14 @@ const styles = StyleSheet.create({
 
     mainInfo: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#111111",
         includeFontPadding: false,
     },
 
     subInfo: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -560,13 +560,13 @@ const styles = StyleSheet.create({
 
     bigNumber: {
         fontFamily: FONT,
-        fontSize: 30,
+        fontSize: FontSizes.screenTitle,
         color: "#000000",
         includeFontPadding: false,
     },
 
     sunEmoji: {
-        fontSize: 26,
+        fontSize: FontSizes.screenTitle,
     },
 
     rangeBlock: {
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
 
     rangeText: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
 
     rangeLabel: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -663,7 +663,7 @@ const styles = StyleSheet.create({
 
     toxicityLabel: {
         fontFamily: FONT,
-        fontSize: 13,
+        fontSize: FontSizes.body,
         color: "#111111",
         includeFontPadding: false,
     },
@@ -683,7 +683,7 @@ const styles = StyleSheet.create({
 
     chipText: {
         fontFamily: FONT,
-        fontSize: 12,
+        fontSize: FontSizes.small,
         color: "#111111",
         includeFontPadding: false,
     },
