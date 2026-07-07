@@ -71,7 +71,15 @@ export default function NotificationsScreen({
             <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
                 <View style={styles.header}>
+                    <TouchableOpacity
+                        style={styles.headerButton}
+                        onPress={() => navigation.goBack()}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="chevron-back" size={28} color="#2B3E25" />
+                    </TouchableOpacity>
                     <Text style={styles.headerTitle}>알림</Text>
+                    <View style={styles.headerButton} />
                 </View>
 
                 <ScrollView
@@ -107,17 +115,6 @@ export default function NotificationsScreen({
                         </View>
                     )}
                 </ScrollView>
-
-                {/* 하단 닫기 버튼 */}
-                <View style={styles.footer}>
-                    <TouchableOpacity
-                        style={styles.closeBtn}
-                        onPress={() => navigation.goBack()}
-                        activeOpacity={0.8}
-                    >
-                        <Ionicons name="close" size={26} color="#2B3E25" />
-                    </TouchableOpacity>
-                </View>
             </SafeAreaView>
         </View>
     );
@@ -134,9 +131,16 @@ const styles = StyleSheet.create({
 
     header: {
         height: 60,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 24,
+    },
+    headerButton: {
+        width: 44,
+        height: 44,
         alignItems: "center",
         justifyContent: "center",
-        paddingHorizontal: 24,
     },
     headerTitle: {
         fontFamily: FONT,
@@ -245,26 +249,4 @@ const styles = StyleSheet.create({
         includeFontPadding: false,
     },
 
-    footer: {
-        height: 80,
-        justifyContent: "center",
-        paddingHorizontal: 24,
-        borderTopWidth: 1,
-        borderTopColor: "#EEF5E6",
-    },
-    closeBtn: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: "#FFFFFF",
-        borderWidth: 1.5,
-        borderColor: "#D0E8C0",
-        alignItems: "center",
-        justifyContent: "center",
-        shadowColor: "#335235",
-        shadowOpacity: 0.1,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: 3,
-    },
 });

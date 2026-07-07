@@ -304,14 +304,6 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
 
                 <LiquidGlassButton
                     size={60}
-                    onPress={closeGarden}
-                    style={styles.closeBtn}
-                >
-                    <Ionicons name="close" size={30} color="#2F6D2E" />
-                </LiquidGlassButton>
-
-                <LiquidGlassButton
-                    size={60}
                     onPress={() => navigation.navigate('AddPlant')}
                     style={styles.addBtn}
                 >
@@ -523,12 +515,6 @@ const styles = StyleSheet.create({
         textShadowRadius: 0,
     },
 
-    closeBtn: {
-        position: "absolute",
-        bottom: 32,
-        left: 24,
-        zIndex: 100,
-    },
     addBtn: {
         position: "absolute",
         bottom: 32,
