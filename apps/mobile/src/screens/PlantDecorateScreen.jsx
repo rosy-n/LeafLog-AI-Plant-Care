@@ -12,7 +12,6 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import LiquidGlassButton from "../components/LiquidGlassButton";
 import { Fonts, FontSizes } from "../../constants/fonts";
 
 const ITEMS = [
@@ -93,7 +92,13 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
 
                 {/* Header */}
                 <View style={styles.header}>
-                    <View style={styles.headerButton} />
+                    <TouchableOpacity
+                        activeOpacity={0.75}
+                        style={styles.headerButton}
+                        onPress={() => navigation.goBack()}
+                    >
+                        <Ionicons name="chevron-back" size={28} color="#2B3E25" />
+                    </TouchableOpacity>
                     <Text style={styles.headerTitle}>식물 꾸미기</Text>
                     <View style={styles.headerButton} />
                 </View>
@@ -316,14 +321,6 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                         </LinearGradient>
                     </BlurView>
                 </View>
-
-                <LiquidGlassButton
-                    size={60}
-                    onPress={() => navigation.goBack()}
-                    style={styles.closeBtn}
-                >
-                    <Ionicons name="close" size={30} color="#2B3E25" />
-                </LiquidGlassButton>
 
                 {selectedItem && (
                     <TouchableOpacity
@@ -643,13 +640,6 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.caption,
         color: "#2A4020",
         textAlign: "center",
-    },
-
-    closeBtn: {
-        position: "absolute",
-        bottom: 32,
-        left: 24,
-        zIndex: 100,
     },
 
     removeButton: {
