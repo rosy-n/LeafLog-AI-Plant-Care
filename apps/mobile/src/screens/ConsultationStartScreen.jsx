@@ -17,8 +17,6 @@ import * as ImagePicker from "expo-image-picker";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.nanumSquareNeo;
-
 export default function ConsultStartScreen({ navigation }) {
     const [message, setMessage] = useState("");
     const [messages, setMessages] = useState([
@@ -215,7 +213,7 @@ const styles = StyleSheet.create({
     },
 
     title: {
-        fontFamily: FONT,
+        fontFamily: Fonts.nanumSquareNeo,
         fontSize: FontSizes.title,
         color: "#111111",
         includeFontPadding: false,
@@ -243,14 +241,14 @@ const styles = StyleSheet.create({
     },
 
     guideTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.nanumSquareNeo,
         fontSize: FontSizes.body,
         color: "#1F5D01",
         marginBottom: 6,
     },
 
     guideText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.nanumSquareNeo,
         fontSize: FontSizes.small,
         lineHeight: 17,
         color: "#2F4F20",
@@ -294,7 +292,7 @@ const styles = StyleSheet.create({
     },
 
     assistantText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.nanumSquareNeo,
         fontSize: FontSizes.body,
         lineHeight: 21,
         color: "#1A1A1A",
@@ -319,7 +317,7 @@ const styles = StyleSheet.create({
     },
 
     userText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.nanumSquareNeo,
         fontSize: FontSizes.body,
         lineHeight: 20,
         color: "#FFFFFF",
@@ -382,7 +380,7 @@ const styles = StyleSheet.create({
     },
 
     input: {
-        fontFamily: FONT,
+        fontFamily: Fonts.nanumSquareNeo,
         fontSize: FontSizes.body,
         color: "#2F4F20",
         minHeight: 20,

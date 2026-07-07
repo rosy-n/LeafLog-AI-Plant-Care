@@ -14,8 +14,6 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.nanumSquareNeo;
-
 export default function ConsultationHistoryScreen({ navigation }) {
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -175,7 +173,7 @@ const styles = StyleSheet.create({
     },
 
     title: {
-        fontFamily: FONT,
+        fontFamily: Fonts.nanumSquareNeo,
         fontSize: FontSizes.title,
         color: "#111111",
         includeFontPadding: false,
@@ -207,7 +205,7 @@ const styles = StyleSheet.create({
         height: "100%",
         fontSize: FontSizes.body,
         color: "#111",
-        fontFamily: FONT,
+        fontFamily: Fonts.nanumSquareNeo,
         paddingVertical: 0,
         includeFontPadding: false,
     },
@@ -243,7 +241,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: FontSizes.bodyLarge,
         color: "#111",
-        fontFamily: FONT,
+        fontFamily: Fonts.nanumSquareNeo,
         includeFontPadding: false,
         marginRight: 8,
     },
@@ -255,7 +253,7 @@ const styles = StyleSheet.create({
     cardSummary: {
         fontSize: FontSizes.small,
         color: "#333",
-        fontFamily: FONT,
+        fontFamily: Fonts.nanumSquareNeo,
         includeFontPadding: false,
         marginBottom: 6,
         lineHeight: 18,
@@ -264,13 +262,13 @@ const styles = StyleSheet.create({
     cardDetail: {
         fontSize: FontSizes.small,
         color: "#555",
-        fontFamily: FONT,
+        fontFamily: Fonts.nanumSquareNeo,
         includeFontPadding: false,
         lineHeight: 17,
     },
 
     emptyText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.nanumSquareNeo,
         fontSize: FontSizes.body,
         color: "#999",
         textAlign: "center",

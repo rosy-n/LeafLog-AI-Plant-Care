@@ -15,8 +15,6 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.neoDunggeunmo;
-
 export default function ProfileScreen({ navigation }) {
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -117,7 +115,7 @@ const styles = StyleSheet.create({
     },
 
     title: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
@@ -173,7 +171,7 @@ const styles = StyleSheet.create({
 
     daysText: {
         marginTop: 16,
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#111111",
         includeFontPadding: false,
@@ -187,7 +185,7 @@ const styles = StyleSheet.create({
     },
 
     infoText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         lineHeight: 30,
         color: "#111111",
@@ -207,7 +205,7 @@ const styles = StyleSheet.create({
     },
 
     memoryButtonText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#FFFFFF",
         includeFontPadding: false,

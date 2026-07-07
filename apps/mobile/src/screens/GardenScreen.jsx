@@ -18,7 +18,6 @@ import HeartsRow from "../components/HeartsRow";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.neoDunggeunmo;
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SKY_HEIGHT = 126;
 const CLOSE_THRESHOLD = 120;
@@ -397,7 +396,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: FontSizes.title,
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         color: "#2F702D",
         letterSpacing: 0.3,
         flexShrink: 1,
@@ -416,7 +415,7 @@ const styles = StyleSheet.create({
     },
     sortButtonText: {
         fontSize: FontSizes.bodyLarge,
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         color: "#2F702D",
     },
     sortButtonTextMemorial: {
@@ -436,7 +435,7 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         fontSize: FontSizes.bodyLarge,
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         color: "#2F7830",
         padding: 0,
     },
@@ -470,13 +469,13 @@ const styles = StyleSheet.create({
     },
     sortMenuText: {
         fontSize: FontSizes.bodyLarge,
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         color: "#5A7A59",
         letterSpacing: -0.3,
     },
     sortMenuTextActive: {
         color: "#2F7030",
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
     },
     sortMenuTextMemorial: {
         color: "#8B6B5E",
@@ -503,7 +502,7 @@ const styles = StyleSheet.create({
     },
     plantName: {
         fontSize: FontSizes.subtitle,
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         color: "#2F7830",
         letterSpacing: -1,
         ...greenTextShadow,
@@ -511,7 +510,7 @@ const styles = StyleSheet.create({
     star: {
         marginLeft: 1,
         fontSize: FontSizes.title,
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         textShadowColor: "#5F644F",
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 0,
@@ -531,6 +530,6 @@ const styles = StyleSheet.create({
     emptyStateText: {
         fontSize: FontSizes.bodyLarge,
         color: "#A7A7A7",
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
     },
 });

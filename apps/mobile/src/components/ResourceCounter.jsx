@@ -2,8 +2,6 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.neoDunggeunmo;
-
 const STROKE_DIRS = [
     [-1,  0], [ 1,  0],
     [ 0, -1], [ 0,  1],
@@ -93,7 +91,7 @@ const styles = StyleSheet.create({
     },
 
     text: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
         color: "#FFFFFF",
         letterSpacing: 0.5,

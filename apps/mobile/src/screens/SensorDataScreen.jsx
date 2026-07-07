@@ -17,8 +17,6 @@ import Svg, { Line, Polyline, Circle, Text as SvgText } from "react-native-svg";
 import PlantImage from "../components/PlantImage";
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.neoDunggeunmo;
-
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // ─── Mock Data ─────────────────────────────────────────────────────────────
@@ -511,7 +509,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     headerTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
@@ -546,7 +544,7 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     periodTabText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#6A8A5A",
     },
@@ -568,7 +566,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     periodLabel: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#2B3E25",
         minWidth: 120,
@@ -598,7 +596,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     cardTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#2A4020",
     },
@@ -611,7 +609,7 @@ const styles = StyleSheet.create({
         marginBottom: -6,
     },
     yAxisUnit: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
     },
 
@@ -633,7 +631,7 @@ const styles = StyleSheet.create({
         borderRadius: 99,
     },
     legendText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#4A6040",
     },
@@ -663,7 +661,7 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.body,
     },
     conditionBoxText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#333",
     },
@@ -691,12 +689,12 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     statLabel: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#5A7A4A",
     },
     statValue: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
         color: "#1F3A14",
     },
@@ -713,7 +711,7 @@ const styles = StyleSheet.create({
         borderColor: "rgba(60,160,50,0.30)",
     },
     ratingText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#2E7020",
     },

@@ -17,8 +17,6 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.neoDunggeunmo;
-
 const SOIL_COLORS = ["#A8D5A2", "#F5C87A", "#B8A5D4", "#F5A07A", "#7AC5F5"];
 
 type SoilEntry = { type: string; ratio: string };
@@ -544,7 +542,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     headerTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
@@ -570,7 +568,7 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
     },
     newRecordText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#2F702D",
         includeFontPadding: false,
@@ -578,7 +576,7 @@ const styles = StyleSheet.create({
 
     // Section Label
     sectionLabel: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#7A9A7A",
         includeFontPadding: false,
@@ -624,7 +622,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     recordDate: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#222222",
         includeFontPadding: false,
@@ -644,7 +642,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#F5C87A44",
     },
     chipText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#4A6A4A",
         includeFontPadding: false,
@@ -656,13 +654,13 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     emptyText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#B0B8A8",
         includeFontPadding: false,
     },
     emptySubText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#B0B8A8",
         includeFontPadding: false,
@@ -685,13 +683,13 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     cardTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#2A4A18",
         includeFontPadding: false,
     },
     cardValueLarge: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
         color: "#111111",
         includeFontPadding: false,
@@ -718,20 +716,20 @@ const styles = StyleSheet.create({
         borderRadius: 6,
     },
     soilDetailType: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#333333",
         flex: 1,
         includeFontPadding: false,
     },
     soilDetailRatio: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#666666",
         includeFontPadding: false,
     },
     memoReadText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#333333",
         lineHeight: 22,
@@ -740,7 +738,7 @@ const styles = StyleSheet.create({
 
     // Form Inputs
     textInput: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#111111",
         backgroundColor: "#F6FAF0",
@@ -764,7 +762,7 @@ const styles = StyleSheet.create({
         textAlign: "center",
     },
     percentSign: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#5A7A5A",
         includeFontPadding: false,
@@ -777,7 +775,7 @@ const styles = StyleSheet.create({
         alignSelf: "flex-start",
     },
     addSoilText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#2F702D",
         includeFontPadding: false,
@@ -798,7 +796,7 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     photoButtonText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#8AB08A",
         includeFontPadding: false,
@@ -815,7 +813,7 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     saveButtonText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#FFFFFF",
         includeFontPadding: false,
@@ -848,13 +846,13 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     modalTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
         color: "#111111",
         includeFontPadding: false,
     },
     modalBody: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#555555",
         textAlign: "center",
@@ -884,13 +882,13 @@ const styles = StyleSheet.create({
         backgroundColor: "#2F702D",
     },
     modalButtonGrayText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#555555",
         includeFontPadding: false,
     },
     modalButtonGreenText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#FFFFFF",
         includeFontPadding: false,

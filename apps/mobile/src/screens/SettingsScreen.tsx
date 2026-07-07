@@ -17,8 +17,6 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.neoDunggeunmo;
-
 const FAQ_ITEMS = [
     {
         id: "1",
@@ -487,7 +485,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     headerTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
@@ -516,7 +514,7 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
     },
     sectionLabelText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#5A8A5A",
         includeFontPadding: false,
@@ -534,7 +532,7 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
     },
     rowLabel: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#222222",
         includeFontPadding: false,
@@ -547,7 +545,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     nameValue: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#2F702D",
         includeFontPadding: false,
@@ -558,7 +556,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     nameInput: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#111111",
         backgroundColor: "#F6FAF0",
@@ -577,13 +575,13 @@ const styles = StyleSheet.create({
         paddingVertical: 7,
     },
     saveBtnText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#FFFFFF",
         includeFontPadding: false,
     },
     deleteLabel: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: "#D4887A",
         includeFontPadding: false,
@@ -600,7 +598,7 @@ const styles = StyleSheet.create({
         gap: 2,
     },
     timeValue: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
         color: "#111111",
         minWidth: 36,
@@ -608,7 +606,7 @@ const styles = StyleSheet.create({
         includeFontPadding: false,
     },
     timeColon: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
         color: "#111111",
         includeFontPadding: false,
@@ -644,7 +642,7 @@ const styles = StyleSheet.create({
 
     // FAQ
     faqSectionTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#7A9A7A",
         includeFontPadding: false,
@@ -659,7 +657,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     faqQuestion: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#222222",
         flex: 1,
@@ -673,7 +671,7 @@ const styles = StyleSheet.create({
         marginBottom: 6,
     },
     faqAnswerText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#444444",
         lineHeight: 20,
@@ -686,7 +684,7 @@ const styles = StyleSheet.create({
         paddingBottom: 10,
     },
     inquiryInput: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#111111",
         backgroundColor: "#F6FAF0",
@@ -717,7 +715,7 @@ const styles = StyleSheet.create({
         elevation: 0,
     },
     inquirySubmitText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#FFFFFF",
         includeFontPadding: false,
@@ -728,7 +726,7 @@ const styles = StyleSheet.create({
         paddingVertical: 18,
     },
     inquiryDoneText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#4A7A4A",
         textAlign: "center",
@@ -737,7 +735,7 @@ const styles = StyleSheet.create({
     },
 
     versionText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#B0B8A8",
         textAlign: "center",

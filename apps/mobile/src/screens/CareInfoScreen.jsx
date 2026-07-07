@@ -15,8 +15,6 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 
-const FONT = Fonts.neoDunggeunmo;
-
 const CARE_SECTIONS = [
     { key: "plantInfo", label: "식물정보" },
     { key: "watering", label: "물주기" },
@@ -397,7 +395,7 @@ const styles = StyleSheet.create({
     },
 
     title: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
         color: "#111111",
         includeFontPadding: false,
@@ -459,7 +457,7 @@ const styles = StyleSheet.create({
     },
 
     tabText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#2A4A18",
         includeFontPadding: false,
@@ -490,7 +488,7 @@ const styles = StyleSheet.create({
     },
 
     cardTitle: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
         color: "#111111",
         marginBottom: 14,
@@ -498,7 +496,7 @@ const styles = StyleSheet.create({
     },
 
     cardText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         lineHeight: 22,
         color: "#111111",
@@ -516,14 +514,14 @@ const styles = StyleSheet.create({
     },
 
     mainInfo: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#111111",
         includeFontPadding: false,
     },
 
     subInfo: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#111111",
         includeFontPadding: false,
@@ -559,7 +557,7 @@ const styles = StyleSheet.create({
     },
 
     bigNumber: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.screenTitle,
         color: "#000000",
         includeFontPadding: false,
@@ -604,7 +602,7 @@ const styles = StyleSheet.create({
     },
 
     rangeText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#111111",
         includeFontPadding: false,
@@ -617,7 +615,7 @@ const styles = StyleSheet.create({
     },
 
     rangeLabel: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#111111",
         includeFontPadding: false,
@@ -662,7 +660,7 @@ const styles = StyleSheet.create({
     },
 
     toxicityLabel: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: "#111111",
         includeFontPadding: false,
@@ -682,7 +680,7 @@ const styles = StyleSheet.create({
     },
 
     chipText: {
-        fontFamily: FONT,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: "#111111",
         includeFontPadding: false,
