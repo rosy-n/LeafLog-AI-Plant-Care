@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     },
 
     title: {
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.title,
         color: "#111111",
         includeFontPadding: false,
@@ -241,14 +241,14 @@ const styles = StyleSheet.create({
     },
 
     guideTitle: {
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.body,
         color: "#1F5D01",
         marginBottom: 6,
     },
 
     guideText: {
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.small,
         lineHeight: 17,
         color: "#2F4F20",
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     },
 
     assistantText: {
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.body,
         lineHeight: 21,
         color: "#1A1A1A",
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     },
 
     userText: {
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.body,
         lineHeight: 20,
         color: "#FFFFFF",
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     },
 
     input: {
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.body,
         color: "#2F4F20",
         minHeight: 20,

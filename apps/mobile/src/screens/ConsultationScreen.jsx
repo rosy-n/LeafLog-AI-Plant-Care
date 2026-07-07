@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
 
     title: {
         flex: 1,
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.subtitle,
         color: "#111111",
         includeFontPadding: false,
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     },
 
     historyLabelText: {
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.small,
         color: "#7A9A6A",
         includeFontPadding: false,
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     },
 
     continueDividerText: {
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.small,
         color: "#7A9A6A",
         includeFontPadding: false,
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
     },
 
     assistantText: {
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.body,
         lineHeight: 21,
         color: "#1A1A1A",
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     },
 
     userText: {
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.body,
         lineHeight: 20,
         color: "#FFFFFF",
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
     },
 
     input: {
-        fontFamily: Fonts.nanumSquareNeo,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         fontSize: FontSizes.body,
         color: "#2F4F20",
         minHeight: 20,
