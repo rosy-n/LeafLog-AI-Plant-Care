@@ -13,7 +13,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
-const FONT = "NeoDunggeunmoPro-Regular";
+import { Fonts } from "../../constants/fonts";
+
+const FONT = Fonts.neoDunggeunmo;
 
 const CARE_SECTIONS = [
     { key: "plantInfo", label: "식물정보" },

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { useFonts } from "expo-font";
+import { Fonts } from "./constants/fonts";
 import { Asset } from "expo-asset";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -106,8 +107,8 @@ export default function MainApp() {
     ]);
 
     const [fontsLoaded] = useFonts({
-        NeoDunggeunmo: require("./assets/fonts/NeoDunggeunmoPro-Regular.ttf"),
-        NanumSquareNeo: require("./assets/fonts/NanumSquareNeo-cBd.ttf"),
+        [Fonts.neoDunggeunmo]: require("./assets/fonts/NeoDunggeunmoPro-Regular.ttf"),
+        [Fonts.nanumSquareNeo]: require("./assets/fonts/NanumSquareNeo-cBd.ttf"),
     });
 
     useEffect(() => {

@@ -18,6 +18,9 @@ import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
+import { Fonts } from "../../constants/fonts";
+
+const FONT = Fonts.neoDunggeunmo;
 
 const MENU_ITEMS = [
     { label: "프로필", screen: "Profile" },
@@ -395,7 +398,7 @@ const styles = StyleSheet.create({
         zIndex: 20,
     },
     speechText: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 19,
         color: "#1D1D1D",
     },
@@ -435,14 +438,14 @@ const styles = StyleSheet.create({
         zIndex: 30,
     },
     plantName: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 30,
         color: "#FFFFFF",
         letterSpacing: 1,
         lineHeight: 50,
     },
     dayText: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 20,
         color: "#FFFFFF",
         letterSpacing: 1,
@@ -521,7 +524,7 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255,255,255,0.62)",
     },
     menuItemText: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 13,
         color: "#263326",
         textShadowColor: "rgba(255,255,255,0.65)",
@@ -563,7 +566,7 @@ const styles = StyleSheet.create({
         marginBottom: 14,
     },
     modalTitle: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 21,
         color: "#2A2A2A",
         textAlign: "center",
@@ -573,7 +576,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     modalDesc: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 13,
         color: "#999999",
         textAlign: "center",
@@ -596,7 +599,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     modalBtnSecondaryText: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 12,
         color: "#7A6E54",
     },
@@ -615,12 +618,12 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     modalBtnPrimaryText: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 12,
         color: "#FFFFFF",
     },
     modalSparkle: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 10,
         color: "#FFFFFF",
     },

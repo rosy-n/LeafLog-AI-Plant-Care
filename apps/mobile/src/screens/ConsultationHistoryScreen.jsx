@@ -12,7 +12,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-const FONT = "NanumSquareNeo";
+import { Fonts } from "../../constants/fonts";
+
+const FONT = Fonts.nanumSquareNeo;
 
 export default function ConsultationHistoryScreen({ navigation }) {
     const [searchQuery, setSearchQuery] = useState("");

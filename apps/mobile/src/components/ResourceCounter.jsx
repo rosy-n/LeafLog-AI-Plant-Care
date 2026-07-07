@@ -1,5 +1,8 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { Fonts } from "../../constants/fonts";
+
+const FONT = Fonts.neoDunggeunmo;
 
 const STROKE_DIRS = [
     [-1,  0], [ 1,  0],
@@ -90,7 +93,7 @@ const styles = StyleSheet.create({
     },
 
     text: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 27,
         color: "#FFFFFF",
         letterSpacing: 0.5,

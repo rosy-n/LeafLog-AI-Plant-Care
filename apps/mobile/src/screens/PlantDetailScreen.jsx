@@ -19,6 +19,9 @@ import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
+import { Fonts } from "../../constants/fonts";
+
+const FONT = Fonts.neoDunggeunmo;
 
 const MENU_ITEMS = [
     { label: "프로필", screen: "Profile" },
@@ -277,7 +280,7 @@ const styles = StyleSheet.create({
         zIndex: 20,
     },
     speechText: {
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 19,
         color: "#1D1D1D",
     },
@@ -322,7 +325,7 @@ const styles = StyleSheet.create({
         zIndex: 5,
     },
     plantName: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 30,
         color: "#FFFFFF",
         letterSpacing: 1,
@@ -330,7 +333,7 @@ const styles = StyleSheet.create({
     },
 
     dayText: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 20,
         color: "#FFFFFF",
         letterSpacing: 1,
@@ -338,7 +341,7 @@ const styles = StyleSheet.create({
     },
 
     smallDayText: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         fontSize: 18,
         color: "#FFFFFF",
         letterSpacing: 0.5,
@@ -346,7 +349,7 @@ const styles = StyleSheet.create({
     },
     affinityText: {
         marginTop: 2,
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 20,
         color: "#FFFFFF",
         ...pixelShadow,
@@ -422,7 +425,7 @@ const styles = StyleSheet.create({
     },
 
     menuItemText: {
-        fontFamily: "NeoDunggeunmo",
+        fontFamily: FONT,
         fontSize: 13,
         color: "#263326",
         textShadowColor: "rgba(255,255,255,0.65)",

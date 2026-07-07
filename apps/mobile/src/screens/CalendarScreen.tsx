@@ -17,7 +17,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
-const FONT = "NeoDunggeunmoPro-Regular";
+import { Fonts } from "../../constants/fonts";
+
+const FONT = Fonts.neoDunggeunmo;
 const TODAY = "2026-05-17";
 
 const PLANT_IMAGES: Record<string, any> = {

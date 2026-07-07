@@ -16,7 +16,9 @@ import { Ionicons } from "@expo/vector-icons";
 import PlantImage from "../components/PlantImage";
 import HeartsRow from "../components/HeartsRow";
 import LiquidGlassButton from "../components/LiquidGlassButton";
+import { Fonts } from "../../constants/fonts";
 
+const FONT = Fonts.neoDunggeunmo;
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SKY_HEIGHT = 126;
 const CLOSE_THRESHOLD = 120;
@@ -395,7 +397,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 20,
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         color: "#2F702D",
         letterSpacing: 0.3,
         flexShrink: 1,
@@ -414,7 +416,7 @@ const styles = StyleSheet.create({
     },
     sortButtonText: {
         fontSize: 16,
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         color: "#2F702D",
     },
     sortButtonTextMemorial: {
@@ -434,7 +436,7 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         fontSize: 15,
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         color: "#2F7830",
         padding: 0,
     },
@@ -468,13 +470,13 @@ const styles = StyleSheet.create({
     },
     sortMenuText: {
         fontSize: 15,
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         color: "#5A7A59",
         letterSpacing: -0.3,
     },
     sortMenuTextActive: {
         color: "#2F7030",
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
     },
     sortMenuTextMemorial: {
         color: "#8B6B5E",
@@ -501,7 +503,7 @@ const styles = StyleSheet.create({
     },
     plantName: {
         fontSize: 18,
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         color: "#2F7830",
         letterSpacing: -1,
         ...greenTextShadow,
@@ -509,7 +511,7 @@ const styles = StyleSheet.create({
     star: {
         marginLeft: 1,
         fontSize: 21,
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
         textShadowColor: "#5F644F",
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 0,
@@ -529,6 +531,6 @@ const styles = StyleSheet.create({
     emptyStateText: {
         fontSize: 15,
         color: "#A7A7A7",
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontFamily: FONT,
     },
 });
