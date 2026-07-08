@@ -15,6 +15,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors } from "../../constants/colors";
+import ScreenHeader from "../components/ScreenHeader";
 
 export default function ProfileScreen({ navigation }) {
     return (
@@ -23,29 +24,23 @@ export default function ProfileScreen({ navigation }) {
 
             <View style={styles.container}>
                 {/* 상단 제목 / 편집 버튼 */}
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        activeOpacity={0.75}
-                        style={styles.headerButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-                    </TouchableOpacity>
-
-                    <Text style={styles.title}>프로필</Text>
-
-                    <TouchableOpacity
-                        activeOpacity={0.75}
-                        style={styles.editButton}
-                        onPress={() => {
-                            // 편집 화면 연결 전이면 임시로 주석 처리해도 됩니다.
-                            // navigation.navigate("ProfileEdit");
-                        }}
-                    >
-                        <Ionicons name="pencil-outline" size={28} color={Colors.textBlack} />
-                        <View style={styles.editUnderline} />
-                    </TouchableOpacity>
-                </View>
+                <ScreenHeader
+                    title="프로필"
+                    onBack={() => navigation.goBack()}
+                    right={
+                        <TouchableOpacity
+                            activeOpacity={0.75}
+                            style={styles.editButton}
+                            onPress={() => {
+                                // 편집 화면 연결 전이면 임시로 주석 처리해도 됩니다.
+                                // navigation.navigate("ProfileEdit");
+                            }}
+                        >
+                            <Ionicons name="pencil-outline" size={28} color={Colors.textBlack} />
+                            <View style={styles.editUnderline} />
+                        </TouchableOpacity>
+                    }
+                />
 
                 {/* 좌측 프로필 이미지 + 우측 식물 정보 */}
                 <View style={styles.profileRow}>
@@ -99,28 +94,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.background,
         paddingHorizontal: 24,
-    },
-
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-    },
-
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-
-    title: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.screenTitle,
-        color: Colors.textBlack,
-        includeFontPadding: false,
-        marginTop: 0,
     },
 
     editButton: {

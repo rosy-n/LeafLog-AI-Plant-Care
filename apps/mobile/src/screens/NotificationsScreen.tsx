@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 
 const PLANT_IMAGES: Record<string, any> = {
@@ -71,17 +72,7 @@ export default function NotificationsScreen({
         <View style={styles.root}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        style={styles.headerButton}
-                        onPress={() => navigation.goBack()}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>알림</Text>
-                    <View style={styles.headerButton} />
-                </View>
+                <ScreenHeader title="알림" onBack={() => navigation.goBack()} />
 
                 <ScrollView
                     showsVerticalScrollIndicator={false}
@@ -128,26 +119,6 @@ const styles = StyleSheet.create({
     },
     safe: {
         flex: 1,
-    },
-
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    headerTitle: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.screenTitle,
-        color: Colors.textBlack,
-        includeFontPadding: false,
     },
 
     scrollContent: {

@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 
 const FAQ_ITEMS = [
@@ -169,17 +170,7 @@ export default function SettingsScreen({
         <View style={styles.root}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        style={styles.headerButton}
-                        onPress={() => navigation.goBack()}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>설정</Text>
-                    <View style={styles.headerButton} />
-                </View>
+                <ScreenHeader title="설정" onBack={() => navigation.goBack()} />
 
                 <KeyboardAvoidingView
                     style={{ flex: 1 }}
@@ -470,26 +461,6 @@ const styles = StyleSheet.create({
     },
     safe: {
         flex: 1,
-    },
-
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    headerTitle: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.screenTitle,
-        color: Colors.textBlack,
-        includeFontPadding: false,
     },
 
     scrollContent: {

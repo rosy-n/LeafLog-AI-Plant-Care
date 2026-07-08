@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 
 export default function ConsultStartScreen({ navigation }) {
@@ -83,17 +84,7 @@ export default function ConsultStartScreen({ navigation }) {
                 style={styles.container}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        activeOpacity={0.75}
-                        style={styles.headerButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-                    </TouchableOpacity>
-                    <Text style={styles.title}>식물 상담</Text>
-                    <View style={styles.headerSpacer} />
-                </View>
+                <ScreenHeader title="식물 상담" onBack={() => navigation.goBack()} titleStyle={{ fontSize: FontSizes.title }} />
 
                 <View style={styles.guideBox}>
                     <Text style={styles.guideTitle}>촬영 가이드</Text>
@@ -203,33 +194,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,
-    },
-
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-
-    title: {
-        fontFamily: Fonts.nanumSquareNeo.bold,
-        fontSize: FontSizes.title,
-        color: Colors.textBlack,
-        includeFontPadding: false,
-    },
-
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-
-    headerSpacer: {
-        width: 40,
-        height: 40,
     },
 
     guideBox: {

@@ -13,6 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
 import { Colors } from "../../constants/colors";
 
 export default function ConsultationHistoryScreen({ navigation }) {
@@ -66,19 +67,7 @@ export default function ConsultationHistoryScreen({ navigation }) {
             <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
             <View style={styles.container}>
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        activeOpacity={0.75}
-                        style={styles.headerButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-                    </TouchableOpacity>
-
-                    <Text style={styles.title}>상담 기록</Text>
-
-                    <View style={styles.headerSpacer} />
-                </View>
+                <ScreenHeader title="상담 기록" onBack={() => navigation.goBack()} titleStyle={{ fontSize: FontSizes.title }} />
 
                 <View style={styles.searchRow}>
                     <View style={styles.searchBox}>
@@ -153,31 +142,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.background,
         paddingHorizontal: 24,
-    },
-
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-    },
-
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-
-    headerSpacer: {
-        width: 44,
-    },
-
-    title: {
-        fontFamily: Fonts.nanumSquareNeo.bold,
-        fontSize: FontSizes.title,
-        color: Colors.textBlack,
-        includeFontPadding: false,
     },
 
     searchRow: {

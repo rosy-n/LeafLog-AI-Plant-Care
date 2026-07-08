@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 
 const BG_ITEMS = [
@@ -76,20 +77,16 @@ export default function StoreScreen({
             <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
                 {/* 헤더 */}
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        style={styles.headerButton}
-                        onPress={() => navigation.goBack()}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>스토어</Text>
-                    <View style={styles.coinBadge}>
-                        <Ionicons name="ellipse" size={13} color={Colors.coin} />
-                        <Text style={styles.coinText}>{coins}</Text>
-                    </View>
-                </View>
+                <ScreenHeader
+                    title="스토어"
+                    onBack={() => navigation.goBack()}
+                    right={
+                        <View style={styles.coinBadge}>
+                            <Ionicons name="ellipse" size={13} color={Colors.coin} />
+                            <Text style={styles.coinText}>{coins}</Text>
+                        </View>
+                    }
+                />
 
                 <ScrollView
                     showsVerticalScrollIndicator={false}
@@ -190,25 +187,6 @@ const styles = StyleSheet.create({
         flex: 1,
     },
 
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    headerTitle: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.screenTitle,
-        color: Colors.textBlack,
-        includeFontPadding: false,
-    },
     coinBadge: {
         flexDirection: "row",
         alignItems: "center",

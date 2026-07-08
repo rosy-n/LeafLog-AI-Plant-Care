@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 
 const SOIL_COLORS = [GreenTint.line, "#F5C87A", "#B8A5D4", "#F5A07A", "#7AC5F5"];
@@ -64,17 +65,7 @@ function RecordHeader({
     onBack: () => void;
 }) {
     return (
-        <View style={styles.header}>
-            <TouchableOpacity
-                style={styles.headerButton}
-                onPress={onBack}
-                activeOpacity={0.7}
-            >
-                <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>{title}</Text>
-            <View style={styles.headerButton} />
-        </View>
+        <ScreenHeader title={title} onBack={onBack} />
     );
 }
 
@@ -529,25 +520,6 @@ const styles = StyleSheet.create({
     },
 
     // Header
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    headerTitle: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.screenTitle,
-        color: Colors.textBlack,
-        includeFontPadding: false,
-    },
 
     scrollContent: {
         paddingHorizontal: 20,

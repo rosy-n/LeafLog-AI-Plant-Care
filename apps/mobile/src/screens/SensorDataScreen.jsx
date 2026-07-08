@@ -16,6 +16,7 @@ import Svg, { Line, Polyline, Circle, Text as SvgText } from "react-native-svg";
 
 import PlantImage from "../components/PlantImage";
 import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -302,17 +303,7 @@ export default function SensorDataScreen({ navigation }) {
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
 
                 {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        onPress={() => navigation.goBack()}
-                        style={styles.headerButton}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>센서 데이터</Text>
-                    <View style={styles.headerButton} />
-                </View>
+                <ScreenHeader title="센서 데이터" onBack={() => navigation.goBack()} />
 
                 <ScrollView
                     showsVerticalScrollIndicator={false}
@@ -496,25 +487,6 @@ const styles = StyleSheet.create({
     },
 
     // Header
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    headerTitle: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.screenTitle,
-        color: Colors.textBlack,
-        includeFontPadding: false,
-    },
 
     scrollContent: {
         paddingHorizontal: 16,

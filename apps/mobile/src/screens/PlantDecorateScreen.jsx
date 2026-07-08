@@ -13,6 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 
 const ITEMS = [
@@ -92,17 +93,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
 
                 {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        activeOpacity={0.75}
-                        style={styles.headerButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>식물 꾸미기</Text>
-                    <View style={styles.headerButton} />
-                </View>
+                <ScreenHeader title="식물 꾸미기" onBack={() => navigation.goBack()} />
 
                 {/* Affinity Card */}
                 <View style={styles.affinityCardWrap}>
@@ -350,25 +341,6 @@ const styles = StyleSheet.create({
     },
 
     // Header
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    headerTitle: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.screenTitle,
-        color: Colors.textBlack,
-        includeFontPadding: false,
-    },
 
     // Affinity Card
     affinityCardWrap: {
