@@ -19,6 +19,7 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -490,9 +491,8 @@ const styles = StyleSheet.create({
     // Header
 
     scrollContent: {
-        paddingHorizontal: Spacing.lg,
+        ...screenContent,
         paddingBottom: Spacing.xxxl,
-        gap: Spacing.lg,
     },
 
     // Period Tabs
