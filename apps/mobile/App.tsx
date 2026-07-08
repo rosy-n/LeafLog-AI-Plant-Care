@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Fonts, FontSizes } from "./constants/fonts";
+import { Colors, Auth } from "./constants/colors";
 import {
   ActivityIndicator,
   Alert,
@@ -48,15 +49,6 @@ const assets = {
   nicknamePlant: require("./assets/nickname-plant-scene.png"),
 };
 
-const colors = {
-  paper: "#fffdf5",
-  ink: "#1e1f1d",
-  muted: "#807d74",
-  line: "#d9d2c2",
-  green: "#4f8d3d",
-  greenDark: "#1b5a26",
-  heart: "#ff6f61",
-};
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -309,7 +301,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.paper} />
+      <StatusBar barStyle="dark-content" backgroundColor={Auth.paper} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.keyboard}
@@ -459,7 +451,7 @@ function LoginScreen(props: {
             value={props.email}
             onChangeText={props.onEmail}
             placeholder="이메일을 입력해주세요"
-            placeholderTextColor="#b7b4ae"
+            placeholderTextColor={Auth.grayFaint}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -472,7 +464,7 @@ function LoginScreen(props: {
               value={props.password}
               onChangeText={props.onPassword}
               placeholder="비밀번호를 입력해주세요"
-              placeholderTextColor="#b7b4ae"
+              placeholderTextColor={Auth.grayFaint}
               secureTextEntry={!props.showPassword}
               style={[
                 styles.input,
@@ -545,7 +537,7 @@ function SignupScreen(props: {
               value={props.email}
               onChangeText={props.onEmail}
               placeholder="이메일을 입력해주세요"
-              placeholderTextColor="#b7b4ae"
+              placeholderTextColor={Auth.grayFaint}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -569,7 +561,7 @@ function SignupScreen(props: {
               value={props.password}
               onChangeText={props.onPassword}
               placeholder="8자 이상, 영문/숫자 조합"
-              placeholderTextColor="#b7b4ae"
+              placeholderTextColor={Auth.grayFaint}
               secureTextEntry={!props.showPassword}
               style={[
                 styles.input,
@@ -587,7 +579,7 @@ function SignupScreen(props: {
               value={props.confirm}
               onChangeText={props.onConfirm}
               placeholder="비밀번호를 다시 입력해주세요"
-              placeholderTextColor="#b7b4ae"
+              placeholderTextColor={Auth.grayFaint}
               secureTextEntry={!props.showConfirm}
               style={[
                 styles.input,
@@ -646,7 +638,7 @@ function NicknameScreen(props: {
                 value={props.nickname}
                 onChangeText={(value) => props.onNickname(value.slice(0, 10))}
                 placeholder="닉네임을 입력해주세요"
-                placeholderTextColor="#b7b4ae"
+                placeholderTextColor={Auth.grayFaint}
                 autoCapitalize="none"
                 style={[
                   styles.input,
@@ -852,7 +844,7 @@ function PixelButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={secondary ? colors.green : "#fff"} />
+        <ActivityIndicator color={secondary ? Auth.green : Colors.white} />
       ) : (
         <Text style={[styles.pixelButtonText, secondary && styles.pixelButtonSecondaryText]}>
           {label}
@@ -917,7 +909,7 @@ function TermRow({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#e9ece3",
+    backgroundColor: Auth.surface,
     alignItems: "center",
   },
   keyboard: {
@@ -927,12 +919,12 @@ const styles = StyleSheet.create({
   },
   frame: {
     flex: 1,
-    backgroundColor: colors.paper,
+    backgroundColor: Auth.paper,
     overflow: "hidden",
   },
   screen: {
     flex: 1,
-    backgroundColor: colors.paper,
+    backgroundColor: Auth.paper,
     position: "relative",
   },
   sprite: {
@@ -965,22 +957,22 @@ const styles = StyleSheet.create({
   },
   brandText: {
     marginTop: 19,
-    color: "#3e7c37",
+    color: Auth.greenC,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.displayLarge,
     lineHeight: 54,
-    textShadowColor: "#235c2b",
+    textShadowColor: Auth.greenE,
     textShadowOffset: { width: 1, height: 2 },
     textShadowRadius: 0,
   },
   tagline: {
     marginTop: 14,
-    color: "#807a70",
+    color: Auth.muted2,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.bodyLarge,
   },
   heart: {
-    color: colors.heart,
+    color: Auth.heart,
     fontFamily: Fonts.nanumSquareNeo.heavy,
   },
   landingPlant: {
@@ -1002,34 +994,34 @@ const styles = StyleSheet.create({
     right: 49,
     top: 625,
     gap: 12,
-    backgroundColor: colors.paper,
+    backgroundColor: Auth.paper,
   },
   pixelButton: {
     height: 56,
     borderWidth: 2,
-    borderColor: colors.greenDark,
+    borderColor: Auth.greenDark,
     borderRadius: 6,
-    backgroundColor: colors.green,
+    backgroundColor: Auth.green,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#2b652f",
+    shadowColor: Auth.greenD,
     shadowOpacity: 1,
     shadowRadius: 0,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   pixelButtonSecondary: {
-    backgroundColor: colors.paper,
+    backgroundColor: Auth.paper,
     shadowOpacity: 0,
     elevation: 0,
   },
   pixelButtonText: {
-    color: "#fff",
+    color: Colors.white,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.subtitle,
   },
   pixelButtonSecondaryText: {
-    color: colors.green,
+    color: Auth.green,
   },
   pressed: {
     opacity: 0.78,
@@ -1052,7 +1044,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   backText: {
-    color: "#111",
+    color: Auth.black,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.display,
     lineHeight: 38,
@@ -1073,14 +1065,14 @@ const styles = StyleSheet.create({
     marginBottom: 1,
   },
   authTitle: {
-    color: colors.greenDark,
+    color: Auth.greenDark,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.display,
     lineHeight: 38,
   },
   authSubtitle: {
     marginTop: 8,
-    color: "#7f7c74",
+    color: Auth.muted3,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.bodyLarge,
     lineHeight: 19,
@@ -1100,7 +1092,7 @@ const styles = StyleSheet.create({
   label: {
     marginLeft: 2,
     marginBottom: 8,
-    color: "#242424",
+    color: Auth.ink2,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.small,
   },
@@ -1118,11 +1110,11 @@ const styles = StyleSheet.create({
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: Auth.line,
     borderRadius: 10,
-    backgroundColor: "#fffef9",
+    backgroundColor: Auth.paperHi,
     paddingHorizontal: 15,
-    color: "#373737",
+    color: Auth.ink3,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.body,
   },
@@ -1133,7 +1125,7 @@ const styles = StyleSheet.create({
     paddingRight: 54,
   },
   inputError: {
-    borderColor: colors.heart,
+    borderColor: Auth.heart,
     borderWidth: 1.5,
   },
   passwordToggle: {
@@ -1144,41 +1136,41 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   passwordToggleText: {
-    color: "#6f6a61",
+    color: Auth.gray5,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.small,
   },
   errorText: {
     marginTop: 6,
     marginLeft: 2,
-    color: colors.heart,
+    color: Auth.heart,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
     lineHeight: 15,
   },
   formMessage: {
     marginTop: 10,
-    color: colors.heart,
+    color: Auth.heart,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
     lineHeight: 17,
     textAlign: "center",
   },
   successText: {
-    color: colors.green,
+    color: Auth.green,
   },
   smallButton: {
     width: 78,
     height: 44,
     borderWidth: 1,
-    borderColor: colors.green,
+    borderColor: Auth.green,
     borderRadius: 9,
-    backgroundColor: colors.paper,
+    backgroundColor: Auth.paper,
     alignItems: "center",
     justifyContent: "center",
   },
   smallButtonText: {
-    color: colors.green,
+    color: Auth.green,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.small,
   },
@@ -1187,7 +1179,7 @@ const styles = StyleSheet.create({
     marginTop: -1,
   },
   forgotText: {
-    color: "#4d8642",
+    color: Auth.greenB,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
     textDecorationLine: "underline",
@@ -1205,10 +1197,10 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#e1dbce",
+    backgroundColor: Auth.creamDim,
   },
   dividerText: {
-    color: "#8e877d",
+    color: Auth.gray3,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.body,
   },
@@ -1220,16 +1212,16 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 58,
     borderWidth: 1,
-    borderColor: "#d9d2c4",
+    borderColor: Auth.lineWarm,
     borderRadius: 9,
-    backgroundColor: "#fffef9",
+    backgroundColor: Auth.paperHi,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 7,
   },
   socialIcon: {
-    color: "#4285f4",
+    color: Auth.google,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.subtitle,
   },
@@ -1237,15 +1229,15 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 6,
-    backgroundColor: "#f8d43e",
-    color: "#2d241f",
+    backgroundColor: Auth.gold,
+    color: Auth.olive2,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.caption,
     textAlign: "center",
     lineHeight: 18,
   },
   socialLabel: {
-    color: "#33302c",
+    color: Auth.ink4,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.body,
   },
@@ -1254,9 +1246,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: Auth.line,
     borderRadius: 9,
-    backgroundColor: "#fffef9",
+    backgroundColor: Auth.paperHi,
   },
   termRow: {
     minHeight: 30,
@@ -1268,36 +1260,36 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderWidth: 1,
-    borderColor: "#d4cfc4",
+    borderColor: Auth.lineSoft,
     borderRadius: 3,
-    backgroundColor: "#fffef9",
+    backgroundColor: Auth.paperHi,
     alignItems: "center",
     justifyContent: "center",
   },
   checkboxChecked: {
-    borderColor: "#4d8b40",
-    backgroundColor: "#4d8b40",
+    borderColor: Auth.greenA,
+    backgroundColor: Auth.greenA,
   },
   checkmark: {
-    color: "#fff",
+    color: Colors.white,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.caption,
     lineHeight: 12,
   },
   termText: {
     flex: 1,
-    color: "#646057",
+    color: Auth.gray6,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
   },
   termTextStrong: {
-    color: "#4a5046",
+    color: Auth.olive,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.body,
   },
   viewLink: {
     width: 38,
-    color: "#56534d",
+    color: Auth.gray7,
     textAlign: "right",
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
@@ -1322,7 +1314,7 @@ const styles = StyleSheet.create({
     left: 83,
     width: 174,
     height: 48,
-    backgroundColor: "#e5d8c5",
+    backgroundColor: Auth.cream,
   },
   nickSun: {
     position: "absolute",
@@ -1347,8 +1339,8 @@ const styles = StyleSheet.create({
     width: 174,
     height: 48,
     borderWidth: 1,
-    borderColor: "#9b7a57",
-    backgroundColor: colors.paper,
+    borderColor: Auth.brown,
+    backgroundColor: Auth.paper,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
@@ -1366,7 +1358,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 9,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderTopColor: "#9b7a57",
+    borderTopColor: Auth.brown,
   },
   nickBubbleTailFill: {
     position: "absolute",
@@ -1379,10 +1371,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 8,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderTopColor: colors.paper,
+    borderTopColor: Auth.paper,
   },
   nickBubbleText: {
-    color: "#1f2a1e",
+    color: Auth.olive3,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.body,
   },
@@ -1390,11 +1382,11 @@ const styles = StyleSheet.create({
     width: 2,
     height: 14,
     marginLeft: 2,
-    backgroundColor: colors.green,
+    backgroundColor: Auth.green,
   },
   nickTitle: {
     marginTop: 24,
-    color: colors.greenDark,
+    color: Auth.greenDark,
     textAlign: "center",
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.screenTitle,
@@ -1402,7 +1394,7 @@ const styles = StyleSheet.create({
   },
   nickCopy: {
     marginTop: 18,
-    color: "#76736c",
+    color: Auth.gray4,
     textAlign: "center",
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.bodyLarge,
@@ -1418,14 +1410,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 16,
     right: 13,
-    color: "#8f8980",
+    color: Auth.gray2,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
   },
   hint: {
     marginTop: -14,
     marginLeft: 2,
-    color: "#a5a097",
+    color: Auth.gray1,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
   },
@@ -1446,14 +1438,14 @@ const styles = StyleSheet.create({
   },
   doneTitle: {
     marginTop: 28,
-    color: colors.greenDark,
+    color: Auth.greenDark,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.screenTitle,
     textAlign: "center",
   },
   doneCopy: {
     marginTop: 12,
-    color: colors.muted,
+    color: Auth.muted,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.bodyLarge,
   },
