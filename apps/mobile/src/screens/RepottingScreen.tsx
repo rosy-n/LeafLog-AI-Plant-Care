@@ -17,11 +17,11 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint } from "../../constants/colors";
+import { Colors, GreenTint, Soil, Shadow } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 
-const SOIL_COLORS = [GreenTint.line, "#F5C87A", "#B8A5D4", "#F5A07A", "#7AC5F5"];
+const SOIL_COLORS = [GreenTint.line, Soil.sand, Soil.peat, Soil.clay, Soil.water];
 
 type SoilEntry = { type: string; ratio: string };
 
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         borderLeftWidth: 1,
-        borderLeftColor: "#EEE8D8",
+        borderLeftColor: Soil.bg,
     },
     recordIconWrap: {
         width: 42,
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.xs,
     },
     soilChip: {
-        backgroundColor: "#F5C87A44",
+        backgroundColor: Soil.sandAlpha,
     },
     chipText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -795,7 +795,7 @@ const styles = StyleSheet.create({
     // Modal
     modalOverlay: {
         flex: 1,
-        backgroundColor: "rgba(0,0,0,0.48)",
+        backgroundColor: Shadow.strong,
         alignItems: "center",
         justifyContent: "center",
     },

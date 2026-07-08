@@ -1,5 +1,6 @@
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { Leaf } from "../../constants/colors";
 import { Radius } from "../../constants/spacing";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -60,7 +61,7 @@ export default function LiquidGlassButton({
 const styles = StyleSheet.create({
     touch: {
         overflow: "hidden",
-        shadowColor: "#385236",
+        shadowColor: Leaf.forest,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.18,
         shadowRadius: 5,

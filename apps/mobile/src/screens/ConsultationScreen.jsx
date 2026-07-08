@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     historyLine: {
         flex: 1,
         height: 1,
-        backgroundColor: "rgba(31, 93, 1, 0.15)",
+        backgroundColor: GreenTint.mist,
     },
 
     historyLabelText: {
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
         paddingBottom: Platform.OS === "ios" ? 16 : 12,
         backgroundColor: Colors.background,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: "rgba(31, 93, 1, 0.18)",
+        borderTopColor: GreenTint.veil,
     },
 
     attachButton: {
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.white,
         borderRadius: Radius.xl,
         borderWidth: 1,
-        borderColor: "rgba(31, 93, 1, 0.2)",
+        borderColor: GreenTint.haze,
         paddingHorizontal: Spacing.lg,
         paddingTop: Spacing.md,
         paddingBottom: Spacing.md,

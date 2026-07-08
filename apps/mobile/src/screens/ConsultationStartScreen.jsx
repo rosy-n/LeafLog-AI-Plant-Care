@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.lg,
         paddingHorizontal: Spacing.lg,
         borderRadius: Radius.lg,
-        backgroundColor: "rgba(31, 93, 1, 0.1)",
+        backgroundColor: GreenTint.wash,
     },
 
     guideTitle: {
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
         paddingBottom: Platform.OS === "ios" ? 16 : 12,
         backgroundColor: Colors.background,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: "rgba(31, 93, 1, 0.18)",
+        borderTopColor: GreenTint.veil,
     },
 
     attachButton: {
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.white,
         borderRadius: Radius.xl,
         borderWidth: 1,
-        borderColor: "rgba(31, 93, 1, 0.2)",
+        borderColor: GreenTint.haze,
         paddingHorizontal: Spacing.lg,
         paddingTop: Spacing.md,
         paddingBottom: Spacing.md,

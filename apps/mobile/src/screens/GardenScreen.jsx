@@ -17,7 +17,7 @@ import PlantImage from "../components/PlantImage";
 import HeartsRow from "../components/HeartsRow";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint } from "../../constants/colors";
+import { Colors, GreenTint, Paper, Leaf, Accent } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 
@@ -295,7 +295,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
                                     onPress={() => toggleFavorite(item.id)}
                                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                 >
-                                    <Text style={[styles.star, { color: item.favorite ? "#E2C23A" : Colors.textFaint }]}>
+                                    <Text style={[styles.star, { color: item.favorite ? Leaf.gold : Colors.textFaint }]}>
                                         ★
                                     </Text>
                                 </TouchableOpacity>
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
         color: GreenTint.deep,
     },
     sortButtonTextMemorial: {
-        color: "#8B6B5E",
+        color: Accent.brown,
     },
 
     searchContainer: {
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     },
     sortMenuItemDivider: {
         borderBottomWidth: 1,
-        borderBottomColor: "#EEEAD8",
+        borderBottomColor: Paper.tan,
     },
     sortMenuText: {
         fontSize: FontSizes.bodyLarge,
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
     },
     sortMenuTextMemorial: {
-        color: "#8B6B5E",
+        color: Accent.brown,
     },
 
     listContent: {

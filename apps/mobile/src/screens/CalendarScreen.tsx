@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint } from "../../constants/colors";
+import { Colors, GreenTint, Paper, Shadow } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import ScreenHeader from "../components/ScreenHeader";
@@ -830,7 +830,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 6,
         left: 6,
-        backgroundColor: "rgba(0,0,0,0.45)",
+        backgroundColor: Shadow.medium,
         borderRadius: Radius.sm,
         paddingHorizontal: Spacing.sm,
         paddingVertical: Spacing.xxs,
@@ -844,12 +844,12 @@ const styles = StyleSheet.create({
 
     // sticky note
     stickyNote: {
-        backgroundColor: "#FEFBDF",
+        backgroundColor: Paper.noteBg,
         borderRadius: Radius.sm,
         padding: Spacing.lg,
         borderWidth: 1,
-        borderColor: "#E8E0B8",
-        shadowColor: "#C8B800",
+        borderColor: Paper.noteBorder,
+        shadowColor: Paper.noteAccent,
         shadowOpacity: 0.12,
         shadowRadius: 4,
         shadowOffset: { width: 0, height: 2 },
@@ -858,7 +858,7 @@ const styles = StyleSheet.create({
     stickyNoteInput: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#333322",
+        color: Paper.noteText,
         minHeight: 80,
         textAlignVertical: "top",
         includeFontPadding: false,
@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
     // ── modal ──
     overlay: {
         flex: 1,
-        backgroundColor: "rgba(0,0,0,0.42)",
+        backgroundColor: Shadow.soft,
         justifyContent: "center",
         alignItems: "center",
     },
@@ -895,7 +895,7 @@ const styles = StyleSheet.create({
         paddingTop: Spacing.xs,
         paddingBottom: Spacing.sm,
         width: 280,
-        shadowColor: "#000",
+        shadowColor: Shadow.color,
         shadowOpacity: 0.15,
         shadowRadius: 16,
         shadowOffset: { width: 0, height: 6 },

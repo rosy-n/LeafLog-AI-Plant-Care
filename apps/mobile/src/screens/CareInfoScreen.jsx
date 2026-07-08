@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint } from "../../constants/colors";
+import { Colors, GreenTint, Pink, Warm, Accent } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const CARE_SECTIONS = [
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
         width: 58,
         height: 58,
         borderRadius: Radius.pill,
-        backgroundColor: "#FFEBD9",
+        backgroundColor: Warm.peach,
         justifyContent: "center",
         alignItems: "center",
         marginRight: Spacing.xl,
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
         width: 58,
         height: 58,
         borderRadius: Radius.pill,
-        backgroundColor: "#FFE7D2",
+        backgroundColor: Warm.peach2,
         justifyContent: "center",
         alignItems: "center",
         marginRight: Spacing.xl,
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
         top: 0,
         height: 22,
         borderRadius: Radius.lg,
-        backgroundColor: "#F29AA2",
+        backgroundColor: Pink.soft,
         justifyContent: "center",
         alignItems: "center",
     },
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
         top: 0,
         height: 22,
         borderRadius: Radius.lg,
-        backgroundColor: "#9EBEF1",
+        backgroundColor: Accent.airBlue,
         justifyContent: "center",
         alignItems: "center",
     },
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: Radius.xl,
-        backgroundColor: "#FFF1BE",
+        backgroundColor: Accent.cream,
         marginRight: Spacing.lg,
     },
 
@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: Radius.xl,
-        backgroundColor: "#FFE5F5",
+        backgroundColor: Pink.bg,
         marginRight: Spacing.lg,
     },
 

@@ -17,7 +17,7 @@ import Svg, { Line, Polyline, Circle, Text as SvgText } from "react-native-svg";
 import PlantImage from "../components/PlantImage";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint } from "../../constants/colors";
+import { Colors, GreenTint, Gauge, GaugeTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 
@@ -164,7 +164,7 @@ function LineChart({ tempData, airData, soilData, periodKey }) {
                     y={normTemp(val) + 4}
                     textAnchor="end"
                     fontSize={9}
-                    fill="#C05A3A"
+                    fill={Gauge.warmDeep}
                 >
                     {val}
                 </SvgText>
@@ -178,7 +178,7 @@ function LineChart({ tempData, airData, soilData, periodKey }) {
                     y={normHum(pct) + 4}
                     textAnchor="start"
                     fontSize={9}
-                    fill="#3A82B8"
+                    fill={Gauge.coolDeep}
                 >
                     {pct}
                 </SvgText>
@@ -195,7 +195,7 @@ function LineChart({ tempData, airData, soilData, periodKey }) {
             {/* Lines */}
             <Polyline
                 points={pts(airData, normHum)}
-                fill="none" stroke="#5BBFDE"
+                fill="none" stroke={Gauge.cool}
                 strokeWidth={2}
                 strokeLinejoin="round" strokeLinecap="round"
             />
@@ -207,7 +207,7 @@ function LineChart({ tempData, airData, soilData, periodKey }) {
             />
             <Polyline
                 points={pts(tempData, normTemp)}
-                fill="none" stroke="#E87B4B"
+                fill="none" stroke={Gauge.warm}
                 strokeWidth={2.5}
                 strokeLinejoin="round" strokeLinecap="round"
             />
@@ -215,8 +215,8 @@ function LineChart({ tempData, airData, soilData, periodKey }) {
             {/* Dots at labeled positions */}
             {cfg.xLabelIndices.map((di) => (
                 <React.Fragment key={di}>
-                    <Circle cx={xOf(di)} cy={normTemp(tempData[di])} r={3.5} fill="#E87B4B" />
-                    <Circle cx={xOf(di)} cy={normHum(airData[di])}  r={3}   fill="#5BBFDE" />
+                    <Circle cx={xOf(di)} cy={normTemp(tempData[di])} r={3.5} fill={Gauge.warm} />
+                    <Circle cx={xOf(di)} cy={normHum(airData[di])}  r={3}   fill={Gauge.cool} />
                     <Circle cx={xOf(di)} cy={normHum(soilData[di])} r={3}   fill={GreenTint.medium} />
                 </React.Fragment>
             ))}
@@ -264,9 +264,9 @@ const PERIOD_KEYS = ["일", "주", "월"];
 const PERIOD_MAP  = { "일": "daily", "주": "weekly", "월": "monthly" };
 
 const CONDITIONS = [
-    { emoji: "🥰", text: "따뜻해요", color: "#D94B3A", bg: "rgba(217,75,58,0.12)",  border: "rgba(217,75,58,0.28)"  },
-    { emoji: "😊", text: "촉촉해요", color: "#3A8DC4", bg: "rgba(58,141,196,0.12)", border: "rgba(58,141,196,0.28)" },
-    { emoji: "😄", text: "쾌적해요", color: "#C49A20", bg: "rgba(196,154,32,0.12)", border: "rgba(196,154,32,0.28)" },
+    { emoji: "🥰", text: "따뜻해요", color: Gauge.hot, bg: GaugeTint.hotFaint,  border: GaugeTint.hotSoft  },
+    { emoji: "😊", text: "촉촉해요", color: Gauge.coolText, bg: GaugeTint.coolFaint, border: GaugeTint.coolSoft },
+    { emoji: "😄", text: "쾌적해요", color: Gauge.gold, bg: GaugeTint.goldFaint, border: GaugeTint.goldSoft },
 ];
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -366,8 +366,8 @@ export default function SensorDataScreen({ navigation }) {
                             >
                                 {/* Y-axis unit labels */}
                                 <View style={styles.yAxisLabelRow}>
-                                    <Text style={[styles.yAxisUnit, { color: "#C05A3A" }]}>°C</Text>
-                                    <Text style={[styles.yAxisUnit, { color: "#3A82B8" }]}>%</Text>
+                                    <Text style={[styles.yAxisUnit, { color: Gauge.warmDeep }]}>°C</Text>
+                                    <Text style={[styles.yAxisUnit, { color: Gauge.coolDeep }]}>%</Text>
                                 </View>
 
                                 <LineChart
@@ -380,11 +380,11 @@ export default function SensorDataScreen({ navigation }) {
                                 {/* Legend */}
                                 <View style={styles.legend}>
                                     <View style={styles.legendItem}>
-                                        <View style={[styles.legendDot, { backgroundColor: "#E87B4B" }]} />
+                                        <View style={[styles.legendDot, { backgroundColor: Gauge.warm }]} />
                                         <Text style={styles.legendText}>온도(°C)</Text>
                                     </View>
                                     <View style={styles.legendItem}>
-                                        <View style={[styles.legendDot, { backgroundColor: "#5BBFDE" }]} />
+                                        <View style={[styles.legendDot, { backgroundColor: Gauge.cool }]} />
                                         <Text style={styles.legendText}>공기습도(%)</Text>
                                     </View>
                                     <View style={styles.legendItem}>
@@ -440,13 +440,13 @@ export default function SensorDataScreen({ navigation }) {
                                 <View style={styles.statsGrid}>
                                     <View style={styles.statsRow}>
                                         <StatCard
-                                            icon={<Ionicons name="thermometer" size={26} color="#E87B4B" />}
+                                            icon={<Ionicons name="thermometer" size={26} color={Gauge.warm} />}
                                             label="평균 기온"
                                             value={`${avgTemp}°C`}
                                             rating="적정"
                                         />
                                         <StatCard
-                                            icon={<Ionicons name="water" size={26} color="#5BBFDE" />}
+                                            icon={<Ionicons name="water" size={26} color={Gauge.cool} />}
                                             label="공기 습도"
                                             value={`${avgAir}%`}
                                             rating="적정"
