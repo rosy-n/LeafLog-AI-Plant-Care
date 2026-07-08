@@ -93,7 +93,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,
-        paddingHorizontal: 24,
     },
 
     editButton: {
@@ -119,6 +118,7 @@ const styles = StyleSheet.create({
         alignItems: "flex-start",
         justifyContent: "space-between",
         width: "100%",
+        paddingHorizontal: 20,
     },
 
     leftArea: {

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors } from "../../constants/colors";
+import { Gutter } from "../../constants/spacing";
 
 /**
  * 공통 화면 헤더 (뒤로가기 + 제목/커스텀 중앙 + 우측 슬롯)
@@ -39,7 +40,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingHorizontal: 24,
+        paddingHorizontal: Gutter,
     },
     button: {
         width: 44,
