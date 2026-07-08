@@ -15,6 +15,7 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 
 const PLANT_IMAGES: Record<string, any> = {
     spaghetti: require("../../assets/plants/spaghetti.png"),
@@ -123,10 +124,7 @@ const styles = StyleSheet.create({
     },
 
     scrollContent: {
-        paddingHorizontal: Spacing.xl,
-        paddingTop: Spacing.xs,
-        paddingBottom: Spacing.huge,
-        gap: Spacing.lg,
+        ...screenContent,
         flexGrow: 1,
     },
 

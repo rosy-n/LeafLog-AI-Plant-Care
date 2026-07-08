@@ -20,6 +20,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 import ScreenHeader from "../components/ScreenHeader";
 
 const TODAY = "2026-05-17";
@@ -610,10 +611,7 @@ const styles = StyleSheet.create({
     },
 
     scroll: {
-        paddingHorizontal: Spacing.xl,
-        paddingTop: Spacing.xs,
-        paddingBottom: Spacing.huge,
-        gap: Spacing.lg,
+        ...screenContent,
     },
 
     // ── calendar ──

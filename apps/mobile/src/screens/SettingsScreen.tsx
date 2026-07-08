@@ -19,6 +19,7 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 
 const FAQ_ITEMS = [
     {
@@ -465,10 +466,8 @@ const styles = StyleSheet.create({
     },
 
     scrollContent: {
-        paddingHorizontal: Spacing.xl,
+        ...screenContent,
         paddingTop: Spacing.sm,
-        paddingBottom: Spacing.huge,
-        gap: Spacing.lg,
     },
 
     card: {

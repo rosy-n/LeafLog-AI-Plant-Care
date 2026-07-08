@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors } from "../../constants/colors";
 import { Gutter } from "../../constants/spacing";
+import { HEADER_HEIGHT } from "../../constants/layout";
 
 /**
  * 공통 화면 헤더 (뒤로가기 + 제목/커스텀 중앙 + 우측 슬롯)
@@ -36,7 +37,7 @@ export default function ScreenHeader({ title, onBack, right = null, center = nul
 
 const styles = StyleSheet.create({
     header: {
-        height: 60,
+        height: HEADER_HEIGHT,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",

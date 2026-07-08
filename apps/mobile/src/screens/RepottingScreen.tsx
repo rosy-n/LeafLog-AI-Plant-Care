@@ -19,6 +19,7 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 
 const SOIL_COLORS = [GreenTint.line, "#F5C87A", "#B8A5D4", "#F5A07A", "#7AC5F5"];
 
@@ -523,10 +524,8 @@ const styles = StyleSheet.create({
     // Header
 
     scrollContent: {
-        paddingHorizontal: Spacing.xl,
+        ...screenContent,
         paddingTop: Spacing.sm,
-        paddingBottom: Spacing.huge,
-        gap: Spacing.lg,
     },
 
     // New Record Button
