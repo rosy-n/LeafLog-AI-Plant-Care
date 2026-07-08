@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint } from "../../constants/colors";
+import { Colors, GreenTint, Aqua, Accent } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const BG_IMAGES = {
@@ -219,11 +219,11 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                 {/* 우측 하단: 캘린더, 메모, 전체개체 */}
                 <View style={styles.rightButtonArea}>
                     <GlassButton size={60} onPress={() => navigation.navigate("Calendar")}>
-                        <Ionicons name="calendar" size={36} color="#23A7D3" />
+                        <Ionicons name="calendar" size={36} color={Aqua.mid} />
                     </GlassButton>
 
                     <GlassButton size={60}>
-                        <Ionicons name="create-outline" size={35} color="#85A5B1" />
+                        <Ionicons name="create-outline" size={35} color={Aqua.muted} />
                     </GlassButton>
 
                     <GlassButton
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
         width: 22,
         height: 22,
         borderRadius: Radius.md,
-        backgroundColor: "#FF3939",
+        backgroundColor: Accent.alert,
     },
 
     rubberPlant: {
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
         width: 34,
         height: 4,
         borderRadius: Radius.xs,
-        backgroundColor: "#0FAEE5",
+        backgroundColor: Aqua.bright,
     },
     wind2: {
         position: "absolute",
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
         width: 28,
         height: 4,
         borderRadius: Radius.xs,
-        backgroundColor: "#0FAEE5",
+        backgroundColor: Aqua.bright,
     },
     wind3: {
         position: "absolute",
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
         width: 18,
         height: 4,
         borderRadius: Radius.xs,
-        backgroundColor: "#0FAEE5",
+        backgroundColor: Aqua.bright,
     },
 
     airCircle: {

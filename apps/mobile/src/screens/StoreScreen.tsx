@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint } from "../../constants/colors";
+import { Colors, GreenTint, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 
@@ -193,17 +193,17 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: Spacing.xs,
-        backgroundColor: "#FFFBE8",
+        backgroundColor: Paper.cream,
         borderRadius: Radius.xl,
         borderWidth: 1.5,
-        borderColor: "#F4D98A",
+        borderColor: Paper.creamGold,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
     },
     coinText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#C8870A",
+        color: Paper.gold,
         includeFontPadding: false,
     },
 
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     priceText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#C8870A",
+        color: Paper.gold,
         includeFontPadding: false,
     },
 

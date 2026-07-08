@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors } from "../../constants/colors";
+import { Colors, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import ScreenHeader from "../components/ScreenHeader";
 
@@ -131,9 +131,9 @@ const styles = StyleSheet.create({
         width: CARD_WIDTH,
         height: CARD_HEIGHT,
         borderRadius: 28,
-        backgroundColor: "#FBE9C2",
+        backgroundColor: Paper.cardBg,
         borderWidth: 3,
-        borderColor: "#4B2D18",
+        borderColor: Paper.cardBorder,
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",

@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint } from "../../constants/colors";
+import { Colors, GreenTint, Leaf, Accent } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const ITEMS = [
@@ -140,7 +140,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                                     </View>
                                     <View style={styles.progressBg}>
                                         <LinearGradient
-                                            colors={["#72C959", "#3E8C2D"]}
+                                            colors={[Leaf.bright, Leaf.deep]}
                                             start={{ x: 0, y: 0 }}
                                             end={{ x: 1, y: 0 }}
                                             style={[
@@ -631,6 +631,6 @@ const styles = StyleSheet.create({
     removeButtonText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: "#A03020",
+        color: Accent.rust,
     },
 });

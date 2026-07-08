@@ -19,7 +19,7 @@ import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint } from "../../constants/colors";
+import { Colors, GreenTint, Paper, Pink, Accent } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const MENU_ITEMS = [
@@ -171,7 +171,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                                     ],
                                 }}
                             >
-                                <Ionicons name="heart" size={36} color="#FF6B8A" />
+                                <Ionicons name="heart" size={36} color={Pink.rose} />
                             </Animated.View>
                         ))}
                     </View>
@@ -268,12 +268,12 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                             <MaterialCommunityIcons
                                 name="grave-stone"
                                 size={30}
-                                color="#7B6A8A"
+                                color={Accent.mauve}
                             />
                         </LiquidGlassButton>
 
                         <LiquidGlassButton size={68} onPress={handleHeartPress}>
-                            <Ionicons name="heart" size={36} color="#FF6B8A" />
+                            <Ionicons name="heart" size={36} color={Pink.rose} />
                         </LiquidGlassButton>
                     </View>
                 </SafeAreaView>
@@ -328,7 +328,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                             <Text style={styles.modalTitle}>다시 함께할까요?</Text>
 
                             {/* 하트 구분자 */}
-                            <Ionicons name="heart" size={13} color="#FFAAC2" style={styles.modalHeart} />
+                            <Ionicons name="heart" size={13} color={Pink.light} style={styles.modalHeart} />
 
                             {/* 설명 */}
                             <Text style={styles.modalDesc}>
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.separator,
         borderRadius: Radius.xl,
         borderWidth: 1.5,
-        borderColor: "#D8CCAA",
+        borderColor: Paper.taupe,
         paddingTop: Spacing.section,
         paddingBottom: Spacing.xxl,
         paddingHorizontal: Spacing.xl,
@@ -593,15 +593,15 @@ const styles = StyleSheet.create({
         height: 46,
         borderRadius: Radius.pill,
         borderWidth: 1.5,
-        borderColor: "#C9B890",
-        backgroundColor: "#EDE5CC",
+        borderColor: Paper.taupeBorder,
+        backgroundColor: Paper.taupeBg,
         alignItems: "center",
         justifyContent: "center",
     },
     modalBtnSecondaryText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: "#7A6E54",
+        color: Paper.taupeText,
     },
     modalBtnPrimary: {
         flex: 1,

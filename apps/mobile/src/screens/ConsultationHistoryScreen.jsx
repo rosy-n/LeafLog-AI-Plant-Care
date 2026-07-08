@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors } from "../../constants/colors";
+import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 export default function ConsultationHistoryScreen({ navigation }) {
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         height: 40,
         borderWidth: 1.5,
-        borderColor: "rgba(31, 93, 1, 0.4)",
+        borderColor: GreenTint.medium,
         borderRadius: Radius.xl,
         backgroundColor: Colors.white,
         paddingHorizontal: Spacing.lg,
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     card: {
         width: "100%",
         borderWidth: 1.5,
-        borderColor: "rgba(31, 93, 1, 0.5)",
+        borderColor: GreenTint.half,
         borderRadius: Radius.md,
         backgroundColor: Colors.white,
         paddingTop: Spacing.lg,

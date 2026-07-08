@@ -20,7 +20,7 @@ import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint } from "../../constants/colors";
+import { Colors, GreenTint, Leaf, Accent } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const MENU_ITEMS = [
@@ -218,14 +218,14 @@ export default function PlantDetailScreen({ navigation, appliedItem }) {
                         </LiquidGlassButton>
 
                         <LiquidGlassButton size={54}>
-                            <Ionicons name="bulb-outline" size={30} color="#5C6131" />
+                            <Ionicons name="bulb-outline" size={30} color={Leaf.olive} />
                         </LiquidGlassButton>
 
                         <LiquidGlassButton size={68}>
                             <MaterialCommunityIcons
                                 name="watering-can-outline"
                                 size={40}
-                                color="#8A4E24"
+                                color={Accent.brownDeep}
                             />
                         </LiquidGlassButton>
                     </View>
