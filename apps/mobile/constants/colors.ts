@@ -160,24 +160,20 @@ export const Glass = {
 } as const;
 
 // ── 로그인/회원가입(App.tsx) 팔레트 ──────────────────
-// 앱 본편과 다른 따뜻한 종이 테마. 우선 인라인 hex를 그대로 토큰화(값 동일)
-// 했다. 그레이/그린 램프는 단계가 많아 추후 통합, 본편 팔레트와의 통일은
-// 별도 디자인 결정 대상이다.
+// 앱 본편과 다른 따뜻한 종이 테마. 지각상 동일하던 근접색(Δ≤10)은 통합했다
+// (예: paperHi→paper, muted2/3→muted, greenA/B→green). 남은 그레이/그린
+// 단계는 실제로 구분되는 명암 램프. 본편 팔레트와의 통일은 별도 결정 대상.
 export const Auth = {
   // 종이 · 면
-  paper:     '#fffdf5',  paperHi:  '#fffef9',  surface: '#e9ece3',
-  cream:     '#e5d8c5',  creamDim: '#e1dbce',
-  line:      '#d9d2c2',  lineWarm: '#d9d2c4',  lineSoft: '#d4cfc4',
+  paper:     '#fffdf5',  surface: '#e9ece3',
+  cream:     '#e5d8c5',  creamDim: '#e1dbce',  line: '#d9d2c2',
   // 텍스트 · 그레이 (밝음 → 어두움)
-  grayFaint: '#b7b4ae',  gray1: '#a5a097',  gray2: '#8f8980',  gray3: '#8e877d',
-  muted:     '#807d74',  muted2: '#807a70', muted3: '#7f7c74',
+  grayFaint: '#b7b4ae',  gray1: '#a5a097',  gray2: '#8f8980',  muted: '#807d74',
   gray4:     '#76736c',  gray5: '#6f6a61',  gray6: '#646057',  gray7: '#56534d',
-  ink:       '#1e1f1d',  ink2: '#242424',   ink3: '#373737',   ink4: '#33302c',
-  black:     '#111111',
+  ink:       '#1e1f1d',  ink2: '#242424',   ink3: '#373737',   ink4: '#33302c',  black: '#111111',
   // 녹색
-  green:     '#4f8d3d',  greenA: '#4d8b40', greenB: '#4d8642', greenC: '#3e7c37',
-  greenD:    '#2b652f',  greenE: '#235c2b', greenDark: '#1b5a26',
-  olive:     '#4a5046',  olive2: '#2d241f', olive3: '#1f2a1e',
+  green:     '#4f8d3d',  greenC: '#3e7c37',  greenD: '#2b652f',  greenDark: '#1b5a26',
+  olive:     '#4a5046',  olive2: '#2d241f',  olive3: '#1f2a1e',
   // 갈색 · 액센트
   brown:     '#9b7a57',  heart: '#ff6f61',  gold: '#f8d43e',  google: '#4285f4',
 } as const;
