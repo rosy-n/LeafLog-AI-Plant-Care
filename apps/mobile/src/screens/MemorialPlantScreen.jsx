@@ -20,6 +20,7 @@ import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 const MENU_ITEMS = [
     { label: "프로필", screen: "Profile" },
@@ -465,7 +466,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         left: 20,
         bottom: 60,
-        gap: 18,
+        gap: Spacing.xl,
         zIndex: 30,
     },
     rightButtons: {
@@ -473,7 +474,7 @@ const styles = StyleSheet.create({
         right: 20,
         bottom: 50,
         alignItems: "center",
-        gap: 14,
+        gap: Spacing.lg,
         zIndex: 30,
     },
 
@@ -485,12 +486,12 @@ const styles = StyleSheet.create({
         alignItems: "flex-start",
     },
     menuItemWrapper: {
-        marginBottom: 8,
+        marginBottom: Spacing.sm,
     },
     menuItemTouch: {
         width: 116,
         height: 31,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         overflow: "hidden",
         shadowColor: Colors.textBlack,
         shadowOpacity: 0.18,
@@ -500,14 +501,14 @@ const styles = StyleSheet.create({
     },
     menuItemBlur: {
         flex: 1,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         overflow: "hidden",
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.72)",
     },
     menuItemGlass: {
         flex: 1,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
@@ -519,7 +520,7 @@ const styles = StyleSheet.create({
         left: 10,
         width: 34,
         height: 8,
-        borderRadius: 99,
+        borderRadius: Radius.pill,
         backgroundColor: "rgba(255,255,255,0.62)",
     },
     menuItemText: {
@@ -540,12 +541,12 @@ const styles = StyleSheet.create({
     modalBox: {
         width: 300,
         backgroundColor: Colors.separator,
-        borderRadius: 22,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
         borderColor: "#D8CCAA",
-        paddingTop: 28,
-        paddingBottom: 22,
-        paddingHorizontal: 20,
+        paddingTop: Spacing.section,
+        paddingBottom: Spacing.xxl,
+        paddingHorizontal: Spacing.xl,
         alignItems: "center",
         shadowColor: Colors.textBlack,
         shadowOffset: { width: 0, height: 6 },
@@ -561,18 +562,18 @@ const styles = StyleSheet.create({
     modalTopDecor: {
         flexDirection: "row",
         alignItems: "flex-end",
-        gap: 3,
-        marginBottom: 14,
+        gap: Spacing.xs,
+        marginBottom: Spacing.lg,
     },
     modalTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
         color: Colors.textBlack,
         textAlign: "center",
-        marginBottom: 8,
+        marginBottom: Spacing.sm,
     },
     modalHeart: {
-        marginBottom: 12,
+        marginBottom: Spacing.md,
     },
     modalDesc: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -580,17 +581,17 @@ const styles = StyleSheet.create({
         color: Colors.textFaint,
         textAlign: "center",
         lineHeight: 21,
-        marginBottom: 22,
+        marginBottom: Spacing.xxl,
     },
     modalBtnRow: {
         flexDirection: "row",
-        gap: 10,
+        gap: Spacing.md,
         width: "100%",
     },
     modalBtnSecondary: {
         flex: 1,
         height: 46,
-        borderRadius: 23,
+        borderRadius: Radius.pill,
         borderWidth: 1.5,
         borderColor: "#C9B890",
         backgroundColor: "#EDE5CC",
@@ -605,7 +606,7 @@ const styles = StyleSheet.create({
     modalBtnPrimary: {
         flex: 1,
         height: 46,
-        borderRadius: 23,
+        borderRadius: Radius.pill,
         backgroundColor: GreenTint.line,
         flexDirection: "row",
         alignItems: "center",

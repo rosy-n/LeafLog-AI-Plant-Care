@@ -1,5 +1,6 @@
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { Radius } from "../../constants/spacing";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -84,7 +85,7 @@ const styles = StyleSheet.create({
         left: 10,
         width: "38%",
         height: "20%",
-        borderRadius: 99,
+        borderRadius: Radius.pill,
         backgroundColor: "rgba(255,255,255,0.60)",
     },
     content: {

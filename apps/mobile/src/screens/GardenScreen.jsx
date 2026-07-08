@@ -18,6 +18,7 @@ import HeartsRow from "../components/HeartsRow";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SKY_HEIGHT = 126;
@@ -379,15 +380,15 @@ const styles = StyleSheet.create({
         alignSelf: "center",
         width: 70,
         height: 5,
-        borderRadius: 3,
+        borderRadius: Radius.xs,
         backgroundColor: Colors.border,
-        marginTop: 12,
-        marginBottom: 8,
+        marginTop: Spacing.md,
+        marginBottom: Spacing.sm,
     },
 
     header: {
         height: 76,
-        paddingHorizontal: 18,
+        paddingHorizontal: Spacing.xl,
         backgroundColor: Colors.white,
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
@@ -412,7 +413,7 @@ const styles = StyleSheet.create({
     },
 
     sortButton: {
-        marginRight: 18,
+        marginRight: Spacing.xl,
     },
     sortButtonText: {
         fontSize: FontSizes.bodyLarge,
@@ -427,18 +428,18 @@ const styles = StyleSheet.create({
         flex: 1,
         height: 38,
         backgroundColor: "rgba(255,255,255,0.95)",
-        borderRadius: 10,
-        paddingHorizontal: 12,
+        borderRadius: Radius.md,
+        paddingHorizontal: Spacing.md,
         justifyContent: "center",
         borderWidth: 1,
         borderColor: Colors.border,
-        marginRight: 10,
+        marginRight: Spacing.md,
     },
     searchInput: {
         fontSize: FontSizes.bodyLarge,
         fontFamily: Fonts.neoDunggeunmo,
         color: GreenTint.deep,
-        padding: 0,
+        padding: Spacing.none,
     },
 
     sortMenuShadow: {
@@ -450,19 +451,19 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.14,
         shadowRadius: 8,
         elevation: 8,
-        borderRadius: 12,
+        borderRadius: Radius.md,
     },
     sortMenu: {
         backgroundColor: Colors.white,
-        borderRadius: 12,
+        borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.border,
         minWidth: 130,
         overflow: "hidden",
     },
     sortMenuItem: {
-        paddingVertical: 13,
-        paddingHorizontal: 18,
+        paddingVertical: Spacing.md,
+        paddingHorizontal: Spacing.xl,
     },
     sortMenuItemDivider: {
         borderBottomWidth: 1,
@@ -483,9 +484,9 @@ const styles = StyleSheet.create({
     },
 
     listContent: {
-        paddingTop: 24,
-        paddingHorizontal: 18,
-        paddingBottom: 40,
+        paddingTop: Spacing.xxl,
+        paddingHorizontal: Spacing.xl,
+        paddingBottom: Spacing.huge,
     },
     columnWrapper: {
         justifyContent: "flex-start",
@@ -493,7 +494,7 @@ const styles = StyleSheet.create({
     card: {
         width: "33.333%",
         alignItems: "center",
-        marginBottom: 28,
+        marginBottom: Spacing.section,
     },
     nameRow: {
         marginTop: -3,
@@ -509,7 +510,7 @@ const styles = StyleSheet.create({
         ...greenTextShadow,
     },
     star: {
-        marginLeft: 1,
+        marginLeft: Spacing.xxs,
         fontSize: FontSizes.title,
         fontFamily: Fonts.neoDunggeunmo,
         textShadowColor: Colors.textGray,

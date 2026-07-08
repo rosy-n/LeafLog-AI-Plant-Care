@@ -1,5 +1,6 @@
 import React from "react";
 import { Colors } from "../../constants/colors";
+import { Spacing } from "../../constants/spacing";
 import { View, Text, StyleSheet } from "react-native";
 
 export default function HeartsRow({ count = 5, size = 26 }) {
@@ -29,7 +30,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     heart: {
-        marginHorizontal: 1,
+        marginHorizontal: Spacing.xxs,
         fontWeight: "900",
         textShadowColor: Colors.textBlack,
         textShadowOffset: { width: 1.5, height: 1.5 },

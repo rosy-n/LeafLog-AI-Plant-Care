@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 const ITEMS = [
     {
@@ -344,10 +345,10 @@ const styles = StyleSheet.create({
 
     // Affinity Card
     affinityCardWrap: {
-        marginHorizontal: 20,
-        marginTop: 12,
-        marginBottom: 16,
-        borderRadius: 18,
+        marginHorizontal: Spacing.xl,
+        marginTop: Spacing.md,
+        marginBottom: Spacing.lg,
+        borderRadius: Radius.xl,
         overflow: "hidden",
         shadowColor: GreenTint.deep,
         shadowOpacity: 0.14,
@@ -356,25 +357,25 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     affinityBlur: {
-        borderRadius: 18,
+        borderRadius: Radius.xl,
         overflow: "hidden",
         borderWidth: 1.2,
         borderColor: "rgba(255,255,255,0.75)",
     },
     affinityGradient: {
-        paddingHorizontal: 18,
-        paddingVertical: 14,
-        borderRadius: 18,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.lg,
+        borderRadius: Radius.xl,
     },
     affinityRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 12,
+        gap: Spacing.md,
     },
     affinityBlock: {
         flex: 1,
         alignItems: "center",
-        gap: 4,
+        gap: Spacing.xs,
     },
     affinityLabel: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -405,7 +406,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         alignItems: "center",
         width: "100%",
-        paddingHorizontal: 2,
+        paddingHorizontal: Spacing.xxs,
     },
     nextThresholdText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -416,19 +417,19 @@ const styles = StyleSheet.create({
         width: "100%",
         height: 8,
         backgroundColor: GreenTint.soft,
-        borderRadius: 99,
+        borderRadius: Radius.pill,
         overflow: "hidden",
-        marginTop: 2,
+        marginTop: Spacing.xxs,
     },
     progressFill: {
         height: "100%",
-        borderRadius: 99,
+        borderRadius: Radius.pill,
     },
 
     // Plant Preview
     plantPreviewArea: {
         alignItems: "center",
-        marginBottom: 12,
+        marginBottom: Spacing.md,
     },
     plantPreviewInner: {
         width: 190,
@@ -442,8 +443,8 @@ const styles = StyleSheet.create({
     },
     plantLabelGroup: {
         alignItems: "center",
-        marginTop: 4,
-        gap: 2,
+        marginTop: Spacing.xs,
+        gap: Spacing.xxs,
     },
     plantName: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -458,12 +459,12 @@ const styles = StyleSheet.create({
     appliedBadge: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
-        marginTop: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 5,
+        gap: Spacing.xs,
+        marginTop: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
         backgroundColor: GreenTint.soft,
-        borderRadius: 99,
+        borderRadius: Radius.pill,
         borderWidth: 1,
         borderColor: GreenTint.line,
     },
@@ -473,11 +474,11 @@ const styles = StyleSheet.create({
         color: GreenTint.deep,
     },
     noItemBadge: {
-        marginTop: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 5,
+        marginTop: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
         backgroundColor: "rgba(150,150,150,0.15)",
-        borderRadius: 99,
+        borderRadius: Radius.pill,
         borderWidth: 1,
         borderColor: "rgba(150,150,150,0.3)",
     },
@@ -489,8 +490,8 @@ const styles = StyleSheet.create({
 
     // Item Section
     itemSection: {
-        marginHorizontal: 16,
-        borderRadius: 22,
+        marginHorizontal: Spacing.lg,
+        borderRadius: Radius.xl,
         overflow: "hidden",
         shadowColor: GreenTint.deep,
         shadowOpacity: 0.12,
@@ -501,36 +502,36 @@ const styles = StyleSheet.create({
         borderColor: "rgba(255,255,255,0.75)",
     },
     itemSectionBlur: {
-        borderRadius: 22,
+        borderRadius: Radius.xl,
         overflow: "hidden",
     },
     itemSectionGradient: {
-        paddingTop: 16,
-        paddingBottom: 20,
-        borderRadius: 22,
+        paddingTop: Spacing.lg,
+        paddingBottom: Spacing.xl,
+        borderRadius: Radius.xl,
     },
     itemSectionTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: Colors.primary,
-        marginLeft: 18,
-        marginBottom: 14,
+        marginLeft: Spacing.xl,
+        marginBottom: Spacing.lg,
     },
     itemScroll: {
-        paddingHorizontal: 16,
-        gap: 12,
+        paddingHorizontal: Spacing.lg,
+        gap: Spacing.md,
     },
 
     // Item Cards
     itemCardWrap: {
         alignItems: "center",
         width: 80,
-        gap: 6,
+        gap: Spacing.sm,
     },
     itemCard: {
         width: 80,
         height: 80,
-        borderRadius: 18,
+        borderRadius: Radius.xl,
         overflow: "hidden",
         shadowColor: GreenTint.deep,
         shadowOpacity: 0.16,
@@ -549,14 +550,14 @@ const styles = StyleSheet.create({
     },
     itemCardBlur: {
         flex: 1,
-        borderRadius: 18,
+        borderRadius: Radius.xl,
         overflow: "hidden",
     },
     itemCardGradient: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        borderRadius: 18,
+        borderRadius: Radius.xl,
     },
     itemImage: {
         width: 54,
@@ -572,7 +573,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: "rgba(60,60,60,0.35)",
-        borderRadius: 18,
+        borderRadius: Radius.xl,
     },
     selectedCheck: {
         position: "absolute",
@@ -580,15 +581,15 @@ const styles = StyleSheet.create({
         right: 6,
         width: 18,
         height: 18,
-        borderRadius: 99,
+        borderRadius: Radius.pill,
         backgroundColor: GreenTint.strong,
         alignItems: "center",
         justifyContent: "center",
     },
     levelBadge: {
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 99,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xxs,
+        borderRadius: Radius.pill,
     },
     levelBadgeUnlocked: {
         backgroundColor: GreenTint.soft,
@@ -620,10 +621,10 @@ const styles = StyleSheet.create({
         bottom: 42,
         right: 24,
         zIndex: 100,
-        paddingHorizontal: 28,
-        paddingVertical: 9,
+        paddingHorizontal: Spacing.section,
+        paddingVertical: Spacing.sm,
         backgroundColor: "rgba(200,80,60,0.14)",
-        borderRadius: 99,
+        borderRadius: Radius.pill,
         borderWidth: 1,
         borderColor: "rgba(200,80,60,0.35)",
     },
