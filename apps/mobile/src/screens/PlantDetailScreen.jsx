@@ -20,7 +20,7 @@ import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Leaf, Accent } from "../../constants/colors";
+import { Colors, GreenTint, Leaf, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const MENU_ITEMS = [
@@ -169,9 +169,9 @@ export default function PlantDetailScreen({ navigation, appliedItem }) {
                                             <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>
                                                 <LinearGradient
                                                     colors={[
-                                                        "rgba(255,255,255,0.72)",
-                                                        "rgba(235,248,228,0.52)",
-                                                        "rgba(211,235,201,0.38)",
+                                                        Glass.frost72,
+                                                        Glass.mist,
+                                                        Glass.mistSoft,
                                                     ]}
                                                     start={{ x: 0.12, y: 0.05 }}
                                                     end={{ x: 1, y: 1 }}
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
         borderRadius: Radius.lg,
         overflow: "hidden",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.72)",
+        borderColor: Glass.frost72,
     },
 
     menuItemGlass: {
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.46)",
+        borderColor: Glass.frost45,
     },
 
     menuItemHighlight: {
@@ -421,14 +421,14 @@ const styles = StyleSheet.create({
         width: 34,
         height: 8,
         borderRadius: Radius.pill,
-        backgroundColor: "rgba(255,255,255,0.62)",
+        backgroundColor: Glass.frost60,
     },
 
     menuItemText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: Colors.textBlack,
-        textShadowColor: "rgba(255,255,255,0.65)",
+        textShadowColor: Glass.frost60,
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 0,
     },

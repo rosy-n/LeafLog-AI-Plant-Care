@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Aqua, Accent } from "../../constants/colors";
+import { Colors, GreenTint, Aqua, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const BG_IMAGES = {
@@ -179,9 +179,9 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                                             <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>
                                                 <LinearGradient
                                                     colors={[
-                                                        "rgba(255,255,255,0.72)",
-                                                        "rgba(235,248,228,0.52)",
-                                                        "rgba(211,235,201,0.38)",
+                                                        Glass.frost72,
+                                                        Glass.mist,
+                                                        Glass.mistSoft,
                                                     ]}
                                                     start={{ x: 0.12, y: 0.05 }}
                                                     end={{ x: 1, y: 1 }}
@@ -264,9 +264,9 @@ function GlassButton({ children, size = 62, onPress }) {
             >
                 <LinearGradient
                     colors={[
-                        "rgba(255,255,255,0.72)",
-                        "rgba(231,247,221,0.48)",
-                        "rgba(205,232,196,0.34)",
+                        Glass.frost72,
+                        Glass.mist,
+                        Glass.mistSoft,
                     ]}
                     start={{ x: 0.15, y: 0.05 }}
                     end={{ x: 1, y: 1 }}
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
         borderRadius: Radius.lg,
         overflow: "hidden",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.72)",
+        borderColor: Glass.frost72,
     },
     menuItemGlass: {
         flex: 1,
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.46)",
+        borderColor: Glass.frost45,
     },
     menuItemHighlight: {
         position: "absolute",
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
         width: 34,
         height: 8,
         borderRadius: Radius.pill,
-        backgroundColor: "rgba(255,255,255,0.62)",
+        backgroundColor: Glass.frost60,
     },
     menuItemIcon: {
         marginRight: Spacing.xs,
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: Colors.textBlack,
-        textShadowColor: "rgba(255,255,255,0.65)",
+        textShadowColor: Glass.frost60,
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 0,
     },
@@ -466,14 +466,14 @@ const styles = StyleSheet.create({
         flex: 1,
         overflow: "hidden",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.72)",
+        borderColor: Glass.frost72,
     },
     glassGradient: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.4)",
+        borderColor: Glass.frost45,
     },
     glassHighlight: {
         position: "absolute",
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
         width: "38%",
         height: "20%",
         borderRadius: Radius.pill,
-        backgroundColor: "rgba(255,255,255,0.58)",
+        backgroundColor: Glass.frost60,
     },
 
     weatherWrap: {
