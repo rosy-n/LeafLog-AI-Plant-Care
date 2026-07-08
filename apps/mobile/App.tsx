@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Fonts, FontSizes } from "./constants/fonts";
-import { Colors, Auth } from "./constants/colors";
+import { Colors, Brand } from "./constants/colors";
 import { Spacing, Radius } from "./constants/spacing";
 import {
   ActivityIndicator,
@@ -302,7 +302,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={Auth.paper} />
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.keyboard}
@@ -452,7 +452,7 @@ function LoginScreen(props: {
             value={props.email}
             onChangeText={props.onEmail}
             placeholder="이메일을 입력해주세요"
-            placeholderTextColor={Auth.grayFaint}
+            placeholderTextColor={Colors.textFaint}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -465,7 +465,7 @@ function LoginScreen(props: {
               value={props.password}
               onChangeText={props.onPassword}
               placeholder="비밀번호를 입력해주세요"
-              placeholderTextColor={Auth.grayFaint}
+              placeholderTextColor={Colors.textFaint}
               secureTextEntry={!props.showPassword}
               style={[
                 styles.input,
@@ -538,7 +538,7 @@ function SignupScreen(props: {
               value={props.email}
               onChangeText={props.onEmail}
               placeholder="이메일을 입력해주세요"
-              placeholderTextColor={Auth.grayFaint}
+              placeholderTextColor={Colors.textFaint}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -562,7 +562,7 @@ function SignupScreen(props: {
               value={props.password}
               onChangeText={props.onPassword}
               placeholder="8자 이상, 영문/숫자 조합"
-              placeholderTextColor={Auth.grayFaint}
+              placeholderTextColor={Colors.textFaint}
               secureTextEntry={!props.showPassword}
               style={[
                 styles.input,
@@ -580,7 +580,7 @@ function SignupScreen(props: {
               value={props.confirm}
               onChangeText={props.onConfirm}
               placeholder="비밀번호를 다시 입력해주세요"
-              placeholderTextColor={Auth.grayFaint}
+              placeholderTextColor={Colors.textFaint}
               secureTextEntry={!props.showConfirm}
               style={[
                 styles.input,
@@ -639,7 +639,7 @@ function NicknameScreen(props: {
                 value={props.nickname}
                 onChangeText={(value) => props.onNickname(value.slice(0, 10))}
                 placeholder="닉네임을 입력해주세요"
-                placeholderTextColor={Auth.grayFaint}
+                placeholderTextColor={Colors.textFaint}
                 autoCapitalize="none"
                 style={[
                   styles.input,
@@ -845,7 +845,7 @@ function PixelButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={secondary ? Auth.green : Colors.white} />
+        <ActivityIndicator color={secondary ? Colors.primary : Colors.white} />
       ) : (
         <Text style={[styles.pixelButtonText, secondary && styles.pixelButtonSecondaryText]}>
           {label}
@@ -910,7 +910,7 @@ function TermRow({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Auth.surface,
+    backgroundColor: Colors.background,
     alignItems: "center",
   },
   keyboard: {
@@ -920,12 +920,12 @@ const styles = StyleSheet.create({
   },
   frame: {
     flex: 1,
-    backgroundColor: Auth.paper,
+    backgroundColor: Colors.background,
     overflow: "hidden",
   },
   screen: {
     flex: 1,
-    backgroundColor: Auth.paper,
+    backgroundColor: Colors.background,
     position: "relative",
   },
   sprite: {
@@ -958,22 +958,22 @@ const styles = StyleSheet.create({
   },
   brandText: {
     marginTop: Spacing.xl,
-    color: Auth.greenC,
+    color: Colors.primary,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.displayLarge,
     lineHeight: 54,
-    textShadowColor: Auth.greenDark,
+    textShadowColor: Colors.primary,
     textShadowOffset: { width: 1, height: 2 },
     textShadowRadius: 0,
   },
   tagline: {
     marginTop: Spacing.lg,
-    color: Auth.muted,
+    color: Colors.textGray,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.bodyLarge,
   },
   heart: {
-    color: Auth.heart,
+    color: Colors.danger,
     fontFamily: Fonts.nanumSquareNeo.heavy,
   },
   landingPlant: {
@@ -995,24 +995,24 @@ const styles = StyleSheet.create({
     right: 49,
     top: 625,
     gap: Spacing.md,
-    backgroundColor: Auth.paper,
+    backgroundColor: Colors.background,
   },
   pixelButton: {
     height: 56,
     borderWidth: 2,
-    borderColor: Auth.greenDark,
+    borderColor: Colors.primary,
     borderRadius: Radius.sm,
-    backgroundColor: Auth.green,
+    backgroundColor: Colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: Auth.greenD,
+    shadowColor: Colors.primary,
     shadowOpacity: 1,
     shadowRadius: 0,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   pixelButtonSecondary: {
-    backgroundColor: Auth.paper,
+    backgroundColor: Colors.background,
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -1022,7 +1022,7 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.subtitle,
   },
   pixelButtonSecondaryText: {
-    color: Auth.green,
+    color: Colors.primary,
   },
   pressed: {
     opacity: 0.78,
@@ -1045,7 +1045,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   backText: {
-    color: Auth.black,
+    color: Colors.textBlack,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.display,
     lineHeight: 38,
@@ -1066,14 +1066,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xxs,
   },
   authTitle: {
-    color: Auth.greenDark,
+    color: Colors.primary,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.display,
     lineHeight: 38,
   },
   authSubtitle: {
     marginTop: Spacing.sm,
-    color: Auth.muted,
+    color: Colors.textGray,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.bodyLarge,
     lineHeight: 19,
@@ -1093,7 +1093,7 @@ const styles = StyleSheet.create({
   label: {
     marginLeft: Spacing.xxs,
     marginBottom: Spacing.sm,
-    color: Auth.ink2,
+    color: Colors.textBlack,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.small,
   },
@@ -1111,11 +1111,11 @@ const styles = StyleSheet.create({
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: Auth.line,
+    borderColor: Colors.border,
     borderRadius: Radius.md,
-    backgroundColor: Auth.paper,
+    backgroundColor: Colors.background,
     paddingHorizontal: Spacing.lg,
-    color: Auth.ink3,
+    color: Colors.textBlack,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.body,
   },
@@ -1126,7 +1126,7 @@ const styles = StyleSheet.create({
     paddingRight: 54,
   },
   inputError: {
-    borderColor: Auth.heart,
+    borderColor: Colors.danger,
     borderWidth: 1.5,
   },
   passwordToggle: {
@@ -1137,41 +1137,41 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   passwordToggleText: {
-    color: Auth.gray5,
+    color: Colors.textGray,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.small,
   },
   errorText: {
     marginTop: Spacing.sm,
     marginLeft: Spacing.xxs,
-    color: Auth.heart,
+    color: Colors.danger,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
     lineHeight: 15,
   },
   formMessage: {
     marginTop: Spacing.md,
-    color: Auth.heart,
+    color: Colors.danger,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
     lineHeight: 17,
     textAlign: "center",
   },
   successText: {
-    color: Auth.green,
+    color: Colors.primary,
   },
   smallButton: {
     width: 78,
     height: 44,
     borderWidth: 1,
-    borderColor: Auth.green,
+    borderColor: Colors.primary,
     borderRadius: Radius.sm,
-    backgroundColor: Auth.paper,
+    backgroundColor: Colors.background,
     alignItems: "center",
     justifyContent: "center",
   },
   smallButtonText: {
-    color: Auth.green,
+    color: Colors.primary,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.small,
   },
@@ -1180,7 +1180,7 @@ const styles = StyleSheet.create({
     marginTop: -1,
   },
   forgotText: {
-    color: Auth.green,
+    color: Colors.primary,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
     textDecorationLine: "underline",
@@ -1198,10 +1198,10 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Auth.creamDim,
+    backgroundColor: Colors.border,
   },
   dividerText: {
-    color: Auth.gray2,
+    color: Colors.textGray,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.body,
   },
@@ -1213,16 +1213,16 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 58,
     borderWidth: 1,
-    borderColor: Auth.line,
+    borderColor: Colors.border,
     borderRadius: Radius.sm,
-    backgroundColor: Auth.paper,
+    backgroundColor: Colors.background,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: Spacing.sm,
   },
   socialIcon: {
-    color: Auth.google,
+    color: Brand.google,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.subtitle,
   },
@@ -1230,15 +1230,15 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: Radius.sm,
-    backgroundColor: Auth.gold,
-    color: Auth.olive2,
+    backgroundColor: Brand.kakao,
+    color: Colors.textBlack,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.caption,
     textAlign: "center",
     lineHeight: 18,
   },
   socialLabel: {
-    color: Auth.ink4,
+    color: Colors.textBlack,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.body,
   },
@@ -1247,9 +1247,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
     borderWidth: 1,
-    borderColor: Auth.line,
+    borderColor: Colors.border,
     borderRadius: Radius.sm,
-    backgroundColor: Auth.paper,
+    backgroundColor: Colors.background,
   },
   termRow: {
     minHeight: 30,
@@ -1261,15 +1261,15 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderWidth: 1,
-    borderColor: Auth.line,
+    borderColor: Colors.border,
     borderRadius: Radius.xs,
-    backgroundColor: Auth.paper,
+    backgroundColor: Colors.background,
     alignItems: "center",
     justifyContent: "center",
   },
   checkboxChecked: {
-    borderColor: Auth.green,
-    backgroundColor: Auth.green,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary,
   },
   checkmark: {
     color: Colors.white,
@@ -1279,18 +1279,18 @@ const styles = StyleSheet.create({
   },
   termText: {
     flex: 1,
-    color: Auth.gray6,
+    color: Colors.textBlack,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
   },
   termTextStrong: {
-    color: Auth.olive,
+    color: Colors.textGray,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.body,
   },
   viewLink: {
     width: 38,
-    color: Auth.gray7,
+    color: Colors.textBlack,
     textAlign: "right",
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
@@ -1315,7 +1315,7 @@ const styles = StyleSheet.create({
     left: 83,
     width: 174,
     height: 48,
-    backgroundColor: Auth.cream,
+    backgroundColor: Colors.white,
   },
   nickSun: {
     position: "absolute",
@@ -1340,8 +1340,8 @@ const styles = StyleSheet.create({
     width: 174,
     height: 48,
     borderWidth: 1,
-    borderColor: Auth.brown,
-    backgroundColor: Auth.paper,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
@@ -1359,7 +1359,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 9,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderTopColor: Auth.brown,
+    borderTopColor: Colors.border,
   },
   nickBubbleTailFill: {
     position: "absolute",
@@ -1372,10 +1372,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 8,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderTopColor: Auth.paper,
+    borderTopColor: Colors.background,
   },
   nickBubbleText: {
-    color: Auth.olive3,
+    color: Colors.textBlack,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.body,
   },
@@ -1383,11 +1383,11 @@ const styles = StyleSheet.create({
     width: 2,
     height: 14,
     marginLeft: Spacing.xxs,
-    backgroundColor: Auth.green,
+    backgroundColor: Colors.primary,
   },
   nickTitle: {
     marginTop: Spacing.xxl,
-    color: Auth.greenDark,
+    color: Colors.primary,
     textAlign: "center",
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.screenTitle,
@@ -1395,7 +1395,7 @@ const styles = StyleSheet.create({
   },
   nickCopy: {
     marginTop: Spacing.xl,
-    color: Auth.gray4,
+    color: Colors.textGray,
     textAlign: "center",
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.bodyLarge,
@@ -1411,14 +1411,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 16,
     right: 13,
-    color: Auth.gray2,
+    color: Colors.textGray,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
   },
   hint: {
     marginTop: -14,
     marginLeft: Spacing.xxs,
-    color: Auth.gray1,
+    color: Colors.textFaint,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
   },
@@ -1439,14 +1439,14 @@ const styles = StyleSheet.create({
   },
   doneTitle: {
     marginTop: Spacing.section,
-    color: Auth.greenDark,
+    color: Colors.primary,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.screenTitle,
     textAlign: "center",
   },
   doneCopy: {
     marginTop: Spacing.md,
-    color: Auth.muted,
+    color: Colors.textGray,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.bodyLarge,
   },
