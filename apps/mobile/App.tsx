@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Fonts, FontSizes } from "./constants/fonts";
 import { Colors, Auth } from "./constants/colors";
+import { Spacing, Radius } from "./constants/spacing";
 import {
   ActivityIndicator,
   Alert,
@@ -956,7 +957,7 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   brandText: {
-    marginTop: 19,
+    marginTop: Spacing.xl,
     color: Auth.greenC,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.displayLarge,
@@ -966,7 +967,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 0,
   },
   tagline: {
-    marginTop: 14,
+    marginTop: Spacing.lg,
     color: Auth.muted2,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.bodyLarge,
@@ -993,14 +994,14 @@ const styles = StyleSheet.create({
     left: 49,
     right: 49,
     top: 625,
-    gap: 12,
+    gap: Spacing.md,
     backgroundColor: Auth.paper,
   },
   pixelButton: {
     height: 56,
     borderWidth: 2,
     borderColor: Auth.greenDark,
-    borderRadius: 6,
+    borderRadius: Radius.sm,
     backgroundColor: Auth.green,
     alignItems: "center",
     justifyContent: "center",
@@ -1030,8 +1031,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   authScroll: {
-    paddingHorizontal: 28,
-    paddingBottom: 36,
+    paddingHorizontal: Spacing.section,
+    paddingBottom: Spacing.huge,
   },
   backButton: {
     position: "absolute",
@@ -1062,7 +1063,7 @@ const styles = StyleSheet.create({
     width: 31,
     height: 24,
     resizeMode: "contain",
-    marginBottom: 1,
+    marginBottom: Spacing.xxs,
   },
   authTitle: {
     color: Auth.greenDark,
@@ -1071,27 +1072,27 @@ const styles = StyleSheet.create({
     lineHeight: 38,
   },
   authSubtitle: {
-    marginTop: 8,
+    marginTop: Spacing.sm,
     color: Auth.muted3,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.bodyLarge,
     lineHeight: 19,
   },
   form: {
-    marginTop: 28,
+    marginTop: Spacing.section,
   },
   signupForm: {
-    marginTop: 26,
+    marginTop: Spacing.section,
   },
   field: {
-    marginBottom: 20,
+    marginBottom: Spacing.xl,
   },
   fieldCompact: {
-    marginBottom: 14,
+    marginBottom: Spacing.lg,
   },
   label: {
-    marginLeft: 2,
-    marginBottom: 8,
+    marginLeft: Spacing.xxs,
+    marginBottom: Spacing.sm,
     color: Auth.ink2,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.small,
@@ -1102,7 +1103,7 @@ const styles = StyleSheet.create({
   checkRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: Spacing.sm,
   },
   checkInput: {
     flex: 1,
@@ -1111,9 +1112,9 @@ const styles = StyleSheet.create({
     height: 48,
     borderWidth: 1,
     borderColor: Auth.line,
-    borderRadius: 10,
+    borderRadius: Radius.md,
     backgroundColor: Auth.paperHi,
-    paddingHorizontal: 15,
+    paddingHorizontal: Spacing.lg,
     color: Auth.ink3,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.body,
@@ -1141,15 +1142,15 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.small,
   },
   errorText: {
-    marginTop: 6,
-    marginLeft: 2,
+    marginTop: Spacing.sm,
+    marginLeft: Spacing.xxs,
     color: Auth.heart,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
     lineHeight: 15,
   },
   formMessage: {
-    marginTop: 10,
+    marginTop: Spacing.md,
     color: Auth.heart,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
@@ -1164,7 +1165,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderWidth: 1,
     borderColor: Auth.green,
-    borderRadius: 9,
+    borderRadius: Radius.sm,
     backgroundColor: Auth.paper,
     alignItems: "center",
     justifyContent: "center",
@@ -1185,14 +1186,14 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
   loginButton: {
-    marginTop: 46,
+    marginTop: Spacing.huge2,
   },
   divider: {
-    marginTop: 48,
-    marginBottom: 30,
+    marginTop: Spacing.huge2,
+    marginBottom: Spacing.xxxl,
     flexDirection: "row",
     alignItems: "center",
-    gap: 15,
+    gap: Spacing.lg,
   },
   dividerLine: {
     flex: 1,
@@ -1206,19 +1207,19 @@ const styles = StyleSheet.create({
   },
   socials: {
     flexDirection: "row",
-    gap: 10,
+    gap: Spacing.md,
   },
   socialButton: {
     flex: 1,
     height: 58,
     borderWidth: 1,
     borderColor: Auth.lineWarm,
-    borderRadius: 9,
+    borderRadius: Radius.sm,
     backgroundColor: Auth.paperHi,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    gap: 7,
+    gap: Spacing.sm,
   },
   socialIcon: {
     color: Auth.google,
@@ -1228,7 +1229,7 @@ const styles = StyleSheet.create({
   kakaoIcon: {
     width: 18,
     height: 18,
-    borderRadius: 6,
+    borderRadius: Radius.sm,
     backgroundColor: Auth.gold,
     color: Auth.olive2,
     fontFamily: Fonts.nanumSquareNeo.bold,
@@ -1242,26 +1243,26 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.body,
   },
   terms: {
-    marginTop: 4,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    marginTop: Spacing.xs,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
     borderWidth: 1,
     borderColor: Auth.line,
-    borderRadius: 9,
+    borderRadius: Radius.sm,
     backgroundColor: Auth.paperHi,
   },
   termRow: {
     minHeight: 30,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: Spacing.sm,
   },
   checkbox: {
     width: 14,
     height: 14,
     borderWidth: 1,
     borderColor: Auth.lineSoft,
-    borderRadius: 3,
+    borderRadius: Radius.xs,
     backgroundColor: Auth.paperHi,
     alignItems: "center",
     justifyContent: "center",
@@ -1295,11 +1296,11 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.small,
   },
   signupButton: {
-    marginTop: 30,
+    marginTop: Spacing.xxxl,
   },
   nicknameScroll: {
-    paddingHorizontal: 28,
-    paddingBottom: 36,
+    paddingHorizontal: Spacing.section,
+    paddingBottom: Spacing.huge,
   },
   nickHero: {
     position: "relative",
@@ -1381,11 +1382,11 @@ const styles = StyleSheet.create({
   cursor: {
     width: 2,
     height: 14,
-    marginLeft: 2,
+    marginLeft: Spacing.xxs,
     backgroundColor: Auth.green,
   },
   nickTitle: {
-    marginTop: 24,
+    marginTop: Spacing.xxl,
     color: Auth.greenDark,
     textAlign: "center",
     fontFamily: Fonts.nanumSquareNeo.heavy,
@@ -1393,7 +1394,7 @@ const styles = StyleSheet.create({
     lineHeight: 33,
   },
   nickCopy: {
-    marginTop: 18,
+    marginTop: Spacing.xl,
     color: Auth.gray4,
     textAlign: "center",
     fontFamily: Fonts.nanumSquareNeo.bold,
@@ -1401,7 +1402,7 @@ const styles = StyleSheet.create({
     lineHeight: 23,
   },
   nickForm: {
-    marginTop: 42,
+    marginTop: Spacing.huge,
   },
   counterInput: {
     paddingRight: 56,
@@ -1416,19 +1417,19 @@ const styles = StyleSheet.create({
   },
   hint: {
     marginTop: -14,
-    marginLeft: 2,
+    marginLeft: Spacing.xxs,
     color: Auth.gray1,
     fontFamily: Fonts.nanumSquareNeo.extraBold,
     fontSize: FontSizes.small,
   },
   startButton: {
-    marginTop: 36,
+    marginTop: Spacing.huge,
   },
   doneContent: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 28,
+    paddingHorizontal: Spacing.section,
     paddingBottom: 60,
   },
   donePlant: {
@@ -1437,20 +1438,20 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   doneTitle: {
-    marginTop: 28,
+    marginTop: Spacing.section,
     color: Auth.greenDark,
     fontFamily: Fonts.nanumSquareNeo.heavy,
     fontSize: FontSizes.screenTitle,
     textAlign: "center",
   },
   doneCopy: {
-    marginTop: 12,
+    marginTop: Spacing.md,
     color: Auth.muted,
     fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.bodyLarge,
   },
   doneButton: {
     alignSelf: "stretch",
-    marginTop: 42,
+    marginTop: Spacing.huge,
   },
 });
