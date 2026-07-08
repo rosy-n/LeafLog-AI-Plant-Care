@@ -525,7 +525,6 @@ const styles = StyleSheet.create({
 
     scrollContent: {
         ...screenContent,
-        paddingTop: Spacing.sm,
     },
 
     // New Record Button

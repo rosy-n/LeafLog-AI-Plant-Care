@@ -273,7 +273,6 @@ const styles = StyleSheet.create({
 
     chatContent: {
         ...screenContent,
-        paddingTop: Spacing.sm,
         paddingBottom: Spacing.lg,
         gap: Spacing.none,
     },
