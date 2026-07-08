@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint, Pink, Warm, Accent } from "../../constants/colors";
+import { Colors, GreenTint, Pink, Warm, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const CARE_SECTIONS = [
@@ -106,16 +106,16 @@ export default function CareInfoScreen({ navigation }) {
                                             styles.tabBlur,
                                             {
                                                 borderColor: isActive
-                                                    ? "rgba(80,155,30,0.65)"
-                                                    : "rgba(255,255,255,0.68)",
+                                                    ? Glass.leafSolid
+                                                    : Glass.frost72,
                                             },
                                         ]}
                                     >
                                         <LinearGradient
                                             colors={
                                                 isActive
-                                                    ? ["rgba(190,228,155,0.92)", "rgba(110,178,60,0.78)", "rgba(50,120,10,0.62)"]
-                                                    : ["rgba(255,255,255,0.68)", "rgba(230,246,220,0.50)", "rgba(207,232,197,0.36)"]
+                                                    ? [Glass.leafHi, Glass.leafMid, Glass.leafLow]
+                                                    : [Glass.frost72, Glass.mist, Glass.mistSoft]
                                             }
                                             start={{ x: 0.12, y: 0.05 }}
                                             end={{ x: 0.9, y: 1 }}
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 0.8,
-        borderColor: "rgba(255,255,255,0.45)",
+        borderColor: Glass.frost45,
         borderRadius: Radius.md,
     },
 
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
         width: "32%",
         height: "36%",
         borderRadius: Radius.pill,
-        backgroundColor: "rgba(255,255,255,0.55)",
+        backgroundColor: Glass.frost60,
     },
 
     tabText: {

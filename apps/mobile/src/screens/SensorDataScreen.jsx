@@ -17,7 +17,7 @@ import Svg, { Line, Polyline, Circle, Text as SvgText } from "react-native-svg";
 import PlantImage from "../components/PlantImage";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint, Gauge, GaugeTint } from "../../constants/colors";
+import { Colors, GreenTint, Gauge, GaugeTint, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 
@@ -360,7 +360,7 @@ export default function SensorDataScreen({ navigation }) {
                     <View style={styles.card}>
                         <BlurView intensity={22} tint="light" style={styles.cardBlur}>
                             <LinearGradient
-                                colors={["rgba(255,255,255,0.75)", "rgba(218,240,205,0.50)"]}
+                                colors={[Glass.frost72, Glass.mist]}
                                 start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
                                 style={styles.cardGradient}
                             >
@@ -400,7 +400,7 @@ export default function SensorDataScreen({ navigation }) {
                     <View style={styles.card}>
                         <BlurView intensity={22} tint="light" style={styles.cardBlur}>
                             <LinearGradient
-                                colors={["rgba(255,255,255,0.75)", "rgba(218,240,205,0.50)"]}
+                                colors={[Glass.frost72, Glass.mist]}
                                 start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
                                 style={styles.cardGradient}
                             >
@@ -432,7 +432,7 @@ export default function SensorDataScreen({ navigation }) {
                     <View style={styles.card}>
                         <BlurView intensity={22} tint="light" style={styles.cardBlur}>
                             <LinearGradient
-                                colors={["rgba(255,255,255,0.75)", "rgba(218,240,205,0.50)"]}
+                                colors={[Glass.frost72, Glass.mist]}
                                 start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
                                 style={styles.cardGradient}
                             >
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
         borderRadius: Radius.xl,
         overflow: "hidden",
         borderWidth: 1.2,
-        borderColor: "rgba(255,255,255,0.75)",
+        borderColor: Glass.frost72,
         shadowColor: GreenTint.deep,
         shadowOpacity: 0.10,
         shadowRadius: 10,
@@ -650,7 +650,7 @@ const styles = StyleSheet.create({
     },
     statCard: {
         flex: 1,
-        backgroundColor: "rgba(255,255,255,0.60)",
+        backgroundColor: Glass.frost60,
         borderRadius: Radius.lg,
         borderWidth: 1,
         borderColor: GreenTint.soft,

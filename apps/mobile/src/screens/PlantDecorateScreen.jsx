@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint, Leaf, Accent } from "../../constants/colors";
+import { Colors, GreenTint, Leaf, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const ITEMS = [
@@ -101,9 +101,9 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                     <BlurView intensity={28} tint="light" style={styles.affinityBlur}>
                         <LinearGradient
                             colors={[
-                                "rgba(255,255,255,0.75)",
-                                "rgba(220,245,208,0.55)",
-                                "rgba(195,230,180,0.38)",
+                                Glass.frost72,
+                                Glass.mist,
+                                Glass.mistSoft,
                             ]}
                             start={{ x: 0.1, y: 0 }}
                             end={{ x: 1, y: 1 }}
@@ -195,8 +195,8 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                     <BlurView intensity={22} tint="light" style={styles.itemSectionBlur}>
                         <LinearGradient
                             colors={[
-                                "rgba(255,255,255,0.68)",
-                                "rgba(225,245,215,0.48)",
+                                Glass.frost72,
+                                Glass.mist,
                             ]}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 0, y: 1 }}
@@ -235,17 +235,17 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                                                         colors={
                                                             isSelected
                                                                 ? [
-                                                                      "rgba(110,200,85,0.65)",
-                                                                      "rgba(55,155,45,0.45)",
+                                                                      Glass.leafBright,
+                                                                      Glass.leafSoft,
                                                                   ]
                                                                 : isUnlocked
                                                                 ? [
-                                                                      "rgba(255,255,255,0.72)",
-                                                                      "rgba(215,238,205,0.45)",
+                                                                      Glass.frost72,
+                                                                      Glass.mist,
                                                                   ]
                                                                 : [
-                                                                      "rgba(200,200,200,0.45)",
-                                                                      "rgba(170,170,170,0.3)",
+                                                                      Glass.gray45,
+                                                                      Glass.gray30,
                                                                   ]
                                                         }
                                                         start={{ x: 0.1, y: 0 }}
@@ -266,7 +266,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                                                                 <Ionicons
                                                                     name="lock-closed"
                                                                     size={20}
-                                                                    color="rgba(255,255,255,0.9)"
+                                                                    color={Glass.frost92}
                                                                 />
                                                             </View>
                                                         )}
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
         borderRadius: Radius.xl,
         overflow: "hidden",
         borderWidth: 1.2,
-        borderColor: "rgba(255,255,255,0.75)",
+        borderColor: Glass.frost72,
     },
     affinityGradient: {
         paddingHorizontal: Spacing.xl,
@@ -477,10 +477,10 @@ const styles = StyleSheet.create({
         marginTop: Spacing.sm,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.xs,
-        backgroundColor: "rgba(150,150,150,0.15)",
+        backgroundColor: Glass.gray15,
         borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: "rgba(150,150,150,0.3)",
+        borderColor: Glass.gray30b,
     },
     noItemBadgeText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         elevation: 4,
         borderWidth: 1.2,
-        borderColor: "rgba(255,255,255,0.75)",
+        borderColor: Glass.frost72,
     },
     itemSectionBlur: {
         borderRadius: Radius.xl,
@@ -539,14 +539,14 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 3 },
         elevation: 4,
         borderWidth: 1.5,
-        borderColor: "rgba(255,255,255,0.6)",
+        borderColor: Glass.frost60,
     },
     itemCardSelected: {
         borderColor: GreenTint.medium,
         borderWidth: 2.5,
     },
     itemCardLocked: {
-        borderColor: "rgba(180,180,180,0.4)",
+        borderColor: Glass.gray40,
     },
     itemCardBlur: {
         flex: 1,
@@ -572,7 +572,7 @@ const styles = StyleSheet.create({
         height: "100%",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "rgba(60,60,60,0.35)",
+        backgroundColor: Glass.gray35d,
         borderRadius: Radius.xl,
     },
     selectedCheck: {
@@ -597,9 +597,9 @@ const styles = StyleSheet.create({
         borderColor: GreenTint.line,
     },
     levelBadgeLocked: {
-        backgroundColor: "rgba(160,160,160,0.18)",
+        backgroundColor: Glass.gray18,
         borderWidth: 1,
-        borderColor: "rgba(160,160,160,0.35)",
+        borderColor: Glass.gray35,
     },
     levelBadgeText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -623,10 +623,10 @@ const styles = StyleSheet.create({
         zIndex: 100,
         paddingHorizontal: Spacing.section,
         paddingVertical: Spacing.sm,
-        backgroundColor: "rgba(200,80,60,0.14)",
+        backgroundColor: Glass.warm14,
         borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: "rgba(200,80,60,0.35)",
+        borderColor: Glass.warm35,
     },
     removeButtonText: {
         fontFamily: Fonts.neoDunggeunmo,

@@ -17,7 +17,7 @@ import PlantImage from "../components/PlantImage";
 import HeartsRow from "../components/HeartsRow";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Paper, Leaf, Accent } from "../../constants/colors";
+import { Colors, GreenTint, Paper, Leaf, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
     searchContainer: {
         flex: 1,
         height: 38,
-        backgroundColor: "rgba(255,255,255,0.95)",
+        backgroundColor: Glass.frost92,
         borderRadius: Radius.md,
         paddingHorizontal: Spacing.md,
         justifyContent: "center",
