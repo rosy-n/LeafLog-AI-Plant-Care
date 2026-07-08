@@ -14,6 +14,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 
 const CARE_SECTIONS = [
@@ -78,19 +79,7 @@ export default function CareInfoScreen({ navigation }) {
             <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
             <View style={styles.container}>
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        activeOpacity={0.75}
-                        style={styles.headerButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-                    </TouchableOpacity>
-
-                    <Text style={styles.title}>돌보기 정보</Text>
-
-                    <View style={styles.headerSpacer} />
-                </View>
+                <ScreenHeader title="돌보기 정보" onBack={() => navigation.goBack()} />
 
                 <View style={styles.tabWrapper}>
                     <ScrollView
@@ -379,33 +368,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.background,
         paddingHorizontal: 24,
-    },
-
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-    },
-
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-
-    title: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.screenTitle,
-        color: Colors.textBlack,
-        includeFontPadding: false,
-        marginTop: 0,
-    },
-
-    headerSpacer: {
-        width: 44,
-        height: 44,
     },
 
     tabWrapper: {

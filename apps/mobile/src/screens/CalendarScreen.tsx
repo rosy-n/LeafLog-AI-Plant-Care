@@ -19,6 +19,7 @@ import * as ImagePicker from "expo-image-picker";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint } from "../../constants/colors";
+import ScreenHeader from "../components/ScreenHeader";
 
 const TODAY = "2026-05-17";
 
@@ -241,27 +242,20 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
 
                 {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        style={styles.headerButton}
-                        onPress={() => navigation.goBack()}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-                    </TouchableOpacity>
-
-                    <View style={styles.monthNav}>
-                        <TouchableOpacity onPress={prevMonth} hitSlop={{ top:8, bottom:8, left:14, right:14 }}>
-                            <Ionicons name="chevron-back" size={20} color={GreenTint.strong} />
-                        </TouchableOpacity>
-                        <Text style={styles.monthText}>{monthLabel(viewYear, viewMonth)}</Text>
-                        <TouchableOpacity onPress={nextMonth} hitSlop={{ top:8, bottom:8, left:14, right:14 }}>
-                            <Ionicons name="chevron-forward" size={20} color={GreenTint.strong} />
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.headerButton} />
-                </View>
+                <ScreenHeader
+                    onBack={() => navigation.goBack()}
+                    center={
+                        <View style={styles.monthNav}>
+                            <TouchableOpacity onPress={prevMonth} hitSlop={{ top:8, bottom:8, left:14, right:14 }}>
+                                <Ionicons name="chevron-back" size={20} color={GreenTint.strong} />
+                            </TouchableOpacity>
+                            <Text style={styles.monthText}>{monthLabel(viewYear, viewMonth)}</Text>
+                            <TouchableOpacity onPress={nextMonth} hitSlop={{ top:8, bottom:8, left:14, right:14 }}>
+                                <Ionicons name="chevron-forward" size={20} color={GreenTint.strong} />
+                            </TouchableOpacity>
+                        </View>
+                    }
+                />
 
                 <KeyboardAvoidingView
                     style={{ flex: 1 }}
@@ -600,19 +594,6 @@ const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: Colors.background },
     safe: { flex: 1 },
 
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
     monthNav: {
         flexDirection: "row",
         alignItems: "center",

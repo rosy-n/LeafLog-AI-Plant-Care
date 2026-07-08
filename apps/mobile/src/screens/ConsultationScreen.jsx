@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 
 export default function ConsultationScreen({ navigation, route }) {
@@ -170,17 +171,7 @@ export default function ConsultationScreen({ navigation, route }) {
                 style={styles.container}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        activeOpacity={0.75}
-                        style={styles.headerButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-                    </TouchableOpacity>
-                    <Text style={styles.title} numberOfLines={1}>{consultation.title}</Text>
-                    <View style={styles.headerSpacer} />
-                </View>
+                <ScreenHeader title={consultation.title} onBack={() => navigation.goBack()} titleStyle={{ fontSize: FontSizes.subtitle }} />
 
                 <ScrollView
                     ref={scrollViewRef}
@@ -272,36 +263,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,
-    },
-
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-
-    headerSpacer: {
-        width: 40,
-        height: 40,
-    },
-
-    title: {
-        flex: 1,
-        fontFamily: Fonts.nanumSquareNeo.bold,
-        fontSize: FontSizes.subtitle,
-        color: Colors.textBlack,
-        includeFontPadding: false,
-        textAlign: "center",
-        marginHorizontal: 4,
     },
 
     chatArea: {
