@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
     recordIconWrap: {
         width: 42,
         height: 42,
-        borderRadius: Radius.xl,
+        borderRadius: Radius.pill,
         backgroundColor: Colors.separator,
         alignItems: "center",
         justifyContent: "center",

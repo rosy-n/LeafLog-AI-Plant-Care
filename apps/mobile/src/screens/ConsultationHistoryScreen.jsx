@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 export default function ConsultationHistoryScreen({ navigation }) {
     const [searchQuery, setSearchQuery] = useState("");
@@ -141,12 +142,12 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,
-        paddingHorizontal: 20,
+        paddingHorizontal: Spacing.xl,
     },
 
     searchRow: {
-        marginTop: 8,
-        marginBottom: 18,
+        marginTop: Spacing.sm,
+        marginBottom: Spacing.xl,
     },
 
     searchBox: {
@@ -155,14 +156,14 @@ const styles = StyleSheet.create({
         height: 40,
         borderWidth: 1.5,
         borderColor: "rgba(31, 93, 1, 0.4)",
-        borderRadius: 20,
+        borderRadius: Radius.xl,
         backgroundColor: Colors.white,
-        paddingHorizontal: 14,
-        gap: 8,
+        paddingHorizontal: Spacing.lg,
+        gap: Spacing.sm,
     },
 
     searchIcon: {
-        marginRight: 2,
+        marginRight: Spacing.xxs,
     },
 
     searchInput: {
@@ -171,7 +172,7 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.body,
         color: Colors.textBlack,
         fontFamily: Fonts.nanumSquareNeo.bold,
-        paddingVertical: 0,
+        paddingVertical: Spacing.none,
         includeFontPadding: false,
     },
 
@@ -187,19 +188,19 @@ const styles = StyleSheet.create({
         width: "100%",
         borderWidth: 1.5,
         borderColor: "rgba(31, 93, 1, 0.5)",
-        borderRadius: 12,
+        borderRadius: Radius.md,
         backgroundColor: Colors.white,
-        paddingTop: 14,
-        paddingHorizontal: 16,
-        paddingBottom: 14,
-        marginBottom: 12,
+        paddingTop: Spacing.lg,
+        paddingHorizontal: Spacing.lg,
+        paddingBottom: Spacing.lg,
+        marginBottom: Spacing.md,
     },
 
     cardHeader: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        marginBottom: 8,
+        marginBottom: Spacing.sm,
     },
 
     cardTitle: {
@@ -208,11 +209,11 @@ const styles = StyleSheet.create({
         color: Colors.textBlack,
         fontFamily: Fonts.nanumSquareNeo.bold,
         includeFontPadding: false,
-        marginRight: 8,
+        marginRight: Spacing.sm,
     },
 
     deleteButton: {
-        padding: 2,
+        padding: Spacing.xxs,
     },
 
     cardSummary: {
@@ -220,7 +221,7 @@ const styles = StyleSheet.create({
         color: Colors.textBlack,
         fontFamily: Fonts.nanumSquareNeo.bold,
         includeFontPadding: false,
-        marginBottom: 6,
+        marginBottom: Spacing.sm,
         lineHeight: 18,
     },
 
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.body,
         color: Colors.textFaint,
         textAlign: "center",
-        marginTop: 40,
+        marginTop: Spacing.huge,
     },
 
     chatButton: {
@@ -246,7 +247,7 @@ const styles = StyleSheet.create({
         bottom: 28,
         width: 60,
         height: 60,
-        borderRadius: 30,
+        borderRadius: Radius.pill,
         borderWidth: 2,
         borderColor: Colors.primary,
         backgroundColor: Colors.background,

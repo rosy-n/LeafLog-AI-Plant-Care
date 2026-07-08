@@ -15,6 +15,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 import ScreenHeader from "../components/ScreenHeader";
 
 export default function ProfileScreen({ navigation }) {
@@ -100,25 +101,25 @@ const styles = StyleSheet.create({
         height: 44,
         alignItems: "center",
         justifyContent: "center",
-        marginTop: 0,
+        marginTop: Spacing.none,
     },
 
     editUnderline: {
         width: 14,
         height: 3,
-        borderRadius: 2,
+        borderRadius: Radius.xs,
         backgroundColor: Colors.textBlack,
         marginTop: -6,
-        marginLeft: 20,
+        marginLeft: Spacing.xl,
     },
 
     profileRow: {
-        marginTop: 38,
+        marginTop: Spacing.huge,
         flexDirection: "row",
         alignItems: "flex-start",
         justifyContent: "space-between",
         width: "100%",
-        paddingHorizontal: 20,
+        paddingHorizontal: Spacing.xl,
     },
 
     leftArea: {
@@ -144,7 +145,7 @@ const styles = StyleSheet.create({
     },
 
     daysText: {
-        marginTop: 16,
+        marginTop: Spacing.lg,
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: Colors.textBlack,
@@ -154,8 +155,8 @@ const styles = StyleSheet.create({
 
     infoArea: {
         width: SCREEN_WIDTH * 0.46,
-        paddingTop: 8,
-        paddingLeft: 16,
+        paddingTop: Spacing.sm,
+        paddingLeft: Spacing.lg,
     },
 
     infoText: {
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
         alignSelf: "center",
         width: SCREEN_WIDTH * 0.62,
         height: 46,
-        borderRadius: 20,
+        borderRadius: Radius.xl,
         backgroundColor: Colors.primary,
         alignItems: "center",
         justifyContent: "center",

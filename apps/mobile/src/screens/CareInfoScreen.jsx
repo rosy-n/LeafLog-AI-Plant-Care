@@ -16,6 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 const CARE_SECTIONS = [
     { key: "plantInfo", label: "식물정보" },
@@ -367,24 +368,24 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,
-        paddingHorizontal: 20,
+        paddingHorizontal: Spacing.xl,
     },
 
     tabWrapper: {
         height: 48,
-        marginTop: 6,
+        marginTop: Spacing.sm,
     },
 
     tabContainer: {
-        gap: 9,
+        gap: Spacing.sm,
         alignItems: "center",
-        paddingRight: 6,
+        paddingRight: Spacing.sm,
     },
 
     tabButton: {
         height: 32,
         overflow: "hidden",
-        borderRadius: 11,
+        borderRadius: Radius.md,
         shadowColor: GreenTint.deep,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.16,
@@ -396,17 +397,17 @@ const styles = StyleSheet.create({
         flex: 1,
         overflow: "hidden",
         borderWidth: 1,
-        borderRadius: 11,
+        borderRadius: Radius.md,
     },
 
     tabGradient: {
         flex: 1,
-        paddingHorizontal: 13,
+        paddingHorizontal: Spacing.md,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 0.8,
         borderColor: "rgba(255,255,255,0.45)",
-        borderRadius: 11,
+        borderRadius: Radius.md,
     },
 
     tabHighlight: {
@@ -415,7 +416,7 @@ const styles = StyleSheet.create({
         left: 9,
         width: "32%",
         height: "36%",
-        borderRadius: 99,
+        borderRadius: Radius.pill,
         backgroundColor: "rgba(255,255,255,0.55)",
     },
 
@@ -431,17 +432,17 @@ const styles = StyleSheet.create({
     },
 
     content: {
-        paddingTop: 8,
-        paddingBottom: 30,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.xxxl,
     },
 
     card: {
         width: "100%",
         backgroundColor: Colors.white,
-        borderRadius: 20,
-        paddingHorizontal: 20,
-        paddingVertical: 18,
-        marginBottom: 14,
+        borderRadius: Radius.xl,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.xl,
+        marginBottom: Spacing.lg,
         borderWidth: 1.5,
         borderColor: GreenTint.soft,
     },
@@ -454,7 +455,7 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
         color: Colors.textBlack,
-        marginBottom: 14,
+        marginBottom: Spacing.lg,
         includeFontPadding: false,
     },
 
@@ -472,8 +473,8 @@ const styles = StyleSheet.create({
     },
 
     textGroup: {
-        marginLeft: 18,
-        gap: 8,
+        marginLeft: Spacing.xl,
+        gap: Spacing.sm,
     },
 
     mainInfo: {
@@ -493,7 +494,7 @@ const styles = StyleSheet.create({
     circleBlue: {
         width: 58,
         height: 58,
-        borderRadius: 29,
+        borderRadius: Radius.pill,
         backgroundColor: Colors.white,
         justifyContent: "center",
         alignItems: "center",
@@ -502,21 +503,21 @@ const styles = StyleSheet.create({
     circlePeach: {
         width: 58,
         height: 58,
-        borderRadius: 29,
+        borderRadius: Radius.pill,
         backgroundColor: "#FFEBD9",
         justifyContent: "center",
         alignItems: "center",
-        marginRight: 18,
+        marginRight: Spacing.xl,
     },
 
     circleOrange: {
         width: 58,
         height: 58,
-        borderRadius: 29,
+        borderRadius: Radius.pill,
         backgroundColor: "#FFE7D2",
         justifyContent: "center",
         alignItems: "center",
-        marginRight: 18,
+        marginRight: Spacing.xl,
     },
 
     bigNumber: {
@@ -531,14 +532,14 @@ const styles = StyleSheet.create({
     },
 
     rangeBlock: {
-        marginTop: 8,
-        marginBottom: 20,
+        marginTop: Spacing.sm,
+        marginBottom: Spacing.xl,
     },
 
     rangeBar: {
         width: "100%",
         height: 22,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         backgroundColor: Colors.separator,
         overflow: "hidden",
         position: "relative",
@@ -548,7 +549,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         top: 0,
         height: 22,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         backgroundColor: "#F29AA2",
         justifyContent: "center",
         alignItems: "center",
@@ -558,7 +559,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         top: 0,
         height: 22,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         backgroundColor: "#9EBEF1",
         justifyContent: "center",
         alignItems: "center",
@@ -574,7 +575,7 @@ const styles = StyleSheet.create({
     rangeLabelRow: {
         flexDirection: "row",
         justifyContent: "space-between",
-        marginTop: 8,
+        marginTop: Spacing.sm,
     },
 
     rangeLabel: {
@@ -587,23 +588,23 @@ const styles = StyleSheet.create({
     bulletRow: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 14,
+        marginBottom: Spacing.lg,
     },
 
     circleYellow: {
         width: 36,
         height: 36,
-        borderRadius: 18,
+        borderRadius: Radius.xl,
         backgroundColor: "#FFF1BE",
-        marginRight: 16,
+        marginRight: Spacing.lg,
     },
 
     circlePink: {
         width: 36,
         height: 36,
-        borderRadius: 18,
+        borderRadius: Radius.xl,
         backgroundColor: "#FFE5F5",
-        marginRight: 16,
+        marginRight: Spacing.lg,
     },
 
     toxicityRow: {
@@ -619,7 +620,7 @@ const styles = StyleSheet.create({
     toxicityImage: {
         width: 56,
         height: 56,
-        marginBottom: 8,
+        marginBottom: Spacing.sm,
     },
 
     toxicityLabel: {
@@ -632,14 +633,14 @@ const styles = StyleSheet.create({
     chipContainer: {
         flexDirection: "row",
         flexWrap: "wrap",
-        gap: 10,
+        gap: Spacing.md,
     },
 
     chip: {
         backgroundColor: Colors.separator,
-        borderRadius: 14,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        borderRadius: Radius.lg,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
     },
 
     chipText: {

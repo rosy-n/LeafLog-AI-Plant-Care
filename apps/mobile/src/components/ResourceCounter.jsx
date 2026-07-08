@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing } from "../../constants/spacing";
 
 const STROKE_DIRS = [
     [-1,  0], [ 1,  0],
@@ -58,7 +59,7 @@ export default function ResourceCounter() {
 
 const styles = StyleSheet.create({
     container: {
-        gap: 4,
+        gap: Spacing.xs,
     },
 
     row: {
@@ -70,13 +71,13 @@ const styles = StyleSheet.create({
     drop: {
         width: 38,
         fontSize: FontSizes.display,
-        marginRight: 7,
+        marginRight: Spacing.sm,
     },
 
     nutrient: {
         width: 38,
         fontSize: FontSizes.display,
-        marginRight: 7,
+        marginRight: Spacing.sm,
         color: Colors.nutrient,
         textShadowColor: GreenTint.deep,
         textShadowOffset: { width: 2, height: 2 },

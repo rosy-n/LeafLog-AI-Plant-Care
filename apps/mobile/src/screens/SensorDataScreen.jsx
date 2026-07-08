@@ -18,6 +18,7 @@ import PlantImage from "../components/PlantImage";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -489,23 +490,23 @@ const styles = StyleSheet.create({
     // Header
 
     scrollContent: {
-        paddingHorizontal: 16,
-        paddingBottom: 32,
-        gap: 14,
+        paddingHorizontal: Spacing.lg,
+        paddingBottom: Spacing.xxxl,
+        gap: Spacing.lg,
     },
 
     // Period Tabs
     periodTabRow: {
         flexDirection: "row",
         backgroundColor: GreenTint.faint,
-        borderRadius: 14,
-        padding: 4,
-        gap: 4,
+        borderRadius: Radius.lg,
+        padding: Spacing.xs,
+        gap: Spacing.xs,
     },
     periodTab: {
         flex: 1,
-        paddingVertical: 8,
-        borderRadius: 11,
+        paddingVertical: Spacing.sm,
+        borderRadius: Radius.md,
         alignItems: "center",
     },
     periodTabActive: {
@@ -530,7 +531,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 12,
+        gap: Spacing.md,
     },
     navArrow: {
         width: 36,
@@ -548,7 +549,7 @@ const styles = StyleSheet.create({
 
     // Cards
     card: {
-        borderRadius: 20,
+        borderRadius: Radius.xl,
         overflow: "hidden",
         borderWidth: 1.2,
         borderColor: "rgba(255,255,255,0.75)",
@@ -559,14 +560,14 @@ const styles = StyleSheet.create({
         elevation: 3,
     },
     cardBlur: {
-        borderRadius: 20,
+        borderRadius: Radius.xl,
         overflow: "hidden",
     },
     cardGradient: {
-        paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 18,
-        gap: 12,
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.lg,
+        paddingBottom: Spacing.xl,
+        gap: Spacing.md,
     },
     cardTitle: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -578,7 +579,7 @@ const styles = StyleSheet.create({
     yAxisLabelRow: {
         flexDirection: "row",
         justifyContent: "space-between",
-        paddingHorizontal: 4,
+        paddingHorizontal: Spacing.xs,
         marginBottom: -6,
     },
     yAxisUnit: {
@@ -590,18 +591,18 @@ const styles = StyleSheet.create({
     legend: {
         flexDirection: "row",
         justifyContent: "center",
-        gap: 16,
+        gap: Spacing.lg,
         marginTop: -4,
     },
     legendItem: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 5,
+        gap: Spacing.xs,
     },
     legendDot: {
         width: 9,
         height: 9,
-        borderRadius: 99,
+        borderRadius: Radius.pill,
     },
     legendText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -613,22 +614,22 @@ const styles = StyleSheet.create({
     summaryHeader: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
+        gap: Spacing.md,
     },
     conditionRow: {
         flexDirection: "row",
-        gap: 8,
+        gap: Spacing.sm,
     },
     conditionBox: {
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        borderRadius: 14,
+        borderRadius: Radius.lg,
         borderWidth: 1,
-        paddingVertical: 8,
-        paddingHorizontal: 6,
-        gap: 4,
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.sm,
+        gap: Spacing.xs,
     },
     conditionBoxEmoji: {
         fontSize: FontSizes.body,
@@ -641,25 +642,25 @@ const styles = StyleSheet.create({
 
     // Stats Grid
     statsGrid: {
-        gap: 10,
+        gap: Spacing.md,
     },
     statsRow: {
         flexDirection: "row",
-        gap: 10,
+        gap: Spacing.md,
     },
     statCard: {
         flex: 1,
         backgroundColor: "rgba(255,255,255,0.60)",
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         borderWidth: 1,
         borderColor: GreenTint.soft,
-        paddingVertical: 14,
-        paddingHorizontal: 14,
-        gap: 4,
+        paddingVertical: Spacing.lg,
+        paddingHorizontal: Spacing.lg,
+        gap: Spacing.xs,
         alignItems: "flex-start",
     },
     statIconWrap: {
-        marginBottom: 2,
+        marginBottom: Spacing.xxs,
     },
     statLabel: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -674,12 +675,12 @@ const styles = StyleSheet.create({
     ratingBadge: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
-        marginTop: 4,
-        paddingHorizontal: 8,
-        paddingVertical: 3,
+        gap: Spacing.xs,
+        marginTop: Spacing.xs,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xs,
         backgroundColor: GreenTint.faint,
-        borderRadius: 99,
+        borderRadius: Radius.pill,
         borderWidth: 1,
         borderColor: GreenTint.line,
     },

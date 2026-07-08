@@ -775,7 +775,7 @@ const styles = StyleSheet.create({
     diaryPlantCircle: {
         width: 34,
         height: 34,
-        borderRadius: Radius.lg,
+        borderRadius: Radius.pill,
         backgroundColor: Colors.background,
         alignItems: "center",
         justifyContent: "center",

@@ -13,6 +13,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 const BG_IMAGES = {
     "home-bg": require("../../assets/images/home-bg.png"),
@@ -319,7 +320,7 @@ const styles = StyleSheet.create({
         top: 72,
         left: 20,
         flexDirection: "row",
-        gap: 16,
+        gap: Spacing.lg,
         zIndex: 50,
     },
     notificationArea: {
@@ -334,7 +335,7 @@ const styles = StyleSheet.create({
         right: -5,
         width: 22,
         height: 22,
-        borderRadius: 11,
+        borderRadius: Radius.md,
         backgroundColor: "#FF3939",
     },
 
@@ -390,7 +391,7 @@ const styles = StyleSheet.create({
         right: 20,
         bottom: 46,
         alignItems: "center",
-        gap: 16,
+        gap: Spacing.lg,
         zIndex: 50,
     },
 
@@ -403,12 +404,12 @@ const styles = StyleSheet.create({
         alignItems: "flex-start",
     },
     menuItemWrapper: {
-        marginBottom: 8,
+        marginBottom: Spacing.sm,
     },
     menuItemTouch: {
         width: 126,
         height: 31,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         overflow: "hidden",
         shadowColor: Colors.textBlack,
         shadowOpacity: 0.18,
@@ -418,14 +419,14 @@ const styles = StyleSheet.create({
     },
     menuItemBlur: {
         flex: 1,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         overflow: "hidden",
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.72)",
     },
     menuItemGlass: {
         flex: 1,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
@@ -438,11 +439,11 @@ const styles = StyleSheet.create({
         left: 10,
         width: 34,
         height: 8,
-        borderRadius: 99,
+        borderRadius: Radius.pill,
         backgroundColor: "rgba(255,255,255,0.62)",
     },
     menuItemIcon: {
-        marginRight: 5,
+        marginRight: Spacing.xs,
     },
     menuItemText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -480,7 +481,7 @@ const styles = StyleSheet.create({
         left: 12,
         width: "38%",
         height: "20%",
-        borderRadius: 99,
+        borderRadius: Radius.pill,
         backgroundColor: "rgba(255,255,255,0.58)",
     },
 
@@ -496,7 +497,7 @@ const styles = StyleSheet.create({
         bottom: 16,
         width: 34,
         height: 4,
-        borderRadius: 4,
+        borderRadius: Radius.xs,
         backgroundColor: "#0FAEE5",
     },
     wind2: {
@@ -505,7 +506,7 @@ const styles = StyleSheet.create({
         bottom: 24,
         width: 28,
         height: 4,
-        borderRadius: 4,
+        borderRadius: Radius.xs,
         backgroundColor: "#0FAEE5",
     },
     wind3: {
@@ -514,14 +515,14 @@ const styles = StyleSheet.create({
         bottom: 32,
         width: 18,
         height: 4,
-        borderRadius: 4,
+        borderRadius: Radius.xs,
         backgroundColor: "#0FAEE5",
     },
 
     airCircle: {
         width: 43,
         height: 43,
-        borderRadius: 22,
+        borderRadius: Radius.pill,
         borderWidth: 5,
         borderColor: GreenTint.medium,
         alignItems: "center",
@@ -533,7 +534,7 @@ const styles = StyleSheet.create({
         left: 11,
         width: 5,
         height: 5,
-        borderRadius: 3,
+        borderRadius: Radius.xs,
         backgroundColor: GreenTint.medium,
     },
     airEyeRight: {
@@ -542,7 +543,7 @@ const styles = StyleSheet.create({
         right: 11,
         width: 5,
         height: 5,
-        borderRadius: 3,
+        borderRadius: Radius.xs,
         backgroundColor: GreenTint.medium,
     },
     airMouth: {
@@ -552,7 +553,7 @@ const styles = StyleSheet.create({
         height: 9,
         borderBottomWidth: 4,
         borderColor: GreenTint.medium,
-        borderRadius: 12,
+        borderRadius: Radius.md,
     },
 
     allText: {

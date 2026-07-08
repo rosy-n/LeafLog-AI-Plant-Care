@@ -18,6 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 export default function ConsultationScreen({ navigation, route }) {
     const { consultation } = route.params;
@@ -270,16 +271,16 @@ const styles = StyleSheet.create({
     },
 
     chatContent: {
-        paddingHorizontal: 14,
-        paddingTop: 8,
-        paddingBottom: 16,
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.lg,
     },
 
     historyLabel: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 20,
-        gap: 8,
+        marginBottom: Spacing.xl,
+        gap: Spacing.sm,
     },
 
     historyLine: {
@@ -298,8 +299,8 @@ const styles = StyleSheet.create({
     continueDivider: {
         flexDirection: "row",
         alignItems: "center",
-        marginVertical: 20,
-        gap: 8,
+        marginVertical: Spacing.xl,
+        gap: Spacing.sm,
     },
 
     continueDividerText: {
@@ -312,18 +313,18 @@ const styles = StyleSheet.create({
     assistantRow: {
         flexDirection: "row",
         alignItems: "flex-start",
-        marginBottom: 20,
+        marginBottom: Spacing.xl,
     },
 
     assistantAvatar: {
         width: 28,
         height: 28,
-        borderRadius: 14,
+        borderRadius: Radius.lg,
         backgroundColor: GreenTint.faint,
         alignItems: "center",
         justifyContent: "center",
-        marginRight: 10,
-        marginTop: 1,
+        marginRight: Spacing.md,
+        marginTop: Spacing.xxs,
     },
 
     assistantAvatarIcon: {
@@ -332,7 +333,7 @@ const styles = StyleSheet.create({
 
     assistantContent: {
         flex: 1,
-        paddingTop: 2,
+        paddingTop: Spacing.xxs,
     },
 
     assistantText: {
@@ -344,14 +345,14 @@ const styles = StyleSheet.create({
 
     userRow: {
         alignItems: "flex-end",
-        marginBottom: 16,
+        marginBottom: Spacing.lg,
     },
 
     userBubble: {
         maxWidth: "75%",
         backgroundColor: Colors.primary,
-        borderRadius: 18,
-        borderTopRightRadius: 4,
+        borderRadius: Radius.xl,
+        borderTopRightRadius: Radius.xs,
         overflow: "hidden",
     },
 
@@ -365,15 +366,15 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.body,
         lineHeight: 20,
         color: Colors.white,
-        paddingVertical: 10,
-        paddingHorizontal: 14,
+        paddingVertical: Spacing.md,
+        paddingHorizontal: Spacing.lg,
     },
 
     inputWrapper: {
         flexDirection: "row",
         alignItems: "flex-end",
-        paddingHorizontal: 12,
-        paddingTop: 8,
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.sm,
         paddingBottom: Platform.OS === "ios" ? 16 : 12,
         backgroundColor: Colors.background,
         borderTopWidth: StyleSheet.hairlineWidth,
@@ -383,36 +384,36 @@ const styles = StyleSheet.create({
     attachButton: {
         width: 34,
         height: 34,
-        borderRadius: 17,
+        borderRadius: Radius.pill,
         backgroundColor: GreenTint.faint,
         alignItems: "center",
         justifyContent: "center",
-        marginRight: 8,
-        marginBottom: 3,
+        marginRight: Spacing.sm,
+        marginBottom: Spacing.xs,
     },
 
     inputBox: {
         flex: 1,
         backgroundColor: Colors.white,
-        borderRadius: 20,
+        borderRadius: Radius.xl,
         borderWidth: 1,
         borderColor: "rgba(31, 93, 1, 0.2)",
-        paddingHorizontal: 14,
-        paddingTop: 10,
-        paddingBottom: 10,
-        marginRight: 8,
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.md,
+        marginRight: Spacing.sm,
     },
 
     pendingImageRow: {
         flexDirection: "row",
         alignItems: "flex-start",
-        marginBottom: 8,
+        marginBottom: Spacing.sm,
     },
 
     pendingImageThumb: {
         width: 68,
         height: 68,
-        borderRadius: 10,
+        borderRadius: Radius.md,
     },
 
     removeImageButton: {
@@ -420,7 +421,7 @@ const styles = StyleSheet.create({
         top: -5,
         left: 56,
         backgroundColor: Colors.background,
-        borderRadius: 9,
+        borderRadius: Radius.sm,
     },
 
     input: {
@@ -429,18 +430,18 @@ const styles = StyleSheet.create({
         color: GreenTint.deep,
         minHeight: 20,
         maxHeight: 80,
-        padding: 0,
+        padding: Spacing.none,
         includeFontPadding: false,
     },
 
     sendButton: {
         width: 34,
         height: 34,
-        borderRadius: 17,
+        borderRadius: Radius.pill,
         backgroundColor: Colors.primary,
         alignItems: "center",
         justifyContent: "center",
-        marginBottom: 3,
+        marginBottom: Spacing.xs,
     },
 
     sendButtonDisabled: {
