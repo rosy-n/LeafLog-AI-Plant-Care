@@ -66,9 +66,9 @@ export default function ConsultationHistoryScreen({ navigation }) {
         <SafeAreaView style={styles.safeArea}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-            <View style={styles.container}>
-                <ScreenHeader title="상담 기록" onBack={() => navigation.goBack()} titleStyle={{ fontSize: FontSizes.title }} />
+            <ScreenHeader title="상담 기록" onBack={() => navigation.goBack()} titleStyle={{ fontSize: FontSizes.title }} />
 
+            <View style={styles.container}>
                 <View style={styles.searchRow}>
                     <View style={styles.searchBox}>
                         <Ionicons name="search-outline" size={18} color={Colors.textGray} style={styles.searchIcon} />
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
     },
 
     searchRow: {

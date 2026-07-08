@@ -78,9 +78,9 @@ export default function CareInfoScreen({ navigation }) {
         <SafeAreaView style={styles.safeArea}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-            <View style={styles.container}>
-                <ScreenHeader title="돌보기 정보" onBack={() => navigation.goBack()} />
+            <ScreenHeader title="돌보기 정보" onBack={() => navigation.goBack()} />
 
+            <View style={styles.container}>
                 <View style={styles.tabWrapper}>
                     <ScrollView
                         ref={tabScrollRef}
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
     },
 
     tabWrapper: {

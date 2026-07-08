@@ -1,19 +1,20 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
 import { Fonts, FontSizes } from '../../../constants/fonts';
+import { Spacing, Radius } from '../../../constants/spacing';
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    paddingTop: 16,
-    paddingBottom: 40,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.huge,
   },
 
   // common.title 위에 덮는 오버라이드만 남김
   titleOverride: {
-    marginBottom: 16,
-    paddingHorizontal: 20,
+    marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
   },
 
   // Thumbnail strip (multiple photos only)
@@ -22,14 +23,14 @@ export const styles = StyleSheet.create({
     flexShrink: 0,
   },
   photoStrip: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    gap: 10,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.md,
+    gap: Spacing.md,
   },
   photoThumb: {
     width: 72,
     height: 72,
-    borderRadius: 10,
+    borderRadius: Radius.md,
     backgroundColor: Colors.primaryLight,
     borderWidth: 2.5,
     borderColor: 'transparent',
@@ -48,8 +49,8 @@ export const styles = StyleSheet.create({
     left: 4,
     right: 4,
     backgroundColor: Colors.primary,
-    borderRadius: 4,
-    paddingVertical: 2,
+    borderRadius: Radius.xs,
+    paddingVertical: Spacing.xxs,
     alignItems: 'center',
   },
   organTagText: {
@@ -63,17 +64,17 @@ export const styles = StyleSheet.create({
     fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.body,
     color: Colors.textGray,
-    paddingHorizontal: 20,
-    marginBottom: 8,
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.sm,
     textAlign: 'center',
   },
 
   // Large photo
   largePhotoContainer: {
     flex: 1,
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 16,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.lg,
+    borderRadius: Radius.lg,
     overflow: 'hidden',
     backgroundColor: Colors.primaryLight,
   },
@@ -84,9 +85,9 @@ export const styles = StyleSheet.create({
 
   // Organ section — no white background
   organSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    gap: 12,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.lg,
+    gap: Spacing.md,
   },
   organLabel: {
     fontFamily: Fonts.neoDunggeunmo,
@@ -95,16 +96,16 @@ export const styles = StyleSheet.create({
   },
   organChips: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.sm,
   },
   organChip: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    gap: 4,
+    gap: Spacing.xs,
   },
   organChipActive: {
     borderColor: Colors.primary,
@@ -124,27 +125,27 @@ export const styles = StyleSheet.create({
   organChipWide: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.md,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    gap: 10,
+    gap: Spacing.md,
   },
   organChipSub: {
     fontSize: FontSizes.caption,
     color: Colors.textGray,
-    marginTop: 2,
+    marginTop: Spacing.xxs,
   },
 
   // Footer
   footer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: Spacing.xl,
   },
   primaryBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
