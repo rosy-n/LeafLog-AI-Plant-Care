@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 const SOIL_COLORS = [GreenTint.line, "#F5C87A", "#B8A5D4", "#F5A07A", "#7AC5F5"];
 
@@ -522,10 +523,10 @@ const styles = StyleSheet.create({
     // Header
 
     scrollContent: {
-        paddingHorizontal: 20,
-        paddingTop: 8,
-        paddingBottom: 40,
-        gap: 14,
+        paddingHorizontal: Spacing.xl,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.huge,
+        gap: Spacing.lg,
     },
 
     // New Record Button
@@ -533,12 +534,12 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 8,
+        gap: Spacing.sm,
         backgroundColor: Colors.white,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         borderWidth: 1.5,
         borderColor: GreenTint.line,
-        paddingVertical: 16,
+        paddingVertical: Spacing.lg,
     },
     newRecordText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -561,7 +562,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: Colors.white,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         borderWidth: 1.5,
         borderColor: GreenTint.soft,
         overflow: "hidden",
@@ -570,13 +571,13 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        gap: 12,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.lg,
+        gap: Spacing.md,
     },
     deleteButton: {
-        paddingHorizontal: 14,
-        paddingVertical: 14,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.lg,
         justifyContent: "center",
         alignItems: "center",
         borderLeftWidth: 1,
@@ -585,14 +586,14 @@ const styles = StyleSheet.create({
     recordIconWrap: {
         width: 42,
         height: 42,
-        borderRadius: 21,
+        borderRadius: Radius.xl,
         backgroundColor: Colors.separator,
         alignItems: "center",
         justifyContent: "center",
     },
     recordBody: {
         flex: 1,
-        gap: 8,
+        gap: Spacing.sm,
     },
     recordDate: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -603,13 +604,13 @@ const styles = StyleSheet.create({
     chipRow: {
         flexDirection: "row",
         flexWrap: "wrap",
-        gap: 6,
+        gap: Spacing.sm,
     },
     chip: {
         backgroundColor: Colors.separator,
-        borderRadius: 10,
-        paddingHorizontal: 9,
-        paddingVertical: 4,
+        borderRadius: Radius.md,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xs,
     },
     soilChip: {
         backgroundColor: "#F5C87A44",
@@ -637,23 +638,23 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.body,
         color: Colors.textFaint,
         includeFontPadding: false,
-        marginTop: 2,
+        marginTop: Spacing.xxs,
     },
 
     // Card
     card: {
         backgroundColor: Colors.white,
-        borderRadius: 20,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
         borderColor: GreenTint.soft,
-        paddingHorizontal: 20,
-        paddingVertical: 18,
-        gap: 12,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.xl,
+        gap: Spacing.md,
     },
     cardTitleRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
+        gap: Spacing.sm,
     },
     cardTitle: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -672,7 +673,7 @@ const styles = StyleSheet.create({
     soilBar: {
         flexDirection: "row",
         height: 18,
-        borderRadius: 10,
+        borderRadius: Radius.md,
         overflow: "hidden",
     },
     soilBarSegment: {
@@ -681,12 +682,12 @@ const styles = StyleSheet.create({
     soilDetailRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
+        gap: Spacing.md,
     },
     soilDot: {
         width: 12,
         height: 12,
-        borderRadius: 6,
+        borderRadius: Radius.sm,
     },
     soilDetailType: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -715,17 +716,17 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.body,
         color: Colors.textBlack,
         backgroundColor: Colors.background,
-        borderRadius: 10,
+        borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: GreenTint.soft,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.md,
         includeFontPadding: false,
     },
     soilInputRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
+        gap: Spacing.sm,
     },
     soilTypeInput: {
         flex: 1,
@@ -743,8 +744,8 @@ const styles = StyleSheet.create({
     addSoilButton: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
-        paddingVertical: 4,
+        gap: Spacing.xs,
+        paddingVertical: Spacing.xs,
         alignSelf: "flex-start",
     },
     addSoilText: {
@@ -756,17 +757,17 @@ const styles = StyleSheet.create({
     memoInput: {
         height: 100,
         textAlignVertical: "top",
-        paddingTop: 10,
+        paddingTop: Spacing.md,
     },
     photoButton: {
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: Colors.background,
-        borderRadius: 12,
+        borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: GreenTint.soft,
         height: 88,
-        gap: 6,
+        gap: Spacing.sm,
     },
     photoButtonText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -776,8 +777,8 @@ const styles = StyleSheet.create({
     },
     saveButton: {
         backgroundColor: GreenTint.deep,
-        borderRadius: 16,
-        paddingVertical: 16,
+        borderRadius: Radius.lg,
+        paddingVertical: Spacing.lg,
         alignItems: "center",
         shadowColor: GreenTint.deep,
         shadowOpacity: 0.25,
@@ -801,13 +802,13 @@ const styles = StyleSheet.create({
     },
     modalBox: {
         backgroundColor: Colors.white,
-        borderRadius: 24,
-        paddingHorizontal: 28,
-        paddingTop: 32,
-        paddingBottom: 24,
-        marginHorizontal: 32,
+        borderRadius: Radius.xl,
+        paddingHorizontal: Spacing.section,
+        paddingTop: Spacing.xxxl,
+        paddingBottom: Spacing.xxl,
+        marginHorizontal: Spacing.xxxl,
         alignItems: "center",
-        gap: 8,
+        gap: Spacing.sm,
         shadowColor: Colors.textBlack,
         shadowOpacity: 0.15,
         shadowRadius: 20,
@@ -816,7 +817,7 @@ const styles = StyleSheet.create({
     },
     modalEmoji: {
         fontSize: FontSizes.displayLarge,
-        marginBottom: 4,
+        marginBottom: Spacing.xs,
     },
     modalTitle: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -831,12 +832,12 @@ const styles = StyleSheet.create({
         textAlign: "center",
         lineHeight: 22,
         includeFontPadding: false,
-        marginTop: 4,
-        marginBottom: 8,
+        marginTop: Spacing.xs,
+        marginBottom: Spacing.sm,
     },
     modalButtonRow: {
         flexDirection: "row",
-        gap: 10,
+        gap: Spacing.md,
         width: "100%",
     },
     modalButton: {
@@ -844,9 +845,9 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 6,
-        paddingVertical: 13,
-        borderRadius: 14,
+        gap: Spacing.sm,
+        paddingVertical: Spacing.md,
+        borderRadius: Radius.lg,
     },
     modalButtonGray: {
         backgroundColor: Colors.separator,

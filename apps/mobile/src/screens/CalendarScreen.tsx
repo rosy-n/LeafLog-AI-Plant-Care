@@ -19,6 +19,7 @@ import * as ImagePicker from "expo-image-picker";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 import ScreenHeader from "../components/ScreenHeader";
 
 const TODAY = "2026-05-17";
@@ -597,7 +598,7 @@ const styles = StyleSheet.create({
     monthNav: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
+        gap: Spacing.md,
     },
     monthText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -609,31 +610,31 @@ const styles = StyleSheet.create({
     },
 
     scroll: {
-        paddingHorizontal: 16,
-        paddingTop: 4,
-        paddingBottom: 40,
-        gap: 14,
+        paddingHorizontal: Spacing.xl,
+        paddingTop: Spacing.xs,
+        paddingBottom: Spacing.huge,
+        gap: Spacing.lg,
     },
 
     // ── calendar ──
     calCard: {
         backgroundColor: Colors.white,
-        borderRadius: 20,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
         borderColor: GreenTint.line,
-        paddingHorizontal: 6,
-        paddingTop: 10,
-        paddingBottom: 12,
+        paddingHorizontal: Spacing.sm,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.md,
     },
     weekNavRow: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingHorizontal: 10,
-        paddingBottom: 8,
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.sm,
         borderBottomWidth: 1,
         borderBottomColor: Colors.separator,
-        marginBottom: 4,
+        marginBottom: Spacing.xs,
     },
     weekNavText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -649,8 +650,8 @@ const styles = StyleSheet.create({
     },
     dayCell: {
         height: 46,
-        margin: 2,
-        borderRadius: 10,
+        margin: Spacing.xxs,
+        borderRadius: Radius.md,
         backgroundColor: Colors.white,
         overflow: "hidden",
     },
@@ -672,7 +673,7 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.small,
         color: GreenTint.medium,
         includeFontPadding: false,
-        paddingVertical: 6,
+        paddingVertical: Spacing.sm,
     },
     dayNum: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -689,27 +690,27 @@ const styles = StyleSheet.create({
         bottom: 4,
         width: 4,
         height: 4,
-        borderRadius: 2,
+        borderRadius: Radius.xs,
         backgroundColor: GreenTint.strong,
     },
     legend: {
         flexDirection: "row",
         justifyContent: "center",
-        gap: 18,
-        marginTop: 10,
-        paddingTop: 10,
+        gap: Spacing.xl,
+        marginTop: Spacing.md,
+        paddingTop: Spacing.md,
         borderTopWidth: 1,
         borderTopColor: Colors.separator,
     },
     legendItem: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 5,
+        gap: Spacing.xs,
     },
     legendDot: {
         width: 18,
         height: 18,
-        borderRadius: 6,
+        borderRadius: Radius.sm,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -728,11 +729,11 @@ const styles = StyleSheet.create({
     // ── diary ──
     diaryPage: {
         backgroundColor: Colors.white,
-        borderRadius: 20,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
         borderColor: GreenTint.line,
-        padding: 20,
-        gap: 14,
+        padding: Spacing.xl,
+        gap: Spacing.lg,
     },
     diaryHeaderRow: {
         flexDirection: "row",
@@ -748,11 +749,11 @@ const styles = StyleSheet.create({
     savedBadge: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
+        gap: Spacing.xs,
         backgroundColor: GreenTint.soft,
-        borderRadius: 12,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
+        borderRadius: Radius.md,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xs,
     },
     savedBadgeText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -763,20 +764,20 @@ const styles = StyleSheet.create({
     diaryIconRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 6,
+        gap: Spacing.sm,
         flexWrap: "wrap",
     },
     diaryCareIcon: {
         width: 30,
         height: 30,
-        borderRadius: 15,
+        borderRadius: Radius.lg,
         alignItems: "center",
         justifyContent: "center",
     },
     diaryPlantCircle: {
         width: 34,
         height: 34,
-        borderRadius: 17,
+        borderRadius: Radius.lg,
         backgroundColor: Colors.background,
         alignItems: "center",
         justifyContent: "center",
@@ -793,11 +794,11 @@ const styles = StyleSheet.create({
     photoSection: {
         flexDirection: "row",
         height: 210,
-        gap: 8,
+        gap: Spacing.sm,
     },
     mainPhotoSlot: {
         flex: 3,
-        borderRadius: 14,
+        borderRadius: Radius.lg,
         overflow: "hidden",
         backgroundColor: Colors.background,
         borderWidth: 1.2,
@@ -805,11 +806,11 @@ const styles = StyleSheet.create({
     },
     sidePhotos: {
         flex: 2,
-        gap: 8,
+        gap: Spacing.sm,
     },
     sidePhotoSlot: {
         flex: 1,
-        borderRadius: 12,
+        borderRadius: Radius.md,
         overflow: "hidden",
         backgroundColor: Colors.background,
         borderWidth: 1.2,
@@ -819,7 +820,7 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        gap: 4,
+        gap: Spacing.xs,
     },
     photoAddText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -832,9 +833,9 @@ const styles = StyleSheet.create({
         bottom: 6,
         left: 6,
         backgroundColor: "rgba(0,0,0,0.45)",
-        borderRadius: 8,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
+        borderRadius: Radius.sm,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xxs,
     },
     photoBadgeText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -846,8 +847,8 @@ const styles = StyleSheet.create({
     // sticky note
     stickyNote: {
         backgroundColor: "#FEFBDF",
-        borderRadius: 8,
-        padding: 14,
+        borderRadius: Radius.sm,
+        padding: Spacing.lg,
         borderWidth: 1,
         borderColor: "#E8E0B8",
         shadowColor: "#C8B800",
@@ -867,8 +868,8 @@ const styles = StyleSheet.create({
 
     saveBtn: {
         backgroundColor: Colors.primary,
-        borderRadius: 14,
-        paddingVertical: 14,
+        borderRadius: Radius.lg,
+        paddingVertical: Spacing.lg,
         alignItems: "center",
         shadowColor: Colors.primary,
         shadowOpacity: 0.2,
@@ -892,9 +893,9 @@ const styles = StyleSheet.create({
     },
     pickerBox: {
         backgroundColor: Colors.white,
-        borderRadius: 20,
-        paddingTop: 4,
-        paddingBottom: 8,
+        borderRadius: Radius.xl,
+        paddingTop: Spacing.xs,
+        paddingBottom: Spacing.sm,
         width: 280,
         shadowColor: "#000",
         shadowOpacity: 0.15,
@@ -907,7 +908,7 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.bodyLarge,
         color: Colors.primary,
         textAlign: "center",
-        paddingVertical: 14,
+        paddingVertical: Spacing.lg,
         borderBottomWidth: 1,
         borderBottomColor: Colors.separator,
         includeFontPadding: false,
@@ -915,9 +916,9 @@ const styles = StyleSheet.create({
     pickerRow: {
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        gap: 14,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.md,
+        gap: Spacing.lg,
     },
     pickerImg: {
         width: 40,

@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 const PLANT_IMAGES: Record<string, any> = {
     spaghetti: require("../../assets/plants/spaghetti.png"),
@@ -122,15 +123,15 @@ const styles = StyleSheet.create({
     },
 
     scrollContent: {
-        paddingHorizontal: 20,
-        paddingTop: 4,
-        paddingBottom: 20,
-        gap: 16,
+        paddingHorizontal: Spacing.xl,
+        paddingTop: Spacing.xs,
+        paddingBottom: Spacing.huge,
+        gap: Spacing.lg,
         flexGrow: 1,
     },
 
     section: {
-        gap: 10,
+        gap: Spacing.md,
     },
 
     sectionLabel: {
@@ -143,8 +144,8 @@ const styles = StyleSheet.create({
     sectionDividerRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
-        marginTop: 4,
+        gap: Spacing.md,
+        marginTop: Spacing.xs,
     },
     dividerLine: {
         flex: 1,
@@ -156,13 +157,13 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: Colors.white,
-        borderRadius: 18,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
         borderColor: GreenTint.soft,
         overflow: "hidden",
-        paddingRight: 16,
-        paddingVertical: 6,
-        gap: 12,
+        paddingRight: Spacing.lg,
+        paddingVertical: Spacing.sm,
+        gap: Spacing.md,
     },
     cardUnread: {
         backgroundColor: Colors.background,
@@ -175,17 +176,17 @@ const styles = StyleSheet.create({
         bottom: 0,
         width: 4,
         backgroundColor: GreenTint.medium,
-        borderTopLeftRadius: 16,
-        borderBottomLeftRadius: 16,
+        borderTopLeftRadius: Radius.lg,
+        borderBottomLeftRadius: Radius.lg,
     },
     plantImage: {
         width: 72,
         height: 72,
-        marginLeft: 8,
+        marginLeft: Spacing.sm,
     },
     cardBody: {
         flex: 1,
-        gap: 5,
+        gap: Spacing.xs,
     },
     title: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -211,7 +212,7 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        gap: 12,
+        gap: Spacing.md,
         paddingTop: 80,
     },
     emptyText: {
