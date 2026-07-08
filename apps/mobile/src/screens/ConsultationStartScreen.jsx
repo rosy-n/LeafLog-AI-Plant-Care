@@ -19,6 +19,7 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 
 export default function ConsultStartScreen({ navigation }) {
     const [message, setMessage] = useState("");
@@ -226,9 +227,9 @@ const styles = StyleSheet.create({
     },
 
     chatContent: {
-        paddingHorizontal: Spacing.lg,
-        paddingTop: Spacing.xs,
+        ...screenContent,
         paddingBottom: Spacing.lg,
+        gap: Spacing.none,
     },
 
     assistantRow: {

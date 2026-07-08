@@ -19,6 +19,7 @@ import LiquidGlassButton from "../components/LiquidGlassButton";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SKY_HEIGHT = 126;
@@ -484,9 +485,9 @@ const styles = StyleSheet.create({
     },
 
     listContent: {
+        ...screenContent,
         paddingTop: Spacing.xxl,
-        paddingHorizontal: Spacing.xl,
-        paddingBottom: Spacing.huge,
+        gap: Spacing.none,
     },
     columnWrapper: {
         justifyContent: "flex-start",

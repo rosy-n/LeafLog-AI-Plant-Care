@@ -19,6 +19,7 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 
 export default function ConsultationScreen({ navigation, route }) {
     const { consultation } = route.params;
@@ -271,9 +272,10 @@ const styles = StyleSheet.create({
     },
 
     chatContent: {
-        paddingHorizontal: Spacing.lg,
+        ...screenContent,
         paddingTop: Spacing.sm,
         paddingBottom: Spacing.lg,
+        gap: Spacing.none,
     },
 
     historyLabel: {
