@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 const BG_ITEMS = [
     {
@@ -190,13 +191,13 @@ const styles = StyleSheet.create({
     coinBadge: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 5,
+        gap: Spacing.xs,
         backgroundColor: "#FFFBE8",
-        borderRadius: 20,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
         borderColor: "#F4D98A",
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
     },
     coinText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -206,10 +207,10 @@ const styles = StyleSheet.create({
     },
 
     scrollContent: {
-        paddingHorizontal: 20,
-        paddingTop: 4,
-        paddingBottom: 40,
-        gap: 12,
+        paddingHorizontal: Spacing.xl,
+        paddingTop: Spacing.xs,
+        paddingBottom: Spacing.huge,
+        gap: Spacing.md,
     },
 
     sectionTitle: {
@@ -217,19 +218,19 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.body,
         color: GreenTint.strong,
         includeFontPadding: false,
-        marginBottom: 4,
+        marginBottom: Spacing.xs,
     },
 
     card: {
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: Colors.white,
-        borderRadius: 18,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
         borderColor: GreenTint.soft,
         overflow: "hidden",
-        gap: 14,
-        paddingRight: 16,
+        gap: Spacing.lg,
+        paddingRight: Spacing.lg,
     },
     cardActive: {
         borderColor: GreenTint.medium,
@@ -243,7 +244,7 @@ const styles = StyleSheet.create({
 
     cardBody: {
         flex: 1,
-        gap: 6,
+        gap: Spacing.sm,
     },
     itemName: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -260,7 +261,7 @@ const styles = StyleSheet.create({
     priceRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
+        gap: Spacing.xs,
     },
     priceText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -273,9 +274,9 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     btn: {
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
+        borderRadius: Radius.md,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
         alignItems: "center",
         minWidth: 72,
     },

@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 const FAQ_ITEMS = [
     {
@@ -464,26 +465,26 @@ const styles = StyleSheet.create({
     },
 
     scrollContent: {
-        paddingHorizontal: 20,
-        paddingTop: 8,
-        paddingBottom: 40,
-        gap: 14,
+        paddingHorizontal: Spacing.xl,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.huge,
+        gap: Spacing.lg,
     },
 
     card: {
         backgroundColor: Colors.white,
-        borderRadius: 20,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
         borderColor: GreenTint.soft,
-        paddingHorizontal: 20,
-        paddingVertical: 4,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.xs,
     },
 
     sectionLabelRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
-        paddingVertical: 14,
+        gap: Spacing.sm,
+        paddingVertical: Spacing.lg,
     },
     sectionLabelText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -501,7 +502,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingVertical: 14,
+        paddingVertical: Spacing.lg,
     },
     rowLabel: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -514,7 +515,7 @@ const styles = StyleSheet.create({
     nameDisplayRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
+        gap: Spacing.sm,
     },
     nameValue: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -525,26 +526,26 @@ const styles = StyleSheet.create({
     nameEditRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
+        gap: Spacing.sm,
     },
     nameInput: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: Colors.textBlack,
         backgroundColor: Colors.background,
-        borderRadius: 8,
+        borderRadius: Radius.sm,
         borderWidth: 1,
         borderColor: GreenTint.soft,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
         minWidth: 100,
         includeFontPadding: false,
     },
     saveBtn: {
         backgroundColor: GreenTint.deep,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 7,
+        borderRadius: Radius.sm,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
     },
     saveBtnText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -563,11 +564,11 @@ const styles = StyleSheet.create({
     timePicker: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 6,
+        gap: Spacing.sm,
     },
     timeSpinner: {
         alignItems: "center",
-        gap: 2,
+        gap: Spacing.xxs,
     },
     timeValue: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -582,28 +583,28 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.title,
         color: Colors.textBlack,
         includeFontPadding: false,
-        marginBottom: 2,
+        marginBottom: Spacing.xxs,
     },
 
     // 볼륨
     volumeItem: {
-        paddingVertical: 14,
-        gap: 10,
+        paddingVertical: Spacing.lg,
+        gap: Spacing.md,
     },
     volumeRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
+        gap: Spacing.md,
     },
     volumeTrack: {
         flex: 1,
         flexDirection: "row",
-        gap: 3,
+        gap: Spacing.xs,
     },
     volumeSegment: {
         flex: 1,
         height: 8,
-        borderRadius: 4,
+        borderRadius: Radius.xs,
     },
     volumeSegmentOn: {
         backgroundColor: GreenTint.medium,
@@ -618,15 +619,15 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.body,
         color: GreenTint.medium,
         includeFontPadding: false,
-        paddingTop: 4,
-        paddingBottom: 8,
+        paddingTop: Spacing.xs,
+        paddingBottom: Spacing.sm,
     },
     faqRow: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingVertical: 13,
-        gap: 10,
+        paddingVertical: Spacing.md,
+        gap: Spacing.md,
     },
     faqQuestion: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -637,10 +638,10 @@ const styles = StyleSheet.create({
     },
     faqAnswer: {
         backgroundColor: Colors.background,
-        borderRadius: 10,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-        marginBottom: 6,
+        borderRadius: Radius.md,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.md,
+        marginBottom: Spacing.sm,
     },
     faqAnswerText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -652,28 +653,28 @@ const styles = StyleSheet.create({
 
     // 문의하기
     inquiryArea: {
-        gap: 10,
-        paddingBottom: 10,
+        gap: Spacing.md,
+        paddingBottom: Spacing.md,
     },
     inquiryInput: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: Colors.textBlack,
         backgroundColor: Colors.background,
-        borderRadius: 10,
+        borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: GreenTint.soft,
-        paddingHorizontal: 12,
-        paddingTop: 10,
-        paddingBottom: 10,
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.md,
         height: 110,
         textAlignVertical: "top",
         includeFontPadding: false,
     },
     inquirySubmitBtn: {
         backgroundColor: GreenTint.deep,
-        borderRadius: 12,
-        paddingVertical: 13,
+        borderRadius: Radius.md,
+        paddingVertical: Spacing.md,
         alignItems: "center",
         shadowColor: GreenTint.deep,
         shadowOpacity: 0.2,
@@ -694,8 +695,8 @@ const styles = StyleSheet.create({
     },
     inquiryDone: {
         alignItems: "center",
-        gap: 10,
-        paddingVertical: 18,
+        gap: Spacing.md,
+        paddingVertical: Spacing.xl,
     },
     inquiryDoneText: {
         fontFamily: Fonts.neoDunggeunmo,
