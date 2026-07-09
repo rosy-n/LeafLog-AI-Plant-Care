@@ -1,4 +1,4 @@
-"""유사 사례 검색 (species 필터 + fallback)."""
+"""유사 사례 검색 (similarity 기준 top-k)."""
 import argparse
 import os
 from pathlib import Path
@@ -7,7 +7,6 @@ import torch
 from dotenv import load_dotenv
 from PIL import Image
 from qdrant_client import QdrantClient
-from qdrant_client.http import models as qmodels
 from qdrant_client.http.models import ScoredPoint
 from transformers import CLIPModel, CLIPProcessor
 
@@ -68,42 +67,11 @@ def search_similar(
     client: QdrantClient,
     collection: str,
     query_vector: list[float],
-    species: str | None = None,
     top_k: int = DEFAULT_TOP_K,
 ) -> list[dict]:
-    """species가 일치하는 사례를 우선 검색하고, top_k에 못 미치면 전체 검색으로 나머지를 채운다."""
-    results: list[dict] = []
-    seen_ids: set = set()
-
-    if species:
-        species_filter = qmodels.Filter(
-            must=[qmodels.FieldCondition(key="plant_species", match=qmodels.MatchValue(value=species))]
-        )
-        filtered = client.query_points(
-            collection_name=collection,
-            query=query_vector,
-            query_filter=species_filter,
-            limit=top_k,
-        ).points
-        for point in filtered:
-            results.append(_to_result(point))
-            seen_ids.add(point.id)
-
-    if len(results) < top_k:
-        fallback = client.query_points(
-            collection_name=collection,
-            query=query_vector,
-            limit=top_k + len(seen_ids),
-        ).points
-        for point in fallback:
-            if point.id in seen_ids:
-                continue
-            results.append(_to_result(point))
-            seen_ids.add(point.id)
-            if len(results) >= top_k:
-                break
-
-    return results[:top_k]
+    """similarity 내림차순으로 top_k개를 반환한다 (species와 무관)."""
+    points = client.query_points(collection_name=collection, query=query_vector, limit=top_k).points
+    return [_to_result(point) for point in points]
 
 
 def print_results(results: list[dict]) -> None:
@@ -120,9 +88,8 @@ def print_results(results: list[dict]) -> None:
 if __name__ == "__main__":
     load_dotenv(DIAGNOSIS_DIR / ".env")
 
-    parser = argparse.ArgumentParser(description="유사 사례 검색 (species 필터 + fallback)")
+    parser = argparse.ArgumentParser(description="유사 사례 검색 (similarity 기준 top-k)")
     parser.add_argument("--image", type=Path, required=True, help="검색할 쿼리 이미지 경로")
-    parser.add_argument("--species", type=str, default=None, help="plant_species 필터 (예: 몬스테라)")
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
     parser.add_argument("--collection", type=str, default=os.environ.get("QDRANT_COLLECTION", "leaflog-diagnosis"))
     args = parser.parse_args()
@@ -136,7 +103,5 @@ if __name__ == "__main__":
     )
 
     qdrant = get_qdrant_client()
-    search_results = search_similar(
-        qdrant, args.collection, query_vector, species=args.species, top_k=args.top_k
-    )
+    search_results = search_similar(qdrant, args.collection, query_vector, top_k=args.top_k)
     print_results(search_results)

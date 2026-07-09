@@ -2,6 +2,7 @@
 import argparse
 import base64
 import importlib.util
+import io
 import os
 from pathlib import Path
 
@@ -46,15 +47,15 @@ FORMAT_TO_MEDIA_TYPE = {
 }
 
 
-def encode_image(path: Path) -> tuple[str, str]:
+def encode_image(image_bytes: bytes) -> tuple[str, str]:
     # 파일 확장자는 실제 포맷과 다를 수 있어서(예: 웹에서 저장한 webp가 .jpg로 저장됨)
     # 확장자 대신 Pillow로 디코딩한 실제 포맷을 기준으로 media_type을 정한다.
-    with Image.open(path) as img:
+    with Image.open(io.BytesIO(image_bytes)) as img:
         image_format = img.format
     media_type = FORMAT_TO_MEDIA_TYPE.get(image_format)
     if media_type is None:
-        raise ValueError(f"Claude API가 지원하지 않는 이미지 포맷입니다: {image_format} ({path})")
-    data = base64.standard_b64encode(path.read_bytes()).decode("utf-8")
+        raise ValueError(f"Claude API가 지원하지 않는 이미지 포맷입니다: {image_format}")
+    data = base64.standard_b64encode(image_bytes).decode("utf-8")
     return media_type, data
 
 
@@ -72,20 +73,23 @@ def format_similar_cases(results: list[dict]) -> str:
 
 def generate_diagnosis(
     anthropic_client: Anthropic,
-    image_path: Path,
+    image_bytes: bytes,
     similar_cases: list[dict],
     plant_species: str | None = None,
+    symptom_text: str | None = None,
 ) -> str:
-    """유사 사례 검색 결과(텍스트)와 쿼리 이미지를 근거로 5단계 상담 답변을 생성한다."""
-    media_type, image_b64 = encode_image(image_path)
+    """유사 사례 검색 결과(텍스트)와 쿼리 이미지, 사용자가 직접 적은 증상 설명을 근거로 5단계 상담 답변을 생성한다."""
+    media_type, image_b64 = encode_image(image_bytes)
     species_line = f"식물종: {plant_species}\n" if plant_species else ""
+    symptom_line = f"사용자가 직접 적은 증상 설명: {symptom_text}\n" if symptom_text else ""
 
     user_text = (
         f"{species_line}"
+        f"{symptom_line}"
         "아래 사진 속 식물의 상태를 봐줘.\n\n"
         "CLIP 임베딩으로 검색한 시각적으로 유사한 과거 사례들:\n"
         f"{format_similar_cases(similar_cases)}\n\n"
-        "위 유사 사례를 참고하되 맹신하지 말고, 사진을 직접 보고 5단계 형식으로 답변해줘."
+        "위 유사 사례를 참고하되 맹신하지 말고, 사진과 사용자 설명을 직접 보고 5단계 형식으로 답변해줘."
     )
 
     message = anthropic_client.messages.create(
@@ -117,6 +121,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="유사 사례 검색 + Claude API 진단 상담 생성")
     parser.add_argument("--image", type=Path, required=True, help="진단할 이미지 경로")
     parser.add_argument("--species", type=str, default=None, help="plant_species 필터")
+    parser.add_argument("--symptom-text", type=str, default=None, help="사용자가 직접 적은 증상 설명")
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
     parser.add_argument("--collection", type=str, default=os.environ.get("QDRANT_COLLECTION", "leaflog-diagnosis"))
     args = parser.parse_args()
@@ -135,11 +140,12 @@ if __name__ == "__main__":
     )
 
     qdrant = search.get_qdrant_client()
-    similar_cases = search.search_similar(
-        qdrant, args.collection, query_vector, species=args.species, top_k=args.top_k
-    )
+    similar_cases = search.search_similar(qdrant, args.collection, query_vector, top_k=args.top_k)
 
     anthropic_client = Anthropic(api_key=api_key)
-    diagnosis = generate_diagnosis(anthropic_client, args.image, similar_cases, plant_species=args.species)
+    diagnosis = generate_diagnosis(
+        anthropic_client, args.image.read_bytes(), similar_cases,
+        plant_species=args.species, symptom_text=args.symptom_text,
+    )
 
     print(diagnosis)
