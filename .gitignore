@@ -47,6 +47,7 @@ checkpoints/
 # ai/diagnosis (Visual RAG prototype) — never commit real data or API keys
 ai/diagnosis/data/
 ai/diagnosis/images
+ai/diagnosis/images_cropped
 ai/diagnosis/test_images/
 ai/diagnosis/qdrant_storage/
 ai/diagnosis/outputs/

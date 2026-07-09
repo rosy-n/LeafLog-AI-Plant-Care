@@ -44,6 +44,19 @@ def pca_2d(vectors: np.ndarray) -> np.ndarray:
     return coords
 
 
+def umap_2d(vectors: np.ndarray, n_neighbors: int, min_dist: float) -> np.ndarray:
+    import umap
+
+    n_neighbors = min(n_neighbors, len(vectors) - 1)
+    reducer = umap.UMAP(
+        n_neighbors=n_neighbors,
+        min_dist=min_dist,
+        metric="cosine",
+        random_state=42,
+    )
+    return reducer.fit_transform(vectors)
+
+
 def normalize_to_canvas(coords: np.ndarray, size: int, margin: int) -> np.ndarray:
     mins, maxs = coords.min(axis=0), coords.max(axis=0)
     scaled = (coords - mins) / (maxs - mins + 1e-9)
@@ -67,7 +80,7 @@ def img_to_data_uri(path: Path) -> str:
     return f"data:image/jpeg;base64,{data}"
 
 
-def render_html(points: list, coords: np.ndarray, color_by: str) -> str:
+def render_html(points: list, coords: np.ndarray, color_by: str, projection: str, images_dir: Path) -> str:
     causes = json.load(open(CAUSE_CODES_PATH, encoding="utf-8"))["suspected_causes"]
     categories = causes if color_by == "suspected_cause" else sorted(
         {p.payload.get(color_by, "미상") for p in points}
@@ -79,7 +92,7 @@ def render_html(points: list, coords: np.ndarray, color_by: str) -> str:
         payload = point.payload or {}
         category = payload.get(color_by, "미상")
         color = color_map.get(category, "#999999")
-        img_uri = img_to_data_uri(IMAGES_DIR / payload["file_name"])
+        img_uri = img_to_data_uri(images_dir / payload["file_name"])
         data_attrs = " ".join(
             f'data-{col.replace("_", "-")}="{str(payload.get(col, "")).replace(chr(34), "&quot;")}"'
             for col in ["image_id", "file_name", "plant_species", "symptom_group",
@@ -113,7 +126,7 @@ body {{ font-family: -apple-system, sans-serif; padding: 24px; }}
 #tooltip a {{ color: #7dd3fc; }}
 </style></head>
 <body>
-<h1>LeafLog CLIP 임베딩 시각화 (PCA 2D, color by {color_by})</h1>
+<h1>LeafLog CLIP 임베딩 시각화 ({projection.upper()} 2D, color by {color_by})</h1>
 <p>점(썸네일)에 마우스를 올리면 커지고, 전체 컬럼이 툴팁으로 표시됩니다. 총 {len(points)}개.</p>
 <div class="canvas">{''.join(dots_html)}</div>
 <div class="legend">{legend_html}</div>
@@ -151,9 +164,16 @@ document.querySelectorAll('.dot').forEach(dot => {{
 if __name__ == "__main__":
     load_dotenv(DIAGNOSIS_DIR / ".env")
 
-    parser = argparse.ArgumentParser(description="CLIP 임베딩 PCA 2D 시각화")
+    parser = argparse.ArgumentParser(description="CLIP 임베딩 2D 시각화 (PCA/UMAP)")
     parser.add_argument("--collection", type=str, default=os.environ.get("QDRANT_COLLECTION", "leaflog-diagnosis"))
-    parser.add_argument("--color-by", type=str, default="suspected_cause", choices=["suspected_cause", "plant_species"])
+    parser.add_argument(
+        "--color-by", type=str, default="suspected_cause",
+        choices=["suspected_cause", "plant_species", "symptom_group"],
+    )
+    parser.add_argument("--projection", type=str, default="pca", choices=["pca", "umap"])
+    parser.add_argument("--n-neighbors", type=int, default=15, help="UMAP n_neighbors (--projection umap일 때만 사용)")
+    parser.add_argument("--min-dist", type=float, default=0.1, help="UMAP min_dist (--projection umap일 때만 사용)")
+    parser.add_argument("--images-dir", type=Path, default=IMAGES_DIR, help="썸네일을 읽어올 이미지 폴더 (크롭본 비교 시 교체)")
     args = parser.parse_args()
 
     qdrant_url = os.environ.get("QDRANT_URL", "http://localhost:6333")
@@ -162,11 +182,16 @@ if __name__ == "__main__":
 
     all_points = fetch_all_points(client, args.collection)
     vectors = np.array([p.vector for p in all_points])
-    coords_2d = pca_2d(vectors)
+    if args.projection == "umap":
+        coords_2d = umap_2d(vectors, args.n_neighbors, args.min_dist)
+    else:
+        coords_2d = pca_2d(vectors)
     coords_canvas = normalize_to_canvas(coords_2d, CANVAS_SIZE, margin=40)
 
     OUTPUTS_DIR.mkdir(exist_ok=True)
-    out_path = OUTPUTS_DIR / f"embeddings_{args.color_by}.html"
-    out_path.write_text(render_html(all_points, coords_canvas, args.color_by), encoding="utf-8")
+    out_path = OUTPUTS_DIR / f"embeddings_{args.collection}_{args.projection}_{args.color_by}.html"
+    out_path.write_text(
+        render_html(all_points, coords_canvas, args.color_by, args.projection, args.images_dir), encoding="utf-8"
+    )
     print(f"HTML 저장: {out_path}")
     webbrowser.open(f"file://{out_path}")
