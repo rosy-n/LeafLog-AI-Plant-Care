@@ -1,3 +1,5 @@
+import type { NewPlantPayload } from "../types/plant";
+
 export type AuthResponse = {
   access_token: string;
   token_type: "bearer";
@@ -5,13 +7,30 @@ export type AuthResponse = {
     id: number;
     email: string;
     nickname: string;
-    marketing_opt_in: boolean;
   };
 };
 
 export type AvailabilityResponse = {
   available: boolean;
 };
+
+export type PlantResponse = {
+  id: number;
+  nickname: string;
+  common_name_ko: string;
+  created_at: string;
+};
+
+// 로그인/회원가입 후 받은 액세스 토큰을 앱 전역에서 공유 (메모리 보관)
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
+export function getAuthToken(): string | null {
+  return authToken;
+}
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
@@ -28,6 +47,7 @@ async function request<T>(
       ...options,
       headers: {
         "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         ...(options.headers || {}),
       },
     });
@@ -57,9 +77,17 @@ export function signup(payload: {
   email: string;
   password: string;
   nickname: string;
-  marketing_opt_in: boolean;
+  marketing_opt_in?: boolean;
 }) {
   return request<AuthResponse>("/auth/signup", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// 로그인 토큰 필요 (setAuthToken으로 저장된 값이 자동 첨부됨)
+export function createPlant(payload: NewPlantPayload) {
+  return request<PlantResponse>("/api/plants", {
     method: "POST",
     body: JSON.stringify(payload),
   });
