@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     ImageBackground,
     Image,
@@ -19,6 +19,7 @@ import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
+import { getPlantCare } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Leaf, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
@@ -32,9 +33,40 @@ const MENU_ITEMS = [
     { label: "영양제", screen: "Nutrient" },
 ];
 
-export default function PlantDetailScreen({ navigation, appliedItem }) {
+// 등록일 기준 함께한 일수 (중앙 D+N)
+function daysSince(iso) {
+    if (!iso) return 0;
+    const created = new Date(iso).getTime();
+    if (Number.isNaN(created)) return 0;
+    return Math.max(0, Math.floor((Date.now() - created) / 86400000));
+}
+
+export default function PlantDetailScreen({ navigation, route, appliedItem }) {
+    const plant = route?.params?.plant;
+    const plantName = plant?.name ?? "스파게티";
+    const togetherDays = daysSince(plant?.createdAt);
+
+    // 물 준 후 지난 일수 → 좌측 상단 ResourceCounter(💧 D+N)에 표시
+    const [wateringDays, setWateringDays] = useState(null);
+
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+
+    useEffect(() => {
+        const id = plant?.id;
+        if (!id) return;
+        let mounted = true;
+        getPlantCare(Number(id))
+            .then((care) => {
+                if (mounted) setWateringDays(care.days_since_watering);
+            })
+            .catch(() => {
+                if (mounted) setWateringDays(null);
+            });
+        return () => {
+            mounted = false;
+        };
+    }, [plant?.id]);
 
     const menuAnimations = useRef(
         MENU_ITEMS.map(() => new Animated.Value(0))
@@ -94,7 +126,7 @@ export default function PlantDetailScreen({ navigation, appliedItem }) {
             >
                 <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
                     <View style={styles.resourceArea}>
-                        <ResourceCounter />
+                        <ResourceCounter wateringDays={wateringDays} />
                     </View>
 
                     <View style={styles.heartsArea}>
@@ -120,11 +152,11 @@ export default function PlantDetailScreen({ navigation, appliedItem }) {
 
                         <View style={styles.plantLabelGroup}>
                             <PixelOutlineText style={styles.plantName} strokeWidth={2}>
-                                스파게티
+                                {plantName}
                             </PixelOutlineText>
 
                             <PixelOutlineText style={styles.dayText} strokeWidth={2}>
-                                D+45
+                                D+{togetherDays}
                             </PixelOutlineText>
                         </View>
                     </View>
@@ -163,7 +195,7 @@ export default function PlantDetailScreen({ navigation, appliedItem }) {
                                             style={styles.menuItemTouch}
                                             onPress={() => {
                                                 closeMenu();
-                                                navigation.navigate(item.screen);
+                                                navigation.navigate(item.screen, { plant });
                                             }}
                                         >
                                             <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>

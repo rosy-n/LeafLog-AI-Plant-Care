@@ -13,6 +13,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -140,6 +141,61 @@ class Plant(Base):
         CheckConstraint(
             "status IN ('ALIVE', 'SICK', 'DEAD')",
             name="ck_plant_status",
+        ),
+    )
+
+
+class CareSchedule(Base):
+    __tablename__ = "care_schedule"
+
+    schedule_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    plant_id: Mapped[int] = mapped_column(
+        ForeignKey("plant.plant_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    care_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    interval_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    next_due_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        CheckConstraint(
+            "care_type IN ('WATERING', 'FERTILIZING', 'REPOTTING')",
+            name="ck_care_schedule_care_type",
+        ),
+        CheckConstraint("interval_days > 0", name="ck_care_schedule_interval_days"),
+        UniqueConstraint("plant_id", "care_type", name="uq_care_schedule_plant_care"),
+        UniqueConstraint(
+            "schedule_id", "plant_id", "care_type", name="uq_care_schedule_id_plant_care"
+        ),
+    )
+
+
+class CareRecord(Base):
+    __tablename__ = "care_record"
+
+    care_record_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    plant_id: Mapped[int] = mapped_column(
+        ForeignKey("plant.plant_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    schedule_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    care_type: Mapped[str] = mapped_column(String(30), nullable=False)
+
+    scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    asset_id: Mapped[int | None] = mapped_column(
+        ForeignKey("media_asset.asset_id", ondelete="SET NULL"), nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        CheckConstraint(
+            "care_type IN ('WATERING', 'FERTILIZING', 'REPOTTING')",
+            name="ck_care_record_care_type",
         ),
     )
 

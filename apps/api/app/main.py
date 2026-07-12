@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
@@ -6,8 +8,22 @@ from sqlalchemy.orm import Session
 
 from .config import settings
 from .database import Base, engine, get_db
-from .models import AppUser, MediaAsset, Plant, PlantSpecies
-from .schemas import AvailabilityResponse, AuthResponse, LoginRequest, PlantCreate, PlantRead, SignupRequest, UserRead
+from .models import AppUser, CareRecord, MediaAsset, Plant, PlantSpecies
+from .schemas import (
+    AvailabilityResponse,
+    AuthResponse,
+    CareRecordCreate,
+    CareRecordItem,
+    CareSummary,
+    LoginRequest,
+    PlantCreate,
+    PlantDetail,
+    PlantListItem,
+    PlantUpdate,
+    PlantRead,
+    SignupRequest,
+    UserRead,
+)
 from .security import create_access_token, decode_access_token, hash_password, verify_password
 
 app = FastAPI(title="LeafLog API", version="0.1.0")
@@ -23,10 +39,40 @@ app.add_middleware(
 # plant CHECK 제약과 일치 — 허용되지 않는 값은 저장 시 NULL 처리해 제약 위반 방지
 LOCATION_NAMES = {"LIVING_ROOM", "BEDROOM", "BALCONY", "KITCHEN", "OFFICE"}
 LIGHT_CONDITIONS = {"DIRECT", "BRIGHT", "INDIRECT", "LOW"}
+CARE_TYPES = {"WATERING", "FERTILIZING", "REPOTTING"}
+PLANT_STATUSES = {"ALIVE", "SICK", "DEAD"}
 
 
 def _enum_or_none(value: str | None, allowed: set[str]) -> str | None:
     return value if value in allowed else None
+
+
+def _parse_dt(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    # TIMESTAMP(무 tz) 컬럼에 세션 타임존 변환 없이 들어가도록 naive UTC로 통일
+    if parsed.tzinfo:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
+def _days_since(moment: datetime | None) -> int | None:
+    if moment is None:
+        return None
+    # 저장·조회 모두 naive UTC 기준 — 캘린더 일수 차이로 "며칠 전" 계산
+    aware = moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+    return max(0, (datetime.now(timezone.utc).date() - aware.date()).days)
+
+
+def _owned_plant_or_404(plant_id: int, current_user: "AppUser", db: Session) -> Plant:
+    plant = db.get(Plant, plant_id)
+    if plant is None or plant.user_id != current_user.user_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="식물을 찾을 수 없습니다.")
+    return plant
 
 
 @app.on_event("startup")
@@ -135,6 +181,7 @@ def create_plant(
         nickname=payload.nickname,
         location_name=_enum_or_none(payload.location, LOCATION_NAMES),
         light_condition=_enum_or_none(payload.lightLevel, LIGHT_CONDITIONS),
+        pot_type=payload.potType or None,
         pot_size=str(payload.potDiameter) if payload.potDiameter else None,
         height=str(payload.plantHeight) if payload.plantHeight else None,
         soil_type=payload.soilNote or None,
@@ -160,6 +207,14 @@ def create_plant(
             asset_type="CHARACTER_IMAGE",
         ))
 
+    # 4. 최초 물주기/분갈이 기록 → care_record (넘어온 날짜만)
+    watered_at = _parse_dt(payload.lastWateredAt)
+    if watered_at:
+        db.add(CareRecord(plant_id=plant.plant_id, care_type="WATERING", completed_at=watered_at))
+    repotted_at = _parse_dt(payload.lastRepottedAt)
+    if repotted_at:
+        db.add(CareRecord(plant_id=plant.plant_id, care_type="REPOTTING", completed_at=repotted_at))
+
     db.commit()
     db.refresh(plant)
 
@@ -169,6 +224,198 @@ def create_plant(
         common_name_ko=species.common_name_ko,
         created_at=plant.created_at.isoformat(),
     )
+
+
+@app.get("/api/plants", response_model=list[PlantListItem])
+def list_plants(
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[PlantListItem]:
+    rows = db.execute(
+        select(Plant, PlantSpecies.common_name_ko)
+        .join(PlantSpecies, Plant.species_id == PlantSpecies.species_id, isouter=True)
+        .where(Plant.user_id == current_user.user_id)
+        .order_by(Plant.created_at.desc())
+    ).all()
+
+    return [
+        PlantListItem(
+            id=plant.plant_id,
+            nickname=plant.nickname,
+            common_name_ko=common_name_ko,
+            location_name=plant.location_name,
+            light_condition=plant.light_condition,
+            is_favorite=plant.is_favorite,
+            status=plant.status,
+            created_at=plant.created_at.isoformat(),
+        )
+        for plant, common_name_ko in rows
+    ]
+
+
+@app.get("/api/plants/{plant_id}", response_model=PlantDetail)
+def get_plant(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PlantDetail:
+    plant = db.get(Plant, plant_id)
+    if plant is None or plant.user_id != current_user.user_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="식물을 찾을 수 없습니다.")
+
+    return _to_plant_detail(plant, db)
+
+
+@app.patch("/api/plants/{plant_id}", response_model=PlantDetail)
+def update_plant(
+    plant_id: int,
+    payload: PlantUpdate,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PlantDetail:
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+    data = payload.model_dump(exclude_unset=True)
+
+    if "nickname" in data and data["nickname"] is not None:
+        nickname = data["nickname"].strip()
+        if not nickname:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이름을 입력해주세요.")
+        plant.nickname = nickname
+    if "status" in data and data["status"] is not None:
+        if data["status"] not in PLANT_STATUSES:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="유효하지 않은 상태입니다.")
+        plant.status = data["status"]
+    if "location_name" in data:
+        plant.location_name = _enum_or_none(data["location_name"], LOCATION_NAMES)
+    if "pot_type" in data:
+        plant.pot_type = (data["pot_type"] or None)
+    if "pot_size" in data:
+        plant.pot_size = (data["pot_size"] or None)
+    if "height" in data:
+        plant.height = (data["height"] or None)
+
+    db.commit()
+    db.refresh(plant)
+    return _to_plant_detail(plant, db)
+
+
+def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
+    species = db.get(PlantSpecies, plant.species_id) if plant.species_id else None
+    return PlantDetail(
+        id=plant.plant_id,
+        nickname=plant.nickname,
+        common_name_ko=species.common_name_ko if species else None,
+        scientific_name=species.scientific_name if species else None,
+        status=plant.status,
+        location_name=plant.location_name,
+        light_condition=plant.light_condition,
+        pot_type=plant.pot_type,
+        pot_size=plant.pot_size,
+        soil_type=plant.soil_type,
+        height=plant.height,
+        is_favorite=plant.is_favorite,
+        started_at=plant.started_at.isoformat() if plant.started_at else None,
+        created_at=plant.created_at.isoformat(),
+    )
+
+
+@app.get("/api/plants/{plant_id}/care", response_model=CareSummary)
+def plant_care_summary(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CareSummary:
+    plant = db.get(Plant, plant_id)
+    if plant is None or plant.user_id != current_user.user_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="식물을 찾을 수 없습니다.")
+
+    def latest(care_type: str) -> datetime | None:
+        return db.scalar(
+            select(CareRecord.completed_at)
+            .where(CareRecord.plant_id == plant_id, CareRecord.care_type == care_type)
+            .order_by(CareRecord.completed_at.desc())
+            .limit(1)
+        )
+
+    watered = latest("WATERING")
+    repotted = latest("REPOTTING")
+    return CareSummary(
+        last_watered_at=watered.isoformat() if watered else None,
+        days_since_watering=_days_since(watered),
+        last_repotted_at=repotted.isoformat() if repotted else None,
+        days_since_repotting=_days_since(repotted),
+    )
+
+
+@app.get("/api/plants/{plant_id}/care-records", response_model=list[CareRecordItem])
+def list_care_records(
+    plant_id: int,
+    care_type: str = Query(..., min_length=1),
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[CareRecordItem]:
+    _owned_plant_or_404(plant_id, current_user, db)
+    if care_type not in CARE_TYPES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="지원하지 않는 관리 유형입니다.")
+
+    rows = db.scalars(
+        select(CareRecord)
+        .where(CareRecord.plant_id == plant_id, CareRecord.care_type == care_type)
+        .order_by(CareRecord.completed_at.desc())
+    ).all()
+    return [
+        CareRecordItem(
+            id=r.care_record_id,
+            care_type=r.care_type,
+            completed_at=r.completed_at.isoformat(),
+            note=r.note,
+        )
+        for r in rows
+    ]
+
+
+@app.post("/api/plants/{plant_id}/care-records", response_model=CareRecordItem, status_code=status.HTTP_201_CREATED)
+def create_care_record(
+    plant_id: int,
+    payload: CareRecordCreate,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CareRecordItem:
+    _owned_plant_or_404(plant_id, current_user, db)
+    if payload.care_type not in CARE_TYPES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="지원하지 않는 관리 유형입니다.")
+
+    completed = _parse_dt(payload.completed_at) or datetime.now(timezone.utc).replace(tzinfo=None)
+    record = CareRecord(
+        plant_id=plant_id,
+        care_type=payload.care_type,
+        note=payload.note or None,
+        completed_at=completed,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return CareRecordItem(
+        id=record.care_record_id,
+        care_type=record.care_type,
+        completed_at=record.completed_at.isoformat(),
+        note=record.note,
+    )
+
+
+@app.delete("/api/plants/{plant_id}/care-records/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_care_record(
+    plant_id: int,
+    record_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    _owned_plant_or_404(plant_id, current_user, db)
+    record = db.get(CareRecord, record_id)
+    if record is None or record.plant_id != plant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="기록을 찾을 수 없습니다.")
+    db.delete(record)
+    db.commit()
 
 
 @app.get("/auth/me", response_model=UserRead)

@@ -77,6 +77,7 @@ class PlantCreate(BaseModel):
     lightLevel: str = ''
     plantHeight: int = 0
     potDiameter: int = 0
+    potType: str = ''
     soilNote: str = ''
     # 사진 (media_asset으로 매핑)
     characterImageUrl: str = ''
@@ -93,3 +94,64 @@ class PlantRead(BaseModel):
     created_at: str
 
     model_config = {"from_attributes": True}
+
+
+class PlantDetail(BaseModel):
+    # 프로필/상세 화면용 전체 필드
+    id: int
+    nickname: str
+    common_name_ko: str | None = None
+    scientific_name: str | None = None
+    status: str = "ALIVE"
+    location_name: str | None = None
+    light_condition: str | None = None
+    pot_type: str | None = None
+    pot_size: str | None = None
+    soil_type: str | None = None
+    height: str | None = None
+    is_favorite: bool = False
+    started_at: str | None = None
+    created_at: str
+
+
+class PlantUpdate(BaseModel):
+    # 프로필 편집 — 넘어온 필드만 부분 수정
+    nickname: str | None = None
+    status: str | None = None
+    location_name: str | None = None
+    pot_type: str | None = None
+    pot_size: str | None = None
+    height: str | None = None
+
+
+class CareSummary(BaseModel):
+    # 최근 물주기/분갈이 기록 (care_record 기반) + 경과 일수
+    last_watered_at: str | None = None
+    days_since_watering: int | None = None
+    last_repotted_at: str | None = None
+    days_since_repotting: int | None = None
+
+
+class CareRecordItem(BaseModel):
+    id: int
+    care_type: str
+    completed_at: str
+    note: str | None = None
+
+
+class CareRecordCreate(BaseModel):
+    care_type: str
+    note: str | None = None
+    completed_at: str | None = None
+
+
+class PlantListItem(BaseModel):
+    # 정원 목록에 필요한 최소 필드 — 미구현(캐릭터 이미지/호감도)은 앱에서 placeholder 처리
+    id: int
+    nickname: str
+    common_name_ko: str | None = None
+    location_name: str | None = None
+    light_condition: str | None = None
+    is_favorite: bool = False
+    status: str = "ALIVE"
+    created_at: str
