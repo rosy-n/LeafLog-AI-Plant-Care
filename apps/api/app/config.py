@@ -1,5 +1,11 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# apps/api/.env 로드 — 실행 위치와 무관하게 config.py 기준으로 탐색
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 def _database_url() -> str:

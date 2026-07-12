@@ -24,12 +24,26 @@ const PLACEHOLDER_CHARACTER = require('../../assets/dot-character-placeholder.pn
 
 const LOCATIONS = ['거실', '침실', '베란다', '주방', '사무실'] as const;
 
+// UI 한글 라벨 → 서버 enum 코드 (plant.location_name CHECK 제약과 일치)
+const LOCATION_CODES: Record<string, string> = {
+  거실: 'LIVING_ROOM',
+  침실: 'BEDROOM',
+  베란다: 'BALCONY',
+  주방: 'KITCHEN',
+  사무실: 'OFFICE',
+};
+
 const LIGHT_OPTIONS = [
-  { label: '직사광',     sub: '햇빛 직접' },
-  { label: '밝은 간접광', sub: '창가 근처' },
-  { label: '간접광',     sub: '밝은 실내' },
-  { label: '어두움',     sub: '빛 적음'  },
+  { label: '직사광',     sub: '햇빛 직접', code: 'DIRECT'   },
+  { label: '밝은 간접광', sub: '창가 근처', code: 'BRIGHT'   },
+  { label: '간접광',     sub: '밝은 실내', code: 'INDIRECT' },
+  { label: '어두움',     sub: '빛 적음',  code: 'LOW'      },
 ] as const;
+
+// 광량 한글 라벨 → 서버 enum 코드 (plant.light_condition CHECK 제약과 일치)
+const LIGHT_CODE_BY_LABEL: Record<string, string> = Object.fromEntries(
+  LIGHT_OPTIONS.map((o) => [o.label, o.code]),
+);
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const DAYS   = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -216,8 +230,8 @@ export default function InfoScreen() {
         nickname:          params.nickname ?? '',
         characterImageUrl: params.characterImageUrl ?? '',
         capturedPhotoUri:  params.capturedPhotoUri ?? '',
-        location:          location!,
-        lightLevel:        lightLevel!,
+        location:          LOCATION_CODES[location!] ?? '',
+        lightLevel:        LIGHT_CODE_BY_LABEL[lightLevel!] ?? '',
         plantHeight:       Number(plantHeight) || 0,
         potDiameter:       Number(potDiameter) || 0,
         soilNote,

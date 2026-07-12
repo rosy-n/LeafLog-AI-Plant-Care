@@ -77,8 +77,8 @@ class PlantSpecies(Base):
 
     is_toxic: Mapped[bool] = mapped_column(Boolean, default=False)
     toxicity_info: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # 병충해 정보 (스키마 컬럼명 bugInfo)
-    bug_info: Mapped[str | None] = mapped_column("bugInfo", Text, nullable=True)
+    # 병충해 정보
+    bug_info: Mapped[str | None] = mapped_column(Text, nullable=True)
     care_tips: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
