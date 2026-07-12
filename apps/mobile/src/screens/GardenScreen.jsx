@@ -54,7 +54,7 @@ function applySortFilter(plantList, sort, query) {
     return result;
 }
 
-export default function GardenScreen({ navigation, plants, setPlants, username }) {
+export default function GardenScreen({ navigation, plants, setPlants, username, reloadPlants }) {
     const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
     const searchAnim = useRef(new Animated.Value(0)).current;
 
@@ -95,6 +95,8 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
     */
     useFocusEffect(
         useCallback(() => {
+            // 정원 재진입 시 DB에서 최신 목록 반영 (식물 등록 후 등)
+            reloadPlants?.();
             if (isFirstFocusRef.current) {
                 isFirstFocusRef.current = false;
                 return;
@@ -102,7 +104,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
             setDisplayPlants(
                 applySortFilter(plantsRef.current, sortKeyRef.current, searchQueryRef.current)
             );
-        }, [])
+        }, [reloadPlants])
     );
 
     useEffect(() => {
@@ -279,9 +281,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
                         <View style={styles.card}>
                             <TouchableOpacity
                                 activeOpacity={0.8}
-                                onPress={() => {
-                                    if (item.id === "1") navigation.replace("PlantDetail");
-                                }}
+                                onPress={() => navigation.replace("PlantDetail", { plant: item })}
                             >
                                 <PlantImage imageKey={item.imageKey} width={118} height={118} />
                             </TouchableOpacity>

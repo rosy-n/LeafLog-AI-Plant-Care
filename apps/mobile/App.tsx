@@ -294,7 +294,7 @@ export default function App() {
   }
 
   if (auth) {
-    return <MainApp />;
+    return <MainApp user={auth.user} />;
   }
 
   const frameStyle = {

@@ -21,6 +21,17 @@ export type PlantResponse = {
   created_at: string;
 };
 
+export type PlantListItem = {
+  id: number;
+  nickname: string;
+  common_name_ko: string | null;
+  location_name: string | null;
+  light_condition: string | null;
+  is_favorite: boolean;
+  status: string;
+  created_at: string;
+};
+
 // 로그인/회원가입 후 받은 액세스 토큰을 앱 전역에서 공유 (메모리 보관)
 let authToken: string | null = null;
 
@@ -90,6 +101,92 @@ export function createPlant(payload: NewPlantPayload) {
   return request<PlantResponse>("/api/plants", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+// 현재 로그인 사용자의 식물 목록 (토큰 자동 첨부)
+export function getPlants() {
+  return request<PlantListItem[]>("/api/plants");
+}
+
+export type PlantDetail = {
+  id: number;
+  nickname: string;
+  common_name_ko: string | null;
+  scientific_name: string | null;
+  status: string;
+  location_name: string | null;
+  light_condition: string | null;
+  pot_type: string | null;
+  pot_size: string | null;
+  soil_type: string | null;
+  height: string | null;
+  is_favorite: boolean;
+  started_at: string | null;
+  created_at: string;
+};
+
+// 특정 식물의 상세 정보 (토큰 자동 첨부)
+export function getPlant(plantId: number) {
+  return request<PlantDetail>(`/api/plants/${plantId}`);
+}
+
+export type PlantUpdate = {
+  nickname?: string;
+  status?: string;
+  location_name?: string | null;
+  pot_type?: string | null;
+  pot_size?: string | null;
+  height?: string | null;
+};
+
+// 식물 프로필 부분 수정 (토큰 자동 첨부)
+export function updatePlant(plantId: number, body: PlantUpdate) {
+  return request<PlantDetail>(`/api/plants/${plantId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export type CareSummary = {
+  last_watered_at: string | null;
+  days_since_watering: number | null;
+  last_repotted_at: string | null;
+  days_since_repotting: number | null;
+};
+
+// 특정 식물의 최근 물주기/분갈이 요약 (토큰 자동 첨부)
+export function getPlantCare(plantId: number) {
+  return request<CareSummary>(`/api/plants/${plantId}/care`);
+}
+
+export type CareRecordItem = {
+  id: number;
+  care_type: string;
+  completed_at: string;
+  note: string | null;
+};
+
+// 특정 식물의 관리 기록 목록 (care_type: WATERING | FERTILIZING | REPOTTING)
+export function getCareRecords(plantId: number, careType: string) {
+  return request<CareRecordItem[]>(
+    `/api/plants/${plantId}/care-records?care_type=${encodeURIComponent(careType)}`,
+  );
+}
+
+export function createCareRecord(
+  plantId: number,
+  body: { care_type: string; note?: string | null; completed_at?: string },
+) {
+  return request<CareRecordItem>(`/api/plants/${plantId}/care-records`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteCareRecord(plantId: number, recordId: number) {
+  return request<null>(`/api/plants/${plantId}/care-records/${recordId}`, {
+    method: "DELETE",
   });
 }
 

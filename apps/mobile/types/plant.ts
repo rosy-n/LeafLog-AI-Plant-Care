@@ -88,6 +88,7 @@ export interface NewPlantPayload {
   lightLevel: string;
   plantHeight: number;
   potDiameter: number;
+  potType: string;
   soilNote: string;
   lastWateredAt: string;
   lastRepottedAt: string | null;

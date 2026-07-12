@@ -29,12 +29,17 @@ export function useRouter() {
     },
     replace(to: RouterArg) {
       const pathname = typeof to === 'string' ? to : to.pathname;
+      const params = typeof to === 'string' ? undefined : to.params;
 
       if (pathname === '/') {
         // 등록 완료 → 메인 스택(MainStack)을 [Home, PlantDetail]로 리셋
+        // 방금 등록한 식물(params.plant)을 PlantDetail로 그대로 전달
         const mainStack = navigation.getParent('MainStack');
         (mainStack ?? navigation.getParent())?.dispatch(
-          CommonActions.reset({ index: 1, routes: [{ name: 'Home' }, { name: 'PlantDetail' }] })
+          CommonActions.reset({
+            index: 1,
+            routes: [{ name: 'Home' }, { name: 'PlantDetail', params }],
+          })
         );
       } else if (pathname === '/add-plant') {
         // 등록 재시작

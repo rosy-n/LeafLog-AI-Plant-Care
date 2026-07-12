@@ -24,6 +24,9 @@ const PLACEHOLDER_CHARACTER = require('../../assets/dot-character-placeholder.pn
 
 const LOCATIONS = ['거실', '침실', '베란다', '주방', '사무실'] as const;
 
+// 화분 종류 — plant.pot_type(자유 텍스트)에 라벨 그대로 저장
+const POT_TYPES = ['플라스틱', '토분', '도자기', '시멘트', '유리', '기타'] as const;
+
 // UI 한글 라벨 → 서버 enum 코드 (plant.location_name CHECK 제약과 일치)
 const LOCATION_CODES: Record<string, string> = {
   거실: 'LIVING_ROOM',
@@ -167,6 +170,7 @@ export default function InfoScreen() {
   const [lightLevel, setLightLevel] = useState<string | null>(null);
   const [plantHeight, setPlantHeight] = useState('');
   const [potDiameter, setPotDiameter] = useState('');
+  const [potType, setPotType] = useState<string | null>(null);
   const todayDate = new Date();
   const [lastWatered, setLastWatered] = useState<MonthDay>({
     month: todayDate.getMonth() + 1,
@@ -234,14 +238,25 @@ export default function InfoScreen() {
         lightLevel:        LIGHT_CODE_BY_LABEL[lightLevel!] ?? '',
         plantHeight:       Number(plantHeight) || 0,
         potDiameter:       Number(potDiameter) || 0,
+        potType:           potType ?? '',
         soilNote,
         lastWateredAt:     toISODate(lastWatered) ?? new Date().toISOString(),
         lastRepottedAt:    toISODate(lastRepotted),
       };
 
-      await createPlant(payload);
+      const created = await createPlant(payload);
 
-      router.replace('/');
+      // 등록 직후 열리는 PlantDetail이 방금 만든 식물을 표시하도록 전달
+      router.replace({
+        pathname: '/',
+        params: {
+          plant: {
+            id: String(created.id),
+            name: created.nickname,
+            createdAt: created.created_at,
+          },
+        },
+      });
     } catch (e: any) {
       Alert.alert('저장 실패', e.message ?? '다시 시도해주세요.');
     } finally {
@@ -341,6 +356,25 @@ export default function InfoScreen() {
         <View style={styles.section}>
           <SectionLabel text={`화분 지름${potDiameter ? ` — ${potDiameter}cm` : ''}`} />
           <Stepper value={potDiameter} onChange={setPotDiameter} unit="cm" max={100} />
+        </View>
+
+        {/* 화분 종류 */}
+        <View style={styles.section}>
+          <SectionLabel text="화분 종류는 무엇인가요?" />
+          <View style={styles.chipGroup}>
+            {POT_TYPES.map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={[styles.chip, potType === type && styles.chipActive]}
+                onPress={() => setPotType((prev) => (prev === type ? null : type))}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipLabel, potType === type && styles.chipLabelActive]}>
+                  {type}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* 날짜 (두 날짜 나란히) */}

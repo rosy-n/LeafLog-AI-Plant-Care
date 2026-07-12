@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -20,6 +20,7 @@ import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint, Soil, Shadow } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
+import { getCareRecords, createCareRecord, deleteCareRecord } from "../api";
 
 const SOIL_COLORS = [GreenTint.line, Soil.sand, Soil.peat, Soil.clay, Soil.water];
 
@@ -35,29 +36,32 @@ type RepottingRecord = {
 
 type ScreenView = "list" | "form" | "detail";
 
-const MOCK_RECORDS: RepottingRecord[] = [
-    {
-        id: "1",
-        date: "2025.03.15",
-        potSize: "12cm (4호)",
-        soilMix: [
-            { type: "배양토", ratio: "70" },
-            { type: "펄라이트", ratio: "30" },
-        ],
-        memo: "봄 분갈이. 뿌리가 화분 밖으로 많이 나와 있어 한 치수 큰 화분으로 옮겼음. 새 흙으로 완전 교체.",
-    },
-    {
-        id: "2",
-        date: "2024.09.02",
-        potSize: "10cm (3호)",
-        soilMix: [
-            { type: "배양토", ratio: "60" },
-            { type: "펄라이트", ratio: "20" },
-            { type: "마사토", ratio: "20" },
-        ],
-        memo: "여름 이후 첫 분갈이. 성장이 빠르게 진행됨.",
-    },
-];
+// 분갈이 기록은 care_record(care_type=REPOTTING)에 저장.
+// 전용 컬럼이 없는 화분크기/흙배합/메모는 note(TEXT)에 JSON으로 함께 보관.
+function encodeNote(potSize: string, soilMix: SoilEntry[], memo: string): string {
+    return JSON.stringify({ potSize, soilMix, memo });
+}
+
+function toRecord(item: { id: number; completed_at: string; note: string | null }): RepottingRecord {
+    let potSize = "";
+    let soilMix: SoilEntry[] = [];
+    let memo = "";
+    if (item.note) {
+        try {
+            const parsed = JSON.parse(item.note);
+            potSize = parsed.potSize ?? "";
+            soilMix = Array.isArray(parsed.soilMix) ? parsed.soilMix : [];
+            memo = parsed.memo ?? "";
+        } catch {
+            memo = item.note; // 과거/비정형 note는 메모로 취급
+        }
+    }
+    const d = new Date(item.completed_at);
+    const date = Number.isNaN(d.getTime())
+        ? item.completed_at
+        : `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+    return { id: String(item.id), date, potSize, soilMix, memo };
+}
 
 function RecordHeader({
     title,
@@ -71,11 +75,26 @@ function RecordHeader({
     );
 }
 
-export default function RepottingScreen({ navigation }: { navigation: any }) {
+export default function RepottingScreen({ navigation, route }: { navigation: any; route?: any }) {
+    const plant = route?.params?.plant;
+    const plantId = plant?.id ? Number(plant.id) : null;
+
     const [view, setView] = useState<ScreenView>("list");
-    const [records, setRecords] = useState<RepottingRecord[]>(MOCK_RECORDS);
+    const [records, setRecords] = useState<RepottingRecord[]>([]);
     const [selectedRecord, setSelectedRecord] = useState<RepottingRecord | null>(null);
     const [showCharacterModal, setShowCharacterModal] = useState(false);
+
+    // DB에서 이 식물의 분갈이(REPOTTING) 기록 로드
+    const loadRecords = useCallback(() => {
+        if (!plantId) return;
+        getCareRecords(plantId, "REPOTTING")
+            .then((items) => setRecords(items.map(toRecord)))
+            .catch((e) => console.warn("분갈이 기록 로드 실패:", e?.message));
+    }, [plantId]);
+
+    useEffect(() => {
+        loadRecords();
+    }, [loadRecords]);
 
     const [potSize, setPotSize] = useState("");
     const [soilMix, setSoilMix] = useState<SoilEntry[]>([{ type: "", ratio: "" }]);
@@ -103,19 +122,20 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
         setSoilMix(next);
     };
 
-    const saveRecord = () => {
-        const now = new Date();
-        const dateStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")}`;
-        const newRecord: RepottingRecord = {
-            id: Date.now().toString(),
-            date: dateStr,
-            potSize,
-            soilMix: soilMix.filter((e) => e.type.trim()),
-            memo,
-        };
-        setRecords([newRecord, ...records]);
-        resetForm();
-        setShowCharacterModal(true);
+    const saveRecord = async () => {
+        if (!plantId) {
+            Alert.alert("저장 실패", "식물 정보를 찾을 수 없어요.");
+            return;
+        }
+        const note = encodeNote(potSize, soilMix.filter((e) => e.type.trim()), memo);
+        try {
+            await createCareRecord(plantId, { care_type: "REPOTTING", note });
+            resetForm();
+            await loadRecords();
+            setShowCharacterModal(true);
+        } catch (e: any) {
+            Alert.alert("저장 실패", e?.message ?? "다시 시도해주세요.");
+        }
     };
 
     const handleCharacterChoice = () => {
@@ -123,8 +143,14 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
         setView("list");
     };
 
-    const deleteRecord = (id: string) => {
-        setRecords((prev) => prev.filter((r) => r.id !== id));
+    const deleteRecord = async (id: string) => {
+        if (!plantId) return;
+        try {
+            await deleteCareRecord(plantId, Number(id));
+            await loadRecords();
+        } catch (e: any) {
+            Alert.alert("삭제 실패", e?.message ?? "다시 시도해주세요.");
+        }
     };
 
     // ─── List View ────────────────────────────────────────────────────────────
