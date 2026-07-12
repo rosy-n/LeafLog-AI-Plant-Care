@@ -21,6 +21,7 @@ import {
 import {
   checkEmail,
   login,
+  setAuthToken,
   signup,
   type AuthResponse,
 } from "./src/api";
@@ -209,6 +210,7 @@ export default function App() {
     setIsSubmitting(true);
     try {
       const response = await login({ email, password: loginPassword });
+      setAuthToken(response.access_token);
       setAuth(response);
     } catch (error) {
       setFormErrors({
@@ -236,6 +238,7 @@ export default function App() {
         nickname: trimmedNickname,
         marketing_opt_in: agreeMarketing,
       });
+      setAuthToken(response.access_token);
       setAuth(response);
     } catch (error) {
       setFormErrors({

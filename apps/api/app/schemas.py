@@ -1,25 +1,24 @@
 import re
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 NICKNAME_PATTERN = re.compile(r"^[가-힣A-Za-z0-9]{2,10}$")
 
 
 class UserRead(BaseModel):
-    id: int
+    # app_user.user_id → 응답 키는 프론트 호환 위해 id 유지
+    id: int = Field(validation_alias=AliasChoices("user_id", "id"))
     email: str
     nickname: str
-    marketing_opt_in: bool
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class SignupRequest(BaseModel):
     email: str = Field(min_length=5, max_length=255)
     password: str = Field(min_length=8, max_length=128)
     nickname: str = Field(min_length=2, max_length=10)
-    marketing_opt_in: bool = False
 
     @field_validator("email")
     @classmethod
@@ -68,18 +67,22 @@ class AvailabilityResponse(BaseModel):
 
 
 class PlantCreate(BaseModel):
+    # 종 정보 (plant_species로 매핑)
     cntntsNo: str | None = None
     scientificName: str | None = None
     commonNameKo: str
+    # 개체 정보 (plant으로 매핑)
     nickname: str
-    characterImageUrl: str = ''
-    capturedPhotoUri: str = ''
-    location: str
-    lightLevel: str
+    location: str = ''
+    lightLevel: str = ''
     plantHeight: int = 0
     potDiameter: int = 0
     soilNote: str = ''
-    lastWateredAt: str
+    # 사진 (media_asset으로 매핑)
+    characterImageUrl: str = ''
+    capturedPhotoUri: str = ''
+    # care_record 소관이라 현재 4개 테이블에는 저장하지 않음 (수신만 허용)
+    lastWateredAt: str | None = None
     lastRepottedAt: str | None = None
 
 
@@ -90,12 +93,3 @@ class PlantRead(BaseModel):
     created_at: str
 
     model_config = {"from_attributes": True}
-
-    @classmethod
-    def from_plant(cls, plant: object) -> "PlantRead":
-        return cls(
-            id=plant.id,  # type: ignore[attr-defined]
-            nickname=plant.nickname,  # type: ignore[attr-defined]
-            common_name_ko=plant.common_name_ko,  # type: ignore[attr-defined]
-            created_at=plant.created_at.isoformat(),  # type: ignore[attr-defined]
-        )

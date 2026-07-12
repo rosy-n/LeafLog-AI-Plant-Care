@@ -14,11 +14,10 @@ import {
 import { Colors } from '../../constants/colors';
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
+import { createPlant } from '../../src/api';
 
 import { styles } from './styles/info.styles';
 import type { NewPlantPayload, NongsaroPlantDetail } from '../../types/plant';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 const PLACEHOLDER_CHARACTER = require('../../assets/dot-character-placeholder.png');
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -226,12 +225,7 @@ export default function InfoScreen() {
         lastRepottedAt:    toISODate(lastRepotted),
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/plants`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+      await createPlant(payload);
 
       router.replace('/');
     } catch (e: any) {
