@@ -49,6 +49,9 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     // 물 준 후 지난 일수 → 좌측 상단 ResourceCounter(💧 D+N)에 표시
     const [wateringDays, setWateringDays] = useState(null);
 
+    // 영양제 준 후 지난 일수 → 좌측 상단 ResourceCounter(✚ D+N)에 표시
+    const [nutrientDays, setNutrientDays] = useState(null);
+
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
 
@@ -58,10 +61,16 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
         let mounted = true;
         getPlantCare(Number(id))
             .then((care) => {
-                if (mounted) setWateringDays(care.days_since_watering);
+                if (mounted) {
+                    setWateringDays(care.days_since_watering);
+                    setNutrientDays(care.days_since_fertilizing);
+                }
             })
             .catch(() => {
-                if (mounted) setWateringDays(null);
+                if (mounted) {
+                    setWateringDays(null);
+                    setNutrientDays(null);
+                }
             });
         return () => {
             mounted = false;
@@ -126,7 +135,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
             >
                 <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
                     <View style={styles.resourceArea}>
-                        <ResourceCounter wateringDays={wateringDays} />
+                        <ResourceCounter wateringDays={wateringDays} nutrientDays={nutrientDays} />
                     </View>
 
                     <View style={styles.heartsArea}>

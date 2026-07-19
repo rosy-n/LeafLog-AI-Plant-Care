@@ -153,6 +153,8 @@ export function updatePlant(plantId: number, body: PlantUpdate) {
 export type CareSummary = {
   last_watered_at: string | null;
   days_since_watering: number | null;
+  last_fertilized_at: string | null;
+  days_since_fertilizing: number | null;
   last_repotted_at: string | null;
   days_since_repotting: number | null;
 };
