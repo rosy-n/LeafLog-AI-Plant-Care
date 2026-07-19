@@ -82,6 +82,9 @@ class PlantCreate(BaseModel):
     # 사진 (media_asset으로 매핑)
     characterImageUrl: str = ''
     capturedPhotoUri: str = ''
+    # S3 object_key/무결성용 체크섬(SHA-256 등) — 클라이언트가 업로드 시 계산해 전달. 없으면 서버가 임의 토큰 사용
+    characterChecksum: str = ''
+    photoChecksum: str = ''
     # care_record 소관이라 현재 4개 테이블에는 저장하지 않음 (수신만 허용)
     lastWateredAt: str | None = None
     lastRepottedAt: str | None = None
@@ -110,6 +113,7 @@ class PlantDetail(BaseModel):
     soil_type: str | None = None
     height: str | None = None
     is_favorite: bool = False
+    character_image_url: str | None = None
     started_at: str | None = None
     created_at: str
 
@@ -154,4 +158,5 @@ class PlantListItem(BaseModel):
     light_condition: str | None = None
     is_favorite: bool = False
     status: str = "ALIVE"
+    character_image_url: str | None = None
     created_at: str

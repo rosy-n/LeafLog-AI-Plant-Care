@@ -22,6 +22,7 @@ import { Colors, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import ScreenHeader from "../components/ScreenHeader";
 import { getPlant, updatePlant } from "../api";
+import { plantImages } from "../data/plants";
 
 // 서버 enum 코드 → 한글 표시
 const LOCATION_LABELS = {
@@ -168,7 +169,7 @@ export default function ProfileScreen({ navigation, route }) {
                     <View style={styles.leftArea}>
                         <View style={styles.plantCard}>
                             <Image
-                                source={require("../../assets/plants/spaghetti.png")}
+                                source={plant?.imageUri ? { uri: plant.imageUri } : plantImages[plant?.imageKey ?? "spaghetti"]}
                                 style={styles.plantImage}
                                 resizeMode="contain"
                             />

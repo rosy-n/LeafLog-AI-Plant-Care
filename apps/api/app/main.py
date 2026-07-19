@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from urllib.parse import unquote, urlparse
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .database import Base, engine, get_db
 from .models import AppUser, CareRecord, MediaAsset, Plant, PlantSpecies
+from .storage import presigned_get_url
 from .schemas import (
     AvailabilityResponse,
     AuthResponse,
@@ -45,6 +47,28 @@ PLANT_STATUSES = {"ALIVE", "SICK", "DEAD"}
 
 def _enum_or_none(value: str | None, allowed: set[str]) -> str | None:
     return value if value in allowed else None
+
+
+def _object_key_from_url(url: str) -> str:
+    """업로드된 S3 URL의 경로에서 object_key 추출.
+    가상 호스팅 스타일(https://{bucket}.s3.{region}.amazonaws.com/{key}) 및 CDN 도메인 기준 —
+    이 경우 URL 경로가 곧 object_key. (path-style: https://s3.../{bucket}/{key} 는 버킷명이 포함되니 주의)
+    파일명 규칙은 업로더(클라이언트)가 정하고, 백엔드는 실제 객체 경로를 그대로 기록한다."""
+    return unquote(urlparse(url).path).lstrip("/")
+
+
+def _latest_character_url(plant_id: int, db: Session) -> str | None:
+    """개체의 가장 최근 CHARACTER_IMAGE에 대한 presigned URL (실패 시 raw file_url)."""
+    row = db.execute(
+        select(MediaAsset.object_key, MediaAsset.file_url)
+        .where(MediaAsset.plant_id == plant_id, MediaAsset.asset_type == "CHARACTER_IMAGE")
+        .order_by(MediaAsset.created_at.desc())
+        .limit(1)
+    ).first()
+    if row is None:
+        return None
+    object_key, file_url = row
+    return presigned_get_url(object_key) or file_url
 
 
 def _parse_dt(value: str | None) -> datetime | None:
@@ -190,21 +214,25 @@ def create_plant(
     db.flush()
 
     # 3. 사진(media_asset) — 넘어온 것만 저장
+    #    object_key는 클라이언트가 업로드한 실제 S3 URL 경로에서 추출 → 실제 객체와 항상 일치
+    #    checksum(내용 해시)은 클라이언트가 계산해 전달하면 컬럼에 저장 (중복 감지/캐시 무효화용)
     if payload.capturedPhotoUri:
         db.add(MediaAsset(
             user_id=current_user.user_id,
             plant_id=plant.plant_id,
-            object_key=f"plant/{plant.plant_id}/photo",
+            object_key=_object_key_from_url(payload.capturedPhotoUri),
             file_url=payload.capturedPhotoUri,
             asset_type="PLANT_PHOTO",
+            checksum=payload.photoChecksum or None,
         ))
     if payload.characterImageUrl:
         db.add(MediaAsset(
             user_id=current_user.user_id,
             plant_id=plant.plant_id,
-            object_key=f"plant/{plant.plant_id}/character",
+            object_key=_object_key_from_url(payload.characterImageUrl),
             file_url=payload.characterImageUrl,
             asset_type="CHARACTER_IMAGE",
+            checksum=payload.characterChecksum or None,
         ))
 
     # 4. 최초 물주기/분갈이 기록 → care_record (넘어온 날짜만)
@@ -238,6 +266,21 @@ def list_plants(
         .order_by(Plant.created_at.desc())
     ).all()
 
+    # 캐릭터 이미지 URL — 개체별 최신 1건을 한 번의 쿼리로 모아 맵 구성 (N+1 방지)
+    plant_ids = [plant.plant_id for plant, _ in rows]
+    char_map: dict[int, str] = {}
+    if plant_ids:
+        char_rows = db.execute(
+            select(MediaAsset.plant_id, MediaAsset.object_key, MediaAsset.file_url)
+            .where(
+                MediaAsset.plant_id.in_(plant_ids),
+                MediaAsset.asset_type == "CHARACTER_IMAGE",
+            )
+            .order_by(MediaAsset.created_at.desc())
+        ).all()
+        for pid, object_key, file_url in char_rows:
+            char_map.setdefault(pid, presigned_get_url(object_key) or file_url)
+
     return [
         PlantListItem(
             id=plant.plant_id,
@@ -247,6 +290,7 @@ def list_plants(
             light_condition=plant.light_condition,
             is_favorite=plant.is_favorite,
             status=plant.status,
+            character_image_url=char_map.get(plant.plant_id),
             created_at=plant.created_at.isoformat(),
         )
         for plant, common_name_ko in rows
@@ -314,6 +358,7 @@ def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
         soil_type=plant.soil_type,
         height=plant.height,
         is_favorite=plant.is_favorite,
+        character_image_url=_latest_character_url(plant.plant_id, db),
         started_at=plant.started_at.isoformat() if plant.started_at else None,
         created_at=plant.created_at.isoformat(),
     )

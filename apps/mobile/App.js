@@ -36,7 +36,10 @@ function toGardenPlant(plant) {
         id: String(plant.id),
         name: plant.nickname,
         favorite: plant.is_favorite,
-        imageKey: undefined, // 도트 캐릭터(FLUX) 미구현 → PlantImage 기본 이미지로 fallback
+        // 캐릭터 이미지: S3 URL이 있으면 원격 사용, 없으면 번들 fallback
+        // (FLUX 미구현 fallback. "3호"는 URL 없을 때 test 번들 이미지로 표시 — 테스트용)
+        imageUri: plant.character_image_url ?? null,
+        imageKey: plant.nickname === "3호" ? "test" : undefined,
         hearts: PLACEHOLDER_HEARTS,
         memorial: plant.status === "DEAD",
         commonNameKo: plant.common_name_ko,
@@ -55,6 +58,7 @@ const imageAssets = [
     require("./assets/plants/sansevieria.png"),
     require("./assets/plants/pachira.png"),
     require("./assets/plants/myeongrani.png"),
+    require("./assets/plants/test.png"),
 
     require("./assets/items/level1_item.png"),
     require("./assets/items/level1_plants.png"),

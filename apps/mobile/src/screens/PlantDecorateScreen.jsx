@@ -16,6 +16,7 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint, Leaf, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
+import { plantImages } from "../data/plants";
 
 const ITEMS = [
     {
@@ -74,7 +75,8 @@ function getLevelProgressPercent(score, level) {
     return Math.min(((score - current) / (next - current)) * 100, 100);
 }
 
-export default function PlantDecorateScreen({ navigation, appliedItem, setAppliedItem }) {
+export default function PlantDecorateScreen({ navigation, route, appliedItem, setAppliedItem }) {
+    const plant = route?.params?.plant;
     const affinityScore = 725;
     const affinityLevel = getAffinityLevel(affinityScore);
     const progressPercent = getLevelProgressPercent(affinityScore, affinityLevel);
@@ -166,7 +168,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                             />
                         ) : (
                             <Image
-                                source={require("../../assets/plants/spaghetti.png")}
+                                source={plant?.imageUri ? { uri: plant.imageUri } : plantImages[plant?.imageKey ?? "spaghetti"]}
                                 style={styles.plantPreviewImage}
                                 resizeMode="contain"
                             />

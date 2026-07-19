@@ -271,7 +271,8 @@ const CONDITIONS = [
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function SensorDataScreen({ navigation }) {
+export default function SensorDataScreen({ navigation, route }) {
+    const plant = route?.params?.plant;
     const [period, setPeriod]     = useState("일");
     const [periodIdx, setPeriodIdx] = useState(0);
 
@@ -405,7 +406,7 @@ export default function SensorDataScreen({ navigation }) {
                                 style={styles.cardGradient}
                             >
                                 <View style={styles.summaryHeader}>
-                                    <PlantImage imageKey="spaghetti" width={48} height={48} />
+                                    <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={48} height={48} />
                                     <Text style={styles.cardTitle}>{summaryTitle}</Text>
                                 </View>
                                 <View style={styles.conditionRow}>
