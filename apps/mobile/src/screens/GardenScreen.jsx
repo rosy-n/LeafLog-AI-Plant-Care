@@ -283,7 +283,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
                                 activeOpacity={0.8}
                                 onPress={() => navigation.replace("PlantDetail", { plant: item })}
                             >
-                                <PlantImage imageKey={item.imageKey} width={118} height={118} />
+                                <PlantImage uri={item.imageUri} imageKey={item.imageKey} width={118} height={118} />
                             </TouchableOpacity>
 
                             <View style={styles.nameRow}>

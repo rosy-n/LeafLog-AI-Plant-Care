@@ -33,7 +33,8 @@ const MENU_ITEMS = [
 
 let heartIdCounter = 0;
 
-export default function MemorialPlantScreen({ navigation, appliedItem }) {
+export default function MemorialPlantScreen({ navigation, route, appliedItem }) {
+    const plant = route?.params?.plant;
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [graveModalVisible, setGraveModalVisible] = useState(false);
@@ -135,7 +136,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                                 resizeMode="contain"
                             />
                         ) : (
-                            <PlantImage imageKey="spaghetti" width={230} height={230} />
+                            <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={230} height={230} />
                         )}
 
                         <View style={styles.plantLabelGroup}>

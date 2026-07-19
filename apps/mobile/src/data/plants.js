@@ -5,4 +5,5 @@ export const plantImages = {
     sansevieria: require("../../assets/plants/sansevieria.png"),
     pachira: require("../../assets/plants/pachira.png"),
     myeongrani: require("../../assets/plants/myeongrani.png"),
+    test: require("../../assets/plants/test.png"),
 };

@@ -147,7 +147,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                 resizeMode="contain"
                             />
                         ) : (
-                            <PlantImage imageKey="spaghetti" width={230} height={230} />
+                            <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={230} height={230} />
                         )}
 
                         <View style={styles.plantLabelGroup}>

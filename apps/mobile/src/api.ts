@@ -29,6 +29,7 @@ export type PlantListItem = {
   light_condition: string | null;
   is_favorite: boolean;
   status: string;
+  character_image_url: string | null;
   created_at: string;
 };
 
@@ -122,6 +123,7 @@ export type PlantDetail = {
   soil_type: string | null;
   height: string | null;
   is_favorite: boolean;
+  character_image_url: string | null;
   started_at: string | null;
   created_at: string;
 };
