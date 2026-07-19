@@ -6,6 +6,9 @@ import {
     Text,
     StyleSheet,
     TouchableOpacity,
+    TextInput,
+    KeyboardAvoidingView,
+    Platform,
     Animated,
 } from "react-native";
 import { BlurView } from "expo-blur";
@@ -15,6 +18,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ResourceCounter from "../components/ResourceCounter";
+import ScreenHeader from "../components/ScreenHeader";
 import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
@@ -43,6 +47,16 @@ function daysSince(iso) {
 
 let dropIdCounter = 0;
 
+// TODO: Qwen 연동 전 임시 페르소나 응답 (식물이 1인칭으로 말하는 톤, 2~3문장)
+const PLANT_REPLIES = [
+    "헤헤, 그렇게 말해주니 잎이 반짝이는 것 같아! 오늘따라 기분이 참 좋아. 너도 좋은 하루 보내고 있어?",
+    "오늘은 햇빛을 듬뿍 받아서 아주 든든해. 창가에 두니까 잎마다 힘이 나는 기분이야. 이대로만 지내면 무럭무럭 자랄 것 같아!",
+    "조금 목이 마른 것 같기도 해. 그래도 아직은 견딜 만하니까 너무 걱정하지는 마. 흙이 바싹 마르면 그때 물 한 잔 부탁할게!",
+    "너랑 이야기하니까 하루가 훨씬 즐거워졌어. 이렇게 말 걸어줘서 정말 고마워. 앞으로도 자주 놀러 와 줄 거지?",
+    "요즘 나 조금씩 자라고 있는 거 느껴져? 새 잎이 돋을 생각에 벌써 설레. 천천히 지켜봐 주면 멋지게 클게!",
+    "음... 아직 말솜씨가 서툴러서 미안해. 그래도 네 마음은 잎끝까지 다 전해지고 있어. 곧 더 근사하게 대답할 수 있을 거야!",
+];
+
 export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     const plant = route?.params?.plant;
     const plantName = plant?.name ?? "스파게티";
@@ -60,6 +74,13 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     // 물주기 애니메이션 (식물 위로 떨어지는 물방울) + 진행 중 중복 탭 방지
     const [wateringDrops, setWateringDrops] = useState([]);
     const [isWatering, setIsWatering] = useState(false);
+
+    // 캐릭터 대화 모드 — 이 화면 위에서 말풍선/입력만 표시 (기록은 남기지 않음)
+    const [chatMode, setChatMode] = useState(false);
+    const [chatReply, setChatReply] = useState("");   // 캐릭터의 현재 대답
+    const [lastUserMsg, setLastUserMsg] = useState(""); // 사용자의 마지막 입력
+    const [chatInput, setChatInput] = useState("");
+    const replyIndexRef = useRef(0);
 
     useEffect(() => {
         const id = plant?.id;
@@ -174,6 +195,34 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
         setTimeout(() => setIsWatering(false), 1200);
     };
 
+    // 대화 모드 진입 — 메뉴가 열려 있으면 닫고 인사말로 시작
+    const openChat = () => {
+        if (menuOpen) closeMenu();
+        setLastUserMsg("");
+        setChatInput("");
+        setChatReply(`안녕! 나 ${plantName}야. 오늘도 만나서 반가워 🌿 뭐든 편하게 말 걸어줘!`);
+        setChatMode(true);
+    };
+
+    const closeChat = () => {
+        setChatMode(false);
+        setChatInput("");
+    };
+
+    // 사용자 입력 전송 — 마지막 입력만 표시하고 캐릭터 대답을 갱신 (기록은 저장 안 함)
+    // TODO: Qwen API 호출로 교체
+    const sendChat = () => {
+        const trimmed = chatInput.trim();
+        if (!trimmed) return;
+        setLastUserMsg(trimmed);
+        setChatInput("");
+        setTimeout(() => {
+            const reply = PLANT_REPLIES[replyIndexRef.current % PLANT_REPLIES.length];
+            replyIndexRef.current += 1;
+            setChatReply(reply);
+        }, 450);
+    };
+
     return (
         <View style={styles.root}>
             <ImageBackground
@@ -182,41 +231,49 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                 style={styles.background}
             >
                 <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-                    <View style={styles.resourceArea}>
-                        <ResourceCounter wateringDays={wateringDays} nutrientDays={nutrientDays} />
-                    </View>
-
-                    <View style={styles.heartsArea}>
-                        <HeartsRow count={5} size={25} />
-                    </View>
-
-                    <View style={styles.speechBubble}>
-                        <Text style={styles.speechText}>안녕! 좋은 아침이야</Text>
-                        <View style={styles.tailBorder} />
-                        <View style={styles.tailInner} />
-                    </View>
-
-                    <View style={styles.mainPlantArea}>
-                        {appliedItem ? (
-                            <Image
-                                source={appliedItem.plantImage}
-                                style={{ width: 230, height: 230 }}
-                                resizeMode="contain"
-                            />
-                        ) : (
-                            <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={230} height={230} />
-                        )}
-
-                        <View style={styles.plantLabelGroup}>
-                            <PixelOutlineText style={styles.plantName} strokeWidth={2}>
-                                {plantName}
-                            </PixelOutlineText>
-
-                            <PixelOutlineText style={styles.dayText} strokeWidth={2}>
-                                D+{togetherDays}
-                            </PixelOutlineText>
+                    {!chatMode && (
+                        <View style={styles.resourceArea}>
+                            <ResourceCounter wateringDays={wateringDays} nutrientDays={nutrientDays} />
                         </View>
-                    </View>
+                    )}
+
+                    {!chatMode && (
+                        <View style={styles.heartsArea}>
+                            <HeartsRow count={5} size={25} />
+                        </View>
+                    )}
+
+                    {!chatMode && (
+                        <View style={styles.speechBubble}>
+                            <Text style={styles.speechText}>안녕! 좋은 아침이야</Text>
+                            <View style={styles.tailBorder} />
+                            <View style={styles.tailInner} />
+                        </View>
+                    )}
+
+                    {!chatMode && (
+                        <View style={styles.mainPlantArea}>
+                            {appliedItem ? (
+                                <Image
+                                    source={appliedItem.plantImage}
+                                    style={{ width: 230, height: 230 }}
+                                    resizeMode="contain"
+                                />
+                            ) : (
+                                <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={230} height={230} />
+                            )}
+
+                            <View style={styles.plantLabelGroup}>
+                                <PixelOutlineText style={styles.plantName} strokeWidth={2}>
+                                    {plantName}
+                                </PixelOutlineText>
+
+                                <PixelOutlineText style={styles.dayText} strokeWidth={2}>
+                                    D+{togetherDays}
+                                </PixelOutlineText>
+                            </View>
+                        </View>
+                    )}
 
                     {/* 물주기 물방울 애니메이션 — 식물 위로 떨어짐 */}
                     <View pointerEvents="none" style={styles.wateringDropsOrigin}>
@@ -305,6 +362,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                         </View>
                     )}
 
+                    {!chatMode && (
                     <View style={styles.leftButtons}>
                         <LiquidGlassButton size={54} onPress={toggleMenu}>
                             <Ionicons
@@ -321,7 +379,9 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                             <Ionicons name="home-outline" size={30} color={GreenTint.deep} />
                         </LiquidGlassButton>
                     </View>
+                    )}
 
+                    {!chatMode && (
                     <View style={styles.rightButtons}>
                         <LiquidGlassButton
                             size={54}
@@ -334,8 +394,8 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                             />
                         </LiquidGlassButton>
 
-                        <LiquidGlassButton size={54}>
-                            <Ionicons name="bulb-outline" size={30} color={Leaf.olive} />
+                        <LiquidGlassButton size={54} onPress={openChat}>
+                            <Ionicons name="happy-outline" size={30} color={Leaf.olive} />
                         </LiquidGlassButton>
 
                         <LiquidGlassButton size={68} onPress={handleWaterPress}>
@@ -346,6 +406,78 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                             />
                         </LiquidGlassButton>
                     </View>
+                    )}
+
+                    {/* ── 캐릭터 대화 모드 오버레이 (flex 세로 배치로 키보드에 반응) ── */}
+                    {chatMode && (
+                        <KeyboardAvoidingView
+                            style={styles.chatOverlay}
+                            behavior={Platform.OS === "ios" ? "padding" : "height"}
+                        >
+                            {/* 상단 헤더 — 뒤로가기 + 식물 이름 */}
+                            <ScreenHeader title={plantName} onBack={closeChat} />
+
+                            {/* 캐릭터 대답 말풍선 (2~3문장 · 자동 높이) */}
+                            <View style={styles.chatReplyBubble}>
+                                <Text style={styles.chatReplyText}>{chatReply}</Text>
+                                <View style={styles.chatTailBorder} />
+                                <View style={styles.chatTailInner} />
+                            </View>
+
+                            {/* 캐릭터 — 처음부터 상단 고정 위치. 키보드가 올라와도 움직이지 않음 */}
+                            <View style={styles.chatCharacterArea}>
+                                {appliedItem ? (
+                                    <Image
+                                        source={appliedItem.plantImage}
+                                        style={styles.chatCharacterImage}
+                                        resizeMode="contain"
+                                    />
+                                ) : (
+                                    <PlantImage
+                                        uri={plant?.imageUri}
+                                        imageKey={plant?.imageKey ?? "spaghetti"}
+                                        width={190}
+                                        height={190}
+                                    />
+                                )}
+                            </View>
+
+                            {/* 남는 공간 — 키보드가 올라오면 이 영역만 줄어들어 캐릭터는 고정 */}
+                            <View style={styles.chatSpacer} />
+
+                            {/* 입력 영역 (사용자의 마지막 입력 + 입력창) */}
+                            <View style={styles.chatInputArea}>
+                                {lastUserMsg ? (
+                                    <View style={styles.userMsgRow}>
+                                        <View style={styles.userMsgBubble}>
+                                            <Text style={styles.userMsgText}>{lastUserMsg}</Text>
+                                        </View>
+                                    </View>
+                                ) : null}
+
+                                <View style={styles.chatInputBar}>
+                                    <TextInput
+                                        style={styles.chatInput}
+                                        value={chatInput}
+                                        onChangeText={setChatInput}
+                                        placeholder={`${plantName}에게 말 걸어보세요`}
+                                        placeholderTextColor={GreenTint.medium}
+                                        multiline
+                                        textAlignVertical="center"
+                                        onSubmitEditing={sendChat}
+                                    />
+                                    <TouchableOpacity
+                                        style={[styles.chatSendButton, !chatInput.trim() && styles.chatSendButtonDisabled]}
+                                        onPress={sendChat}
+                                        activeOpacity={0.8}
+                                        disabled={!chatInput.trim()}
+                                    >
+                                        <Ionicons name="arrow-up" size={20} color={Colors.white} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </KeyboardAvoidingView>
+                    )}
                 </SafeAreaView>
             </ImageBackground>
         </View>
@@ -499,6 +631,124 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: Spacing.lg,
         zIndex: 30,
+    },
+
+    // ── 캐릭터 대화 모드 ──────────────────────────────
+    // 전체 오버레이 — 세로 flex 배치 (말풍선 → 캐릭터 → 입력). 키보드에 반응해 재배치
+    chatOverlay: {
+        flex: 1,
+        zIndex: 50,
+    },
+    // 캐릭터 대답 말풍선 (2~3문장, 자동 높이)
+    chatReplyBubble: {
+        marginTop: Spacing.lg,
+        marginHorizontal: 20,
+        backgroundColor: Colors.white,
+        borderWidth: 4,
+        borderColor: Colors.textBlack,
+        paddingVertical: Spacing.lg,
+        paddingHorizontal: Spacing.lg,
+    },
+
+    // 캐릭터 영역 — 상단 고정 위치 (말풍선 아래). 키보드와 무관하게 그대로
+    chatCharacterArea: {
+        alignItems: "center",
+        justifyContent: "center",
+        marginTop: Spacing.section,
+    },
+    chatCharacterImage: {
+        width: 190,
+        height: 190,
+    },
+    // 캐릭터와 입력 사이 여백 — 키보드가 올라오면 이 영역만 줄어듦
+    chatSpacer: {
+        flex: 1,
+    },
+    chatReplyText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        lineHeight: 26,
+        color: Colors.textBlack,
+    },
+    chatTailBorder: {
+        position: "absolute",
+        bottom: -22,
+        left: "50%",
+        marginLeft: -15,
+        width: 31,
+        height: 31,
+        backgroundColor: Colors.textBlack,
+        transform: [{ rotate: "45deg" }],
+    },
+    chatTailInner: {
+        position: "absolute",
+        bottom: -14,
+        left: "50%",
+        marginLeft: -10,
+        width: 20,
+        height: 20,
+        backgroundColor: Colors.white,
+        transform: [{ rotate: "45deg" }],
+    },
+
+    // 입력 영역 (flex 컬럼 하단)
+    chatInputArea: {
+        paddingHorizontal: Spacing.lg,
+        paddingBottom: Platform.OS === "ios" ? 24 : 16,
+        gap: Spacing.md,
+    },
+    userMsgRow: {
+        alignItems: "flex-end",
+        marginBottom: Spacing.xs,
+    },
+    userMsgBubble: {
+        maxWidth: "80%",
+        backgroundColor: Colors.primary,
+        borderRadius: Radius.xl,
+        borderTopRightRadius: Radius.xs,
+        paddingVertical: Spacing.md,
+        paddingHorizontal: Spacing.lg,
+    },
+    userMsgText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        lineHeight: 24,
+        color: Colors.white,
+        includeFontPadding: false,
+    },
+    chatInputBar: {
+        flexDirection: "row",
+        alignItems: "flex-end",
+        backgroundColor: Colors.white,
+        borderRadius: Radius.xl,
+        borderWidth: 1,
+        borderColor: GreenTint.haze,
+        paddingLeft: Spacing.lg,
+        paddingRight: Spacing.xs,
+        paddingVertical: Spacing.xs,
+    },
+    chatInput: {
+        flex: 1,
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: GreenTint.deep,
+        minHeight: 34,
+        maxHeight: 90,
+        paddingVertical: Spacing.sm,
+        includeFontPadding: false,
+    },
+    chatSendButton: {
+        width: 34,
+        height: 34,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primary,
+        alignItems: "center",
+        justifyContent: "center",
+        marginLeft: Spacing.sm,
+        marginBottom: Spacing.xxs,
+    },
+    chatSendButtonDisabled: {
+        backgroundColor: GreenTint.line,
     },
 
     // 개체별탭 햄버거 버튼 디자인
