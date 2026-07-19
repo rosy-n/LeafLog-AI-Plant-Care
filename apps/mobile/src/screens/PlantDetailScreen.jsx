@@ -19,7 +19,7 @@ import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
-import { getPlantCare } from "../api";
+import { getPlantCare, createCareRecord } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Leaf, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
@@ -41,6 +41,8 @@ function daysSince(iso) {
     return Math.max(0, Math.floor((Date.now() - created) / 86400000));
 }
 
+let dropIdCounter = 0;
+
 export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     const plant = route?.params?.plant;
     const plantName = plant?.name ?? "스파게티";
@@ -54,6 +56,10 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
 
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+
+    // 물주기 애니메이션 (식물 위로 떨어지는 물방울) + 진행 중 중복 탭 방지
+    const [wateringDrops, setWateringDrops] = useState([]);
+    const [isWatering, setIsWatering] = useState(false);
 
     useEffect(() => {
         const id = plant?.id;
@@ -126,6 +132,48 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
         }
     };
 
+    // 물방울 하나를 생성해 아래로 떨어지며 사라지는 애니메이션 실행
+    const spawnDrop = () => {
+        const id = ++dropIdCounter;
+        const animValue = new Animated.Value(0);
+        const xOffset = (Math.random() - 0.5) * 130;
+        const scale = 0.7 + Math.random() * 0.6;
+
+        setWateringDrops((prev) => [...prev, { id, animValue, xOffset, scale }]);
+
+        Animated.timing(animValue, {
+            toValue: 1,
+            duration: 1100,
+            useNativeDriver: true,
+        }).start(() => {
+            setWateringDrops((prev) => prev.filter((d) => d.id !== id));
+        });
+    };
+
+    // 물주기 버튼: 물방울 애니메이션 + WATERING 관리 기록 저장 → 💧 D+N 갱신
+    const handleWaterPress = async () => {
+        if (isWatering) return;
+        setIsWatering(true);
+
+        for (let i = 0; i < 8; i++) {
+            setTimeout(spawnDrop, i * 110);
+        }
+
+        const id = plant?.id;
+        if (id) {
+            try {
+                await createCareRecord(Number(id), { care_type: "WATERING" });
+                const care = await getPlantCare(Number(id));
+                setWateringDays(care.days_since_watering);
+                setNutrientDays(care.days_since_fertilizing);
+            } catch (e) {
+                console.warn("물주기 기록 실패:", e?.message);
+            }
+        }
+
+        setTimeout(() => setIsWatering(false), 1200);
+    };
+
     return (
         <View style={styles.root}>
             <ImageBackground
@@ -168,6 +216,34 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                 D+{togetherDays}
                             </PixelOutlineText>
                         </View>
+                    </View>
+
+                    {/* 물주기 물방울 애니메이션 — 식물 위로 떨어짐 */}
+                    <View pointerEvents="none" style={styles.wateringDropsOrigin}>
+                        {wateringDrops.map((drop) => (
+                            <Animated.View
+                                key={drop.id}
+                                style={{
+                                    position: "absolute",
+                                    opacity: drop.animValue.interpolate({
+                                        inputRange: [0, 0.7, 1],
+                                        outputRange: [0.9, 0.9, 0],
+                                    }),
+                                    transform: [
+                                        {
+                                            translateY: drop.animValue.interpolate({
+                                                inputRange: [0, 1],
+                                                outputRange: [0, 150],
+                                            }),
+                                        },
+                                        { translateX: drop.xOffset },
+                                        { scale: drop.scale },
+                                    ],
+                                }}
+                            >
+                                <Text style={styles.dropEmoji}>💧</Text>
+                            </Animated.View>
+                        ))}
                     </View>
 
                     {menuVisible && (
@@ -262,7 +338,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                             <Ionicons name="bulb-outline" size={30} color={Leaf.olive} />
                         </LiquidGlassButton>
 
-                        <LiquidGlassButton size={68}>
+                        <LiquidGlassButton size={68} onPress={handleWaterPress}>
                             <MaterialCommunityIcons
                                 name="watering-can-outline"
                                 size={40}
@@ -364,6 +440,19 @@ const styles = StyleSheet.create({
         right: 0,
         alignItems: "center",
         zIndex: 5,
+    },
+
+    // 물주기 물방울 시작점 (식물 상단 부근, 아래로 낙하)
+    wateringDropsOrigin: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        top: 360,
+        alignItems: "center",
+        zIndex: 40,
+    },
+    dropEmoji: {
+        fontSize: FontSizes.display,
     },
     plantName: {
         fontFamily: Fonts.neoDunggeunmo,
