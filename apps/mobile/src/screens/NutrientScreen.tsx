@@ -544,6 +544,8 @@ const styles = StyleSheet.create({
         borderRadius: Radius.md,
         paddingHorizontal: Spacing.sm,
         paddingVertical: Spacing.xs,
+        alignItems: "center",
+        justifyContent: "center",
     },
     typeChip: {
         backgroundColor: Colors.fertilizer,
@@ -611,12 +613,14 @@ const styles = StyleSheet.create({
     detailLabel: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
+        lineHeight: 24,
         color: GreenTint.strong,
         includeFontPadding: false,
     },
     detailValue: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
+        lineHeight: 24,
         color: Colors.textBlack,
         includeFontPadding: false,
     },
