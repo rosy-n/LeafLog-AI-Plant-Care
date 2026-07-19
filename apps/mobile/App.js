@@ -17,6 +17,7 @@ import ConsultationStartScreen from "./src/screens/ConsultationStartScreen"
 import PlantDecorateScreen from "./src/screens/PlantDecorateScreen";
 import SensorDataScreen from "./src/screens/SensorDataScreen";
 import RepottingScreen from "./src/screens/RepottingScreen";
+import NutrientScreen from "./src/screens/NutrientScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import StoreScreen from "./src/screens/StoreScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
@@ -277,6 +278,11 @@ export default function MainApp({ user }) {
                 <Stack.Screen
                     name="Repotting"
                     component={RepottingScreen}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="Nutrient"
+                    component={NutrientScreen}
                     options={{ headerShown: false }}
                 />
                 <Stack.Screen

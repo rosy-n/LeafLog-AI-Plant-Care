@@ -37,7 +37,7 @@ function OutlineText({ children, style, strokeWidth = 2 }) {
     );
 }
 
-export default function ResourceCounter({ wateringDays }) {
+export default function ResourceCounter({ wateringDays, nutrientDays }) {
     return (
         <View style={styles.container}>
             <View style={styles.row}>
@@ -50,7 +50,7 @@ export default function ResourceCounter({ wateringDays }) {
             <View style={styles.row}>
                 <Text style={styles.nutrient}>✚</Text>
                 <OutlineText style={styles.text} strokeWidth={2}>
-                    D + 10
+                    D + {nutrientDays ?? 0}
                 </OutlineText>
             </View>
         </View>

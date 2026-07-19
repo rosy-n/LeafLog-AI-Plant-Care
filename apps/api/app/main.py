@@ -383,10 +383,13 @@ def plant_care_summary(
         )
 
     watered = latest("WATERING")
+    fertilized = latest("FERTILIZING")
     repotted = latest("REPOTTING")
     return CareSummary(
         last_watered_at=watered.isoformat() if watered else None,
         days_since_watering=_days_since(watered),
+        last_fertilized_at=fertilized.isoformat() if fertilized else None,
+        days_since_fertilizing=_days_since(fertilized),
         last_repotted_at=repotted.isoformat() if repotted else None,
         days_since_repotting=_days_since(repotted),
     )

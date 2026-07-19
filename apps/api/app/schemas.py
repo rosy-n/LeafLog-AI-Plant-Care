@@ -129,9 +129,11 @@ class PlantUpdate(BaseModel):
 
 
 class CareSummary(BaseModel):
-    # 최근 물주기/분갈이 기록 (care_record 기반) + 경과 일수
+    # 최근 물주기/영양제/분갈이 기록 (care_record 기반) + 경과 일수
     last_watered_at: str | None = None
     days_since_watering: int | None = None
+    last_fertilized_at: str | None = None
+    days_since_fertilizing: int | None = None
     last_repotted_at: str | None = None
     days_since_repotting: int | None = None
 
