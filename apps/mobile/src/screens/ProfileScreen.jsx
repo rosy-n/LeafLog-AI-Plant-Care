@@ -129,6 +129,33 @@ export default function ProfileScreen({ navigation, route }) {
         else startEdit();
     };
 
+    // 추억으로 이동: 상태를 DEAD(떠나보냄)로 변경하고 DB 반영 후 추억 화면으로 이동
+    const moveToMemorial = () => {
+        Alert.alert(
+            "추억으로 이동",
+            `${name}을(를) 떠나보내고 추억 공간으로 옮길까요?`,
+            [
+                { text: "취소", style: "cancel" },
+                {
+                    text: "이동",
+                    style: "destructive",
+                    onPress: async () => {
+                        const id = plant?.id;
+                        try {
+                            if (id) {
+                                const updated = await updatePlant(Number(id), { status: "DEAD" });
+                                setDetail(updated);
+                            }
+                            navigation.navigate("MemorialPlant", { plant });
+                        } catch (e) {
+                            Alert.alert("이동 실패", e?.message ?? "다시 시도해주세요.");
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
     const name = detail?.nickname ?? plant?.name ?? "-";
     const statusText = STATUS_LABELS[detail?.status] ?? "-";
     const heightText = detail?.height ? `${detail.height}cm` : "-";
@@ -257,7 +284,7 @@ export default function ProfileScreen({ navigation, route }) {
                 <TouchableOpacity
                     activeOpacity={0.85}
                     style={styles.memoryButton}
-                    onPress={() => navigation.navigate("MemorialPlant")}
+                    onPress={moveToMemorial}
                 >
                     <Text style={styles.memoryButtonText}>
                         나의 정원에서 추억으로 이동

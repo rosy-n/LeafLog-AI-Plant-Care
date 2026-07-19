@@ -329,6 +329,12 @@ def update_plant(
         if data["status"] not in PLANT_STATUSES:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="유효하지 않은 상태입니다.")
         plant.status = data["status"]
+        # 떠나보냄(DEAD) 전환 시 사망 시각 기록, 되살리면 해제
+        if data["status"] == "DEAD":
+            if plant.dead_at is None:
+                plant.dead_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        else:
+            plant.dead_at = None
     if "location_name" in data:
         plant.location_name = _enum_or_none(data["location_name"], LOCATION_NAMES)
     if "pot_type" in data:
