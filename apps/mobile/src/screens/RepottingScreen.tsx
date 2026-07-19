@@ -20,7 +20,7 @@ import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint, Soil, Shadow } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
-import { getCareRecords, createCareRecord, deleteCareRecord } from "../api";
+import { getCareRecords, createCareRecord, deleteCareRecord, updatePlant } from "../api";
 
 const SOIL_COLORS = [GreenTint.line, Soil.sand, Soil.peat, Soil.clay, Soil.water];
 
@@ -127,9 +127,14 @@ export default function RepottingScreen({ navigation, route }: { navigation: any
             Alert.alert("저장 실패", "식물 정보를 찾을 수 없어요.");
             return;
         }
+        const trimmedPotSize = potSize.trim();
         const note = encodeNote(potSize, soilMix.filter((e) => e.type.trim()), memo);
         try {
             await createCareRecord(plantId, { care_type: "REPOTTING", note });
+            // 분갈이 = 화분 교체이므로 입력한 화분 크기를 식물 프로필(pot_size)에 반영
+            if (trimmedPotSize) {
+                await updatePlant(plantId, { pot_size: trimmedPotSize });
+            }
             resetForm();
             await loadRecords();
             setShowCharacterModal(true);
