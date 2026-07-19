@@ -29,6 +29,7 @@ type SoilEntry = { type: string; ratio: string };
 type RepottingRecord = {
     id: string;
     date: string;
+    potType: string;
     potSize: string;
     soilMix: SoilEntry[];
     memo: string;
@@ -37,18 +38,20 @@ type RepottingRecord = {
 type ScreenView = "list" | "form" | "detail";
 
 // 분갈이 기록은 care_record(care_type=REPOTTING)에 저장.
-// 전용 컬럼이 없는 화분크기/흙배합/메모는 note(TEXT)에 JSON으로 함께 보관.
-function encodeNote(potSize: string, soilMix: SoilEntry[], memo: string): string {
-    return JSON.stringify({ potSize, soilMix, memo });
+// 전용 컬럼이 없는 화분종류/화분크기/흙배합/메모는 note(TEXT)에 JSON으로 함께 보관.
+function encodeNote(potType: string, potSize: string, soilMix: SoilEntry[], memo: string): string {
+    return JSON.stringify({ potType, potSize, soilMix, memo });
 }
 
 function toRecord(item: { id: number; completed_at: string; note: string | null }): RepottingRecord {
+    let potType = "";
     let potSize = "";
     let soilMix: SoilEntry[] = [];
     let memo = "";
     if (item.note) {
         try {
             const parsed = JSON.parse(item.note);
+            potType = parsed.potType ?? "";
             potSize = parsed.potSize ?? "";
             soilMix = Array.isArray(parsed.soilMix) ? parsed.soilMix : [];
             memo = parsed.memo ?? "";
@@ -60,7 +63,7 @@ function toRecord(item: { id: number; completed_at: string; note: string | null 
     const date = Number.isNaN(d.getTime())
         ? item.completed_at
         : `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
-    return { id: String(item.id), date, potSize, soilMix, memo };
+    return { id: String(item.id), date, potType, potSize, soilMix, memo };
 }
 
 function RecordHeader({
@@ -96,11 +99,13 @@ export default function RepottingScreen({ navigation, route }: { navigation: any
         loadRecords();
     }, [loadRecords]);
 
+    const [potType, setPotType] = useState("");
     const [potSize, setPotSize] = useState("");
     const [soilMix, setSoilMix] = useState<SoilEntry[]>([{ type: "", ratio: "" }]);
     const [memo, setMemo] = useState("");
 
     const resetForm = () => {
+        setPotType("");
         setPotSize("");
         setSoilMix([{ type: "", ratio: "" }]);
         setMemo("");
@@ -127,13 +132,17 @@ export default function RepottingScreen({ navigation, route }: { navigation: any
             Alert.alert("저장 실패", "식물 정보를 찾을 수 없어요.");
             return;
         }
+        const trimmedPotType = potType.trim();
         const trimmedPotSize = potSize.trim();
-        const note = encodeNote(potSize, soilMix.filter((e) => e.type.trim()), memo);
+        const note = encodeNote(potType, potSize, soilMix.filter((e) => e.type.trim()), memo);
         try {
             await createCareRecord(plantId, { care_type: "REPOTTING", note });
-            // 분갈이 = 화분 교체이므로 입력한 화분 크기를 식물 프로필(pot_size)에 반영
-            if (trimmedPotSize) {
-                await updatePlant(plantId, { pot_size: trimmedPotSize });
+            // 분갈이 = 화분 교체이므로 입력한 화분 종류/크기를 식물 프로필에 반영
+            const potPatch: { pot_type?: string; pot_size?: string } = {};
+            if (trimmedPotType) potPatch.pot_type = trimmedPotType;
+            if (trimmedPotSize) potPatch.pot_size = trimmedPotSize;
+            if (Object.keys(potPatch).length > 0) {
+                await updatePlant(plantId, potPatch);
             }
             resetForm();
             await loadRecords();
@@ -276,6 +285,17 @@ export default function RepottingScreen({ navigation, route }: { navigation: any
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={styles.scrollContent}
                     >
+                        {/* 화분 종류 */}
+                        <View style={styles.card}>
+                            <View style={styles.cardTitleRow}>
+                                <Ionicons name="cube-outline" size={18} color={GreenTint.strong} />
+                                <Text style={styles.cardTitle}>화분 종류</Text>
+                            </View>
+                            <Text style={styles.cardValueLarge}>
+                                {selectedRecord.potType || "—"}
+                            </Text>
+                        </View>
+
                         {/* 화분 크기 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
@@ -380,6 +400,22 @@ export default function RepottingScreen({ navigation, route }: { navigation: any
                         contentContainerStyle={styles.scrollContent}
                         keyboardShouldPersistTaps="handled"
                     >
+                        {/* 화분 종류 */}
+                        <View style={styles.card}>
+                            <View style={styles.cardTitleRow}>
+                                <Ionicons name="cube-outline" size={18} color={GreenTint.strong} />
+                                <Text style={styles.cardTitle}>화분 종류</Text>
+                            </View>
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder="예: 토분, 플라스틱, 도자기"
+                                placeholderTextColor={Colors.textFaint}
+                                value={potType}
+                                onChangeText={setPotType}
+                                maxLength={30}
+                            />
+                        </View>
+
                         {/* 화분 크기 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
