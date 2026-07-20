@@ -13,6 +13,23 @@ export type AvailabilityResponse = {
   available: boolean;
 };
 
+export type PlantImagePreprocessResponse = {
+  canvas_size: number;
+  sdxl_input_png_base64: string;
+  transparent_png_base64: string;
+};
+
+export type BackgroundRemovalResponse = {
+  canvas_size: number;
+  transparent_png_base64: string;
+};
+
+export type UploadableImage = {
+  uri: string;
+  name?: string;
+  type?: string;
+};
+
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
   "http://localhost:8000";
@@ -53,6 +70,46 @@ async function request<T>(
   return data as T;
 }
 
+async function requestForm<T>(path: string, formData: FormData): Promise<T> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      body: formData,
+    });
+  } catch {
+    throw new Error(
+      "서버에 연결할 수 없습니다. 백엔드 서버와 API 주소를 확인해주세요.",
+    );
+  }
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const detail = data?.detail;
+    const message =
+      typeof detail === "string"
+        ? detail
+        : Array.isArray(detail) && typeof detail[0]?.msg === "string"
+          ? detail[0].msg.replace(/^Value error,\s*/, "")
+          : "이미지 처리 중 오류가 발생했습니다.";
+    throw new Error(message);
+  }
+
+  return data as T;
+}
+
+function createImageFormData(image: UploadableImage): FormData {
+  const formData = new FormData();
+  formData.append("file", {
+    uri: image.uri,
+    name: image.name || "plant-photo.jpg",
+    type: image.type || "image/jpeg",
+  } as unknown as Blob);
+  return formData;
+}
+
 export function signup(payload: {
   email: string;
   password: string;
@@ -75,5 +132,27 @@ export function login(payload: { email: string; password: string }) {
 export function checkEmail(email: string) {
   return request<AvailabilityResponse>(
     `/auth/check-email?email=${encodeURIComponent(email)}`,
+  );
+}
+
+export function preprocessPlantImage(
+  image: UploadableImage,
+  canvasSize = 1024,
+  qualityMode: "fast" | "quality" = "quality",
+) {
+  return requestForm<PlantImagePreprocessResponse>(
+    `/images/preprocess-plant?canvas_size=${canvasSize}&quality_mode=${qualityMode}`,
+    createImageFormData(image),
+  );
+}
+
+export function removeGeneratedImageBackground(
+  image: UploadableImage,
+  canvasSize = 1024,
+  qualityMode: "fast" | "quality" = "quality",
+) {
+  return requestForm<BackgroundRemovalResponse>(
+    `/images/remove-background?canvas_size=${canvasSize}&quality_mode=${qualityMode}`,
+    createImageFormData(image),
   );
 }

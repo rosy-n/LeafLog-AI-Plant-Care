@@ -67,6 +67,17 @@ class AvailabilityResponse(BaseModel):
     available: bool
 
 
+class PlantImagePreprocessResponse(BaseModel):
+    canvas_size: int
+    sdxl_input_png_base64: str
+    transparent_png_base64: str
+
+
+class BackgroundRemovalResponse(BaseModel):
+    canvas_size: int
+    transparent_png_base64: str
+
+
 class PlantCreate(BaseModel):
     cntntsNo: str | None = None
     scientificName: str | None = None

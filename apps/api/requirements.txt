@@ -6,3 +6,7 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 python-jose[cryptography]==3.4.0
 pydantic==2.11.4
+python-multipart==0.0.20
+pillow==11.2.1
+rembg==2.0.67
+onnxruntime==1.22.0
