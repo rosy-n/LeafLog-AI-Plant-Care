@@ -1,7 +1,7 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, Image, StyleSheet } from "react-native";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint } from "../../constants/colors";
+import { Colors } from "../../constants/colors";
 import { Spacing } from "../../constants/spacing";
 
 const STROKE_DIRS = [
@@ -41,14 +41,22 @@ export default function ResourceCounter({ wateringDays, nutrientDays }) {
     return (
         <View style={styles.container}>
             <View style={styles.row}>
-                <Text style={styles.drop}>💧</Text>
+                <Image
+                    source={require("../../assets/icons/water_icon.png")}
+                    style={styles.icon}
+                    resizeMode="contain"
+                />
                 <OutlineText style={styles.text} strokeWidth={2}>
                     D + {wateringDays ?? 0}
                 </OutlineText>
             </View>
 
             <View style={styles.row}>
-                <Text style={styles.nutrient}>✚</Text>
+                <Image
+                    source={require("../../assets/icons/nutrients_icon.png")}
+                    style={styles.icon}
+                    resizeMode="contain"
+                />
                 <OutlineText style={styles.text} strokeWidth={2}>
                     D + {nutrientDays ?? 0}
                 </OutlineText>
@@ -68,20 +76,10 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
 
-    drop: {
+    icon: {
         width: 38,
-        fontSize: FontSizes.display,
+        height: 38,
         marginRight: Spacing.sm,
-    },
-
-    nutrient: {
-        width: 38,
-        fontSize: FontSizes.display,
-        marginRight: Spacing.sm,
-        color: Colors.nutrient,
-        textShadowColor: GreenTint.deep,
-        textShadowOffset: { width: 2, height: 2 },
-        textShadowRadius: 0,
     },
 
     outlineWrapper: {

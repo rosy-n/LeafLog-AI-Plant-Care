@@ -301,7 +301,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
                                 </TouchableOpacity>
                             </View>
 
-                            <HeartsRow count={item.hearts} size={17} />
+                            <HeartsRow count={item.hearts} size={15} />
                         </View>
                     )}
                 />

@@ -96,7 +96,11 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                         onPress={() => navigation.navigate("Notifications")}
                     >
                         <View>
-                            <Ionicons name="notifications" size={44} color={Colors.coin} />
+                            <Image
+                                source={require("../../assets/icons/notification_icon.png")}
+                                style={styles.notificationIcon}
+                                resizeMode="contain"
+                            />
                             {hasUnread && <View style={styles.redDot} />}
                         </View>
                     </GlassButton>
@@ -208,10 +212,14 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                 {/* 좌측 하단: 햄버거 */}
                 <View style={styles.menuArea}>
                     <GlassButton size={60} onPress={toggleMenu}>
-                        <Ionicons
-                            name={menuOpen ? "close" : "menu"}
-                            size={36}
-                            color={Colors.textBlack}
+                        <Image
+                            source={
+                                menuOpen
+                                    ? require("../../assets/icons/close_icon.png")
+                                    : require("../../assets/icons/hamburger_icon.png")
+                            }
+                            style={styles.menuIcon}
+                            resizeMode="contain"
                         />
                     </GlassButton>
                 </View>
@@ -219,11 +227,19 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                 {/* 우측 하단: 캘린더, 메모, 전체개체 */}
                 <View style={styles.rightButtonArea}>
                     <GlassButton size={60} onPress={() => navigation.navigate("Calendar")}>
-                        <Ionicons name="calendar" size={36} color={Aqua.mid} />
+                        <Image
+                            source={require("../../assets/icons/calendar_icon.png")}
+                            style={styles.calendarIcon}
+                            resizeMode="contain"
+                        />
                     </GlassButton>
 
                     <GlassButton size={60}>
-                        <Ionicons name="create-outline" size={35} color={Aqua.muted} />
+                        <Image
+                            source={require("../../assets/icons/diary_icon.png")}
+                            style={styles.diaryIcon}
+                            resizeMode="contain"
+                        />
                     </GlassButton>
 
                     <GlassButton
@@ -329,6 +345,10 @@ const styles = StyleSheet.create({
         right: 20,
         zIndex: 50,
     },
+    notificationIcon: {
+        width: 44,
+        height: 44,
+    },
     redDot: {
         position: "absolute",
         top: -5,
@@ -385,6 +405,18 @@ const styles = StyleSheet.create({
         left: 20,
         bottom: 54,
         zIndex: 50,
+    },
+    menuIcon: {
+        width: 36,
+        height: 36,
+    },
+    calendarIcon: {
+        width: 36,
+        height: 36,
+    },
+    diaryIcon: {
+        width: 35,
+        height: 35,
     },
     rightButtonArea: {
         position: "absolute",
