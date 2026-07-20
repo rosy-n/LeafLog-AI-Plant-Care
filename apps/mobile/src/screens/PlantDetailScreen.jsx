@@ -14,7 +14,7 @@ import {
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ResourceCounter from "../components/ResourceCounter";
@@ -25,7 +25,7 @@ import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import { getPlantCare, createCareRecord } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Leaf, Accent, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const MENU_ITEMS = [
@@ -365,10 +365,14 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                     {!chatMode && (
                     <View style={styles.leftButtons}>
                         <LiquidGlassButton size={54} onPress={toggleMenu}>
-                            <Ionicons
-                                name={menuOpen ? "close" : "menu"}
-                                size={30}
-                                color={GreenTint.deep}
+                            <Image
+                                source={
+                                    menuOpen
+                                        ? require("../../assets/icons/close_icon.png")
+                                        : require("../../assets/icons/hamburger_icon.png")
+                                }
+                                style={styles.buttonIcon}
+                                resizeMode="contain"
                             />
                         </LiquidGlassButton>
 
@@ -376,7 +380,11 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                             size={54}
                             onPress={() => navigation.navigate("Home")}
                         >
-                            <Ionicons name="home-outline" size={30} color={GreenTint.deep} />
+                            <Image
+                                source={require("../../assets/icons/home_icon.png")}
+                                style={styles.buttonIcon}
+                                resizeMode="contain"
+                            />
                         </LiquidGlassButton>
                     </View>
                     )}
@@ -387,22 +395,26 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                             size={54}
                             onPress={() => navigation.navigate("ConsultationHistory")}
                         >
-                            <Ionicons
-                                name="chatbubble-ellipses-outline"
-                                size={29}
-                                color={GreenTint.strong}
+                            <Image
+                                source={require("../../assets/icons/counsel_icon.png")}
+                                style={styles.buttonIcon}
+                                resizeMode="contain"
                             />
                         </LiquidGlassButton>
 
                         <LiquidGlassButton size={54} onPress={openChat}>
-                            <Ionicons name="happy-outline" size={30} color={Leaf.olive} />
+                            <Image
+                                source={require("../../assets/icons/chat_icon.png")}
+                                style={styles.buttonIcon}
+                                resizeMode="contain"
+                            />
                         </LiquidGlassButton>
 
                         <LiquidGlassButton size={68} onPress={handleWaterPress}>
-                            <MaterialCommunityIcons
-                                name="watering-can-outline"
-                                size={40}
-                                color={Accent.brownDeep}
+                            <Image
+                                source={require("../../assets/icons/watering_icon.png")}
+                                style={styles.buttonIconLarge}
+                                resizeMode="contain"
                             />
                         </LiquidGlassButton>
                     </View>
@@ -615,6 +627,15 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.title,
         color: Colors.white,
         ...pixelShadow,
+    },
+
+    buttonIcon: {
+        width: 30,
+        height: 30,
+    },
+    buttonIconLarge: {
+        width: 40,
+        height: 40,
     },
 
     leftButtons: {
