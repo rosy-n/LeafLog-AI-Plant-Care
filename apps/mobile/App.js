@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { useFonts } from "expo-font";
+import { Fonts } from "./constants/fonts";
 import { Asset } from "expo-asset";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -16,15 +17,36 @@ import ConsultationStartScreen from "./src/screens/ConsultationStartScreen"
 import PlantDecorateScreen from "./src/screens/PlantDecorateScreen";
 import SensorDataScreen from "./src/screens/SensorDataScreen";
 import RepottingScreen from "./src/screens/RepottingScreen";
+import NutrientScreen from "./src/screens/NutrientScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import StoreScreen from "./src/screens/StoreScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
 import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
 import AddPlantNavigator from "./src/screens/AddPlantNavigator";
-import { gardenPlants } from "./src/data/plants";
+import { getPlants } from "./src/api";
 
 const Stack = createNativeStackNavigator();
+
+// 아직 미구현인 값의 임시 표시 — 나중에 실제 기능 연결 시 교체
+const PLACEHOLDER_HEARTS = 5; // 호감도: care_record 기능 연결 전 임시 고정
+
+// DB 식물 → 정원 UI 형태로 변환
+function toGardenPlant(plant) {
+    return {
+        id: String(plant.id),
+        name: plant.nickname,
+        favorite: plant.is_favorite,
+        // 캐릭터 이미지: S3 URL이 있으면 원격 사용, 없으면 번들 fallback
+        // (FLUX 미구현 fallback. "3호"는 URL 없을 때 test 번들 이미지로 표시 — 테스트용)
+        imageUri: plant.character_image_url ?? null,
+        imageKey: plant.nickname === "3호" ? "test" : undefined,
+        hearts: PLACEHOLDER_HEARTS,
+        memorial: plant.status === "DEAD",
+        commonNameKo: plant.common_name_ko,
+        createdAt: plant.created_at,
+    };
+}
 
 const imageAssets = [
     require("./assets/images/home-bg.png"),
@@ -37,6 +59,7 @@ const imageAssets = [
     require("./assets/plants/sansevieria.png"),
     require("./assets/plants/pachira.png"),
     require("./assets/plants/myeongrani.png"),
+    require("./assets/plants/test.png"),
 
     require("./assets/items/level1_item.png"),
     require("./assets/items/level1_plants.png"),
@@ -58,10 +81,10 @@ async function preloadImages() {
     await Promise.all(cacheImages);
 }
 
-export default function MainApp() {
-    const [plants, setPlants] = useState(gardenPlants);
+export default function MainApp({ user }) {
+    const [plants, setPlants] = useState([]);
     const [appliedItem, setAppliedItem] = useState(null);
-    const [username, setUsername] = useState("식물집사");
+    const [username, setUsername] = useState(user?.nickname ?? "식물집사");
     const [imagesLoaded, setImagesLoaded] = useState(false);
     const [coins, setCoins] = useState(450);
     const [purchasedBgs, setPurchasedBgs] = useState([]);
@@ -106,9 +129,24 @@ export default function MainApp() {
     ]);
 
     const [fontsLoaded] = useFonts({
-        NeoDunggeunmo: require("./assets/fonts/NeoDunggeunmoPro-Regular.ttf"),
-        NanumSquareNeo: require("./assets/fonts/NanumSquareNeo-cBd.ttf"),
+        [Fonts.neoDunggeunmo]: require("./assets/fonts/NeoDunggeunmoPro-Regular.ttf"),
+        [Fonts.nanumSquareNeo.light]: require("./assets/fonts/NanumSquareNeo-aLt.ttf"),
+        [Fonts.nanumSquareNeo.regular]: require("./assets/fonts/NanumSquareNeo-bRg.ttf"),
+        [Fonts.nanumSquareNeo.bold]: require("./assets/fonts/NanumSquareNeo-cBd.ttf"),
+        [Fonts.nanumSquareNeo.extraBold]: require("./assets/fonts/NanumSquareNeo-dEb.ttf"),
+        [Fonts.nanumSquareNeo.heavy]: require("./assets/fonts/NanumSquareNeo-eHv.ttf"),
     });
+
+    // DB에서 현재 사용자의 식물 목록 로드 (정원 진입 시 갱신도 이 함수 재사용)
+    const loadPlants = useCallback(() => {
+        getPlants()
+            .then((rows) => setPlants(rows.map(toGardenPlant)))
+            .catch((error) => console.warn("식물 목록 로드 실패:", error?.message));
+    }, []);
+
+    useEffect(() => {
+        loadPlants();
+    }, [loadPlants]);
 
     useEffect(() => {
         let mounted = true;
@@ -183,6 +221,7 @@ export default function MainApp() {
                             plants={plants}
                             setPlants={setPlants}
                             username={username}
+                            reloadPlants={loadPlants}
                         />
                     )}
                 </Stack.Screen>
@@ -239,6 +278,11 @@ export default function MainApp() {
                 <Stack.Screen
                     name="Repotting"
                     component={RepottingScreen}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="Nutrient"
+                    component={NutrientScreen}
                     options={{ headerShown: false }}
                 />
                 <Stack.Screen

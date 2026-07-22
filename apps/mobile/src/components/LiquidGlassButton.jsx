@@ -1,5 +1,7 @@
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { Leaf, Glass } from "../../constants/colors";
+import { Radius } from "../../constants/spacing";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -35,9 +37,9 @@ export default function LiquidGlassButton({
             >
                 <LinearGradient
                     colors={[
-                        "rgba(255,255,255,0.68)",
-                        "rgba(230,246,220,0.50)",
-                        "rgba(207,232,197,0.36)",
+                        Glass.frost72,
+                        Glass.mist,
+                        Glass.mistSoft,
                     ]}
                     start={{ x: 0.12, y: 0.05 }}
                     end={{ x: 0.9, y: 1 }}
@@ -59,7 +61,7 @@ export default function LiquidGlassButton({
 const styles = StyleSheet.create({
     touch: {
         overflow: "hidden",
-        shadowColor: "#385236",
+        shadowColor: Leaf.forest,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.18,
         shadowRadius: 5,
@@ -69,14 +71,14 @@ const styles = StyleSheet.create({
         flex: 1,
         overflow: "hidden",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.68)",
+        borderColor: Glass.frost72,
     },
     gradient: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 0.8,
-        borderColor: "rgba(255,255,255,0.45)",
+        borderColor: Glass.frost45,
     },
     highlight: {
         position: "absolute",
@@ -84,8 +86,8 @@ const styles = StyleSheet.create({
         left: 10,
         width: "38%",
         height: "20%",
-        borderRadius: 99,
-        backgroundColor: "rgba(255,255,255,0.60)",
+        borderRadius: Radius.pill,
+        backgroundColor: Glass.frost60,
     },
     content: {
         alignItems: "center",

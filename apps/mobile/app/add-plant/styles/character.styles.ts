@@ -1,6 +1,7 @@
 import { Dimensions, StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
+import { Spacing, Radius } from '../../../constants/spacing';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 // 3:4 portrait 이미지 — iPhone SE(667pt)까지 화면 넘침 없도록 140pt 상한 적용
@@ -17,9 +18,9 @@ export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.huge,
   },
 
   spacer: { flex: 1 },
@@ -28,20 +29,20 @@ export const styles = StyleSheet.create({
 
   introSubtitle: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 20,
+    marginBottom: Spacing.xl,
   },
 
   charSampleWrap: {
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
   charTopRow: {
     flexDirection: 'row',
-    gap: 24,
+    gap: Spacing.xxl,
   },
   // 원본이 3:4 portrait(1792×2388, 768×1024)이므로 높이를 4/3 비율로 설정
   charSampleImg: {
@@ -57,43 +58,43 @@ export const styles = StyleSheet.create({
   btnRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
 
   // ── Guide ──────────────────────────────────────────────────────────────────
 
   guideScreen: {
     backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.xxl,
   },
 
   guideFooter: {
     backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    paddingTop: 12,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.huge,
+    paddingTop: Spacing.md,
   },
 
   guideCategory: {
-    marginBottom: 24,
+    marginBottom: Spacing.xxl,
   },
 
   guideCategoryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   guideCategoryLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
   },
 
   guideCard: {
     backgroundColor: Colors.white,
-    borderRadius: 14,
+    borderRadius: Radius.lg,
     overflow: 'hidden',
     flexDirection: 'row',
     borderLeftWidth: 4,
@@ -109,36 +110,36 @@ export const styles = StyleSheet.create({
   },
   guideCardTextWrap: {
     flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     justifyContent: 'center',
-    gap: 6,
+    gap: Spacing.sm,
   },
   guidePoint: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
     lineHeight: 20,
   },
 
   badExampleRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: Spacing.md,
   },
   badExampleItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.sm,
   },
   badExampleImg: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 10,
+    borderRadius: Radius.md,
     backgroundColor: Colors.primaryLight,
   },
   badExampleLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 11,
+    fontSize: FontSizes.small,
     color: Colors.textGray,
     textAlign: 'center',
   },
@@ -147,13 +148,13 @@ export const styles = StyleSheet.create({
 
   previewImage: {
     flex: 1,
-    borderRadius: 16,
-    marginBottom: 24,
+    borderRadius: Radius.lg,
+    marginBottom: Spacing.xxl,
     backgroundColor: Colors.primaryLight,
   },
   rowBtns: {
     flexDirection: 'row',
-    gap: 12,
+    gap: Spacing.md,
   },
   btn: { flex: 1 },
 
@@ -161,20 +162,20 @@ export const styles = StyleSheet.create({
 
   primaryBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
   outlineBtn: {
     backgroundColor: Colors.white,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.lg,
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: Colors.primary,
@@ -182,7 +183,7 @@ export const styles = StyleSheet.create({
   outlineBtnText: {
     color: Colors.primary,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
 
   // ── Generating ─────────────────────────────────────────────────────────────
@@ -190,33 +191,33 @@ export const styles = StyleSheet.create({
   generatingContainer: {
     flex: 1,
     backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.huge,
   },
   generatingTitle: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 22,
+    fontSize: FontSizes.title,
     color: Colors.textBlack,
     lineHeight: 32,
-    marginBottom: 32,
+    marginBottom: Spacing.xxxl,
     textAlign: 'center',
   },
   progressTrack: {
     width: '100%',
     height: 8,
     backgroundColor: Colors.disabled,
-    borderRadius: 4,
+    borderRadius: Radius.xs,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   progressFill: {
     height: '100%',
     backgroundColor: Colors.primary,
-    borderRadius: 4,
+    borderRadius: Radius.xs,
   },
   progressLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
   },
 
@@ -228,8 +229,8 @@ export const styles = StyleSheet.create({
     width: CHAR_IMG_W,
     height: CHAR_IMG_H,
     alignSelf: 'center',
-    marginBottom: 32,
-    borderRadius: 20,
+    marginBottom: Spacing.xxxl,
+    borderRadius: Radius.xl,
     backgroundColor: Colors.primaryLight,
   },
 });

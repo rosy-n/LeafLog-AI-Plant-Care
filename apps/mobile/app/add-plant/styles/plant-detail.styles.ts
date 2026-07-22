@@ -1,21 +1,22 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
+import { Spacing, Radius } from '../../../constants/spacing';
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.huge,
   },
 
   title: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 22,
+    fontSize: FontSizes.title,
     color: Colors.textBlack,
-    marginBottom: 20,
+    marginBottom: Spacing.xl,
     textAlign: 'center',
   },
 
@@ -23,19 +24,19 @@ export const styles = StyleSheet.create({
   imageRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 20,
+    gap: Spacing.sm,
+    marginBottom: Spacing.xl,
   },
   plantImage: {
     flex: 1,
     aspectRatio: 1,
-    borderRadius: 16,
+    borderRadius: Radius.lg,
     backgroundColor: Colors.primaryLight,
   },
   navBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: Radius.pill,
     backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -44,7 +45,7 @@ export const styles = StyleSheet.create({
   },
   navBtnText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textBlack,
   },
   navBtnHidden: { opacity: 0 },
@@ -52,54 +53,54 @@ export const styles = StyleSheet.create({
   // Photo counter
   photoCounter: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 12,
+    fontSize: FontSizes.small,
     color: Colors.textGray,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: Spacing.xl,
   },
 
   // Plant info
   plantName: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 20,
+    fontSize: FontSizes.title,
     color: Colors.textBlack,
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   scientificName: {
-    fontSize: 14,
+    fontSize: FontSizes.body,
     fontStyle: 'italic',
     color: Colors.textGray,
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   familyName: {
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
-    marginBottom: 28,
+    marginBottom: Spacing.section,
   },
 
   spacer: { flex: 1 },
 
   rowBtns: {
     flexDirection: 'row',
-    gap: 12,
+    gap: Spacing.md,
   },
   btn: { flex: 1 },
 
   primaryBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.lg,
     alignItems: 'center',
   },
   primaryBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
   outlineBtn: {
     backgroundColor: Colors.white,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.lg,
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: Colors.primary,
@@ -107,7 +108,7 @@ export const styles = StyleSheet.create({
   outlineBtnText: {
     color: Colors.primary,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
 
   // Loading
@@ -116,11 +117,11 @@ export const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
+    gap: Spacing.lg,
   },
   loadingText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 14,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
   },
 });

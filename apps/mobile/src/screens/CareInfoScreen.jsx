@@ -13,7 +13,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
-const FONT = "NeoDunggeunmoPro-Regular";
+import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
+import { Colors, GreenTint, Pink, Warm, Accent, Glass } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 const CARE_SECTIONS = [
     { key: "plantInfo", label: "식물정보" },
@@ -74,23 +77,11 @@ export default function CareInfoScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+
+            <ScreenHeader title="돌보기 정보" onBack={() => navigation.goBack()} />
 
             <View style={styles.container}>
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        activeOpacity={0.75}
-                        style={styles.backButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="chevron-back" size={32} color="#222222" />
-                    </TouchableOpacity>
-
-                    <Text style={styles.title}>돌보기 정보</Text>
-
-                    <View style={styles.headerSpacer} />
-                </View>
-
                 <View style={styles.tabWrapper}>
                     <ScrollView
                         ref={tabScrollRef}
@@ -115,16 +106,16 @@ export default function CareInfoScreen({ navigation }) {
                                             styles.tabBlur,
                                             {
                                                 borderColor: isActive
-                                                    ? "rgba(80,155,30,0.65)"
-                                                    : "rgba(255,255,255,0.68)",
+                                                    ? Glass.leafSolid
+                                                    : Glass.frost72,
                                             },
                                         ]}
                                     >
                                         <LinearGradient
                                             colors={
                                                 isActive
-                                                    ? ["rgba(190,228,155,0.92)", "rgba(110,178,60,0.78)", "rgba(50,120,10,0.62)"]
-                                                    : ["rgba(255,255,255,0.68)", "rgba(230,246,220,0.50)", "rgba(207,232,197,0.36)"]
+                                                    ? [Glass.leafHi, Glass.leafMid, Glass.leafLow]
+                                                    : [Glass.frost72, Glass.mist, Glass.mistSoft]
                                             }
                                             start={{ x: 0.12, y: 0.05 }}
                                             end={{ x: 0.9, y: 1 }}
@@ -371,58 +362,31 @@ export default function CareInfoScreen({ navigation }) {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
 
     container: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
-        paddingHorizontal: 24,
-    },
-
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-    },
-
-    backButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-
-    title: {
-        fontFamily: FONT,
-        fontSize: 27,
-        color: "#111111",
-        includeFontPadding: false,
-        marginTop: 0,
-    },
-
-    headerSpacer: {
-        width: 44,
-        height: 44,
+        backgroundColor: Colors.background,
+        paddingHorizontal: Spacing.xl,
     },
 
     tabWrapper: {
         height: 48,
-        marginTop: 6,
+        marginTop: Spacing.sm,
     },
 
     tabContainer: {
-        gap: 9,
+        gap: Spacing.sm,
         alignItems: "center",
-        paddingRight: 6,
+        paddingRight: Spacing.sm,
     },
 
     tabButton: {
         height: 32,
         overflow: "hidden",
-        borderRadius: 11,
-        shadowColor: "#385236",
+        borderRadius: Radius.md,
+        shadowColor: GreenTint.deep,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.16,
         shadowRadius: 4,
@@ -433,17 +397,17 @@ const styles = StyleSheet.create({
         flex: 1,
         overflow: "hidden",
         borderWidth: 1,
-        borderRadius: 11,
+        borderRadius: Radius.md,
     },
 
     tabGradient: {
         flex: 1,
-        paddingHorizontal: 13,
+        paddingHorizontal: Spacing.md,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 0.8,
-        borderColor: "rgba(255,255,255,0.45)",
-        borderRadius: 11,
+        borderColor: Glass.frost45,
+        borderRadius: Radius.md,
     },
 
     tabHighlight: {
@@ -452,35 +416,35 @@ const styles = StyleSheet.create({
         left: 9,
         width: "32%",
         height: "36%",
-        borderRadius: 99,
-        backgroundColor: "rgba(255,255,255,0.55)",
+        borderRadius: Radius.pill,
+        backgroundColor: Glass.frost60,
     },
 
     tabText: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#2A4A18",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.primary,
         includeFontPadding: false,
     },
 
     activeTabText: {
-        color: "#0D3500",
+        color: Colors.primary,
     },
 
     content: {
-        paddingTop: 8,
-        paddingBottom: 30,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.xxxl,
     },
 
     card: {
         width: "100%",
-        backgroundColor: "#FFFFFF",
-        borderRadius: 20,
-        paddingHorizontal: 20,
-        paddingVertical: 18,
-        marginBottom: 14,
+        backgroundColor: Colors.white,
+        borderRadius: Radius.xl,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.xl,
+        marginBottom: Spacing.lg,
         borderWidth: 1.5,
-        borderColor: "#E0EBCD",
+        borderColor: GreenTint.soft,
     },
 
     lastCard: {
@@ -488,18 +452,18 @@ const styles = StyleSheet.create({
     },
 
     cardTitle: {
-        fontFamily: FONT,
-        fontSize: 17,
-        color: "#111111",
-        marginBottom: 14,
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.subtitle,
+        color: Colors.textBlack,
+        marginBottom: Spacing.lg,
         includeFontPadding: false,
     },
 
     cardText: {
-        fontFamily: FONT,
-        fontSize: 13,
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
         lineHeight: 22,
-        color: "#111111",
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -509,29 +473,29 @@ const styles = StyleSheet.create({
     },
 
     textGroup: {
-        marginLeft: 18,
-        gap: 8,
+        marginLeft: Spacing.xl,
+        gap: Spacing.sm,
     },
 
     mainInfo: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#111111",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
     subInfo: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#111111",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
     circleBlue: {
         width: 58,
         height: 58,
-        borderRadius: 29,
-        backgroundColor: "#EAF3FF",
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.white,
         justifyContent: "center",
         alignItems: "center",
     },
@@ -539,44 +503,44 @@ const styles = StyleSheet.create({
     circlePeach: {
         width: 58,
         height: 58,
-        borderRadius: 29,
-        backgroundColor: "#FFEBD9",
+        borderRadius: Radius.pill,
+        backgroundColor: Warm.peach,
         justifyContent: "center",
         alignItems: "center",
-        marginRight: 18,
+        marginRight: Spacing.xl,
     },
 
     circleOrange: {
         width: 58,
         height: 58,
-        borderRadius: 29,
-        backgroundColor: "#FFE7D2",
+        borderRadius: Radius.pill,
+        backgroundColor: Warm.peach2,
         justifyContent: "center",
         alignItems: "center",
-        marginRight: 18,
+        marginRight: Spacing.xl,
     },
 
     bigNumber: {
-        fontFamily: FONT,
-        fontSize: 30,
-        color: "#000000",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.screenTitle,
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
     sunEmoji: {
-        fontSize: 26,
+        fontSize: FontSizes.screenTitle,
     },
 
     rangeBlock: {
-        marginTop: 8,
-        marginBottom: 20,
+        marginTop: Spacing.sm,
+        marginBottom: Spacing.xl,
     },
 
     rangeBar: {
         width: "100%",
         height: 22,
-        borderRadius: 16,
-        backgroundColor: "#E7E7E7",
+        borderRadius: Radius.lg,
+        backgroundColor: Colors.separator,
         overflow: "hidden",
         position: "relative",
     },
@@ -585,8 +549,8 @@ const styles = StyleSheet.create({
         position: "absolute",
         top: 0,
         height: 22,
-        borderRadius: 16,
-        backgroundColor: "#F29AA2",
+        borderRadius: Radius.lg,
+        backgroundColor: Pink.soft,
         justifyContent: "center",
         alignItems: "center",
     },
@@ -595,52 +559,52 @@ const styles = StyleSheet.create({
         position: "absolute",
         top: 0,
         height: 22,
-        borderRadius: 16,
-        backgroundColor: "#9EBEF1",
+        borderRadius: Radius.lg,
+        backgroundColor: Accent.airBlue,
         justifyContent: "center",
         alignItems: "center",
     },
 
     rangeText: {
-        fontFamily: FONT,
-        fontSize: 12,
-        color: "#111111",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
     rangeLabelRow: {
         flexDirection: "row",
         justifyContent: "space-between",
-        marginTop: 8,
+        marginTop: Spacing.sm,
     },
 
     rangeLabel: {
-        fontFamily: FONT,
-        fontSize: 12,
-        color: "#111111",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
     bulletRow: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 14,
+        marginBottom: Spacing.lg,
     },
 
     circleYellow: {
         width: 36,
         height: 36,
-        borderRadius: 18,
-        backgroundColor: "#FFF1BE",
-        marginRight: 16,
+        borderRadius: Radius.xl,
+        backgroundColor: Accent.cream,
+        marginRight: Spacing.lg,
     },
 
     circlePink: {
         width: 36,
         height: 36,
-        borderRadius: 18,
-        backgroundColor: "#FFE5F5",
-        marginRight: 16,
+        borderRadius: Radius.xl,
+        backgroundColor: Pink.bg,
+        marginRight: Spacing.lg,
     },
 
     toxicityRow: {
@@ -656,33 +620,33 @@ const styles = StyleSheet.create({
     toxicityImage: {
         width: 56,
         height: 56,
-        marginBottom: 8,
+        marginBottom: Spacing.sm,
     },
 
     toxicityLabel: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#111111",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
     chipContainer: {
         flexDirection: "row",
         flexWrap: "wrap",
-        gap: 10,
+        gap: Spacing.md,
     },
 
     chip: {
-        backgroundColor: "#EFEFEF",
-        borderRadius: 14,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        backgroundColor: Colors.separator,
+        borderRadius: Radius.lg,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
     },
 
     chipText: {
-        fontFamily: FONT,
-        fontSize: 12,
-        color: "#111111",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 });

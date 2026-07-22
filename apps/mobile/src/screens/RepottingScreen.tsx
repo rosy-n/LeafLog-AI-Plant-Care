@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -15,15 +15,21 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-const FONT = "NeoDunggeunmoPro-Regular";
+import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
+import { Colors, GreenTint, Soil, Shadow } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
+import { getCareRecords, createCareRecord, deleteCareRecord, updatePlant } from "../api";
 
-const SOIL_COLORS = ["#A8D5A2", "#F5C87A", "#B8A5D4", "#F5A07A", "#7AC5F5"];
+const SOIL_COLORS = [GreenTint.line, Soil.sand, Soil.peat, Soil.clay, Soil.water];
 
 type SoilEntry = { type: string; ratio: string };
 
 type RepottingRecord = {
     id: string;
     date: string;
+    potType: string;
     potSize: string;
     soilMix: SoilEntry[];
     memo: string;
@@ -31,29 +37,34 @@ type RepottingRecord = {
 
 type ScreenView = "list" | "form" | "detail";
 
-const MOCK_RECORDS: RepottingRecord[] = [
-    {
-        id: "1",
-        date: "2025.03.15",
-        potSize: "12cm (4호)",
-        soilMix: [
-            { type: "배양토", ratio: "70" },
-            { type: "펄라이트", ratio: "30" },
-        ],
-        memo: "봄 분갈이. 뿌리가 화분 밖으로 많이 나와 있어 한 치수 큰 화분으로 옮겼음. 새 흙으로 완전 교체.",
-    },
-    {
-        id: "2",
-        date: "2024.09.02",
-        potSize: "10cm (3호)",
-        soilMix: [
-            { type: "배양토", ratio: "60" },
-            { type: "펄라이트", ratio: "20" },
-            { type: "마사토", ratio: "20" },
-        ],
-        memo: "여름 이후 첫 분갈이. 성장이 빠르게 진행됨.",
-    },
-];
+// 분갈이 기록은 care_record(care_type=REPOTTING)에 저장.
+// 전용 컬럼이 없는 화분종류/화분크기/흙배합/메모는 note(TEXT)에 JSON으로 함께 보관.
+function encodeNote(potType: string, potSize: string, soilMix: SoilEntry[], memo: string): string {
+    return JSON.stringify({ potType, potSize, soilMix, memo });
+}
+
+function toRecord(item: { id: number; completed_at: string; note: string | null }): RepottingRecord {
+    let potType = "";
+    let potSize = "";
+    let soilMix: SoilEntry[] = [];
+    let memo = "";
+    if (item.note) {
+        try {
+            const parsed = JSON.parse(item.note);
+            potType = parsed.potType ?? "";
+            potSize = parsed.potSize ?? "";
+            soilMix = Array.isArray(parsed.soilMix) ? parsed.soilMix : [];
+            memo = parsed.memo ?? "";
+        } catch {
+            memo = item.note; // 과거/비정형 note는 메모로 취급
+        }
+    }
+    const d = new Date(item.completed_at);
+    const date = Number.isNaN(d.getTime())
+        ? item.completed_at
+        : `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+    return { id: String(item.id), date, potType, potSize, soilMix, memo };
+}
 
 function RecordHeader({
     title,
@@ -63,31 +74,38 @@ function RecordHeader({
     onBack: () => void;
 }) {
     return (
-        <View style={styles.header}>
-            <TouchableOpacity
-                style={styles.headerButton}
-                onPress={onBack}
-                activeOpacity={0.7}
-            >
-                <Ionicons name="chevron-back" size={28} color="#2B3E25" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>{title}</Text>
-            <View style={styles.headerButton} />
-        </View>
+        <ScreenHeader title={title} onBack={onBack} />
     );
 }
 
-export default function RepottingScreen({ navigation }: { navigation: any }) {
+export default function RepottingScreen({ navigation, route }: { navigation: any; route?: any }) {
+    const plant = route?.params?.plant;
+    const plantId = plant?.id ? Number(plant.id) : null;
+
     const [view, setView] = useState<ScreenView>("list");
-    const [records, setRecords] = useState<RepottingRecord[]>(MOCK_RECORDS);
+    const [records, setRecords] = useState<RepottingRecord[]>([]);
     const [selectedRecord, setSelectedRecord] = useState<RepottingRecord | null>(null);
     const [showCharacterModal, setShowCharacterModal] = useState(false);
 
+    // DB에서 이 식물의 분갈이(REPOTTING) 기록 로드
+    const loadRecords = useCallback(() => {
+        if (!plantId) return;
+        getCareRecords(plantId, "REPOTTING")
+            .then((items) => setRecords(items.map(toRecord)))
+            .catch((e) => console.warn("분갈이 기록 로드 실패:", e?.message));
+    }, [plantId]);
+
+    useEffect(() => {
+        loadRecords();
+    }, [loadRecords]);
+
+    const [potType, setPotType] = useState("");
     const [potSize, setPotSize] = useState("");
     const [soilMix, setSoilMix] = useState<SoilEntry[]>([{ type: "", ratio: "" }]);
     const [memo, setMemo] = useState("");
 
     const resetForm = () => {
+        setPotType("");
         setPotSize("");
         setSoilMix([{ type: "", ratio: "" }]);
         setMemo("");
@@ -109,19 +127,29 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
         setSoilMix(next);
     };
 
-    const saveRecord = () => {
-        const now = new Date();
-        const dateStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")}`;
-        const newRecord: RepottingRecord = {
-            id: Date.now().toString(),
-            date: dateStr,
-            potSize,
-            soilMix: soilMix.filter((e) => e.type.trim()),
-            memo,
-        };
-        setRecords([newRecord, ...records]);
-        resetForm();
-        setShowCharacterModal(true);
+    const saveRecord = async () => {
+        if (!plantId) {
+            Alert.alert("저장 실패", "식물 정보를 찾을 수 없어요.");
+            return;
+        }
+        const trimmedPotType = potType.trim();
+        const trimmedPotSize = potSize.trim();
+        const note = encodeNote(potType, potSize, soilMix.filter((e) => e.type.trim()), memo);
+        try {
+            await createCareRecord(plantId, { care_type: "REPOTTING", note });
+            // 분갈이 = 화분 교체이므로 입력한 화분 종류/크기를 식물 프로필에 반영
+            const potPatch: { pot_type?: string; pot_size?: string } = {};
+            if (trimmedPotType) potPatch.pot_type = trimmedPotType;
+            if (trimmedPotSize) potPatch.pot_size = trimmedPotSize;
+            if (Object.keys(potPatch).length > 0) {
+                await updatePlant(plantId, potPatch);
+            }
+            resetForm();
+            await loadRecords();
+            setShowCharacterModal(true);
+        } catch (e: any) {
+            Alert.alert("저장 실패", e?.message ?? "다시 시도해주세요.");
+        }
     };
 
     const handleCharacterChoice = () => {
@@ -129,15 +157,21 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
         setView("list");
     };
 
-    const deleteRecord = (id: string) => {
-        setRecords((prev) => prev.filter((r) => r.id !== id));
+    const deleteRecord = async (id: string) => {
+        if (!plantId) return;
+        try {
+            await deleteCareRecord(plantId, Number(id));
+            await loadRecords();
+        } catch (e: any) {
+            Alert.alert("삭제 실패", e?.message ?? "다시 시도해주세요.");
+        }
     };
 
     // ─── List View ────────────────────────────────────────────────────────────
     if (view === "list") {
         return (
             <View style={styles.root}>
-                <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+                <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
                 <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
                     <RecordHeader
                         title="분갈이"
@@ -152,7 +186,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                             activeOpacity={0.82}
                             onPress={() => setView("form")}
                         >
-                            <Ionicons name="add-circle-outline" size={22} color="#2F702D" />
+                            <Ionicons name="add-circle-outline" size={22} color={GreenTint.deep} />
                             <Text style={styles.newRecordText}>새 분갈이 기록 작성</Text>
                         </TouchableOpacity>
 
@@ -174,7 +208,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                             }}
                                         >
                                             <View style={styles.recordIconWrap}>
-                                                <Ionicons name="leaf-outline" size={22} color="#3D7842" />
+                                                <Ionicons name="leaf-outline" size={22} color={GreenTint.strong} />
                                             </View>
                                             <View style={styles.recordBody}>
                                                 <Text style={styles.recordDate}>{record.date}</Text>
@@ -200,7 +234,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                                     )}
                                                 </View>
                                             </View>
-                                            <Ionicons name="chevron-forward" size={18} color="#BBCBB8" />
+                                            <Ionicons name="chevron-forward" size={18} color={Colors.textFaint} />
                                         </TouchableOpacity>
                                         <TouchableOpacity
                                             style={styles.deleteButton}
@@ -220,7 +254,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                                 )
                                             }
                                         >
-                                            <Ionicons name="trash-outline" size={19} color="#D4887A" />
+                                            <Ionicons name="trash-outline" size={19} color={Colors.remove} />
                                         </TouchableOpacity>
                                     </View>
                                 ))}
@@ -241,7 +275,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
 
         return (
             <View style={styles.root}>
-                <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+                <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
                 <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
                     <RecordHeader
                         title={selectedRecord.date}
@@ -251,10 +285,21 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={styles.scrollContent}
                     >
+                        {/* 화분 종류 */}
+                        <View style={styles.card}>
+                            <View style={styles.cardTitleRow}>
+                                <Ionicons name="cube-outline" size={18} color={GreenTint.strong} />
+                                <Text style={styles.cardTitle}>화분 종류</Text>
+                            </View>
+                            <Text style={styles.cardValueLarge}>
+                                {selectedRecord.potType || "—"}
+                            </Text>
+                        </View>
+
                         {/* 화분 크기 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
-                                <Ionicons name="resize-outline" size={18} color="#5A8A5A" />
+                                <Ionicons name="resize-outline" size={18} color={GreenTint.strong} />
                                 <Text style={styles.cardTitle}>화분 크기</Text>
                             </View>
                             <Text style={styles.cardValueLarge}>
@@ -265,7 +310,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                         {/* 흙 구성 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
-                                <Ionicons name="earth-outline" size={18} color="#5A8A5A" />
+                                <Ionicons name="earth-outline" size={18} color={GreenTint.strong} />
                                 <Text style={styles.cardTitle}>흙 구성</Text>
                             </View>
                             {/* 비율 막대 */}
@@ -311,7 +356,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                     <Ionicons
                                         name="document-text-outline"
                                         size={18}
-                                        color="#5A8A5A"
+                                        color={GreenTint.strong}
                                     />
                                     <Text style={styles.cardTitle}>메모</Text>
                                 </View>
@@ -322,7 +367,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                         {/* 사진 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
-                                <Ionicons name="images-outline" size={18} color="#5A8A5A" />
+                                <Ionicons name="images-outline" size={18} color={GreenTint.strong} />
                                 <Text style={styles.cardTitle}>사진</Text>
                             </View>
                             <Text style={styles.emptySubText}>첨부된 사진이 없습니다</Text>
@@ -336,7 +381,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
     // ─── Form View ────────────────────────────────────────────────────────────
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
                 <RecordHeader
                     title="새 분갈이 기록"
@@ -355,16 +400,32 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                         contentContainerStyle={styles.scrollContent}
                         keyboardShouldPersistTaps="handled"
                     >
+                        {/* 화분 종류 */}
+                        <View style={styles.card}>
+                            <View style={styles.cardTitleRow}>
+                                <Ionicons name="cube-outline" size={18} color={GreenTint.strong} />
+                                <Text style={styles.cardTitle}>화분 종류</Text>
+                            </View>
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder="예: 토분, 플라스틱, 도자기"
+                                placeholderTextColor={Colors.textFaint}
+                                value={potType}
+                                onChangeText={setPotType}
+                                maxLength={30}
+                            />
+                        </View>
+
                         {/* 화분 크기 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
-                                <Ionicons name="resize-outline" size={18} color="#5A8A5A" />
+                                <Ionicons name="resize-outline" size={18} color={GreenTint.strong} />
                                 <Text style={styles.cardTitle}>화분 크기</Text>
                             </View>
                             <TextInput
                                 style={styles.textInput}
                                 placeholder="예: 12cm, 4호"
-                                placeholderTextColor="#C0C8BC"
+                                placeholderTextColor={Colors.textFaint}
                                 value={potSize}
                                 onChangeText={setPotSize}
                             />
@@ -373,7 +434,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                         {/* 흙 정보 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
-                                <Ionicons name="earth-outline" size={18} color="#5A8A5A" />
+                                <Ionicons name="earth-outline" size={18} color={GreenTint.strong} />
                                 <Text style={styles.cardTitle}>흙 정보</Text>
                             </View>
                             {soilMix.map((entry, index) => (
@@ -390,14 +451,14 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                     <TextInput
                                         style={[styles.textInput, styles.soilTypeInput]}
                                         placeholder="흙 종류"
-                                        placeholderTextColor="#C0C8BC"
+                                        placeholderTextColor={Colors.textFaint}
                                         value={entry.type}
                                         onChangeText={(v) => updateSoilEntry(index, "type", v)}
                                     />
                                     <TextInput
                                         style={[styles.textInput, styles.soilRatioInput]}
                                         placeholder="0"
-                                        placeholderTextColor="#C0C8BC"
+                                        placeholderTextColor={Colors.textFaint}
                                         value={entry.ratio}
                                         onChangeText={(v) =>
                                             updateSoilEntry(
@@ -418,7 +479,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                             <Ionicons
                                                 name="remove-circle-outline"
                                                 size={22}
-                                                color="#D4887A"
+                                                color={Colors.remove}
                                             />
                                         </TouchableOpacity>
                                     )}
@@ -429,7 +490,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                 onPress={addSoilEntry}
                                 activeOpacity={0.75}
                             >
-                                <Ionicons name="add" size={16} color="#2F702D" />
+                                <Ionicons name="add" size={16} color={GreenTint.deep} />
                                 <Text style={styles.addSoilText}>흙 종류 추가</Text>
                             </TouchableOpacity>
                         </View>
@@ -440,14 +501,14 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                 <Ionicons
                                     name="document-text-outline"
                                     size={18}
-                                    color="#5A8A5A"
+                                    color={GreenTint.strong}
                                 />
                                 <Text style={styles.cardTitle}>메모 / 기록</Text>
                             </View>
                             <TextInput
                                 style={[styles.textInput, styles.memoInput]}
                                 placeholder="분갈이 중 특이사항, 식물 상태 등을 기록하세요"
-                                placeholderTextColor="#C0C8BC"
+                                placeholderTextColor={Colors.textFaint}
                                 value={memo}
                                 onChangeText={setMemo}
                                 multiline
@@ -458,11 +519,11 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                         {/* 사진 */}
                         <View style={styles.card}>
                             <View style={styles.cardTitleRow}>
-                                <Ionicons name="images-outline" size={18} color="#5A8A5A" />
+                                <Ionicons name="images-outline" size={18} color={GreenTint.strong} />
                                 <Text style={styles.cardTitle}>사진</Text>
                             </View>
                             <TouchableOpacity style={styles.photoButton} activeOpacity={0.75}>
-                                <Ionicons name="camera-outline" size={28} color="#8AB08A" />
+                                <Ionicons name="camera-outline" size={28} color={GreenTint.line} />
                                 <Text style={styles.photoButtonText}>사진 추가</Text>
                             </TouchableOpacity>
                         </View>
@@ -506,7 +567,7 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
                                     activeOpacity={0.8}
                                     onPress={handleCharacterChoice}
                                 >
-                                    <Ionicons name="camera" size={15} color="#FFFFFF" />
+                                    <Ionicons name="camera" size={15} color={Colors.white} />
                                     <Text style={styles.modalButtonGreenText}>새로 생성</Text>
                                 </TouchableOpacity>
                             </View>
@@ -521,38 +582,16 @@ export default function RepottingScreen({ navigation }: { navigation: any }) {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
     safe: {
         flex: 1,
     },
 
     // Header
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    headerTitle: {
-        fontFamily: FONT,
-        fontSize: 25,
-        color: "#111111",
-        includeFontPadding: false,
-    },
 
     scrollContent: {
-        paddingHorizontal: 20,
-        paddingTop: 8,
-        paddingBottom: 40,
-        gap: 14,
+        ...screenContent,
     },
 
     // New Record Button
@@ -560,25 +599,25 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 8,
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
+        gap: Spacing.sm,
+        backgroundColor: Colors.white,
+        borderRadius: Radius.lg,
         borderWidth: 1.5,
-        borderColor: "#A8D5A2",
-        paddingVertical: 16,
+        borderColor: GreenTint.line,
+        paddingVertical: Spacing.lg,
     },
     newRecordText: {
-        fontFamily: FONT,
-        fontSize: 16,
-        color: "#2F702D",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: GreenTint.deep,
         includeFontPadding: false,
     },
 
     // Section Label
     sectionLabel: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#7A9A7A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.medium,
         includeFontPadding: false,
         marginBottom: -4,
     },
@@ -587,64 +626,64 @@ const styles = StyleSheet.create({
     recordCard: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
+        backgroundColor: Colors.white,
+        borderRadius: Radius.lg,
         borderWidth: 1.5,
-        borderColor: "#E0EBCD",
+        borderColor: GreenTint.soft,
         overflow: "hidden",
     },
     recordMainTouch: {
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        gap: 12,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.lg,
+        gap: Spacing.md,
     },
     deleteButton: {
-        paddingHorizontal: 14,
-        paddingVertical: 14,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.lg,
         justifyContent: "center",
         alignItems: "center",
         borderLeftWidth: 1,
-        borderLeftColor: "#EEE8D8",
+        borderLeftColor: Soil.bg,
     },
     recordIconWrap: {
         width: 42,
         height: 42,
-        borderRadius: 21,
-        backgroundColor: "#EEF7E8",
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.separator,
         alignItems: "center",
         justifyContent: "center",
     },
     recordBody: {
         flex: 1,
-        gap: 8,
+        gap: Spacing.sm,
     },
     recordDate: {
-        fontFamily: FONT,
-        fontSize: 15,
-        color: "#222222",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
     chipRow: {
         flexDirection: "row",
         flexWrap: "wrap",
-        gap: 6,
+        gap: Spacing.sm,
     },
     chip: {
-        backgroundColor: "#F0F5EC",
-        borderRadius: 10,
-        paddingHorizontal: 9,
-        paddingVertical: 4,
+        backgroundColor: Colors.separator,
+        borderRadius: Radius.md,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xs,
     },
     soilChip: {
-        backgroundColor: "#F5C87A44",
+        backgroundColor: Soil.sandAlpha,
     },
     chipText: {
-        fontFamily: FONT,
-        fontSize: 12,
-        color: "#4A6A4A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
 
@@ -654,44 +693,44 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     emptyText: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#B0B8A8",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textFaint,
         includeFontPadding: false,
     },
     emptySubText: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#B0B8A8",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textFaint,
         includeFontPadding: false,
-        marginTop: 2,
+        marginTop: Spacing.xxs,
     },
 
     // Card
     card: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 20,
+        backgroundColor: Colors.white,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
-        borderColor: "#E0EBCD",
-        paddingHorizontal: 20,
-        paddingVertical: 18,
-        gap: 12,
+        borderColor: GreenTint.soft,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.xl,
+        gap: Spacing.md,
     },
     cardTitleRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
+        gap: Spacing.sm,
     },
     cardTitle: {
-        fontFamily: FONT,
-        fontSize: 15,
-        color: "#2A4A18",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: Colors.primary,
         includeFontPadding: false,
     },
     cardValueLarge: {
-        fontFamily: FONT,
-        fontSize: 22,
-        color: "#111111",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.title,
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -699,7 +738,7 @@ const styles = StyleSheet.create({
     soilBar: {
         flexDirection: "row",
         height: 18,
-        borderRadius: 10,
+        borderRadius: Radius.md,
         overflow: "hidden",
     },
     soilBarSegment: {
@@ -708,51 +747,51 @@ const styles = StyleSheet.create({
     soilDetailRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
+        gap: Spacing.md,
     },
     soilDot: {
         width: 12,
         height: 12,
-        borderRadius: 6,
+        borderRadius: Radius.sm,
     },
     soilDetailType: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#333333",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
         flex: 1,
         includeFontPadding: false,
     },
     soilDetailRatio: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#666666",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textGray,
         includeFontPadding: false,
     },
     memoReadText: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#333333",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
         lineHeight: 22,
         includeFontPadding: false,
     },
 
     // Form Inputs
     textInput: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#111111",
-        backgroundColor: "#F6FAF0",
-        borderRadius: 10,
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        backgroundColor: Colors.background,
+        borderRadius: Radius.md,
         borderWidth: 1,
-        borderColor: "#D8E8C8",
-        paddingHorizontal: 12,
-        paddingVertical: 10,
+        borderColor: GreenTint.soft,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.md,
         includeFontPadding: false,
     },
     soilInputRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
+        gap: Spacing.sm,
     },
     soilTypeInput: {
         flex: 1,
@@ -762,108 +801,108 @@ const styles = StyleSheet.create({
         textAlign: "center",
     },
     percentSign: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#5A7A5A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
     addSoilButton: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
-        paddingVertical: 4,
+        gap: Spacing.xs,
+        paddingVertical: Spacing.xs,
         alignSelf: "flex-start",
     },
     addSoilText: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#2F702D",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.deep,
         includeFontPadding: false,
     },
     memoInput: {
         height: 100,
         textAlignVertical: "top",
-        paddingTop: 10,
+        paddingTop: Spacing.md,
     },
     photoButton: {
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#F6FAF0",
-        borderRadius: 12,
+        backgroundColor: Colors.background,
+        borderRadius: Radius.md,
         borderWidth: 1,
-        borderColor: "#D8E8C8",
+        borderColor: GreenTint.soft,
         height: 88,
-        gap: 6,
+        gap: Spacing.sm,
     },
     photoButtonText: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#8AB08A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.line,
         includeFontPadding: false,
     },
     saveButton: {
-        backgroundColor: "#2F702D",
-        borderRadius: 16,
-        paddingVertical: 16,
+        backgroundColor: GreenTint.deep,
+        borderRadius: Radius.lg,
+        paddingVertical: Spacing.lg,
         alignItems: "center",
-        shadowColor: "#2F702D",
+        shadowColor: GreenTint.deep,
         shadowOpacity: 0.25,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 4 },
         elevation: 4,
     },
     saveButtonText: {
-        fontFamily: FONT,
-        fontSize: 16,
-        color: "#FFFFFF",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: Colors.white,
         includeFontPadding: false,
     },
 
     // Modal
     modalOverlay: {
         flex: 1,
-        backgroundColor: "rgba(0,0,0,0.48)",
+        backgroundColor: Shadow.strong,
         alignItems: "center",
         justifyContent: "center",
     },
     modalBox: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 24,
-        paddingHorizontal: 28,
-        paddingTop: 32,
-        paddingBottom: 24,
-        marginHorizontal: 32,
+        backgroundColor: Colors.white,
+        borderRadius: Radius.xl,
+        paddingHorizontal: Spacing.section,
+        paddingTop: Spacing.xxxl,
+        paddingBottom: Spacing.xxl,
+        marginHorizontal: Spacing.xxxl,
         alignItems: "center",
-        gap: 8,
-        shadowColor: "#000000",
+        gap: Spacing.sm,
+        shadowColor: Colors.textBlack,
         shadowOpacity: 0.15,
         shadowRadius: 20,
         shadowOffset: { width: 0, height: 8 },
         elevation: 12,
     },
     modalEmoji: {
-        fontSize: 48,
-        marginBottom: 4,
+        fontSize: FontSizes.displayLarge,
+        marginBottom: Spacing.xs,
     },
     modalTitle: {
-        fontFamily: FONT,
-        fontSize: 22,
-        color: "#111111",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.title,
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
     modalBody: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#555555",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textGray,
         textAlign: "center",
         lineHeight: 22,
         includeFontPadding: false,
-        marginTop: 4,
-        marginBottom: 8,
+        marginTop: Spacing.xs,
+        marginBottom: Spacing.sm,
     },
     modalButtonRow: {
         flexDirection: "row",
-        gap: 10,
+        gap: Spacing.md,
         width: "100%",
     },
     modalButton: {
@@ -871,26 +910,26 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 6,
-        paddingVertical: 13,
-        borderRadius: 14,
+        gap: Spacing.sm,
+        paddingVertical: Spacing.md,
+        borderRadius: Radius.lg,
     },
     modalButtonGray: {
-        backgroundColor: "#F0F0F0",
+        backgroundColor: Colors.separator,
     },
     modalButtonGreen: {
-        backgroundColor: "#2F702D",
+        backgroundColor: GreenTint.deep,
     },
     modalButtonGrayText: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#555555",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textGray,
         includeFontPadding: false,
     },
     modalButtonGreenText: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#FFFFFF",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.white,
         includeFontPadding: false,
     },
 });
