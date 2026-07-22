@@ -18,7 +18,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ResourceCounter from "../components/ResourceCounter";
-import ScreenHeader from "../components/ScreenHeader";
 import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
@@ -426,17 +425,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                             style={styles.chatOverlay}
                             behavior={Platform.OS === "ios" ? "padding" : "height"}
                         >
-                            {/* 상단 헤더 — 뒤로가기 + 식물 이름 */}
-                            <ScreenHeader title={plantName} onBack={closeChat} />
-
-                            {/* 캐릭터 대답 말풍선 (2~3문장 · 자동 높이) */}
-                            <View style={styles.chatReplyBubble}>
-                                <Text style={styles.chatReplyText}>{chatReply}</Text>
-                                <View style={styles.chatTailBorder} />
-                                <View style={styles.chatTailInner} />
-                            </View>
-
-                            {/* 캐릭터 — 처음부터 상단 고정 위치. 키보드가 올라와도 움직이지 않음 */}
+                            {/* 캐릭터 — 가운데, 상단 영역 (남는 공간을 채우며 중앙 정렬) */}
                             <View style={styles.chatCharacterArea}>
                                 {appliedItem ? (
                                     <Image
@@ -454,8 +443,11 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                 )}
                             </View>
 
-                            {/* 남는 공간 — 키보드가 올라오면 이 영역만 줄어들어 캐릭터는 고정 */}
-                            <View style={styles.chatSpacer} />
+                            {/* 식물 대화창 — 첫 줄에 식물 이름(메인 초록·고정), 그 아래 대사만 갱신 */}
+                            <View style={styles.chatReplyBubble}>
+                                <Text style={styles.chatPlantName}>{plantName}</Text>
+                                <Text style={styles.chatReplyText}>{chatReply}</Text>
+                            </View>
 
                             {/* 입력 영역 (사용자의 마지막 입력 + 입력창) */}
                             <View style={styles.chatInputArea}>
@@ -468,6 +460,13 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                 ) : null}
 
                                 <View style={styles.chatInputBar}>
+                                    <TouchableOpacity
+                                        style={styles.chatCloseButton}
+                                        onPress={closeChat}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Ionicons name="close" size={20} color={GreenTint.strong} />
+                                    </TouchableOpacity>
                                     <TextInput
                                         style={styles.chatInput}
                                         value={chatInput}
@@ -475,6 +474,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                         placeholder={`${plantName}에게 말 걸어보세요`}
                                         placeholderTextColor={GreenTint.medium}
                                         multiline
+                                        autoFocus
                                         textAlignVertical="center"
                                         onSubmitEditing={sendChat}
                                     />
@@ -660,30 +660,34 @@ const styles = StyleSheet.create({
         flex: 1,
         zIndex: 50,
     },
-    // 캐릭터 대답 말풍선 (2~3문장, 자동 높이)
+    // 캐릭터 영역 — 남는 공간을 채우되 캐릭터는 대화창 바로 위 가운데에 정렬
+    chatCharacterArea: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "flex-end",
+        marginBottom: Spacing.xs,
+    },
+    chatCharacterImage: {
+        width: 190,
+        height: 190,
+    },
+
+    // 식물 대화창 — 캐릭터 아래, 입력창 바로 위
     chatReplyBubble: {
-        marginTop: Spacing.lg,
         marginHorizontal: 20,
+        marginBottom: Spacing.md,
         backgroundColor: Colors.white,
         borderWidth: 4,
         borderColor: Colors.textBlack,
         paddingVertical: Spacing.lg,
         paddingHorizontal: Spacing.lg,
     },
-
-    // 캐릭터 영역 — 상단 고정 위치 (말풍선 아래). 키보드와 무관하게 그대로
-    chatCharacterArea: {
-        alignItems: "center",
-        justifyContent: "center",
-        marginTop: Spacing.section,
-    },
-    chatCharacterImage: {
-        width: 190,
-        height: 190,
-    },
-    // 캐릭터와 입력 사이 여백 — 키보드가 올라오면 이 영역만 줄어듦
-    chatSpacer: {
-        flex: 1,
+    // 대화창 첫 줄 — 식물 이름 (메인 초록, 대사가 바뀌어도 고정)
+    chatPlantName: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.subtitle,
+        color: Colors.primary,
+        marginBottom: Spacing.xs,
     },
     chatReplyText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -691,31 +695,11 @@ const styles = StyleSheet.create({
         lineHeight: 26,
         color: Colors.textBlack,
     },
-    chatTailBorder: {
-        position: "absolute",
-        bottom: -22,
-        left: "50%",
-        marginLeft: -15,
-        width: 31,
-        height: 31,
-        backgroundColor: Colors.textBlack,
-        transform: [{ rotate: "45deg" }],
-    },
-    chatTailInner: {
-        position: "absolute",
-        bottom: -14,
-        left: "50%",
-        marginLeft: -10,
-        width: 20,
-        height: 20,
-        backgroundColor: Colors.white,
-        transform: [{ rotate: "45deg" }],
-    },
 
     // 입력 영역 (flex 컬럼 하단)
     chatInputArea: {
         paddingHorizontal: Spacing.lg,
-        paddingBottom: Platform.OS === "ios" ? 24 : 16,
+        paddingBottom: Platform.OS === "ios" ? Spacing.sm : Spacing.xs,
         gap: Spacing.md,
     },
     userMsgRow: {
@@ -744,9 +728,18 @@ const styles = StyleSheet.create({
         borderRadius: Radius.xl,
         borderWidth: 1,
         borderColor: GreenTint.haze,
-        paddingLeft: Spacing.lg,
+        paddingLeft: Spacing.xs,
         paddingRight: Spacing.xs,
         paddingVertical: Spacing.xs,
+    },
+    chatCloseButton: {
+        width: 34,
+        height: 34,
+        borderRadius: Radius.pill,
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: Spacing.xs,
+        marginBottom: Spacing.xxs,
     },
     chatInput: {
         flex: 1,
