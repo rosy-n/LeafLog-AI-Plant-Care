@@ -12,7 +12,10 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-const FONT = "NanumSquareNeo";
+import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
+import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 export default function ConsultationHistoryScreen({ navigation }) {
     const [searchQuery, setSearchQuery] = useState("");
@@ -62,36 +65,24 @@ export default function ConsultationHistoryScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+
+            <ScreenHeader title="상담 기록" onBack={() => navigation.goBack()} titleStyle={{ fontSize: FontSizes.title }} />
 
             <View style={styles.container}>
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        activeOpacity={0.75}
-                        style={styles.headerBackButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="chevron-back" size={32} color="#222222" />
-                    </TouchableOpacity>
-
-                    <Text style={styles.title}>상담 기록</Text>
-
-                    <View style={styles.headerSpacer} />
-                </View>
-
                 <View style={styles.searchRow}>
                     <View style={styles.searchBox}>
-                        <Ionicons name="search-outline" size={18} color="#666" style={styles.searchIcon} />
+                        <Ionicons name="search-outline" size={18} color={Colors.textGray} style={styles.searchIcon} />
                         <TextInput
                             style={styles.searchInput}
                             placeholder="검색"
-                            placeholderTextColor="#B5B5B5"
+                            placeholderTextColor={Colors.textFaint}
                             value={searchQuery}
                             onChangeText={setSearchQuery}
                         />
                         {searchQuery.length > 0 && (
                             <TouchableOpacity onPress={() => setSearchQuery("")} activeOpacity={0.7}>
-                                <Ionicons name="close-circle" size={16} color="#999" />
+                                <Ionicons name="close-circle" size={16} color={Colors.textFaint} />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -120,7 +111,7 @@ export default function ConsultationHistoryScreen({ navigation }) {
                                         activeOpacity={0.6}
                                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                     >
-                                        <Ionicons name="trash-outline" size={15} color="#BBBBBB" />
+                                        <Ionicons name="trash-outline" size={15} color={Colors.textFaint} />
                                     </TouchableOpacity>
                                 </View>
                                 <Text style={styles.cardSummary}>{item.summary}</Text>
@@ -135,7 +126,7 @@ export default function ConsultationHistoryScreen({ navigation }) {
                     activeOpacity={0.85}
                     onPress={() => navigation.navigate("ConsultationStart")}
                 >
-                    <Ionicons name="chatbox-outline" size={32} color="#1F5D01" />
+                    <Ionicons name="chatbox-outline" size={32} color={Colors.primary} />
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -145,43 +136,18 @@ export default function ConsultationHistoryScreen({ navigation }) {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
 
     container: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
-        paddingHorizontal: 20,
-    },
-
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-    },
-
-    headerBackButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-
-    headerSpacer: {
-        width: 44,
-    },
-
-    title: {
-        fontFamily: FONT,
-        fontSize: 22,
-        color: "#111111",
-        includeFontPadding: false,
+        backgroundColor: Colors.background,
+        paddingHorizontal: Spacing.xl,
     },
 
     searchRow: {
-        marginTop: 8,
-        marginBottom: 18,
+        marginTop: Spacing.sm,
+        marginBottom: Spacing.xl,
     },
 
     searchBox: {
@@ -189,24 +155,24 @@ const styles = StyleSheet.create({
         alignItems: "center",
         height: 40,
         borderWidth: 1.5,
-        borderColor: "rgba(31, 93, 1, 0.4)",
-        borderRadius: 20,
-        backgroundColor: "#FFFFFF",
-        paddingHorizontal: 14,
-        gap: 8,
+        borderColor: GreenTint.medium,
+        borderRadius: Radius.xl,
+        backgroundColor: Colors.white,
+        paddingHorizontal: Spacing.lg,
+        gap: Spacing.sm,
     },
 
     searchIcon: {
-        marginRight: 2,
+        marginRight: Spacing.xxs,
     },
 
     searchInput: {
         flex: 1,
         height: "100%",
-        fontSize: 13,
-        color: "#111",
-        fontFamily: FONT,
-        paddingVertical: 0,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        fontFamily: Fonts.nanumSquareNeo.bold,
+        paddingVertical: Spacing.none,
         includeFontPadding: false,
     },
 
@@ -221,70 +187,70 @@ const styles = StyleSheet.create({
     card: {
         width: "100%",
         borderWidth: 1.5,
-        borderColor: "rgba(31, 93, 1, 0.5)",
-        borderRadius: 12,
-        backgroundColor: "#FFFFFF",
-        paddingTop: 14,
-        paddingHorizontal: 16,
-        paddingBottom: 14,
-        marginBottom: 12,
+        borderColor: GreenTint.half,
+        borderRadius: Radius.md,
+        backgroundColor: Colors.white,
+        paddingTop: Spacing.lg,
+        paddingHorizontal: Spacing.lg,
+        paddingBottom: Spacing.lg,
+        marginBottom: Spacing.md,
     },
 
     cardHeader: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        marginBottom: 8,
+        marginBottom: Spacing.sm,
     },
 
     cardTitle: {
         flex: 1,
-        fontSize: 15,
-        color: "#111",
-        fontFamily: FONT,
+        fontSize: FontSizes.bodyLarge,
+        color: Colors.textBlack,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         includeFontPadding: false,
-        marginRight: 8,
+        marginRight: Spacing.sm,
     },
 
     deleteButton: {
-        padding: 2,
+        padding: Spacing.xxs,
     },
 
     cardSummary: {
-        fontSize: 12,
-        color: "#333",
-        fontFamily: FONT,
+        fontSize: FontSizes.small,
+        color: Colors.textBlack,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         includeFontPadding: false,
-        marginBottom: 6,
+        marginBottom: Spacing.sm,
         lineHeight: 18,
     },
 
     cardDetail: {
-        fontSize: 11,
-        color: "#555",
-        fontFamily: FONT,
+        fontSize: FontSizes.small,
+        color: Colors.textGray,
+        fontFamily: Fonts.nanumSquareNeo.bold,
         includeFontPadding: false,
         lineHeight: 17,
     },
 
     emptyText: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#999",
+        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontSize: FontSizes.body,
+        color: Colors.textFaint,
         textAlign: "center",
-        marginTop: 40,
+        marginTop: Spacing.huge,
     },
 
     chatButton: {
         position: "absolute",
-        right: 20,
-        bottom: 20,
+        right: 24,
+        bottom: 28,
         width: 60,
         height: 60,
-        borderRadius: 30,
+        borderRadius: Radius.pill,
         borderWidth: 2,
-        borderColor: "#1F5D01",
-        backgroundColor: "#FAFFF0",
+        borderColor: Colors.primary,
+        backgroundColor: Colors.background,
         alignItems: "center",
         justifyContent: "center",
     },

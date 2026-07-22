@@ -14,7 +14,8 @@ import NameScreen           from '../../app/add-plant/name';
 import InfoScreen           from '../../app/add-plant/info';
 
 import { Colors } from '../../constants/colors';
-import { Fonts }  from '../../constants/fonts';
+import { Spacing, Radius } from "../../constants/spacing";
+import { Fonts, FontSizes } from '../../constants/fonts';
 
 const Stack = createNativeStackNavigator();
 
@@ -82,9 +83,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    gap: 12,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.md,
+    gap: Spacing.md,
   },
   backBtn: {
     width: 32,
@@ -92,18 +93,18 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 20,
+    fontSize: FontSizes.title,
     color: Colors.textBlack,
   },
   progressRow: {
     flex: 1,
     flexDirection: 'row',
-    gap: 6,
+    gap: Spacing.sm,
   },
   segment: {
     flex: 1,
     height: 4,
-    borderRadius: 2,
+    borderRadius: Radius.xs,
     backgroundColor: Colors.disabled,
   },
   segmentActive: {
@@ -113,7 +114,7 @@ const styles = StyleSheet.create({
     width: 32,
     textAlign: 'right',
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 12,
+    fontSize: FontSizes.small,
     color: Colors.textGray,
   },
 });

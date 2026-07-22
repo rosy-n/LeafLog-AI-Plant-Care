@@ -18,6 +18,9 @@ import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
+import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint, Paper, Pink, Accent, Glass } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 const MENU_ITEMS = [
     { label: "프로필", screen: "Profile" },
@@ -30,7 +33,8 @@ const MENU_ITEMS = [
 
 let heartIdCounter = 0;
 
-export default function MemorialPlantScreen({ navigation, appliedItem }) {
+export default function MemorialPlantScreen({ navigation, route, appliedItem }) {
+    const plant = route?.params?.plant;
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [graveModalVisible, setGraveModalVisible] = useState(false);
@@ -132,7 +136,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                                 resizeMode="contain"
                             />
                         ) : (
-                            <PlantImage imageKey="spaghetti" width={230} height={230} />
+                            <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={230} height={230} />
                         )}
 
                         <View style={styles.plantLabelGroup}>
@@ -168,7 +172,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                                     ],
                                 }}
                             >
-                                <Ionicons name="heart" size={36} color="#FF6B8A" />
+                                <Ionicons name="heart" size={36} color={Pink.rose} />
                             </Animated.View>
                         ))}
                     </View>
@@ -213,9 +217,9 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                                             <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>
                                                 <LinearGradient
                                                     colors={[
-                                                        "rgba(255,255,255,0.72)",
-                                                        "rgba(235,248,228,0.52)",
-                                                        "rgba(211,235,201,0.38)",
+                                                        Glass.frost72,
+                                                        Glass.mist,
+                                                        Glass.mistSoft,
                                                     ]}
                                                     start={{ x: 0.12, y: 0.05 }}
                                                     end={{ x: 1, y: 1 }}
@@ -237,7 +241,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                             <Ionicons
                                 name={menuOpen ? "close" : "menu"}
                                 size={30}
-                                color="#3D4B34"
+                                color={GreenTint.deep}
                             />
                         </LiquidGlassButton>
 
@@ -245,7 +249,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                             size={54}
                             onPress={() => navigation.navigate("Home")}
                         >
-                            <Ionicons name="home-outline" size={30} color="#315E35" />
+                            <Ionicons name="home-outline" size={30} color={GreenTint.deep} />
                         </LiquidGlassButton>
                     </View>
 
@@ -257,7 +261,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                             <Ionicons
                                 name="chatbubble-ellipses-outline"
                                 size={29}
-                                color="#3D7842"
+                                color={GreenTint.strong}
                             />
                         </LiquidGlassButton>
 
@@ -265,12 +269,12 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                             <MaterialCommunityIcons
                                 name="grave-stone"
                                 size={30}
-                                color="#7B6A8A"
+                                color={Accent.mauve}
                             />
                         </LiquidGlassButton>
 
                         <LiquidGlassButton size={68} onPress={handleHeartPress}>
-                            <Ionicons name="heart" size={36} color="#FF6B8A" />
+                            <Ionicons name="heart" size={36} color={Pink.rose} />
                         </LiquidGlassButton>
                     </View>
                 </SafeAreaView>
@@ -297,7 +301,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                                 style={styles.modalCloseBtn}
                                 onPress={() => setGraveModalVisible(false)}
                             >
-                                <Ionicons name="close" size={20} color="#BBBBBB" />
+                                <Ionicons name="close" size={20} color={Colors.textFaint} />
                             </TouchableOpacity>
 
                             {/* 상단 장식 아이콘 */}
@@ -305,18 +309,18 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                                 <MaterialCommunityIcons
                                     name="leaf"
                                     size={15}
-                                    color="#6BBF6A"
+                                    color={GreenTint.medium}
                                     style={{ transform: [{ rotate: "-35deg" }], marginBottom: 2 }}
                                 />
                                 <MaterialCommunityIcons
                                     name="butterfly"
                                     size={26}
-                                    color="#6BBF6A"
+                                    color={GreenTint.medium}
                                 />
                                 <MaterialCommunityIcons
                                     name="leaf"
                                     size={15}
-                                    color="#6BBF6A"
+                                    color={GreenTint.medium}
                                     style={{ transform: [{ rotate: "35deg" }], marginBottom: 2 }}
                                 />
                             </View>
@@ -325,7 +329,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                             <Text style={styles.modalTitle}>다시 함께할까요?</Text>
 
                             {/* 하트 구분자 */}
-                            <Ionicons name="heart" size={13} color="#FFAAC2" style={styles.modalHeart} />
+                            <Ionicons name="heart" size={13} color={Pink.light} style={styles.modalHeart} />
 
                             {/* 설명 */}
                             <Text style={styles.modalDesc}>
@@ -348,7 +352,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
                                     onPress={handleRevive}
                                 >
                                     <Text style={styles.modalSparkle}>✦ </Text>
-                                    <Ionicons name="heart" size={12} color="#FFFFFF" />
+                                    <Ionicons name="heart" size={12} color={Colors.white} />
                                     <Text style={styles.modalBtnPrimaryText}> 다시 함께하기</Text>
                                     <Text style={styles.modalSparkle}> ✦</Text>
                                 </TouchableOpacity>
@@ -365,7 +369,7 @@ export default function MemorialPlantScreen({ navigation, appliedItem }) {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#91C881",
+        backgroundColor: GreenTint.line,
     },
     background: {
         flex: 1,
@@ -387,17 +391,17 @@ const styles = StyleSheet.create({
         right: 42,
         width: 250,
         height: 70,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         borderWidth: 4,
-        borderColor: "#121212",
+        borderColor: Colors.textBlack,
         alignItems: "center",
         justifyContent: "center",
         zIndex: 20,
     },
     speechText: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        fontSize: 19,
-        color: "#1D1D1D",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.subtitle,
+        color: Colors.textBlack,
     },
     tailBorder: {
         position: "absolute",
@@ -405,7 +409,7 @@ const styles = StyleSheet.create({
         left: 58,
         width: 31,
         height: 31,
-        backgroundColor: "#121212",
+        backgroundColor: Colors.textBlack,
         transform: [{ rotate: "45deg" }],
     },
     tailInner: {
@@ -414,7 +418,7 @@ const styles = StyleSheet.create({
         left: 64,
         width: 20,
         height: 20,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: Colors.white,
         transform: [{ rotate: "45deg" }],
     },
 
@@ -435,16 +439,16 @@ const styles = StyleSheet.create({
         zIndex: 30,
     },
     plantName: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        fontSize: 30,
-        color: "#FFFFFF",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.screenTitle,
+        color: Colors.white,
         letterSpacing: 1,
         lineHeight: 50,
     },
     dayText: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        fontSize: 20,
-        color: "#FFFFFF",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.title,
+        color: Colors.white,
         letterSpacing: 1,
         lineHeight: 32,
     },
@@ -463,7 +467,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         left: 20,
         bottom: 60,
-        gap: 18,
+        gap: Spacing.xl,
         zIndex: 30,
     },
     rightButtons: {
@@ -471,7 +475,7 @@ const styles = StyleSheet.create({
         right: 20,
         bottom: 50,
         alignItems: "center",
-        gap: 14,
+        gap: Spacing.lg,
         zIndex: 30,
     },
 
@@ -483,14 +487,14 @@ const styles = StyleSheet.create({
         alignItems: "flex-start",
     },
     menuItemWrapper: {
-        marginBottom: 8,
+        marginBottom: Spacing.sm,
     },
     menuItemTouch: {
         width: 116,
         height: 31,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         overflow: "hidden",
-        shadowColor: "#2D3B2C",
+        shadowColor: Colors.textBlack,
         shadowOpacity: 0.18,
         shadowRadius: 7,
         shadowOffset: { width: 0, height: 4 },
@@ -498,18 +502,18 @@ const styles = StyleSheet.create({
     },
     menuItemBlur: {
         flex: 1,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         overflow: "hidden",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.72)",
+        borderColor: Glass.frost72,
     },
     menuItemGlass: {
         flex: 1,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.46)",
+        borderColor: Glass.frost45,
     },
     menuItemHighlight: {
         position: "absolute",
@@ -517,14 +521,14 @@ const styles = StyleSheet.create({
         left: 10,
         width: 34,
         height: 8,
-        borderRadius: 99,
-        backgroundColor: "rgba(255,255,255,0.62)",
+        borderRadius: Radius.pill,
+        backgroundColor: Glass.frost60,
     },
     menuItemText: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        fontSize: 13,
-        color: "#263326",
-        textShadowColor: "rgba(255,255,255,0.65)",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        textShadowColor: Glass.frost60,
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 0,
     },
@@ -537,15 +541,15 @@ const styles = StyleSheet.create({
     },
     modalBox: {
         width: 300,
-        backgroundColor: "#FAF5E8",
-        borderRadius: 22,
+        backgroundColor: Colors.separator,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
-        borderColor: "#D8CCAA",
-        paddingTop: 28,
-        paddingBottom: 22,
-        paddingHorizontal: 20,
+        borderColor: Paper.taupe,
+        paddingTop: Spacing.section,
+        paddingBottom: Spacing.xxl,
+        paddingHorizontal: Spacing.xl,
         alignItems: "center",
-        shadowColor: "#000000",
+        shadowColor: Colors.textBlack,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.18,
         shadowRadius: 16,
@@ -559,69 +563,69 @@ const styles = StyleSheet.create({
     modalTopDecor: {
         flexDirection: "row",
         alignItems: "flex-end",
-        gap: 3,
-        marginBottom: 14,
+        gap: Spacing.xs,
+        marginBottom: Spacing.lg,
     },
     modalTitle: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        fontSize: 21,
-        color: "#2A2A2A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.title,
+        color: Colors.textBlack,
         textAlign: "center",
-        marginBottom: 8,
+        marginBottom: Spacing.sm,
     },
     modalHeart: {
-        marginBottom: 12,
+        marginBottom: Spacing.md,
     },
     modalDesc: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        fontSize: 13,
-        color: "#999999",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textFaint,
         textAlign: "center",
         lineHeight: 21,
-        marginBottom: 22,
+        marginBottom: Spacing.xxl,
     },
     modalBtnRow: {
         flexDirection: "row",
-        gap: 10,
+        gap: Spacing.md,
         width: "100%",
     },
     modalBtnSecondary: {
         flex: 1,
         height: 46,
-        borderRadius: 23,
+        borderRadius: Radius.pill,
         borderWidth: 1.5,
-        borderColor: "#C9B890",
-        backgroundColor: "#EDE5CC",
+        borderColor: Paper.taupeBorder,
+        backgroundColor: Paper.taupeBg,
         alignItems: "center",
         justifyContent: "center",
     },
     modalBtnSecondaryText: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        fontSize: 12,
-        color: "#7A6E54",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Paper.taupeText,
     },
     modalBtnPrimary: {
         flex: 1,
         height: 46,
-        borderRadius: 23,
-        backgroundColor: "#76C973",
+        borderRadius: Radius.pill,
+        backgroundColor: GreenTint.line,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        shadowColor: "#3A8C38",
+        shadowColor: GreenTint.strong,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.35,
         shadowRadius: 6,
         elevation: 4,
     },
     modalBtnPrimaryText: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        fontSize: 12,
-        color: "#FFFFFF",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.white,
     },
     modalSparkle: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        fontSize: 10,
-        color: "#FFFFFF",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.caption,
+        color: Colors.white,
     },
 });

@@ -11,6 +11,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
+import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint, Aqua, Accent, Glass } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
 
 const BG_IMAGES = {
     "home-bg": require("../../assets/images/home-bg.png"),
@@ -93,7 +96,11 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                         onPress={() => navigation.navigate("Notifications")}
                     >
                         <View>
-                            <Ionicons name="notifications" size={44} color="#F4B63F" />
+                            <Image
+                                source={require("../../assets/icons/notification_icon.png")}
+                                style={styles.notificationIcon}
+                                resizeMode="contain"
+                            />
                             {hasUnread && <View style={styles.redDot} />}
                         </View>
                     </GlassButton>
@@ -176,9 +183,9 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                                             <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>
                                                 <LinearGradient
                                                     colors={[
-                                                        "rgba(255,255,255,0.72)",
-                                                        "rgba(235,248,228,0.52)",
-                                                        "rgba(211,235,201,0.38)",
+                                                        Glass.frost72,
+                                                        Glass.mist,
+                                                        Glass.mistSoft,
                                                     ]}
                                                     start={{ x: 0.12, y: 0.05 }}
                                                     end={{ x: 1, y: 1 }}
@@ -188,7 +195,7 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                                                     <Ionicons
                                                         name={item.icon}
                                                         size={14}
-                                                        color="#263326"
+                                                        color={Colors.textBlack}
                                                         style={styles.menuItemIcon}
                                                     />
                                                     <Text style={styles.menuItemText}>{item.label}</Text>
@@ -205,10 +212,14 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                 {/* 좌측 하단: 햄버거 */}
                 <View style={styles.menuArea}>
                     <GlassButton size={60} onPress={toggleMenu}>
-                        <Ionicons
-                            name={menuOpen ? "close" : "menu"}
-                            size={36}
-                            color="#344537"
+                        <Image
+                            source={
+                                menuOpen
+                                    ? require("../../assets/icons/close_icon.png")
+                                    : require("../../assets/icons/hamburger_icon.png")
+                            }
+                            style={styles.menuIcon}
+                            resizeMode="contain"
                         />
                     </GlassButton>
                 </View>
@@ -216,11 +227,19 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                 {/* 우측 하단: 캘린더, 메모, 전체개체 */}
                 <View style={styles.rightButtonArea}>
                     <GlassButton size={60} onPress={() => navigation.navigate("Calendar")}>
-                        <Ionicons name="calendar" size={36} color="#23A7D3" />
+                        <Image
+                            source={require("../../assets/icons/calendar_icon.png")}
+                            style={styles.calendarIcon}
+                            resizeMode="contain"
+                        />
                     </GlassButton>
 
                     <GlassButton size={60}>
-                        <Ionicons name="create-outline" size={35} color="#85A5B1" />
+                        <Image
+                            source={require("../../assets/icons/diary_icon.png")}
+                            style={styles.diaryIcon}
+                            resizeMode="contain"
+                        />
                     </GlassButton>
 
                     <GlassButton
@@ -261,9 +280,9 @@ function GlassButton({ children, size = 62, onPress }) {
             >
                 <LinearGradient
                     colors={[
-                        "rgba(255,255,255,0.72)",
-                        "rgba(231,247,221,0.48)",
-                        "rgba(205,232,196,0.34)",
+                        Glass.frost72,
+                        Glass.mist,
+                        Glass.mistSoft,
                     ]}
                     start={{ x: 0.15, y: 0.05 }}
                     end={{ x: 1, y: 1 }}
@@ -285,7 +304,7 @@ function GlassButton({ children, size = 62, onPress }) {
 function WeatherIcon() {
     return (
         <View style={styles.weatherWrap}>
-            <Ionicons name="cloud" size={43} color="#FFFFFF" />
+            <Ionicons name="cloud" size={43} color={Colors.white} />
             <View style={styles.wind1} />
             <View style={styles.wind2} />
             <View style={styles.wind3} />
@@ -306,7 +325,7 @@ function AirIcon() {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#8BCB7B",
+        backgroundColor: GreenTint.line,
     },
     background: {
         flex: 1,
@@ -317,7 +336,7 @@ const styles = StyleSheet.create({
         top: 72,
         left: 20,
         flexDirection: "row",
-        gap: 16,
+        gap: Spacing.lg,
         zIndex: 50,
     },
     notificationArea: {
@@ -326,14 +345,18 @@ const styles = StyleSheet.create({
         right: 20,
         zIndex: 50,
     },
+    notificationIcon: {
+        width: 44,
+        height: 44,
+    },
     redDot: {
         position: "absolute",
         top: -5,
         right: -5,
         width: 22,
         height: 22,
-        borderRadius: 11,
-        backgroundColor: "#FF3939",
+        borderRadius: Radius.md,
+        backgroundColor: Accent.alert,
     },
 
     rubberPlant: {
@@ -383,12 +406,24 @@ const styles = StyleSheet.create({
         bottom: 54,
         zIndex: 50,
     },
+    menuIcon: {
+        width: 36,
+        height: 36,
+    },
+    calendarIcon: {
+        width: 36,
+        height: 36,
+    },
+    diaryIcon: {
+        width: 35,
+        height: 35,
+    },
     rightButtonArea: {
         position: "absolute",
         right: 20,
         bottom: 46,
         alignItems: "center",
-        gap: 16,
+        gap: Spacing.lg,
         zIndex: 50,
     },
 
@@ -401,14 +436,14 @@ const styles = StyleSheet.create({
         alignItems: "flex-start",
     },
     menuItemWrapper: {
-        marginBottom: 8,
+        marginBottom: Spacing.sm,
     },
     menuItemTouch: {
         width: 126,
         height: 31,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         overflow: "hidden",
-        shadowColor: "#2D3B2C",
+        shadowColor: Colors.textBlack,
         shadowOpacity: 0.18,
         shadowRadius: 7,
         shadowOffset: { width: 0, height: 4 },
@@ -416,19 +451,19 @@ const styles = StyleSheet.create({
     },
     menuItemBlur: {
         flex: 1,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         overflow: "hidden",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.72)",
+        borderColor: Glass.frost72,
     },
     menuItemGlass: {
         flex: 1,
-        borderRadius: 16,
+        borderRadius: Radius.lg,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.46)",
+        borderColor: Glass.frost45,
     },
     menuItemHighlight: {
         position: "absolute",
@@ -436,24 +471,24 @@ const styles = StyleSheet.create({
         left: 10,
         width: 34,
         height: 8,
-        borderRadius: 99,
-        backgroundColor: "rgba(255,255,255,0.62)",
+        borderRadius: Radius.pill,
+        backgroundColor: Glass.frost60,
     },
     menuItemIcon: {
-        marginRight: 5,
+        marginRight: Spacing.xs,
     },
     menuItemText: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 13,
-        color: "#263326",
-        textShadowColor: "rgba(255,255,255,0.65)",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        textShadowColor: Glass.frost60,
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 0,
     },
 
     glassTouch: {
         overflow: "hidden",
-        shadowColor: "#335235",
+        shadowColor: GreenTint.deep,
         shadowOpacity: 0.2,
         shadowRadius: 7,
         shadowOffset: { width: 0, height: 4 },
@@ -463,14 +498,14 @@ const styles = StyleSheet.create({
         flex: 1,
         overflow: "hidden",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.72)",
+        borderColor: Glass.frost72,
     },
     glassGradient: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.4)",
+        borderColor: Glass.frost45,
     },
     glassHighlight: {
         position: "absolute",
@@ -478,8 +513,8 @@ const styles = StyleSheet.create({
         left: 12,
         width: "38%",
         height: "20%",
-        borderRadius: 99,
-        backgroundColor: "rgba(255,255,255,0.58)",
+        borderRadius: Radius.pill,
+        backgroundColor: Glass.frost60,
     },
 
     weatherWrap: {
@@ -494,8 +529,8 @@ const styles = StyleSheet.create({
         bottom: 16,
         width: 34,
         height: 4,
-        borderRadius: 4,
-        backgroundColor: "#0FAEE5",
+        borderRadius: Radius.xs,
+        backgroundColor: Aqua.bright,
     },
     wind2: {
         position: "absolute",
@@ -503,8 +538,8 @@ const styles = StyleSheet.create({
         bottom: 24,
         width: 28,
         height: 4,
-        borderRadius: 4,
-        backgroundColor: "#0FAEE5",
+        borderRadius: Radius.xs,
+        backgroundColor: Aqua.bright,
     },
     wind3: {
         position: "absolute",
@@ -512,16 +547,16 @@ const styles = StyleSheet.create({
         bottom: 32,
         width: 18,
         height: 4,
-        borderRadius: 4,
-        backgroundColor: "#0FAEE5",
+        borderRadius: Radius.xs,
+        backgroundColor: Aqua.bright,
     },
 
     airCircle: {
         width: 43,
         height: 43,
-        borderRadius: 22,
+        borderRadius: Radius.pill,
         borderWidth: 5,
-        borderColor: "#42D620",
+        borderColor: GreenTint.medium,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -531,8 +566,8 @@ const styles = StyleSheet.create({
         left: 11,
         width: 5,
         height: 5,
-        borderRadius: 3,
-        backgroundColor: "#42D620",
+        borderRadius: Radius.xs,
+        backgroundColor: GreenTint.medium,
     },
     airEyeRight: {
         position: "absolute",
@@ -540,8 +575,8 @@ const styles = StyleSheet.create({
         right: 11,
         width: 5,
         height: 5,
-        borderRadius: 3,
-        backgroundColor: "#42D620",
+        borderRadius: Radius.xs,
+        backgroundColor: GreenTint.medium,
     },
     airMouth: {
         position: "absolute",
@@ -549,14 +584,14 @@ const styles = StyleSheet.create({
         width: 18,
         height: 9,
         borderBottomWidth: 4,
-        borderColor: "#42D620",
-        borderRadius: 12,
+        borderColor: GreenTint.medium,
+        borderRadius: Radius.md,
     },
 
     allText: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 28,
-        color: "#315B3B",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.screenTitle,
+        color: GreenTint.deep,
         textTransform: "lowercase",
     },
 });

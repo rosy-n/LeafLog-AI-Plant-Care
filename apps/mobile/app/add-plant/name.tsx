@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Colors } from '../../constants/colors';
 import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
@@ -78,7 +79,7 @@ export default function NameScreen() {
           <TextInput
             style={styles.input}
             placeholder="이름 입력"
-            placeholderTextColor="#A0A0A0"
+            placeholderTextColor={Colors.textFaint}
             value={nickname}
             onChangeText={setNickname}
             maxLength={MAX_LENGTH}

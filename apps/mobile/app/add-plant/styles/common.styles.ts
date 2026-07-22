@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
+import { Spacing, Radius } from '../../../constants/spacing';
 
 export const common = StyleSheet.create({
   flex: { flex: 1 },
@@ -8,38 +9,38 @@ export const common = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.huge,
   },
 
   title: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 18,
+    fontSize: FontSizes.subtitle,
     color: Colors.primary,
     textAlign: 'center' as const,
-    marginBottom: 20,
+    marginBottom: Spacing.xl,
   },
 
   // Primary filled button
   primaryBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.lg,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
   primaryBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
 
   // Outline button
   outlineBtn: {
     backgroundColor: Colors.white,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.lg,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     borderWidth: 1.5,
@@ -48,7 +49,7 @@ export const common = StyleSheet.create({
   outlineBtnText: {
     color: Colors.primary,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
 
   // Disabled button
@@ -58,7 +59,7 @@ export const common = StyleSheet.create({
   // Row of two buttons
   rowBtns: {
     flexDirection: 'row' as const,
-    gap: 12,
+    gap: Spacing.md,
   },
   rowBtn: { flex: 1 },
 
@@ -67,16 +68,16 @@ export const common = StyleSheet.create({
   // Section label
   sectionLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textBlack,
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
 
   // Chip (selection pill)
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.pill,
     borderWidth: 1.5,
     borderColor: Colors.border,
     backgroundColor: Colors.white,
@@ -87,7 +88,7 @@ export const common = StyleSheet.create({
   },
   chipText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
   },
   chipTextActive: { color: Colors.white },

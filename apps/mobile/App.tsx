@@ -1,4 +1,7 @@
 import React, { useMemo, useState } from "react";
+import { Fonts, FontSizes } from "./constants/fonts";
+import { Colors, Brand } from "./constants/colors";
+import { Spacing, Radius } from "./constants/spacing";
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +21,7 @@ import {
 import {
   checkEmail,
   login,
+  setAuthToken,
   signup,
   type AuthResponse,
 } from "./src/api";
@@ -47,15 +51,6 @@ const assets = {
   nicknamePlant: require("./assets/nickname-plant-scene.png"),
 };
 
-const colors = {
-  paper: "#fffdf5",
-  ink: "#1e1f1d",
-  muted: "#807d74",
-  line: "#d9d2c2",
-  green: "#4f8d3d",
-  greenDark: "#1b5a26",
-  heart: "#ff6f61",
-};
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -215,6 +210,7 @@ export default function App() {
     setIsSubmitting(true);
     try {
       const response = await login({ email, password: loginPassword });
+      setAuthToken(response.access_token);
       setAuth(response);
     } catch (error) {
       setFormErrors({
@@ -242,6 +238,7 @@ export default function App() {
         nickname: trimmedNickname,
         marketing_opt_in: agreeMarketing,
       });
+      setAuthToken(response.access_token);
       setAuth(response);
     } catch (error) {
       setFormErrors({
@@ -297,7 +294,7 @@ export default function App() {
   }
 
   if (auth) {
-    return <MainApp />;
+    return <MainApp user={auth.user} />;
   }
 
   const frameStyle = {
@@ -308,7 +305,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.paper} />
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.keyboard}
@@ -458,7 +455,7 @@ function LoginScreen(props: {
             value={props.email}
             onChangeText={props.onEmail}
             placeholder="이메일을 입력해주세요"
-            placeholderTextColor="#b7b4ae"
+            placeholderTextColor={Colors.textFaint}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -471,7 +468,7 @@ function LoginScreen(props: {
               value={props.password}
               onChangeText={props.onPassword}
               placeholder="비밀번호를 입력해주세요"
-              placeholderTextColor="#b7b4ae"
+              placeholderTextColor={Colors.textFaint}
               secureTextEntry={!props.showPassword}
               style={[
                 styles.input,
@@ -544,7 +541,7 @@ function SignupScreen(props: {
               value={props.email}
               onChangeText={props.onEmail}
               placeholder="이메일을 입력해주세요"
-              placeholderTextColor="#b7b4ae"
+              placeholderTextColor={Colors.textFaint}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -568,7 +565,7 @@ function SignupScreen(props: {
               value={props.password}
               onChangeText={props.onPassword}
               placeholder="8자 이상, 영문/숫자 조합"
-              placeholderTextColor="#b7b4ae"
+              placeholderTextColor={Colors.textFaint}
               secureTextEntry={!props.showPassword}
               style={[
                 styles.input,
@@ -586,7 +583,7 @@ function SignupScreen(props: {
               value={props.confirm}
               onChangeText={props.onConfirm}
               placeholder="비밀번호를 다시 입력해주세요"
-              placeholderTextColor="#b7b4ae"
+              placeholderTextColor={Colors.textFaint}
               secureTextEntry={!props.showConfirm}
               style={[
                 styles.input,
@@ -645,7 +642,7 @@ function NicknameScreen(props: {
                 value={props.nickname}
                 onChangeText={(value) => props.onNickname(value.slice(0, 10))}
                 placeholder="닉네임을 입력해주세요"
-                placeholderTextColor="#b7b4ae"
+                placeholderTextColor={Colors.textFaint}
                 autoCapitalize="none"
                 style={[
                   styles.input,
@@ -851,7 +848,7 @@ function PixelButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={secondary ? colors.green : "#fff"} />
+        <ActivityIndicator color={secondary ? Colors.primary : Colors.white} />
       ) : (
         <Text style={[styles.pixelButtonText, secondary && styles.pixelButtonSecondaryText]}>
           {label}
@@ -916,7 +913,7 @@ function TermRow({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#e9ece3",
+    backgroundColor: Colors.background,
     alignItems: "center",
   },
   keyboard: {
@@ -926,12 +923,12 @@ const styles = StyleSheet.create({
   },
   frame: {
     flex: 1,
-    backgroundColor: colors.paper,
+    backgroundColor: Colors.background,
     overflow: "hidden",
   },
   screen: {
     flex: 1,
-    backgroundColor: colors.paper,
+    backgroundColor: Colors.background,
     position: "relative",
   },
   sprite: {
@@ -963,24 +960,24 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   brandText: {
-    marginTop: 19,
-    color: "#3e7c37",
-    fontSize: 51,
+    marginTop: Spacing.xl,
+    color: Colors.primary,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontSize: FontSizes.displayLarge,
     lineHeight: 54,
-    fontWeight: "900",
-    textShadowColor: "#235c2b",
+    textShadowColor: Colors.primary,
     textShadowOffset: { width: 1, height: 2 },
     textShadowRadius: 0,
   },
   tagline: {
-    marginTop: 14,
-    color: "#807a70",
-    fontSize: 15,
-    fontWeight: "800",
+    marginTop: Spacing.lg,
+    color: Colors.textGray,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontSize: FontSizes.bodyLarge,
   },
   heart: {
-    color: colors.heart,
-    fontWeight: "900",
+    color: Colors.danger,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
   },
   landingPlant: {
     top: 323,
@@ -1000,35 +997,35 @@ const styles = StyleSheet.create({
     left: 49,
     right: 49,
     top: 625,
-    gap: 12,
-    backgroundColor: colors.paper,
+    gap: Spacing.md,
+    backgroundColor: Colors.background,
   },
   pixelButton: {
     height: 56,
     borderWidth: 2,
-    borderColor: colors.greenDark,
-    borderRadius: 6,
-    backgroundColor: colors.green,
+    borderColor: Colors.primary,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#2b652f",
+    shadowColor: Colors.primary,
     shadowOpacity: 1,
     shadowRadius: 0,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   pixelButtonSecondary: {
-    backgroundColor: colors.paper,
+    backgroundColor: Colors.background,
     shadowOpacity: 0,
     elevation: 0,
   },
   pixelButtonText: {
-    color: "#fff",
-    fontSize: 19,
-    fontWeight: "900",
+    color: Colors.white,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontSize: FontSizes.subtitle,
   },
   pixelButtonSecondaryText: {
-    color: colors.green,
+    color: Colors.primary,
   },
   pressed: {
     opacity: 0.78,
@@ -1037,8 +1034,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   authScroll: {
-    paddingHorizontal: 28,
-    paddingBottom: 36,
+    paddingHorizontal: Spacing.section,
+    paddingBottom: Spacing.huge,
   },
   backButton: {
     position: "absolute",
@@ -1051,10 +1048,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   backText: {
-    color: "#111",
-    fontSize: 38,
+    color: Colors.textBlack,
+    fontFamily: Fonts.nanumSquareNeo.bold,
+    fontSize: FontSizes.display,
     lineHeight: 38,
-    fontWeight: "300",
   },
   authHead: {
     marginTop: 68,
@@ -1069,39 +1066,39 @@ const styles = StyleSheet.create({
     width: 31,
     height: 24,
     resizeMode: "contain",
-    marginBottom: 1,
+    marginBottom: Spacing.xxs,
   },
   authTitle: {
-    color: colors.greenDark,
-    fontSize: 34,
+    color: Colors.primary,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontSize: FontSizes.display,
     lineHeight: 38,
-    fontWeight: "900",
   },
   authSubtitle: {
-    marginTop: 8,
-    color: "#7f7c74",
-    fontSize: 15,
+    marginTop: Spacing.sm,
+    color: Colors.textGray,
+    fontFamily: Fonts.nanumSquareNeo.bold,
+    fontSize: FontSizes.bodyLarge,
     lineHeight: 19,
-    fontWeight: "700",
   },
   form: {
-    marginTop: 28,
+    marginTop: Spacing.section,
   },
   signupForm: {
-    marginTop: 26,
+    marginTop: Spacing.section,
   },
   field: {
-    marginBottom: 20,
+    marginBottom: Spacing.xl,
   },
   fieldCompact: {
-    marginBottom: 14,
+    marginBottom: Spacing.lg,
   },
   label: {
-    marginLeft: 2,
-    marginBottom: 8,
-    color: "#242424",
-    fontSize: 12,
-    fontWeight: "900",
+    marginLeft: Spacing.xxs,
+    marginBottom: Spacing.sm,
+    color: Colors.textBlack,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontSize: FontSizes.small,
   },
   inputWrap: {
     position: "relative",
@@ -1109,7 +1106,7 @@ const styles = StyleSheet.create({
   checkRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: Spacing.sm,
   },
   checkInput: {
     flex: 1,
@@ -1117,13 +1114,13 @@ const styles = StyleSheet.create({
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 10,
-    backgroundColor: "#fffef9",
-    paddingHorizontal: 15,
-    color: "#373737",
-    fontSize: 14,
-    fontWeight: "700",
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.background,
+    paddingHorizontal: Spacing.lg,
+    color: Colors.textBlack,
+    fontFamily: Fonts.nanumSquareNeo.bold,
+    fontSize: FontSizes.body,
   },
   signupInput: {
     height: 44,
@@ -1132,7 +1129,7 @@ const styles = StyleSheet.create({
     paddingRight: 54,
   },
   inputError: {
-    borderColor: colors.heart,
+    borderColor: Colors.danger,
     borderWidth: 1.5,
   },
   passwordToggle: {
@@ -1143,169 +1140,170 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   passwordToggleText: {
-    color: "#6f6a61",
-    fontSize: 12,
-    fontWeight: "900",
+    color: Colors.textGray,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontSize: FontSizes.small,
   },
   errorText: {
-    marginTop: 6,
-    marginLeft: 2,
-    color: colors.heart,
-    fontSize: 11,
+    marginTop: Spacing.sm,
+    marginLeft: Spacing.xxs,
+    color: Colors.danger,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontSize: FontSizes.small,
     lineHeight: 15,
-    fontWeight: "800",
   },
   formMessage: {
-    marginTop: 10,
-    color: colors.heart,
-    fontSize: 12,
+    marginTop: Spacing.md,
+    color: Colors.danger,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontSize: FontSizes.small,
     lineHeight: 17,
-    fontWeight: "800",
     textAlign: "center",
   },
   successText: {
-    color: colors.green,
+    color: Colors.primary,
   },
   smallButton: {
     width: 78,
     height: 44,
     borderWidth: 1,
-    borderColor: colors.green,
-    borderRadius: 9,
-    backgroundColor: colors.paper,
+    borderColor: Colors.primary,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.background,
     alignItems: "center",
     justifyContent: "center",
   },
   smallButtonText: {
-    color: colors.green,
-    fontSize: 12,
-    fontWeight: "900",
+    color: Colors.primary,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontSize: FontSizes.small,
   },
   forgot: {
     alignSelf: "flex-end",
     marginTop: -1,
   },
   forgotText: {
-    color: "#4d8642",
-    fontSize: 11,
-    fontWeight: "800",
+    color: Colors.primary,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontSize: FontSizes.small,
     textDecorationLine: "underline",
   },
   loginButton: {
-    marginTop: 46,
+    marginTop: Spacing.huge2,
   },
   divider: {
-    marginTop: 48,
-    marginBottom: 30,
+    marginTop: Spacing.huge2,
+    marginBottom: Spacing.xxxl,
     flexDirection: "row",
     alignItems: "center",
-    gap: 15,
+    gap: Spacing.lg,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#e1dbce",
+    backgroundColor: Colors.border,
   },
   dividerText: {
-    color: "#8e877d",
-    fontSize: 13,
-    fontWeight: "700",
+    color: Colors.textGray,
+    fontFamily: Fonts.nanumSquareNeo.bold,
+    fontSize: FontSizes.body,
   },
   socials: {
     flexDirection: "row",
-    gap: 10,
+    gap: Spacing.md,
   },
   socialButton: {
     flex: 1,
     height: 58,
     borderWidth: 1,
-    borderColor: "#d9d2c4",
-    borderRadius: 9,
-    backgroundColor: "#fffef9",
+    borderColor: Colors.border,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.background,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    gap: 7,
+    gap: Spacing.sm,
   },
   socialIcon: {
-    color: "#4285f4",
-    fontSize: 19,
-    fontWeight: "900",
+    color: Brand.google,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontSize: FontSizes.subtitle,
   },
   kakaoIcon: {
     width: 18,
     height: 18,
-    borderRadius: 6,
-    backgroundColor: "#f8d43e",
-    color: "#2d241f",
-    fontSize: 10,
+    borderRadius: Radius.sm,
+    backgroundColor: Brand.kakao,
+    color: Colors.textBlack,
+    fontFamily: Fonts.nanumSquareNeo.bold,
+    fontSize: FontSizes.caption,
     textAlign: "center",
     lineHeight: 18,
   },
   socialLabel: {
-    color: "#33302c",
-    fontSize: 13,
-    fontWeight: "800",
+    color: Colors.textBlack,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontSize: FontSizes.body,
   },
   terms: {
-    marginTop: 4,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    marginTop: Spacing.xs,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
     borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 9,
-    backgroundColor: "#fffef9",
+    borderColor: Colors.border,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.background,
   },
   termRow: {
     minHeight: 30,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: Spacing.sm,
   },
   checkbox: {
     width: 14,
     height: 14,
     borderWidth: 1,
-    borderColor: "#d4cfc4",
-    borderRadius: 3,
-    backgroundColor: "#fffef9",
+    borderColor: Colors.border,
+    borderRadius: Radius.xs,
+    backgroundColor: Colors.background,
     alignItems: "center",
     justifyContent: "center",
   },
   checkboxChecked: {
-    borderColor: "#4d8b40",
-    backgroundColor: "#4d8b40",
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary,
   },
   checkmark: {
-    color: "#fff",
-    fontSize: 10,
+    color: Colors.white,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontSize: FontSizes.caption,
     lineHeight: 12,
-    fontWeight: "900",
   },
   termText: {
     flex: 1,
-    color: "#646057",
-    fontSize: 12,
-    fontWeight: "800",
+    color: Colors.textBlack,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontSize: FontSizes.small,
   },
   termTextStrong: {
-    color: "#4a5046",
-    fontSize: 13,
-    fontWeight: "900",
+    color: Colors.textGray,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontSize: FontSizes.body,
   },
   viewLink: {
     width: 38,
-    color: "#56534d",
+    color: Colors.textBlack,
     textAlign: "right",
-    fontSize: 12,
-    fontWeight: "800",
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontSize: FontSizes.small,
   },
   signupButton: {
-    marginTop: 30,
+    marginTop: Spacing.xxxl,
   },
   nicknameScroll: {
-    paddingHorizontal: 28,
-    paddingBottom: 36,
+    paddingHorizontal: Spacing.section,
+    paddingBottom: Spacing.huge,
   },
   nickHero: {
     position: "relative",
@@ -1320,7 +1318,7 @@ const styles = StyleSheet.create({
     left: 83,
     width: 174,
     height: 48,
-    backgroundColor: "#e5d8c5",
+    backgroundColor: Colors.white,
   },
   nickSun: {
     position: "absolute",
@@ -1345,8 +1343,8 @@ const styles = StyleSheet.create({
     width: 174,
     height: 48,
     borderWidth: 1,
-    borderColor: "#9b7a57",
-    backgroundColor: colors.paper,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
@@ -1364,7 +1362,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 9,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderTopColor: "#9b7a57",
+    borderTopColor: Colors.border,
   },
   nickBubbleTailFill: {
     position: "absolute",
@@ -1377,37 +1375,37 @@ const styles = StyleSheet.create({
     borderTopWidth: 8,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderTopColor: colors.paper,
+    borderTopColor: Colors.background,
   },
   nickBubbleText: {
-    color: "#1f2a1e",
-    fontSize: 14,
-    fontWeight: "900",
+    color: Colors.textBlack,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontSize: FontSizes.body,
   },
   cursor: {
     width: 2,
     height: 14,
-    marginLeft: 2,
-    backgroundColor: colors.green,
+    marginLeft: Spacing.xxs,
+    backgroundColor: Colors.primary,
   },
   nickTitle: {
-    marginTop: 24,
-    color: colors.greenDark,
+    marginTop: Spacing.xxl,
+    color: Colors.primary,
     textAlign: "center",
-    fontSize: 29,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontSize: FontSizes.screenTitle,
     lineHeight: 33,
-    fontWeight: "900",
   },
   nickCopy: {
-    marginTop: 18,
-    color: "#76736c",
+    marginTop: Spacing.xl,
+    color: Colors.textGray,
     textAlign: "center",
-    fontSize: 16,
+    fontFamily: Fonts.nanumSquareNeo.bold,
+    fontSize: FontSizes.bodyLarge,
     lineHeight: 23,
-    fontWeight: "700",
   },
   nickForm: {
-    marginTop: 42,
+    marginTop: Spacing.huge,
   },
   counterInput: {
     paddingRight: 56,
@@ -1416,25 +1414,25 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 16,
     right: 13,
-    color: "#8f8980",
-    fontSize: 12,
-    fontWeight: "800",
+    color: Colors.textGray,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontSize: FontSizes.small,
   },
   hint: {
     marginTop: -14,
-    marginLeft: 2,
-    color: "#a5a097",
-    fontSize: 11,
-    fontWeight: "800",
+    marginLeft: Spacing.xxs,
+    color: Colors.textFaint,
+    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontSize: FontSizes.small,
   },
   startButton: {
-    marginTop: 36,
+    marginTop: Spacing.huge,
   },
   doneContent: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 28,
+    paddingHorizontal: Spacing.section,
     paddingBottom: 60,
   },
   donePlant: {
@@ -1443,20 +1441,20 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   doneTitle: {
-    marginTop: 28,
-    color: colors.greenDark,
-    fontSize: 30,
-    fontWeight: "900",
+    marginTop: Spacing.section,
+    color: Colors.primary,
+    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontSize: FontSizes.screenTitle,
     textAlign: "center",
   },
   doneCopy: {
-    marginTop: 12,
-    color: colors.muted,
-    fontSize: 15,
-    fontWeight: "700",
+    marginTop: Spacing.md,
+    color: Colors.textGray,
+    fontFamily: Fonts.nanumSquareNeo.bold,
+    fontSize: FontSizes.bodyLarge,
   },
   doneButton: {
     alignSelf: "stretch",
-    marginTop: 42,
+    marginTop: Spacing.huge,
   },
 });

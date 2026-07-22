@@ -15,6 +15,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Line, Polyline, Circle, Text as SvgText } from "react-native-svg";
 
 import PlantImage from "../components/PlantImage";
+import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
+import { Colors, GreenTint, Gauge, GaugeTint, Glass } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -144,7 +149,7 @@ function LineChart({ tempData, airData, soilData, periodKey }) {
                         key={i}
                         x1={PAD_L} y1={y}
                         x2={chartWidth - PAD_R} y2={y}
-                        stroke="rgba(80,120,60,0.15)"
+                        stroke={GreenTint.soft}
                         strokeWidth={1}
                         strokeDasharray="4 4"
                     />
@@ -159,7 +164,7 @@ function LineChart({ tempData, airData, soilData, periodKey }) {
                     y={normTemp(val) + 4}
                     textAnchor="end"
                     fontSize={9}
-                    fill="#C05A3A"
+                    fill={Gauge.warmDeep}
                 >
                     {val}
                 </SvgText>
@@ -173,7 +178,7 @@ function LineChart({ tempData, airData, soilData, periodKey }) {
                     y={normHum(pct) + 4}
                     textAnchor="start"
                     fontSize={9}
-                    fill="#3A82B8"
+                    fill={Gauge.coolDeep}
                 >
                     {pct}
                 </SvgText>
@@ -183,26 +188,26 @@ function LineChart({ tempData, airData, soilData, periodKey }) {
             <Line
                 x1={PAD_L} y1={PAD_T + PLOT_H}
                 x2={chartWidth - PAD_R} y2={PAD_T + PLOT_H}
-                stroke="rgba(80,120,60,0.25)"
+                stroke={GreenTint.line}
                 strokeWidth={1}
             />
 
             {/* Lines */}
             <Polyline
                 points={pts(airData, normHum)}
-                fill="none" stroke="#5BBFDE"
+                fill="none" stroke={Gauge.cool}
                 strokeWidth={2}
                 strokeLinejoin="round" strokeLinecap="round"
             />
             <Polyline
                 points={pts(soilData, normHum)}
-                fill="none" stroke="#6DB66A"
+                fill="none" stroke={GreenTint.medium}
                 strokeWidth={2}
                 strokeLinejoin="round" strokeLinecap="round"
             />
             <Polyline
                 points={pts(tempData, normTemp)}
-                fill="none" stroke="#E87B4B"
+                fill="none" stroke={Gauge.warm}
                 strokeWidth={2.5}
                 strokeLinejoin="round" strokeLinecap="round"
             />
@@ -210,9 +215,9 @@ function LineChart({ tempData, airData, soilData, periodKey }) {
             {/* Dots at labeled positions */}
             {cfg.xLabelIndices.map((di) => (
                 <React.Fragment key={di}>
-                    <Circle cx={xOf(di)} cy={normTemp(tempData[di])} r={3.5} fill="#E87B4B" />
-                    <Circle cx={xOf(di)} cy={normHum(airData[di])}  r={3}   fill="#5BBFDE" />
-                    <Circle cx={xOf(di)} cy={normHum(soilData[di])} r={3}   fill="#6DB66A" />
+                    <Circle cx={xOf(di)} cy={normTemp(tempData[di])} r={3.5} fill={Gauge.warm} />
+                    <Circle cx={xOf(di)} cy={normHum(airData[di])}  r={3}   fill={Gauge.cool} />
+                    <Circle cx={xOf(di)} cy={normHum(soilData[di])} r={3}   fill={GreenTint.medium} />
                 </React.Fragment>
             ))}
 
@@ -224,7 +229,7 @@ function LineChart({ tempData, airData, soilData, periodKey }) {
                     y={CHART_H - 4}
                     textAnchor="middle"
                     fontSize={10}
-                    fill="#4A6040"
+                    fill={GreenTint.deep}
                 >
                     {cfg.xLabels[li]}
                 </SvgText>
@@ -242,7 +247,7 @@ function StatCard({ icon, label, value, rating }) {
             <Text style={styles.statLabel}>{label}</Text>
             <Text style={styles.statValue}>{value}</Text>
             <View style={styles.ratingBadge}>
-                <Ionicons name="checkmark-circle" size={12} color="#2E7020" />
+                <Ionicons name="checkmark-circle" size={12} color={GreenTint.deep} />
                 <Text style={styles.ratingText}>{rating}</Text>
             </View>
         </View>
@@ -259,14 +264,15 @@ const PERIOD_KEYS = ["일", "주", "월"];
 const PERIOD_MAP  = { "일": "daily", "주": "weekly", "월": "monthly" };
 
 const CONDITIONS = [
-    { emoji: "🥰", text: "따뜻해요", color: "#D94B3A", bg: "rgba(217,75,58,0.12)",  border: "rgba(217,75,58,0.28)"  },
-    { emoji: "😊", text: "촉촉해요", color: "#3A8DC4", bg: "rgba(58,141,196,0.12)", border: "rgba(58,141,196,0.28)" },
-    { emoji: "😄", text: "쾌적해요", color: "#C49A20", bg: "rgba(196,154,32,0.12)", border: "rgba(196,154,32,0.28)" },
+    { emoji: "🥰", text: "따뜻해요", color: Gauge.hot, bg: GaugeTint.hotFaint,  border: GaugeTint.hotSoft  },
+    { emoji: "😊", text: "촉촉해요", color: Gauge.coolText, bg: GaugeTint.coolFaint, border: GaugeTint.coolSoft },
+    { emoji: "😄", text: "쾌적해요", color: Gauge.gold, bg: GaugeTint.goldFaint, border: GaugeTint.goldSoft },
 ];
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function SensorDataScreen({ navigation }) {
+export default function SensorDataScreen({ navigation, route }) {
+    const plant = route?.params?.plant;
     const [period, setPeriod]     = useState("일");
     const [periodIdx, setPeriodIdx] = useState(0);
 
@@ -296,21 +302,11 @@ export default function SensorDataScreen({ navigation }) {
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
 
                 {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        onPress={() => navigation.goBack()}
-                        style={styles.headerButton}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="chevron-back" size={28} color="#2B3E25" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>센서 데이터</Text>
-                    <View style={styles.headerButton} />
-                </View>
+                <ScreenHeader title="센서 데이터" onBack={() => navigation.goBack()} />
 
                 <ScrollView
                     showsVerticalScrollIndicator={false}
@@ -343,7 +339,7 @@ export default function SensorDataScreen({ navigation }) {
                             <Ionicons
                                 name="chevron-back"
                                 size={22}
-                                color={periodIdx >= maxIdx ? "#C0CDB8" : "#2B3E25"}
+                                color={periodIdx >= maxIdx ? Colors.textFaint : Colors.primary}
                             />
                         </TouchableOpacity>
                         <Text style={styles.periodLabel}>{ds.label}</Text>
@@ -356,7 +352,7 @@ export default function SensorDataScreen({ navigation }) {
                             <Ionicons
                                 name="chevron-forward"
                                 size={22}
-                                color={periodIdx <= 0 ? "#C0CDB8" : "#2B3E25"}
+                                color={periodIdx <= 0 ? Colors.textFaint : Colors.primary}
                             />
                         </TouchableOpacity>
                     </View>
@@ -365,14 +361,14 @@ export default function SensorDataScreen({ navigation }) {
                     <View style={styles.card}>
                         <BlurView intensity={22} tint="light" style={styles.cardBlur}>
                             <LinearGradient
-                                colors={["rgba(255,255,255,0.75)", "rgba(218,240,205,0.50)"]}
+                                colors={[Glass.frost72, Glass.mist]}
                                 start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
                                 style={styles.cardGradient}
                             >
                                 {/* Y-axis unit labels */}
                                 <View style={styles.yAxisLabelRow}>
-                                    <Text style={[styles.yAxisUnit, { color: "#C05A3A" }]}>°C</Text>
-                                    <Text style={[styles.yAxisUnit, { color: "#3A82B8" }]}>%</Text>
+                                    <Text style={[styles.yAxisUnit, { color: Gauge.warmDeep }]}>°C</Text>
+                                    <Text style={[styles.yAxisUnit, { color: Gauge.coolDeep }]}>%</Text>
                                 </View>
 
                                 <LineChart
@@ -385,15 +381,15 @@ export default function SensorDataScreen({ navigation }) {
                                 {/* Legend */}
                                 <View style={styles.legend}>
                                     <View style={styles.legendItem}>
-                                        <View style={[styles.legendDot, { backgroundColor: "#E87B4B" }]} />
+                                        <View style={[styles.legendDot, { backgroundColor: Gauge.warm }]} />
                                         <Text style={styles.legendText}>온도(°C)</Text>
                                     </View>
                                     <View style={styles.legendItem}>
-                                        <View style={[styles.legendDot, { backgroundColor: "#5BBFDE" }]} />
+                                        <View style={[styles.legendDot, { backgroundColor: Gauge.cool }]} />
                                         <Text style={styles.legendText}>공기습도(%)</Text>
                                     </View>
                                     <View style={styles.legendItem}>
-                                        <View style={[styles.legendDot, { backgroundColor: "#6DB66A" }]} />
+                                        <View style={[styles.legendDot, { backgroundColor: GreenTint.medium }]} />
                                         <Text style={styles.legendText}>토양습도(%)</Text>
                                     </View>
                                 </View>
@@ -405,12 +401,12 @@ export default function SensorDataScreen({ navigation }) {
                     <View style={styles.card}>
                         <BlurView intensity={22} tint="light" style={styles.cardBlur}>
                             <LinearGradient
-                                colors={["rgba(255,255,255,0.75)", "rgba(218,240,205,0.50)"]}
+                                colors={[Glass.frost72, Glass.mist]}
                                 start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
                                 style={styles.cardGradient}
                             >
                                 <View style={styles.summaryHeader}>
-                                    <PlantImage imageKey="spaghetti" width={48} height={48} />
+                                    <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={48} height={48} />
                                     <Text style={styles.cardTitle}>{summaryTitle}</Text>
                                 </View>
                                 <View style={styles.conditionRow}>
@@ -437,7 +433,7 @@ export default function SensorDataScreen({ navigation }) {
                     <View style={styles.card}>
                         <BlurView intensity={22} tint="light" style={styles.cardBlur}>
                             <LinearGradient
-                                colors={["rgba(255,255,255,0.75)", "rgba(218,240,205,0.50)"]}
+                                colors={[Glass.frost72, Glass.mist]}
                                 start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
                                 style={styles.cardGradient}
                             >
@@ -445,13 +441,13 @@ export default function SensorDataScreen({ navigation }) {
                                 <View style={styles.statsGrid}>
                                     <View style={styles.statsRow}>
                                         <StatCard
-                                            icon={<Ionicons name="thermometer" size={26} color="#E87B4B" />}
+                                            icon={<Ionicons name="thermometer" size={26} color={Gauge.warm} />}
                                             label="평균 기온"
                                             value={`${avgTemp}°C`}
                                             rating="적정"
                                         />
                                         <StatCard
-                                            icon={<Ionicons name="water" size={26} color="#5BBFDE" />}
+                                            icon={<Ionicons name="water" size={26} color={Gauge.cool} />}
                                             label="공기 습도"
                                             value={`${avgAir}%`}
                                             rating="적정"
@@ -459,13 +455,13 @@ export default function SensorDataScreen({ navigation }) {
                                     </View>
                                     <View style={styles.statsRow}>
                                         <StatCard
-                                            icon={<MaterialCommunityIcons name="water-percent" size={26} color="#6DB66A" />}
+                                            icon={<MaterialCommunityIcons name="water-percent" size={26} color={GreenTint.medium} />}
                                             label="토양 습도"
                                             value={`${avgSoil}%`}
                                             rating="적정"
                                         />
                                         <StatCard
-                                            icon={<Ionicons name="cloud-outline" size={26} color="#8A9A82" />}
+                                            icon={<Ionicons name="cloud-outline" size={26} color={GreenTint.medium} />}
                                             label="미세먼지"
                                             value={`${ds.dust} μg/m³`}
                                             rating="적정"
@@ -487,68 +483,48 @@ export default function SensorDataScreen({ navigation }) {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
     safe: {
         flex: 1,
     },
 
     // Header
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    headerTitle: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        fontSize: 25,
-        color: "#111111",
-        includeFontPadding: false,
-    },
 
     scrollContent: {
-        paddingHorizontal: 16,
-        paddingBottom: 32,
-        gap: 14,
+        ...screenContent,
+        paddingBottom: Spacing.xxxl,
     },
 
     // Period Tabs
     periodTabRow: {
         flexDirection: "row",
-        backgroundColor: "rgba(180,210,160,0.25)",
-        borderRadius: 14,
-        padding: 4,
-        gap: 4,
+        backgroundColor: GreenTint.faint,
+        borderRadius: Radius.lg,
+        padding: Spacing.xs,
+        gap: Spacing.xs,
     },
     periodTab: {
         flex: 1,
-        paddingVertical: 8,
-        borderRadius: 11,
+        paddingVertical: Spacing.sm,
+        borderRadius: Radius.md,
         alignItems: "center",
     },
     periodTabActive: {
-        backgroundColor: "#FFFFFF",
-        shadowColor: "#2D4A20",
+        backgroundColor: Colors.white,
+        shadowColor: GreenTint.deep,
         shadowOpacity: 0.12,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 2 },
         elevation: 2,
     },
     periodTabText: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 15,
-        color: "#6A8A5A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: GreenTint.strong,
     },
     periodTabTextActive: {
-        color: "#1F3A14",
+        color: Colors.primary,
     },
 
     // Period Navigator
@@ -556,7 +532,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 12,
+        gap: Spacing.md,
     },
     navArrow: {
         width: 36,
@@ -565,153 +541,153 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     periodLabel: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 15,
-        color: "#2B3E25",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: Colors.primary,
         minWidth: 120,
         textAlign: "center",
     },
 
     // Cards
     card: {
-        borderRadius: 20,
+        borderRadius: Radius.xl,
         overflow: "hidden",
         borderWidth: 1.2,
-        borderColor: "rgba(255,255,255,0.75)",
-        shadowColor: "#2D4A20",
+        borderColor: Glass.frost72,
+        shadowColor: GreenTint.deep,
         shadowOpacity: 0.10,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
         elevation: 3,
     },
     cardBlur: {
-        borderRadius: 20,
+        borderRadius: Radius.xl,
         overflow: "hidden",
     },
     cardGradient: {
-        paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 18,
-        gap: 12,
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.lg,
+        paddingBottom: Spacing.xl,
+        gap: Spacing.md,
     },
     cardTitle: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 14,
-        color: "#2A4020",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.primary,
     },
 
     // Y-axis unit row
     yAxisLabelRow: {
         flexDirection: "row",
         justifyContent: "space-between",
-        paddingHorizontal: 4,
+        paddingHorizontal: Spacing.xs,
         marginBottom: -6,
     },
     yAxisUnit: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 10,
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.caption,
     },
 
     // Legend
     legend: {
         flexDirection: "row",
         justifyContent: "center",
-        gap: 16,
+        gap: Spacing.lg,
         marginTop: -4,
     },
     legendItem: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 5,
+        gap: Spacing.xs,
     },
     legendDot: {
         width: 9,
         height: 9,
-        borderRadius: 99,
+        borderRadius: Radius.pill,
     },
     legendText: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 11,
-        color: "#4A6040",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.deep,
     },
 
     // Summary
     summaryHeader: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
+        gap: Spacing.md,
     },
     conditionRow: {
         flexDirection: "row",
-        gap: 8,
+        gap: Spacing.sm,
     },
     conditionBox: {
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        borderRadius: 14,
+        borderRadius: Radius.lg,
         borderWidth: 1,
-        paddingVertical: 8,
-        paddingHorizontal: 6,
-        gap: 4,
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.sm,
+        gap: Spacing.xs,
     },
     conditionBoxEmoji: {
-        fontSize: 14,
+        fontSize: FontSizes.body,
     },
     conditionBoxText: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 11,
-        color: "#333",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textBlack,
     },
 
     // Stats Grid
     statsGrid: {
-        gap: 10,
+        gap: Spacing.md,
     },
     statsRow: {
         flexDirection: "row",
-        gap: 10,
+        gap: Spacing.md,
     },
     statCard: {
         flex: 1,
-        backgroundColor: "rgba(255,255,255,0.60)",
-        borderRadius: 16,
+        backgroundColor: Glass.frost60,
+        borderRadius: Radius.lg,
         borderWidth: 1,
-        borderColor: "rgba(200,230,185,0.6)",
-        paddingVertical: 14,
-        paddingHorizontal: 14,
-        gap: 4,
+        borderColor: GreenTint.soft,
+        paddingVertical: Spacing.lg,
+        paddingHorizontal: Spacing.lg,
+        gap: Spacing.xs,
         alignItems: "flex-start",
     },
     statIconWrap: {
-        marginBottom: 2,
+        marginBottom: Spacing.xxs,
     },
     statLabel: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 11,
-        color: "#5A7A4A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.strong,
     },
     statValue: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 18,
-        color: "#1F3A14",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.subtitle,
+        color: Colors.primary,
     },
     ratingBadge: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
-        marginTop: 4,
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        backgroundColor: "rgba(60,160,50,0.12)",
-        borderRadius: 99,
+        gap: Spacing.xs,
+        marginTop: Spacing.xs,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xs,
+        backgroundColor: GreenTint.faint,
+        borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: "rgba(60,160,50,0.30)",
+        borderColor: GreenTint.line,
     },
     ratingText: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 11,
-        color: "#2E7020",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.deep,
     },
 });

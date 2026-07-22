@@ -11,9 +11,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import LiquidGlassButton from "../components/LiquidGlassButton";
 
-const FONT = "NeoDunggeunmoPro-Regular";
+import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
+import { Colors, GreenTint, Paper } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 
 const BG_ITEMS = [
     {
@@ -73,17 +76,19 @@ export default function StoreScreen({
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
                 {/* 헤더 */}
-                <View style={styles.header}>
-                    <View style={styles.headerButton} />
-                    <Text style={styles.headerTitle}>스토어</Text>
-                    <View style={styles.coinBadge}>
-                        <Ionicons name="ellipse" size={13} color="#F4B63F" />
-                        <Text style={styles.coinText}>{coins}</Text>
-                    </View>
-                </View>
+                <ScreenHeader
+                    title="스토어"
+                    onBack={() => navigation.goBack()}
+                    right={
+                        <View style={styles.coinBadge}>
+                            <Ionicons name="ellipse" size={13} color={Colors.coin} />
+                            <Text style={styles.coinText}>{coins}</Text>
+                        </View>
+                    }
+                />
 
                 <ScrollView
                     showsVerticalScrollIndicator={false}
@@ -117,7 +122,7 @@ export default function StoreScreen({
                                             <Ionicons
                                                 name="ellipse"
                                                 size={11}
-                                                color="#F4B63F"
+                                                color={Colors.coin}
                                             />
                                             <Text style={styles.priceText}>
                                                 {item.price} 코인
@@ -170,15 +175,6 @@ export default function StoreScreen({
                         );
                     })}
                 </ScrollView>
-
-                <View style={styles.footer}>
-                    <LiquidGlassButton
-                        size={48}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="close" size={24} color="#2B3E25" />
-                    </LiquidGlassButton>
-                </View>
             </SafeAreaView>
         </View>
     );
@@ -187,77 +183,56 @@ export default function StoreScreen({
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
     safe: {
         flex: 1,
     },
 
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    headerTitle: {
-        fontFamily: FONT,
-        fontSize: 25,
-        color: "#111111",
-        includeFontPadding: false,
-    },
     coinBadge: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 5,
-        backgroundColor: "#FFFBE8",
-        borderRadius: 20,
+        gap: Spacing.xs,
+        backgroundColor: Paper.cream,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
-        borderColor: "#F4D98A",
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        borderColor: Paper.creamGold,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
     },
     coinText: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#C8870A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Paper.gold,
         includeFontPadding: false,
     },
 
     scrollContent: {
-        paddingHorizontal: 20,
-        paddingTop: 4,
-        paddingBottom: 40,
-        gap: 12,
+        ...screenContent,
+        gap: Spacing.md,
     },
 
     sectionTitle: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#5A8A5A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.strong,
         includeFontPadding: false,
-        marginBottom: 4,
+        marginBottom: Spacing.xs,
     },
 
     card: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#FFFFFF",
-        borderRadius: 18,
+        backgroundColor: Colors.white,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
-        borderColor: "#E0EBCD",
+        borderColor: GreenTint.soft,
         overflow: "hidden",
-        gap: 14,
-        paddingRight: 16,
+        gap: Spacing.lg,
+        paddingRight: Spacing.lg,
     },
     cardActive: {
-        borderColor: "#5A9A5A",
+        borderColor: GreenTint.medium,
         borderWidth: 2,
     },
 
@@ -268,84 +243,75 @@ const styles = StyleSheet.create({
 
     cardBody: {
         flex: 1,
-        gap: 6,
+        gap: Spacing.sm,
     },
     itemName: {
-        fontFamily: FONT,
-        fontSize: 15,
-        color: "#222222",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
     freeTag: {
-        fontFamily: FONT,
-        fontSize: 12,
-        color: "#5A9A5A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.medium,
         includeFontPadding: false,
     },
     priceRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
+        gap: Spacing.xs,
     },
     priceText: {
-        fontFamily: FONT,
-        fontSize: 12,
-        color: "#C8870A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Paper.gold,
         includeFontPadding: false,
-    },
-
-    footer: {
-        height: 76,
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 20,
-        borderTopWidth: 1,
-        borderTopColor: "#EEF5E6",
     },
 
     actionArea: {
         alignItems: "center",
     },
     btn: {
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
+        borderRadius: Radius.md,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
         alignItems: "center",
         minWidth: 72,
     },
     btnApplied: {
-        backgroundColor: "#EAF5EA",
+        backgroundColor: Colors.separator,
         borderWidth: 1.5,
-        borderColor: "#5A9A5A",
+        borderColor: GreenTint.medium,
     },
     btnAppliedText: {
-        fontFamily: FONT,
-        fontSize: 12,
-        color: "#5A9A5A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.medium,
         includeFontPadding: false,
     },
     btnApply: {
-        backgroundColor: "#2F702D",
+        backgroundColor: GreenTint.deep,
     },
     btnApplyText: {
-        fontFamily: FONT,
-        fontSize: 12,
-        color: "#FFFFFF",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.white,
         includeFontPadding: false,
     },
     btnBuy: {
-        backgroundColor: "#F4B63F",
+        backgroundColor: Colors.coin,
     },
     btnBuyDisabled: {
-        backgroundColor: "#E0E0E0",
+        backgroundColor: Colors.border,
     },
     btnBuyText: {
-        fontFamily: FONT,
-        fontSize: 12,
-        color: "#FFFFFF",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.white,
         includeFontPadding: false,
     },
     btnBuyTextDisabled: {
-        color: "#AAAAAA",
+        color: Colors.textFaint,
     },
 });

@@ -1,25 +1,24 @@
 import re
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 NICKNAME_PATTERN = re.compile(r"^[가-힣A-Za-z0-9]{2,10}$")
 
 
 class UserRead(BaseModel):
-    id: int
+    # app_user.user_id → 응답 키는 프론트 호환 위해 id 유지
+    id: int = Field(validation_alias=AliasChoices("user_id", "id"))
     email: str
     nickname: str
-    marketing_opt_in: bool
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class SignupRequest(BaseModel):
     email: str = Field(min_length=5, max_length=255)
     password: str = Field(min_length=8, max_length=128)
     nickname: str = Field(min_length=2, max_length=10)
-    marketing_opt_in: bool = False
 
     @field_validator("email")
     @classmethod
@@ -68,18 +67,26 @@ class AvailabilityResponse(BaseModel):
 
 
 class PlantCreate(BaseModel):
+    # 종 정보 (plant_species로 매핑)
     cntntsNo: str | None = None
     scientificName: str | None = None
     commonNameKo: str
+    # 개체 정보 (plant으로 매핑)
     nickname: str
-    characterImageUrl: str = ''
-    capturedPhotoUri: str = ''
-    location: str
-    lightLevel: str
+    location: str = ''
+    lightLevel: str = ''
     plantHeight: int = 0
     potDiameter: int = 0
+    potType: str = ''
     soilNote: str = ''
-    lastWateredAt: str
+    # 사진 (media_asset으로 매핑)
+    characterImageUrl: str = ''
+    capturedPhotoUri: str = ''
+    # S3 object_key/무결성용 체크섬(SHA-256 등) — 클라이언트가 업로드 시 계산해 전달. 없으면 서버가 임의 토큰 사용
+    characterChecksum: str = ''
+    photoChecksum: str = ''
+    # care_record 소관이라 현재 4개 테이블에는 저장하지 않음 (수신만 허용)
+    lastWateredAt: str | None = None
     lastRepottedAt: str | None = None
 
 
@@ -91,11 +98,67 @@ class PlantRead(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @classmethod
-    def from_plant(cls, plant: object) -> "PlantRead":
-        return cls(
-            id=plant.id,  # type: ignore[attr-defined]
-            nickname=plant.nickname,  # type: ignore[attr-defined]
-            common_name_ko=plant.common_name_ko,  # type: ignore[attr-defined]
-            created_at=plant.created_at.isoformat(),  # type: ignore[attr-defined]
-        )
+
+class PlantDetail(BaseModel):
+    # 프로필/상세 화면용 전체 필드
+    id: int
+    nickname: str
+    common_name_ko: str | None = None
+    scientific_name: str | None = None
+    status: str = "ALIVE"
+    location_name: str | None = None
+    light_condition: str | None = None
+    pot_type: str | None = None
+    pot_size: str | None = None
+    soil_type: str | None = None
+    height: str | None = None
+    is_favorite: bool = False
+    character_image_url: str | None = None
+    started_at: str | None = None
+    created_at: str
+
+
+class PlantUpdate(BaseModel):
+    # 프로필 편집 — 넘어온 필드만 부분 수정
+    nickname: str | None = None
+    status: str | None = None
+    location_name: str | None = None
+    pot_type: str | None = None
+    pot_size: str | None = None
+    height: str | None = None
+
+
+class CareSummary(BaseModel):
+    # 최근 물주기/영양제/분갈이 기록 (care_record 기반) + 경과 일수
+    last_watered_at: str | None = None
+    days_since_watering: int | None = None
+    last_fertilized_at: str | None = None
+    days_since_fertilizing: int | None = None
+    last_repotted_at: str | None = None
+    days_since_repotting: int | None = None
+
+
+class CareRecordItem(BaseModel):
+    id: int
+    care_type: str
+    completed_at: str
+    note: str | None = None
+
+
+class CareRecordCreate(BaseModel):
+    care_type: str
+    note: str | None = None
+    completed_at: str | None = None
+
+
+class PlantListItem(BaseModel):
+    # 정원 목록에 필요한 최소 필드 — 미구현(캐릭터 이미지/호감도)은 앱에서 placeholder 처리
+    id: int
+    nickname: str
+    common_name_ko: str | None = None
+    location_name: str | None = None
+    light_condition: str | None = None
+    is_favorite: bool = False
+    status: str = "ALIVE"
+    character_image_url: str | None = None
+    created_at: str

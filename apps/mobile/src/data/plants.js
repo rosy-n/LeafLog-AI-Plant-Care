@@ -1,87 +1,9 @@
+// 정원/도트 캐릭터용 기본 이미지 — AI 캐릭터(FLUX) 미구현 상태의 fallback으로 사용
 export const plantImages = {
     spaghetti: require("../../assets/plants/spaghetti.png"),
     rubber: require("../../assets/plants/rubber.png"),
     sansevieria: require("../../assets/plants/sansevieria.png"),
     pachira: require("../../assets/plants/pachira.png"),
     myeongrani: require("../../assets/plants/myeongrani.png"),
+    test: require("../../assets/plants/test.png"),
 };
-
-export const gardenPlants = [
-    {
-        id: "1",
-        name: "스파게티",
-        imageKey: "spaghetti",
-        hearts: 4,
-        favorite: true,
-    },
-    {
-        id: "2",
-        name: "고무고무",
-        imageKey: "rubber",
-        hearts: 4,
-        favorite: true,
-    },
-    {
-        id: "3",
-        name: "산세벨",
-        imageKey: "sansevieria",
-        hearts: 2,
-        favorite: false,
-    },
-    {
-        id: "4",
-        name: "파키라",
-        imageKey: "pachira",
-        hearts: 5,
-        favorite: false,
-    },
-    {
-        id: "5",
-        name: "명란이",
-        imageKey: "myeongrani",
-        hearts: 4,
-        favorite: false,
-    },
-    {
-        id: "6",
-        name: "스파게티",
-        imageKey: "spaghetti",
-        hearts: 4,
-        favorite: false,
-    },
-    {
-        id: "7",
-        name: "스파게티",
-        imageKey: "spaghetti",
-        hearts: 4,
-        favorite: false,
-    },
-    {
-        id: "8",
-        name: "스파게티",
-        imageKey: "spaghetti",
-        hearts: 4,
-        favorite: false,
-    },
-    {
-        id: "9",
-        name: "스파게티",
-        imageKey: "spaghetti",
-        hearts: 4,
-        favorite: false,
-    },
-    {
-        id: "10",
-        name: "스파게티",
-        imageKey: "spaghetti",
-        hearts: 4,
-        favorite: false,
-    },
-    {
-        id: "11",
-        name: "스파게티",
-        imageKey: "spaghetti",
-        hearts: 4,
-        favorite: false,
-    },
-];

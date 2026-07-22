@@ -15,7 +15,11 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
-const FONT = "NanumSquareNeo";
+import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
+import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 
 export default function ConsultationScreen({ navigation, route }) {
     const { consultation } = route.params;
@@ -164,22 +168,12 @@ export default function ConsultationScreen({ navigation, route }) {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <KeyboardAvoidingView
                 style={styles.container}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        activeOpacity={0.75}
-                        style={styles.headerBackButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="chevron-back" size={28} color="#222222" />
-                    </TouchableOpacity>
-                    <Text style={styles.title} numberOfLines={1}>{consultation.title}</Text>
-                    <View style={styles.headerSpacer} />
-                </View>
+                <ScreenHeader title={consultation.title} onBack={() => navigation.goBack()} titleStyle={{ fontSize: FontSizes.subtitle }} />
 
                 <ScrollView
                     ref={scrollViewRef}
@@ -215,7 +209,7 @@ export default function ConsultationScreen({ navigation, route }) {
                         onPress={pickImage}
                         activeOpacity={0.7}
                     >
-                        <Ionicons name="add" size={22} color="#1F5D01" />
+                        <Ionicons name="add" size={22} color={Colors.primary} />
                     </TouchableOpacity>
 
                     <View style={styles.inputBox}>
@@ -230,7 +224,7 @@ export default function ConsultationScreen({ navigation, route }) {
                                     style={styles.removeImageButton}
                                     onPress={() => setPendingImage(null)}
                                 >
-                                    <Ionicons name="close-circle" size={18} color="#555" />
+                                    <Ionicons name="close-circle" size={18} color={Colors.textGray} />
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -239,7 +233,7 @@ export default function ConsultationScreen({ navigation, route }) {
                             value={message}
                             onChangeText={setMessage}
                             placeholder="이어서 질문해 주세요"
-                            placeholderTextColor="#8A9A7A"
+                            placeholderTextColor={GreenTint.medium}
                             multiline
                             textAlignVertical="top"
                         />
@@ -254,7 +248,7 @@ export default function ConsultationScreen({ navigation, route }) {
                         activeOpacity={0.8}
                         disabled={!canSend}
                     >
-                        <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
+                        <Ionicons name="arrow-up" size={20} color={Colors.white} />
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
@@ -265,42 +259,12 @@ export default function ConsultationScreen({ navigation, route }) {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
 
     container: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
-    },
-
-    header: {
-        height: 52,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 8,
-    },
-
-    headerBackButton: {
-        width: 40,
-        height: 40,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-
-    headerSpacer: {
-        width: 40,
-        height: 40,
-    },
-
-    title: {
-        flex: 1,
-        fontFamily: FONT,
-        fontSize: 18,
-        color: "#111111",
-        includeFontPadding: false,
-        textAlign: "center",
-        marginHorizontal: 4,
+        backgroundColor: Colors.background,
     },
 
     chatArea: {
@@ -308,88 +272,88 @@ const styles = StyleSheet.create({
     },
 
     chatContent: {
-        paddingHorizontal: 14,
-        paddingTop: 8,
-        paddingBottom: 16,
+        ...screenContent,
+        paddingBottom: Spacing.lg,
+        gap: Spacing.none,
     },
 
     historyLabel: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 20,
-        gap: 8,
+        marginBottom: Spacing.xl,
+        gap: Spacing.sm,
     },
 
     historyLine: {
         flex: 1,
         height: 1,
-        backgroundColor: "rgba(31, 93, 1, 0.15)",
+        backgroundColor: GreenTint.mist,
     },
 
     historyLabelText: {
-        fontFamily: FONT,
-        fontSize: 11,
-        color: "#7A9A6A",
+        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontSize: FontSizes.small,
+        color: GreenTint.medium,
         includeFontPadding: false,
     },
 
     continueDivider: {
         flexDirection: "row",
         alignItems: "center",
-        marginVertical: 20,
-        gap: 8,
+        marginVertical: Spacing.xl,
+        gap: Spacing.sm,
     },
 
     continueDividerText: {
-        fontFamily: FONT,
-        fontSize: 11,
-        color: "#7A9A6A",
+        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontSize: FontSizes.small,
+        color: GreenTint.medium,
         includeFontPadding: false,
     },
 
     assistantRow: {
         flexDirection: "row",
         alignItems: "flex-start",
-        marginBottom: 20,
+        marginBottom: Spacing.xl,
     },
 
     assistantAvatar: {
         width: 28,
         height: 28,
-        borderRadius: 14,
-        backgroundColor: "#DFF0D4",
+        borderRadius: Radius.lg,
+        backgroundColor: GreenTint.faint,
         alignItems: "center",
         justifyContent: "center",
-        marginRight: 10,
-        marginTop: 1,
+        marginRight: Spacing.md,
+        marginTop: Spacing.xxs,
     },
 
     assistantAvatarIcon: {
-        fontSize: 14,
+        fontSize: FontSizes.body,
     },
 
     assistantContent: {
         flex: 1,
-        paddingTop: 2,
+        paddingTop: Spacing.xxs,
     },
 
     assistantText: {
-        fontFamily: FONT,
-        fontSize: 13,
+        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontSize: FontSizes.body,
         lineHeight: 21,
-        color: "#1A1A1A",
+        color: Colors.textBlack,
     },
 
     userRow: {
         alignItems: "flex-end",
-        marginBottom: 16,
+        marginBottom: Spacing.lg,
     },
 
     userBubble: {
         maxWidth: "75%",
-        backgroundColor: "#1F5D01",
-        borderRadius: 18,
-        borderTopRightRadius: 4,
+        backgroundColor: Colors.primary,
+        borderRadius: Radius.xl,
+        borderTopRightRadius: Radius.xs,
         overflow: "hidden",
     },
 
@@ -399,89 +363,89 @@ const styles = StyleSheet.create({
     },
 
     userText: {
-        fontFamily: FONT,
-        fontSize: 13,
+        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontSize: FontSizes.body,
         lineHeight: 20,
-        color: "#FFFFFF",
-        paddingVertical: 10,
-        paddingHorizontal: 14,
+        color: Colors.white,
+        paddingVertical: Spacing.md,
+        paddingHorizontal: Spacing.lg,
     },
 
     inputWrapper: {
         flexDirection: "row",
         alignItems: "flex-end",
-        paddingHorizontal: 12,
-        paddingTop: 8,
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.sm,
         paddingBottom: Platform.OS === "ios" ? 16 : 12,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: "rgba(31, 93, 1, 0.18)",
+        borderTopColor: GreenTint.veil,
     },
 
     attachButton: {
         width: 34,
         height: 34,
-        borderRadius: 17,
-        backgroundColor: "#E4F3DB",
+        borderRadius: Radius.pill,
+        backgroundColor: GreenTint.faint,
         alignItems: "center",
         justifyContent: "center",
-        marginRight: 8,
-        marginBottom: 3,
+        marginRight: Spacing.sm,
+        marginBottom: Spacing.xs,
     },
 
     inputBox: {
         flex: 1,
-        backgroundColor: "#FFFFFF",
-        borderRadius: 20,
+        backgroundColor: Colors.white,
+        borderRadius: Radius.xl,
         borderWidth: 1,
-        borderColor: "rgba(31, 93, 1, 0.2)",
-        paddingHorizontal: 14,
-        paddingTop: 10,
-        paddingBottom: 10,
-        marginRight: 8,
+        borderColor: GreenTint.haze,
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.md,
+        marginRight: Spacing.sm,
     },
 
     pendingImageRow: {
         flexDirection: "row",
         alignItems: "flex-start",
-        marginBottom: 8,
+        marginBottom: Spacing.sm,
     },
 
     pendingImageThumb: {
         width: 68,
         height: 68,
-        borderRadius: 10,
+        borderRadius: Radius.md,
     },
 
     removeImageButton: {
         position: "absolute",
         top: -5,
         left: 56,
-        backgroundColor: "#FAFFF0",
-        borderRadius: 9,
+        backgroundColor: Colors.background,
+        borderRadius: Radius.sm,
     },
 
     input: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#2F4F20",
+        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontSize: FontSizes.body,
+        color: GreenTint.deep,
         minHeight: 20,
         maxHeight: 80,
-        padding: 0,
+        padding: Spacing.none,
         includeFontPadding: false,
     },
 
     sendButton: {
         width: 34,
         height: 34,
-        borderRadius: 17,
-        backgroundColor: "#1F5D01",
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primary,
         alignItems: "center",
         justifyContent: "center",
-        marginBottom: 3,
+        marginBottom: Spacing.xs,
     },
 
     sendButtonDisabled: {
-        backgroundColor: "#B5CCA5",
+        backgroundColor: GreenTint.line,
     },
 });
