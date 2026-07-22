@@ -10,6 +10,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     Animated,
+    Modal,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -73,6 +74,8 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     // 물주기 애니메이션 (식물 위로 떨어지는 물방울) + 진행 중 중복 탭 방지
     const [wateringDrops, setWateringDrops] = useState([]);
     const [isWatering, setIsWatering] = useState(false);
+    // 물주기 확인 모달
+    const [waterConfirmVisible, setWaterConfirmVisible] = useState(false);
 
     // 캐릭터 대화 모드 — 이 화면 위에서 말풍선/입력만 표시 (기록은 남기지 않음)
     const [chatMode, setChatMode] = useState(false);
@@ -170,8 +173,20 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
         });
     };
 
-    // 물주기 버튼: 물방울 애니메이션 + WATERING 관리 기록 저장 → 💧 D+N 갱신
-    const handleWaterPress = async () => {
+    // 물주기 버튼: 확인 모달을 먼저 띄우고, 사용자가 확인해야 실제 물주기 처리
+    const handleWaterPress = () => {
+        if (isWatering) return;
+        setWaterConfirmVisible(true);
+    };
+
+    // 확인 모달에서 "물주기" 선택 → 모달 닫고 실제 물주기 실행
+    const confirmWater = () => {
+        setWaterConfirmVisible(false);
+        doWater();
+    };
+
+    // 실제 물주기: 물방울 애니메이션 + WATERING 관리 기록 저장 → 💧 D+N 갱신
+    const doWater = async () => {
         if (isWatering) return;
         setIsWatering(true);
 
@@ -297,7 +312,11 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                     ],
                                 }}
                             >
-                                <Text style={styles.dropEmoji}>💧</Text>
+                                <Image
+                                    source={require("../../assets/icons/watering_icon.png")}
+                                    style={styles.dropImage}
+                                    resizeMode="contain"
+                                />
                             </Animated.View>
                         ))}
                     </View>
@@ -490,6 +509,46 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                             </View>
                         </KeyboardAvoidingView>
                     )}
+
+                    {/* ── 물주기 확인 모달 (앱 픽셀 말풍선 디자인) ── */}
+                    <Modal
+                        visible={waterConfirmVisible}
+                        transparent
+                        animationType="fade"
+                        onRequestClose={() => setWaterConfirmVisible(false)}
+                    >
+                        <View style={styles.confirmBackdrop}>
+                            <View style={styles.confirmCard}>
+                                <Image
+                                    source={require("../../assets/icons/watering_icon.png")}
+                                    style={styles.confirmIcon}
+                                    resizeMode="contain"
+                                />
+                                <Text style={styles.confirmTitle}>물주기</Text>
+                                <Text style={styles.confirmMessage}>
+                                    {plantName}에게 물을 줄까요?
+                                </Text>
+
+                                <View style={styles.confirmButtonRow}>
+                                    <TouchableOpacity
+                                        style={[styles.confirmButton, styles.confirmCancel]}
+                                        onPress={() => setWaterConfirmVisible(false)}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Text style={styles.confirmCancelText}>취소</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.confirmButton, styles.confirmOk]}
+                                        onPress={confirmWater}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Text style={styles.confirmOkText}>물주기</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </View>
+                    </Modal>
                 </SafeAreaView>
             </ImageBackground>
         </View>
@@ -595,8 +654,9 @@ const styles = StyleSheet.create({
         alignItems: "center",
         zIndex: 40,
     },
-    dropEmoji: {
-        fontSize: FontSizes.display,
+    dropImage: {
+        width: 34,
+        height: 34,
     },
     plantName: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -763,6 +823,73 @@ const styles = StyleSheet.create({
     },
     chatSendButtonDisabled: {
         backgroundColor: GreenTint.line,
+    },
+
+    // ── 물주기 확인 모달 (픽셀 말풍선 카드) ──────────────
+    confirmBackdrop: {
+        flex: 1,
+        backgroundColor: Colors.scrim,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: Spacing.xl,
+    },
+    confirmCard: {
+        width: "100%",
+        maxWidth: 320,
+        backgroundColor: Colors.white,
+        borderWidth: 4,
+        borderColor: Colors.textBlack,
+        paddingVertical: Spacing.xxl,
+        paddingHorizontal: Spacing.xl,
+        alignItems: "center",
+    },
+    confirmIcon: {
+        width: 48,
+        height: 48,
+        marginBottom: Spacing.md,
+    },
+    confirmTitle: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.title,
+        color: Colors.primary,
+        marginBottom: Spacing.sm,
+    },
+    confirmMessage: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        lineHeight: 26,
+        color: Colors.textBlack,
+        textAlign: "center",
+        marginBottom: Spacing.xl,
+    },
+    confirmButtonRow: {
+        flexDirection: "row",
+        gap: Spacing.md,
+        width: "100%",
+    },
+    confirmButton: {
+        flex: 1,
+        height: 48,
+        borderWidth: 4,
+        borderColor: Colors.textBlack,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    confirmCancel: {
+        backgroundColor: Colors.white,
+    },
+    confirmOk: {
+        backgroundColor: Colors.primary,
+    },
+    confirmCancelText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: Colors.textBlack,
+    },
+    confirmOkText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: Colors.white,
     },
 
     // 개체별탭 햄버거 버튼 디자인
