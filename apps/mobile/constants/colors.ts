@@ -32,7 +32,7 @@ export const Colors = {
 
   // ── 오버레이 ────────────────────────────────
   overlay: 'rgba(250, 255, 240, 0.88)',  // 배경색 딤 오버레이
-  scrim: 'rgba(0, 0, 0, 0.35)',          // 모달 딤 배경
+  scrim: 'rgba(23, 23, 23, 0.35)',       // 모달 딤 배경
 
   // ── 보조 (기존 add-plant 플로우 호환) ─────────
   primaryLight: '#E8F5E9',   // 연녹 면 배경
@@ -122,8 +122,8 @@ export const Accent = {
 
 // 그림자 (shadowColor)
 export const Shadow = {
-  color:  '#000000',
-  soft:   'rgba(0,0,0,0.42)',  medium: 'rgba(0,0,0,0.45)',  strong: 'rgba(0,0,0,0.48)',
+  color:  '#171717',
+  soft:   'rgba(23,23,23,0.42)',  medium: 'rgba(23,23,23,0.45)',  strong: 'rgba(23,23,23,0.48)',
 } as const;
 
 // ── 리퀴드 글래스 효과색 ─────────────────────────────
