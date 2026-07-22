@@ -77,16 +77,78 @@ ai/diagnosis/
   .env.example
   CLAUDE.md              (이 파일)
   scripts/
+    00_merge_labels.py    # JE/MN 라벨 엑셀 병합 -> data/labels.xlsx
     01_check_dataset.py   # 엑셀 분포 확인 (suspected_cause, plant_species 개수)
     02_build_index.py     # CLIP 임베딩 생성 + Qdrant 업로드
     03_search_similar.py  # 유사 사례 검색 (species 필터 + fallback)
     04_diagnose_claude.py # Claude API로 답변 생성
-    05_eval_retrieval.py  # 검색 품질 평가 (추후)
+    05_eval_retrieval.py  # 검색 품질 평가 (leave-one-out kNN purity)
+    06_web_demo.py        # 로컬 웹 데모 (웹 테스트 전용, 앱에 이식 금지)
   config/
-    cause_codes.json      # 9개 원인 목록 (위 표 그대로)
+    cause_codes.json      # 14개 원인 목록 (위 표 그대로)
   data_sample/
     labels_sample.csv     # 실제 데이터 아님, 예시 3~5줄만
 ```
+
+## 데이터 재현 (raw 데이터를 처음부터 다시 만들 때)
+
+`data/`, `images/`, `images_cropped/`, `qdrant_storage/`, `outputs/`는 모두 gitignore 대상이라 git에는
+아예 안 올라간다. 그런데 그중 **`images/`, `images_cropped/`는 gitignore가 아니라 심볼릭 링크**다 —
+실제 파일은 저장소 밖(`~/leaflog-diagnosis-images`, `~/leaflog-diagnosis-images-cropped`)에 있다.
+즉 이 200장 원본 이미지와 `data/leaflog_vr.xlsx`(JE), `data/visual_rag_labels_MN.xlsx`(MN) 라벨 엑셀은
+**스크립트로 재생성할 수 없는 수작업 데이터**다 — 사라지면 다시 촬영/라벨링해야 한다.
+git 재현성과 별개로 이 두 이미지 폴더 + 두 원본 엑셀은 반드시 별도 백업(개인 클라우드 드라이브 등)을 유지할 것.
+
+원본 데이터가 살아있다는 전제하에, 처음부터 재현하는 순서:
+
+```bash
+cd ai/diagnosis
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # ANTHROPIC_API_KEY, QDRANT_* 채우기
+
+# Qdrant 로컬 실행 (compose 파일 없음 — 아래 docker run으로 대체)
+docker run -p 6333:6333 -v "$(pwd)/qdrant_storage:/qdrant/storage" qdrant/qdrant
+
+# 1) JE/MN 라벨 엑셀 병합 -> data/labels.xlsx
+python scripts/00_merge_labels.py
+
+# 2) 스키마/분포 확인 (선택이지만 병합 직후 항상 확인 권장)
+python scripts/01_check_dataset.py
+
+# 3) 원본 이미지로 임베딩 + 인덱싱
+python scripts/02_build_index.py --recreate
+
+# 4) (선택) 크롭 이미지로 별도 컬렉션 인덱싱 + 전/후 비교
+python scripts/02_build_index.py --images-dir images_cropped --collection leaflog-diagnosis-cropped --recreate
+python scripts/05_eval_retrieval.py --collection leaflog-diagnosis --compare leaflog-diagnosis-cropped
+
+# 5) 동작 확인
+python scripts/03_search_similar.py --image test_images/아무이미지.jpg
+python scripts/04_diagnose_claude.py --image test_images/아무이미지.jpg
+python scripts/06_web_demo.py   # http://127.0.0.1:5050
+```
+
+`qdrant_storage/`, `outputs/`(임베딩 시각화 html)는 위 스크립트들이 실행되면서 자동으로 다시 만들어지므로
+별도 백업 대상이 아니다.
+
+## 프로덕션 전환 시 고려할 것 (현재 미구현 — develop 반영 후 앱 연동용 메모)
+
+지금 구조는 로컬에서 스크립트를 손으로 실행하는 프로토타입이다. 실제 앱에서 쓰려면 최소 아래가 필요하다:
+
+- **API 경유 원칙 준수**: 모바일 앱은 CLIP/Qdrant/생성모델을 직접 호출하지 않는다. `apps/api/`(FastAPI)에
+  03/04 로직(쿼리 이미지 임베딩 -> Qdrant 검색 -> 생성모델 호출)을 감싼 엔드포인트를 추가하고, 앱은 그
+  엔드포인트만 호출한다 (`services/` 밖에서 fetch 금지 원칙과 동일한 이유).
+- **Qdrant를 영속 서버로 이전**: 지금처럼 노트북 로컬 `qdrant_storage/`가 아니라, API 서버와 같은 곳
+  (RunPod 등)에 Qdrant를 띄우고 그 인스턴스에 대고 `02_build_index.py`를 **한 번만** 실행해 인덱스를
+  구축한다. 요청마다 재인덱싱하지 않는다.
+- **원본 이미지 200장 위치 이전**: 지금은 홈 디렉토리 심볼릭 링크로 흩어져 있는데, 프로덕션 인덱스를
+  구축하려면 이 이미지들을 접근 가능한 저장소(오브젝트 스토리지 등)로 옮겨야 한다.
+- **생성 모델 교체**: CLAUDE.md 상단 표에 이미 명시된 대로 Claude API -> Qwen2.5-VL-7B-Instruct
+  (RunPod -> 학교 3060 12GB) 전환 예정. 임베딩/검색 로직과 생성 로직을 분리해둔 이유가 이 교체를
+  `04_diagnose_claude.py`의 생성 함수만 바꿔서 끝낼 수 있게 하기 위함이다.
+- 위 사항은 전부 아직 코드로 옮겨지지 않은 계획이다 — 스크립트를 그대로 "켜는" 게 아니라 동일 로직을
+  API 라우트로 재작성하는 작업이 필요하다.
 
 ## 절대 GitHub에 올리면 안 되는 것
 
