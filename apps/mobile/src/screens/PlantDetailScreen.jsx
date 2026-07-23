@@ -23,6 +23,7 @@ import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
+import PixelButton from "../components/PixelButton";
 import { getPlantCare, createCareRecord } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper } from "../../constants/colors";
@@ -519,21 +520,18 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                 </Text>
 
                                 <View style={styles.confirmButtonRow}>
-                                    <TouchableOpacity
-                                        style={[styles.confirmButton, styles.confirmCancel]}
+                                    <PixelButton
+                                        label="취소"
+                                        color={Colors.textGray}
                                         onPress={() => setWaterConfirmVisible(false)}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text style={styles.confirmCancelText}>취소</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        style={[styles.confirmButton, styles.confirmOk]}
+                                        style={styles.confirmButton}
+                                    />
+                                    <PixelButton
+                                        label="물주기"
+                                        color={Colors.primary}
                                         onPress={confirmWater}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text style={styles.confirmOkText}>물주기</Text>
-                                    </TouchableOpacity>
+                                        style={styles.confirmButton}
+                                    />
                                 </View>
                             </View>
                         </View>
@@ -809,6 +807,7 @@ const styles = StyleSheet.create({
         backgroundColor: Paper.cream,
         borderWidth: 3,
         borderColor: Colors.primary,
+        opacity: 0.9,
         paddingVertical: Spacing.xxl,
         paddingHorizontal: Spacing.xl,
         alignItems: "center",
@@ -839,27 +838,6 @@ const styles = StyleSheet.create({
     },
     confirmButton: {
         flex: 1,
-        height: 48,
-        borderWidth: 3,
-        borderColor: Colors.primary,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    confirmCancel: {
-        backgroundColor: Paper.cream,
-    },
-    confirmOk: {
-        backgroundColor: Colors.primary,
-    },
-    confirmCancelText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
-        color: Colors.textBlack,
-    },
-    confirmOkText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
-        color: Colors.white,
     },
 
     // 개체별탭 햄버거 버튼 디자인
