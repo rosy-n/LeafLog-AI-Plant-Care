@@ -19,6 +19,21 @@
 
 기계가 읽을 수 있는 동일 정보는 `artifacts/manifest.json`에 있다.
 
+## v1 LoRA 보관 정책
+
+2026-07-08에 학습한 v1은 최종본만 GitHub Release에 올리고 epoch 1-5 중간 체크포인트는 로컬에만 보관한다.
+
+| 파일 | 역할 | 크기(bytes) | SHA-256 | 배포 |
+|---|---|---:|---|---|
+| `plantpet_sprite_lora.safetensors` | v1 최종 LoRA, epoch 6 | 456,488,788 | `3f9a9525a5f7534b9fd9a5f852628ab665566f3316695e48ac8565713264746e` | GitHub Release + 로컬 |
+| `plantpet_sprite_lora-000001.safetensors` | v1 epoch 1 | 456,488,788 | `7573fee3fec9c86eee3d342baa6c0b4070ea2aa4a2dd020134cad23545592332` | 로컬 전용 |
+| `plantpet_sprite_lora-000002.safetensors` | v1 epoch 2 | 456,488,788 | `af559511fc0181a792e4929b77767da60ea007cbf57c81d2ad2601951b24c813` | 로컬 전용 |
+| `plantpet_sprite_lora-000003.safetensors` | v1 epoch 3 | 456,488,788 | `0bf5c8f4d022fe929a00bdefad9711ce5b36ee825199da62df4dc3bfcf248bf4` | 로컬 전용 |
+| `plantpet_sprite_lora-000004.safetensors` | v1 epoch 4 | 456,488,788 | `adfc051c803e34f42681b199f8abe6ef5287df1f6c7511dee1c3b7784b85a253` | 로컬 전용 |
+| `plantpet_sprite_lora-000005.safetensors` | v1 epoch 5 | 456,488,788 | `d4831477d2868e8a92607abbd2905d960735fb045683374bf36aff0591839e16` | 로컬 전용 |
+
+로컬 원본과 RunPod ZIP은 `ai/character-generation/local-artifacts/plantpet-lora-v1/`에 있으며 Git에서 제외된다. v1 설정과 학습 메타데이터는 [TRAINING_V1.md](TRAINING_V1.md)를 확인한다.
+
 ## 공개 출처
 
 ### SDXL 베이스
