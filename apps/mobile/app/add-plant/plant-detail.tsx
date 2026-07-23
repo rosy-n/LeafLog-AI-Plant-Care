@@ -28,11 +28,19 @@ export default function PlantDetailScreen() {
 
   useEffect(() => {
     (async () => {
+      if (!cntntsNo) {
+        Alert.alert('오류', '식물 식별 정보를 찾을 수 없어요.');
+        setIsLoading(false);
+        router.back();
+        return;
+      }
+
+      const contentId = cntntsNo;
       try {
         // allSettled: 상세 정보가 없는 식물도 기본 정보(이름)로 계속 진행
         const [detResult, imgsResult] = await Promise.allSettled([
-          getPlantDetail(cntntsNo),
-          getPlantImages(cntntsNo),
+          getPlantDetail(contentId),
+          getPlantImages(contentId),
         ]);
 
         if (detResult.status === 'fulfilled') {
