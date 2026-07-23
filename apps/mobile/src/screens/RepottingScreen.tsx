@@ -123,7 +123,9 @@ export default function RepottingScreen({ navigation, route }: { navigation: any
         value: string
     ) => {
         const next = [...soilMix];
-        next[index] = { ...next[index], [field]: value };
+        const current = next[index];
+        if (!current) return;
+        next[index] = { ...current, [field]: value };
         setSoilMix(next);
     };
 
