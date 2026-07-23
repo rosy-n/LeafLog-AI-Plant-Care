@@ -8,3 +8,7 @@ python-jose[cryptography]==3.4.0
 pydantic==2.11.4
 python-dotenv==1.2.2
 boto3==1.43.46
+python-multipart==0.0.20
+pillow==11.2.1
+rembg==2.0.67
+onnxruntime==1.22.0

@@ -1,0 +1,42 @@
+{
+  "prompt": "<lora:plantpet_sprite_lora_v2:1.0>, plantpet_sprite, (long vertical rectangular pixel eyes:2.0), blush stickers, closed mouth, big face, potted plant, cute potted plant character, pixel art sprite, simple clean outline, front view, centered, white background, Pixel art style, bold outlines, White background, a simple and symmetrical plant sprite, clean leaf arrangement, minimal leaf count, bold dark outline, simple iconic silhouette, minimal shading, retro game sprite, (flat:2.0), transparent background, looking at viewer, plant, leaf",
+  "negative_prompt": "photorealistic, realistic, 3d render, messy background, text, watermark, blurry, extra limbs, bad quality, background, stripe, high resolution, colorful outline, small detail, small dot, no face",
+  "init_images": [
+    "BASE64_IMG2IMG_INPUT_TODO"
+  ],
+  "sampler_name": "DPM++ 2M Karras",
+  "steps": 25,
+  "cfg_scale": 7,
+  "denoising_strength": 0.8,
+  "width": 1024,
+  "height": 1024,
+  "seed": 3020141020,
+  "override_settings": {
+    "sd_model_checkpoint": "pixelArtDiffusionXL_spriteShaper.safetensors",
+    "sd_vae": "sdxl_vae.safetensors",
+    "CLIP_stop_at_last_layers": 2
+  },
+  "override_settings_restore_afterwards": true,
+  "alwayson_scripts": {
+    "ControlNet": {
+      "args": [
+        {
+          "enabled": true,
+          "image": "BASE64_CONTROLNET_INPUT_TODO",
+          "module": "canny",
+          "model": "diffusers_xl_canny_mid [112a778d]",
+          "weight": 0.45,
+          "resize_mode": "Crop and Resize",
+          "processor_res": 512,
+          "threshold_a": 100,
+          "threshold_b": 200,
+          "guidance_start": 0,
+          "guidance_end": 0.5,
+          "pixel_perfect": false,
+          "control_mode": "Balanced",
+          "hr_option": "Both"
+        }
+      ]
+    }
+  }
+}

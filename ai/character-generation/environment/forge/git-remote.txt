@@ -1,0 +1,2 @@
+origin	https://github.com/lllyasviel/stable-diffusion-webui-forge.git (fetch)
+origin	https://github.com/lllyasviel/stable-diffusion-webui-forge.git (push)

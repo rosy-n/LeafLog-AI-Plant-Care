@@ -1,25 +1,35 @@
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .config import settings
 from .database import Base, engine, get_db
+from .image_preprocessing import (
+    ImagePreprocessingError,
+    ImagePreprocessingUnavailable,
+    QualityMode,
+    preprocess_plant_photo,
+    remove_background_for_sprite,
+)
 from .models import AppUser, CareRecord, MediaAsset, Plant, PlantSpecies
-from .storage import presigned_get_url
 from .schemas import (
     AvailabilityResponse,
     AuthResponse,
+    BackgroundRemovalResponse,
     CareRecordCreate,
     CareRecordItem,
     CareSummary,
     LoginRequest,
     PlantCreate,
     PlantDetail,
+    PlantImagePreprocessResponse,
     PlantListItem,
     PlantUpdate,
     PlantRead,
@@ -27,8 +37,12 @@ from .schemas import (
     UserRead,
 )
 from .security import create_access_token, decode_access_token, hash_password, verify_password
+from .storage import presigned_get_url
 
 app = FastAPI(title="LeafLog API", version="0.1.0")
+
+MAX_IMAGE_UPLOAD_BYTES = 12 * 1024 * 1024
+IMAGE_LAB_PATH = Path(__file__).parent / "static" / "image_lab.html"
 
 app.add_middleware(
     CORSMiddleware,
@@ -122,9 +136,86 @@ def get_current_user(
     return user
 
 
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    return RedirectResponse(url="/image-lab")
+
+
+@app.get("/image-lab", include_in_schema=False)
+def image_lab() -> FileResponse:
+    return FileResponse(IMAGE_LAB_PATH)
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+async def _read_image_upload(file: UploadFile) -> bytes:
+    if file.content_type and not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Upload an image file.")
+
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image file is empty.")
+    if len(image_bytes) > MAX_IMAGE_UPLOAD_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Image file is too large.")
+    return image_bytes
+
+
+def _image_error_response(exc: Exception) -> HTTPException:
+    if isinstance(exc, ImagePreprocessingUnavailable):
+        return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+    if isinstance(exc, ImagePreprocessingError):
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Image preprocessing failed.")
+
+
+@app.post("/images/preprocess-plant", response_model=PlantImagePreprocessResponse)
+async def preprocess_plant_image(
+    file: UploadFile = File(...),
+    canvas_size: int = Query(default=1024, ge=512, le=1536),
+    quality_mode: QualityMode = Query(default="quality"),
+) -> PlantImagePreprocessResponse:
+    image_bytes = await _read_image_upload(file)
+
+    try:
+        result = preprocess_plant_photo(
+            image_bytes=image_bytes,
+            canvas_size=canvas_size,
+            quality_mode=quality_mode,
+        )
+    except Exception as exc:
+        raise _image_error_response(exc) from exc
+
+    return PlantImagePreprocessResponse(
+        canvas_size=result.canvas_size,
+        sdxl_input_png_base64=result.sdxl_input_png_base64,
+        transparent_png_base64=result.transparent_png_base64,
+    )
+
+
+@app.post("/images/remove-background", response_model=BackgroundRemovalResponse)
+async def remove_image_background(
+    file: UploadFile = File(...),
+    canvas_size: int = Query(default=1024, ge=512, le=1536),
+    quality_mode: QualityMode = Query(default="quality"),
+) -> BackgroundRemovalResponse:
+    image_bytes = await _read_image_upload(file)
+
+    try:
+        result = remove_background_for_sprite(
+            image_bytes=image_bytes,
+            canvas_size=canvas_size,
+            quality_mode=quality_mode,
+        )
+    except Exception as exc:
+        raise _image_error_response(exc) from exc
+
+    return BackgroundRemovalResponse(
+        canvas_size=result.canvas_size,
+        transparent_png_base64=result.transparent_png_base64,
+    )
 
 
 @app.get("/auth/check-email", response_model=AvailabilityResponse)

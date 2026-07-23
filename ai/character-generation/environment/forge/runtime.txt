@@ -1,0 +1,7 @@
+python=3.10.20 | packaged by conda-forge | (main, Jun 11 2026, 03:31:56) [GCC 14.3.0]
+torch=2.1.2+cu121
+torch_cuda=12.1
+cudnn=8902
+cuda_available=True
+gpu_count=1
+gpu_names=['NVIDIA H100 80GB HBM3']
