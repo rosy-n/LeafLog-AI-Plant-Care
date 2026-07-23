@@ -48,10 +48,7 @@ export default function OrganSelectScreen() {
 
   const handleNext = () => {
     if (allAssigned) {
-      const organs = uris.map((_, i) => {
-        const organ = organMap[i];
-        return organ ? ORGAN_API_MAP[organ] : 'auto';
-      });
+      const organs = uris.map((_, i) => ORGAN_API_MAP[organMap[i]] ?? 'auto');
       router.push({
         pathname: '/add-plant/analyzing',
         params: { photoUris, organs: JSON.stringify(organs) },

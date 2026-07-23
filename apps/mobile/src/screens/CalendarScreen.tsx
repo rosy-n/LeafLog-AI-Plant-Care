@@ -104,13 +104,9 @@ function monthLabel(y: number, m: number) {
 }
 
 function diaryDateLabel(dateStr: string): string {
-    const [yearText, monthText, dayText] = dateStr.split("-");
-    const y = Number(yearText);
-    const m = Number(monthText);
-    const d = Number(dayText);
-    if (![y, m, d].every(Number.isInteger)) return dateStr;
+    const [y, m, d] = dateStr.split("-").map(Number);
     const dow = new Date(y, m - 1, d).getDay();
-    return `${d}일 ${DOW_KO[dow] ?? ""}`;
+    return `${d}일 ${DOW_KO[dow]}`;
 }
 
 function PlusIcon({ size, color }: { size: number; color: string }) {
@@ -133,12 +129,11 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
     const [journals,    setJournals]    = useState<Record<string, Journal>>(INIT_JOURNALS);
     const [lockedDays,  setLockedDays]  = useState<Set<string>>(() => new Set(Object.keys(INIT_JOURNALS)));
     const [editNote,    setEditNote]    = useState("");
-    const [editSlots,   setEditSlots]   = useState<PhotoSlot[]>(() => EMPTY_SLOTS.map(slot => ({ ...slot })));
+    const [editSlots,   setEditSlots]   = useState<PhotoSlot[]>(EMPTY_SLOTS);
     const [pickerIdx,   setPickerIdx]   = useState<number | null>(null);
 
     const weeks        = buildWeeks(viewYear, viewMonth);
-    const selectedWeek = weekViewIdx !== null ? weeks[weekViewIdx] : undefined;
-    const displayWeeks = selectedWeek ? [selectedWeek] : weeks;
+    const displayWeeks = weekViewIdx !== null ? [weeks[weekViewIdx]] : weeks;
 
     const care     = selected ? MOCK_CARE[selected] ?? null : null;
     const isLocked = selected ? lockedDays.has(selected) : false;
@@ -150,7 +145,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
         setSelected(dateStr);
         const j = journals[dateStr];
         setEditNote(j?.note ?? "");
-        setEditSlots((j?.photoSlots ?? EMPTY_SLOTS).map(slot => ({ ...slot })));
+        setEditSlots(j?.photoSlots ? [...j.photoSlots] : [...EMPTY_SLOTS]);
     }
 
     function prevMonth() {
@@ -191,14 +186,11 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
             allowsEditing: true,
             quality: 0.85,
         });
-        const asset = result.assets?.[0];
-        if (!result.canceled && asset) {
-            const uri = asset.uri;
+        if (!result.canceled && result.assets?.[0]) {
+            const uri = result.assets[0].uri;
             setEditSlots(prev => {
                 const next = [...prev];
-                const current = next[idx];
-                if (!current) return prev;
-                next[idx] = { ...current, uri };
+                next[idx] = { ...next[idx], uri };
                 return next;
             });
             setPickerIdx(idx);
@@ -208,7 +200,6 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
     async function handlePhotoSlotTap(idx: number) {
         if (isLocked) return;
         const slot = editSlots[idx];
-        if (!slot) return;
         if (!slot.uri) {
             await pickImage(idx);
         } else {
@@ -232,9 +223,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
     function assignPlant(idx: number, plantId: string) {
         setEditSlots(prev => {
             const next = [...prev];
-            const current = next[idx];
-            if (!current) return prev;
-            next[idx] = { ...current, plantId };
+            next[idx] = { ...next[idx], plantId };
             return next;
         });
         setPickerIdx(null);
@@ -243,15 +232,11 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
     function clearLabel(idx: number) {
         setEditSlots(prev => {
             const next = [...prev];
-            const current = next[idx];
-            if (!current) return prev;
-            next[idx] = { ...current, plantId: null };
+            next[idx] = { ...next[idx], plantId: null };
             return next;
         });
         setPickerIdx(null);
     }
-
-    const mainPhoto = editSlots[0];
 
     return (
         <View style={styles.root}>
@@ -338,7 +323,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                         const isSel   = ds !== null && ds === selected;
                                         const isToday = ds === TODAY;
                                         const both    = c?.watered && c?.fertilized;
-                                        const dayNum  = ds ? Number(ds.slice(-2)) : null;
+                                        const dayNum  = ds ? parseInt(ds.split("-")[2]) : null;
 
                                         return (
                                             <TouchableOpacity
@@ -464,15 +449,15 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                         activeOpacity={isLocked ? 1 : 0.85}
                                         disabled={isLocked}
                                     >
-                                        {mainPhoto?.uri ? (
+                                        {editSlots[0].uri ? (
                                             <>
                                                 <Image
-                                                    source={{ uri: mainPhoto.uri }}
+                                                    source={{ uri: editSlots[0].uri }}
                                                     style={StyleSheet.absoluteFillObject}
                                                     resizeMode="cover"
                                                 />
-                                                {mainPhoto.plantId && (() => {
-                                                    const p = PLANTS.find(x => x.id === mainPhoto.plantId);
+                                                {editSlots[0].plantId && (() => {
+                                                    const p = PLANTS.find(x => x.id === editSlots[0].plantId);
                                                     return p ? (
                                                         <View style={styles.photoBadge}>
                                                             <Text style={styles.photoBadgeText}>{p.name}</Text>
@@ -490,40 +475,37 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
 
                                     {/* Side photos */}
                                     <View style={styles.sidePhotos}>
-                                        {[1, 2].map(idx => {
-                                            const slot = editSlots[idx];
-                                            return (
-                                                <TouchableOpacity
-                                                    key={idx}
-                                                    style={styles.sidePhotoSlot}
-                                                    onPress={() => handlePhotoSlotTap(idx)}
-                                                    activeOpacity={isLocked ? 1 : 0.85}
-                                                    disabled={isLocked}
-                                                >
-                                                    {slot?.uri ? (
-                                                        <>
-                                                            <Image
-                                                                source={{ uri: slot.uri }}
-                                                                style={StyleSheet.absoluteFillObject}
-                                                                resizeMode="cover"
-                                                            />
-                                                            {slot.plantId && (() => {
-                                                                const p = PLANTS.find(x => x.id === slot.plantId);
-                                                                return p ? (
-                                                                    <View style={styles.photoBadge}>
-                                                                        <Text style={styles.photoBadgeText}>{p.name}</Text>
-                                                                    </View>
-                                                                ) : null;
-                                                            })()}
-                                                        </>
-                                                    ) : (
-                                                        <View style={styles.photoPlaceholderInner}>
-                                                            <Ionicons name="camera-outline" size={20} color={Colors.textFaint} />
-                                                        </View>
-                                                    )}
-                                                </TouchableOpacity>
-                                            );
-                                        })}
+                                        {[1, 2].map(idx => (
+                                            <TouchableOpacity
+                                                key={idx}
+                                                style={styles.sidePhotoSlot}
+                                                onPress={() => handlePhotoSlotTap(idx)}
+                                                activeOpacity={isLocked ? 1 : 0.85}
+                                                disabled={isLocked}
+                                            >
+                                                {editSlots[idx].uri ? (
+                                                    <>
+                                                        <Image
+                                                            source={{ uri: editSlots[idx].uri }}
+                                                            style={StyleSheet.absoluteFillObject}
+                                                            resizeMode="cover"
+                                                        />
+                                                        {editSlots[idx].plantId && (() => {
+                                                            const p = PLANTS.find(x => x.id === editSlots[idx].plantId);
+                                                            return p ? (
+                                                                <View style={styles.photoBadge}>
+                                                                    <Text style={styles.photoBadgeText}>{p.name}</Text>
+                                                                </View>
+                                                            ) : null;
+                                                        })()}
+                                                    </>
+                                                ) : (
+                                                    <View style={styles.photoPlaceholderInner}>
+                                                        <Ionicons name="camera-outline" size={20} color={Colors.textFaint} />
+                                                    </View>
+                                                )}
+                                            </TouchableOpacity>
+                                        ))}
                                     </View>
                                 </View>
 
