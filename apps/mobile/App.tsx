@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useFonts } from "expo-font";
 import { Fonts, FontSizes } from "./constants/fonts";
-import { Colors, Brand } from "./constants/colors";
+import { Colors } from "./constants/colors";
 import { Spacing, Radius } from "./constants/spacing";
 import {
   ActivityIndicator,
@@ -27,6 +27,8 @@ import {
   type AuthResponse,
 } from "./src/api";
 import MainApp from "./App.js";
+import AppButton from "./src/components/AppButton";
+import SocialButton from "./src/components/SocialButton";
 
 type Screen = "home" | "login" | "signup" | "nickname";
 type CheckStatus = "idle" | "checking" | "available" | "taken";
@@ -452,8 +454,8 @@ function HomeScreen({
       </View>
       <Image source={assets.plant} style={[styles.sprite, styles.landingPlant]} />
       <View style={styles.landingActions}>
-        <PixelButton label="로그인" onPress={onLogin} />
-        <PixelButton label="회원가입" variant="secondary" onPress={onSignup} />
+        <AppButton label="로그인" onPress={onLogin} />
+        <AppButton label="회원가입" variant="secondary" onPress={onSignup} />
       </View>
       <Image source={assets.meadow} style={[styles.sprite, styles.meadow]} />
     </View>
@@ -508,7 +510,7 @@ function LoginScreen(props: {
         <Pressable style={styles.forgot} onPress={() => Alert.alert("준비 중", "비밀번호 찾기는 다음 단계에서 연결하면 됩니다.")}>
           <Text style={styles.forgotText}>비밀번호를 잊으셨나요?</Text>
         </Pressable>
-        <PixelButton
+        <AppButton
           label="로그인"
           onPress={props.onSubmit}
           loading={props.isSubmitting}
@@ -629,7 +631,7 @@ function SignupScreen(props: {
         </View>
         <FormMessage message={props.errors.terms} />
       </View>
-      <PixelButton label="회원가입" onPress={props.onNext} style={styles.signupButton} />
+      <AppButton label="회원가입" onPress={props.onNext} style={styles.signupButton} />
     </AuthScaffold>
   );
 }
@@ -682,7 +684,7 @@ function NicknameScreen(props: {
           </Field>
           <Text style={styles.hint}>2~10자, 한글/영문/숫자 사용 가능</Text>
           <FormMessage message={props.apiError} />
-          <PixelButton
+          <AppButton
             label="시작하기"
             onPress={props.onSubmit}
             loading={props.isSubmitting}
@@ -707,7 +709,7 @@ function DoneScreen({
         <Image source={assets.plant} style={styles.donePlant} />
         <Text style={styles.doneTitle}>{nickname}님, 환영해요!</Text>
         <Text style={styles.doneCopy}>로그인 기능 연결이 완료됐어요.</Text>
-        <PixelButton label="처음 화면으로" onPress={onLogout} style={styles.doneButton} />
+        <AppButton label="처음 화면으로" onPress={onLogout} style={styles.doneButton} />
       </View>
       <Image source={assets.meadow} style={[styles.sprite, styles.meadow]} />
     </View>
@@ -847,43 +849,6 @@ function SmallButton({
   );
 }
 
-function PixelButton({
-  label,
-  onPress,
-  variant = "primary",
-  loading = false,
-  style,
-}: {
-  label: string;
-  onPress: () => void;
-  variant?: "primary" | "secondary";
-  loading?: boolean;
-  style?: object;
-}) {
-  const secondary = variant === "secondary";
-  return (
-    <Pressable
-      disabled={loading}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.pixelButton,
-        secondary && styles.pixelButtonSecondary,
-        pressed && styles.pressed,
-        loading && styles.disabledButton,
-        style,
-      ]}
-    >
-      {loading ? (
-        <ActivityIndicator color={secondary ? Colors.primary : Colors.white} />
-      ) : (
-        <Text style={[styles.pixelButtonText, secondary && styles.pixelButtonSecondaryText]}>
-          {label}
-        </Text>
-      )}
-    </Pressable>
-  );
-}
-
 function Divider() {
   return (
     <View style={styles.divider}>
@@ -891,26 +856,6 @@ function Divider() {
       <Text style={styles.dividerText}>또는</Text>
       <View style={styles.dividerLine} />
     </View>
-  );
-}
-
-function SocialButton({
-  icon,
-  label,
-  tone,
-}: {
-  icon: string;
-  label: string;
-  tone?: "kakao";
-}) {
-  return (
-    <Pressable
-      style={styles.socialButton}
-      onPress={() => Alert.alert("준비 중", `${label} 로그인은 추후 연결하면 됩니다.`)}
-    >
-      <Text style={[styles.socialIcon, tone === "kakao" && styles.kakaoIcon]}>{icon}</Text>
-      <Text style={styles.socialLabel}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -1025,33 +970,6 @@ const styles = StyleSheet.create({
     top: 625,
     gap: Spacing.md,
     backgroundColor: Colors.background,
-  },
-  pixelButton: {
-    height: 56,
-    borderWidth: 2,
-    borderColor: Colors.primary,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: Colors.primary,
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  pixelButtonSecondary: {
-    backgroundColor: Colors.background,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  pixelButtonText: {
-    color: Colors.white,
-    fontFamily: Fonts.nanumSquareNeo.heavy,
-    fontSize: FontSizes.subtitle,
-  },
-  pixelButtonSecondaryText: {
-    color: Colors.primary,
   },
   pressed: {
     opacity: 0.78,
@@ -1237,39 +1155,6 @@ const styles = StyleSheet.create({
   socials: {
     flexDirection: "row",
     gap: Spacing.md,
-  },
-  socialButton: {
-    flex: 1,
-    height: 58,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  socialIcon: {
-    color: Brand.google,
-    fontFamily: Fonts.nanumSquareNeo.heavy,
-    fontSize: FontSizes.subtitle,
-  },
-  kakaoIcon: {
-    width: 18,
-    height: 18,
-    borderRadius: Radius.sm,
-    backgroundColor: Brand.kakao,
-    color: Colors.textBlack,
-    fontFamily: Fonts.nanumSquareNeo.bold,
-    fontSize: FontSizes.caption,
-    textAlign: "center",
-    lineHeight: 18,
-  },
-  socialLabel: {
-    color: Colors.textBlack,
-    fontFamily: Fonts.nanumSquareNeo.bold,
-    fontSize: FontSizes.body,
   },
   terms: {
     marginTop: Spacing.xs,
