@@ -962,7 +962,7 @@ const styles = StyleSheet.create({
   brandText: {
     marginTop: Spacing.xl,
     color: Colors.primary,
-    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.displayLarge,
     lineHeight: 54,
     textShadowColor: Colors.primary,
