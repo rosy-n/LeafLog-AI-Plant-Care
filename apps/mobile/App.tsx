@@ -27,10 +27,6 @@ import {
 } from "./src/api";
 import MainApp from "./App.js";
 
-const TypedMainApp = MainApp as React.ComponentType<{
-  user: AuthResponse["user"];
-}>;
-
 type Screen = "home" | "login" | "signup" | "nickname";
 type CheckStatus = "idle" | "checking" | "available" | "taken";
 type FormErrors = Partial<{
@@ -298,7 +294,7 @@ export default function App() {
   }
 
   if (auth) {
-    return <TypedMainApp user={auth.user} />;
+    return <MainApp user={auth.user} />;
   }
 
   const frameStyle = {
