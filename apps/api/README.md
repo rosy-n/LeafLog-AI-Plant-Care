@@ -8,6 +8,8 @@ FastAPI backend for LeafLog.
 - `POST /auth/signup`
 - `POST /auth/login`
 - `GET /auth/me`
+- `POST /images/preprocess-plant`
+- `POST /images/remove-background`
 
 Passwords are hashed with bcrypt. Login and signup return a bearer access token.
 
@@ -41,3 +43,14 @@ DATABASE_URL=postgresql://leaflog:leaflog@localhost:5432/leaflog
 ```
 
 The code normalizes this to SQLAlchemy's `postgresql+psycopg://` driver internally.
+
+## Plant Image Preprocessing
+
+The image preprocessing endpoints use `rembg` to separate the plant from a complex photo background. They default to a two-pass `birefnet-general` pipeline that first locates the subject, then reruns segmentation on a tighter high-resolution crop. Pass `quality_mode=fast` to use the one-pass `isnet-general-use` path for quicker local iteration.
+
+- `POST /images/preprocess-plant`: upload the user's original plant photo as form field `file`. The response includes:
+  - `sdxl_input_png_base64`: 1024x1024 PNG with the plant centered on a white background for SDXL img2img / ControlNet.
+  - `transparent_png_base64`: 1024x1024 transparent PNG for previews or fallback mobile display.
+- `POST /images/remove-background`: upload the generated SDXL character image as form field `file`. The response includes `transparent_png_base64` for mobile use.
+
+The first request can take longer because the segmentation model may be downloaded into the local model cache. For production or Runpod deployment, pre-warm the model cache before serving user requests.
