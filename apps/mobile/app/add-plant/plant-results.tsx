@@ -40,12 +40,13 @@ export default function PlantResultsScreen() {
     setLoadingIndex(index);
     try {
       const plants = await searchPlants(item.scientificName);
-      if (plants.length > 0) {
-        const detail = await getPlantDetail(plants[0].cntntsNo);
+      const firstPlant = plants[0];
+      if (firstPlant) {
+        const detail = await getPlantDetail(firstPlant.cntntsNo);
         router.push({
           pathname: '/add-plant/character',
           params: {
-            cntntsNo: plants[0].cntntsNo,
+            cntntsNo: firstPlant.cntntsNo,
             commonNameKo: detail.commonNameKo,
             scientificName: item.scientificName,
             plantDetail: JSON.stringify(detail),

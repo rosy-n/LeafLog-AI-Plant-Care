@@ -62,8 +62,9 @@ export default function AddPlantIndexScreen() {
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.85 });
-    if (result.canceled) return;
-    navigateToOrganSelect([result.assets[0].uri]);
+    const asset = result.assets?.[0];
+    if (result.canceled || !asset) return;
+    navigateToOrganSelect([asset.uri]);
   };
 
   // ── camera area tapped ────────────────────────────────────────────────────

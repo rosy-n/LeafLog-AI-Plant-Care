@@ -66,8 +66,9 @@ export default function CharacterScreen() {
       return;
     }
     const picked = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.9 });
-    if (picked.canceled) return;
-    setPhotoUri(picked.assets[0].uri);
+    const asset = picked.assets?.[0];
+    if (picked.canceled || !asset) return;
+    setPhotoUri(asset.uri);
     setScreenState('preview');
   };
 
@@ -78,8 +79,9 @@ export default function CharacterScreen() {
       return;
     }
     const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.9 });
-    if (picked.canceled) return;
-    setPhotoUri(picked.assets[0].uri);
+    const asset = picked.assets?.[0];
+    if (picked.canceled || !asset) return;
+    setPhotoUri(asset.uri);
     setScreenState('preview');
   };
 
