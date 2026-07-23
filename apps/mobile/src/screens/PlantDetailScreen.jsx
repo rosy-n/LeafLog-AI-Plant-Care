@@ -80,7 +80,6 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     // 캐릭터 대화 모드 — 이 화면 위에서 말풍선/입력만 표시 (기록은 남기지 않음)
     const [chatMode, setChatMode] = useState(false);
     const [chatReply, setChatReply] = useState("");   // 캐릭터의 현재 대답
-    const [lastUserMsg, setLastUserMsg] = useState(""); // 사용자의 마지막 입력
     const [chatInput, setChatInput] = useState("");
     const replyIndexRef = useRef(0);
 
@@ -212,7 +211,6 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     // 대화 모드 진입 — 메뉴가 열려 있으면 닫고 인사말로 시작
     const openChat = () => {
         if (menuOpen) closeMenu();
-        setLastUserMsg("");
         setChatInput("");
         setChatReply(`안녕! 나 ${plantName}야. 오늘도 만나서 반가워 🌿 뭐든 편하게 말 걸어줘!`);
         setChatMode(true);
@@ -223,12 +221,11 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
         setChatInput("");
     };
 
-    // 사용자 입력 전송 — 마지막 입력만 표시하고 캐릭터 대답을 갱신 (기록은 저장 안 함)
+    // 사용자 입력 전송 — 캐릭터 대답만 갱신 (사용자 입력은 표시 안 함, 기록도 저장 안 함)
     // TODO: Qwen API 호출로 교체
     const sendChat = () => {
         const trimmed = chatInput.trim();
         if (!trimmed) return;
-        setLastUserMsg(trimmed);
         setChatInput("");
         setTimeout(() => {
             const reply = PLANT_REPLIES[replyIndexRef.current % PLANT_REPLIES.length];
@@ -468,16 +465,8 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                 <Text style={styles.chatReplyText}>{chatReply}</Text>
                             </View>
 
-                            {/* 입력 영역 (사용자의 마지막 입력 + 입력창) */}
+                            {/* 입력 영역 (입력창) */}
                             <View style={styles.chatInputArea}>
-                                {lastUserMsg ? (
-                                    <View style={styles.userMsgRow}>
-                                        <View style={styles.userMsgBubble}>
-                                            <Text style={styles.userMsgText}>{lastUserMsg}</Text>
-                                        </View>
-                                    </View>
-                                ) : null}
-
                                 <View style={styles.chatInputBar}>
                                     <TouchableOpacity
                                         style={styles.chatCloseButton}
@@ -761,25 +750,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
         paddingBottom: Platform.OS === "ios" ? Spacing.sm : Spacing.xs,
         gap: Spacing.md,
-    },
-    userMsgRow: {
-        alignItems: "flex-end",
-        marginBottom: Spacing.xs,
-    },
-    userMsgBubble: {
-        maxWidth: "80%",
-        backgroundColor: Colors.primary,
-        borderRadius: Radius.xl,
-        borderTopRightRadius: Radius.xs,
-        paddingVertical: Spacing.md,
-        paddingHorizontal: Spacing.lg,
-    },
-    userMsgText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
-        lineHeight: 24,
-        color: Colors.white,
-        includeFontPadding: false,
     },
     chatInputBar: {
         flexDirection: "row",
