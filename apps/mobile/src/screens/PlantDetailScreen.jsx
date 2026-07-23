@@ -24,6 +24,7 @@ import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import PixelButton from "../components/PixelButton";
+import PixelSpeechBubble from "../components/PixelSpeechBubble";
 import { getPlantCare, createCareRecord } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper } from "../../constants/colors";
@@ -256,11 +257,13 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                     )}
 
                     {!chatMode && (
-                        <View style={styles.speechBubble}>
-                            <Text style={styles.speechText}>안녕! 좋은 아침이야</Text>
-                            <View style={styles.tailBorder} />
-                            <View style={styles.tailInner} />
-                        </View>
+                        <PixelSpeechBubble
+                            style={styles.speechBubble}
+                            textStyle={styles.speechText}
+                            tailOffset={125}
+                        >
+                            안녕! 좋은 아침이야
+                        </PixelSpeechBubble>
                     )}
 
                     {!chatMode && (
@@ -576,38 +579,16 @@ const styles = StyleSheet.create({
     speechBubble: {
         position: "absolute",
         top: 265,
-        right: 42,
+        left: "50%",
+        marginLeft: -125, // width(250)의 절반 → 화면(=식물) 가로 중앙 정렬
         width: 250,
         height: 70,
-        backgroundColor: Colors.white,
-        borderWidth: 4,
-        borderColor: Colors.textBlack,
-        alignItems: "center",
-        justifyContent: "center",
         zIndex: 20,
     },
     speechText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
         color: Colors.textBlack,
-    },
-    tailBorder: {
-        position: "absolute",
-        bottom: -22,
-        left: 58,
-        width: 31,
-        height: 31,
-        backgroundColor: Colors.textBlack,
-        transform: [{ rotate: "45deg" }],
-    },
-    tailInner: {
-        position: "absolute",
-        bottom: -14,
-        left: 64,
-        width: 20,
-        height: 20,
-        backgroundColor: Colors.white,
-        transform: [{ rotate: "45deg" }],
     },
 
     plantLabelGroup: {
