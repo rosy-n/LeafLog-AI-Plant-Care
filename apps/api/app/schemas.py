@@ -66,6 +66,17 @@ class AvailabilityResponse(BaseModel):
     available: bool
 
 
+class PlantImagePreprocessResponse(BaseModel):
+    canvas_size: int
+    sdxl_input_png_base64: str
+    transparent_png_base64: str
+
+
+class BackgroundRemovalResponse(BaseModel):
+    canvas_size: int
+    transparent_png_base64: str
+
+
 class PlantCreate(BaseModel):
     # 종 정보 (plant_species로 매핑)
     cntntsNo: str | None = None
