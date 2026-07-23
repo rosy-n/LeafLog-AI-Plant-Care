@@ -280,6 +280,8 @@ export function parseCodes(
     return codeString
         .split(',')
         .map((c) => c.trim())
-        .filter((c) => c in codeMap)
-        .map((c) => codeMap[c]);
+        .flatMap((code) => {
+            const label = codeMap[code];
+            return label ? [label] : [];
+        });
 }
