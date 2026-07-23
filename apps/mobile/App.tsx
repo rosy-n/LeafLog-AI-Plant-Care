@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useFonts } from "expo-font";
 import { Fonts, FontSizes } from "./constants/fonts";
 import { Colors, Brand } from "./constants/colors";
 import { Spacing, Radius } from "./constants/spacing";
@@ -78,6 +79,16 @@ export default function App() {
   const { width, height } = useWindowDimensions();
   const scale = Math.min(width / 402, height / 874, 1);
   const appWidth = Math.min(width, 402);
+
+  // 랜딩/인증 화면에서도 커스텀 폰트가 필요 — MainApp 진입 전에 미리 로드
+  const [fontsLoaded] = useFonts({
+    [Fonts.neoDunggeunmo]: require("./assets/fonts/NeoDunggeunmoPro-Regular.ttf"),
+    [Fonts.nanumSquareNeo.light]: require("./assets/fonts/NanumSquareNeo-aLt.ttf"),
+    [Fonts.nanumSquareNeo.regular]: require("./assets/fonts/NanumSquareNeo-bRg.ttf"),
+    [Fonts.nanumSquareNeo.bold]: require("./assets/fonts/NanumSquareNeo-cBd.ttf"),
+    [Fonts.nanumSquareNeo.extraBold]: require("./assets/fonts/NanumSquareNeo-dEb.ttf"),
+    [Fonts.nanumSquareNeo.heavy]: require("./assets/fonts/NanumSquareNeo-eHv.ttf"),
+  });
 
   const [screen, setScreen] = useState<Screen>("home");
   const [loginEmail, setLoginEmail] = useState("");
@@ -291,6 +302,21 @@ export default function App() {
           error instanceof Error ? error.message : "이메일 중복확인에 실패했어요.",
       }));
     }
+  }
+
+  if (!fontsLoaded) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#8FCB7D",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color="#2F7831" />
+      </View>
+    );
   }
 
   if (auth) {
@@ -1049,7 +1075,7 @@ const styles = StyleSheet.create({
   },
   backText: {
     color: Colors.textBlack,
-    fontFamily: Fonts.nanumSquareNeo.bold,
+    fontFamily: Fonts.nanumSquareNeo.regular,
     fontSize: FontSizes.display,
     lineHeight: 38,
   },
@@ -1070,14 +1096,14 @@ const styles = StyleSheet.create({
   },
   authTitle: {
     color: Colors.primary,
-    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.display,
     lineHeight: 38,
   },
   authSubtitle: {
     marginTop: Spacing.sm,
     color: Colors.textGray,
-    fontFamily: Fonts.nanumSquareNeo.bold,
+    fontFamily: Fonts.nanumSquareNeo.regular,
     fontSize: FontSizes.bodyLarge,
     lineHeight: 19,
   },
@@ -1097,7 +1123,7 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.xxs,
     marginBottom: Spacing.sm,
     color: Colors.textBlack,
-    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.small,
   },
   inputWrap: {
@@ -1119,7 +1145,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     paddingHorizontal: Spacing.lg,
     color: Colors.textBlack,
-    fontFamily: Fonts.nanumSquareNeo.bold,
+    fontFamily: Fonts.nanumSquareNeo.regular,
     fontSize: FontSizes.body,
   },
   signupInput: {
@@ -1141,7 +1167,7 @@ const styles = StyleSheet.create({
   },
   passwordToggleText: {
     color: Colors.textGray,
-    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.small,
   },
   errorText: {
@@ -1184,7 +1210,7 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     color: Colors.primary,
-    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontFamily: Fonts.nanumSquareNeo.regular,
     fontSize: FontSizes.small,
     textDecorationLine: "underline",
   },
@@ -1205,7 +1231,7 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     color: Colors.textGray,
-    fontFamily: Fonts.nanumSquareNeo.bold,
+    fontFamily: Fonts.nanumSquareNeo.regular,
     fontSize: FontSizes.body,
   },
   socials: {
@@ -1242,7 +1268,7 @@ const styles = StyleSheet.create({
   },
   socialLabel: {
     color: Colors.textBlack,
-    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontFamily: Fonts.nanumSquareNeo.bold,
     fontSize: FontSizes.body,
   },
   terms: {

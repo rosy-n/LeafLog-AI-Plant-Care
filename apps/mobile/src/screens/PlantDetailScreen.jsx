@@ -25,7 +25,7 @@ import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import { getPlantCare, createCareRecord } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Glass, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const MENU_ITEMS = [
@@ -806,9 +806,9 @@ const styles = StyleSheet.create({
     confirmCard: {
         width: "100%",
         maxWidth: 320,
-        backgroundColor: Colors.white,
-        borderWidth: 4,
-        borderColor: Colors.textBlack,
+        backgroundColor: Paper.cream,
+        borderWidth: 3,
+        borderColor: Colors.primary,
         paddingVertical: Spacing.xxl,
         paddingHorizontal: Spacing.xl,
         alignItems: "center",
@@ -840,13 +840,13 @@ const styles = StyleSheet.create({
     confirmButton: {
         flex: 1,
         height: 48,
-        borderWidth: 4,
-        borderColor: Colors.textBlack,
+        borderWidth: 3,
+        borderColor: Colors.primary,
         alignItems: "center",
         justifyContent: "center",
     },
     confirmCancel: {
-        backgroundColor: Colors.white,
+        backgroundColor: Paper.cream,
     },
     confirmOk: {
         backgroundColor: Colors.primary,
