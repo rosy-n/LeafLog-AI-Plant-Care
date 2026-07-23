@@ -1,0 +1,4 @@
+ D extensions-builtin/forge_preprocessor_marigold/scripts/preprocessor_marigold.py
+?? 4.8.0
+?? =4.8.0
+?? extensions-builtin/forge_preprocessor_marigold/scripts/preprocessor_marigold.py.disabled
