@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "hash_algorithm": "sha256",
+  "captured_at": "2026-07-23",
+  "artifacts": [
+    {
+      "filename": "pixelArtDiffusionXL_spriteShaper.safetensors",
+      "role": "sdxl_base",
+      "size_bytes": 6938040682,
+      "sha256": "7adffa28d4003a773c2d4e5f10ae1ba63c33573967864a7f9a4a3be9c9f04a93",
+      "external_backup": false,
+      "source": "https://civitai.com/models/277680?modelVersionId=364043"
+    },
+    {
+      "filename": "plantpet_sprite_lora_v2.safetensors",
+      "role": "lora_epoch_6_final",
+      "size_bytes": 456486332,
+      "sha256": "164cd7f903087116cc976ed22cc97e81dc5da3cb270fd3d09b34422f106f2ac0",
+      "external_backup": true
+    },
+    {
+      "filename": "plantpet_sprite_lora_v2-000001.safetensors",
+      "role": "lora_epoch_1",
+      "size_bytes": 456486332,
+      "sha256": "a68f04a9d15b56cf85d03683c855f5637d850413f25ee7efe0de7cd0b0e45106",
+      "external_backup": true
+    },
+    {
+      "filename": "plantpet_sprite_lora_v2-000002.safetensors",
+      "role": "lora_epoch_2",
+      "size_bytes": 456486332,
+      "sha256": "9ae9fc35b491e8a17397864317364919a0fd57979ebf4d6a041fea95b72d41d4",
+      "external_backup": true
+    },
+    {
+      "filename": "plantpet_sprite_lora_v2-000003.safetensors",
+      "role": "lora_epoch_3",
+      "size_bytes": 456486332,
+      "sha256": "7f11dce92af4ba0b1347bca84535ade559715d5f3a8c631bb881e9ba8e37fd5d",
+      "external_backup": true
+    },
+    {
+      "filename": "plantpet_sprite_lora_v2-000004.safetensors",
+      "role": "lora_epoch_4",
+      "size_bytes": 456486332,
+      "sha256": "27d6d596e1c5e2e05d9b38bf745bebc675b4ad6635ed89f41ea10a9f79e34e4d",
+      "external_backup": true
+    },
+    {
+      "filename": "plantpet_sprite_lora_v2-000005.safetensors",
+      "role": "lora_epoch_5",
+      "size_bytes": 456486332,
+      "sha256": "3d73b26c9759e6537ca562fe908f72474dd0cb547ab048d34d96a9f275ce8945",
+      "external_backup": true
+    },
+    {
+      "filename": "sdxl_vae.safetensors",
+      "role": "sdxl_vae",
+      "size_bytes": 334641164,
+      "sha256": "63aeecb90ff7bc1c115395962d3e803571385b61938377bc7089b36e81e92e2e",
+      "external_backup": true,
+      "source": "https://civitai.com/models/296576?modelVersionId=333245"
+    },
+    {
+      "filename": "diffusers_xl_canny_mid.safetensors",
+      "role": "sdxl_controlnet_canny",
+      "size_bytes": 545197704,
+      "sha256": "a9440e186177ddaf4e6d4ef606a8bc8a7d77b3e895c322e19b663a61e0d46447",
+      "external_backup": true,
+      "source": "https://huggingface.co/lllyasviel/sd_control_collection/blob/main/diffusers_xl_canny_mid.safetensors"
+    },
+    {
+      "filename": "leaflog-training-data-v2.tar.gz",
+      "role": "training_dataset_303_pairs",
+      "size_bytes": 274195865,
+      "sha256": "43fd80026e45dc4a75c6295805545e88558bb954d4ee8a411c61a428930121fc",
+      "external_backup": true
+    }
+  ]
+}
