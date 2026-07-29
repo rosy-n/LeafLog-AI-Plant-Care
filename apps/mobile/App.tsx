@@ -55,14 +55,18 @@ const assets = {
 };
 
 
-// login-bg.png 실측값. titleAnchor는 타이틀이 놓일 지점의 세로 비율 —
-// 상단 새싹 아이콘(0.22)과 식물 캐릭터(0.43) 사이.
-// 배경이 잘려도 타이틀이 그림과 어긋나지 않게 하는 기준선.
-// lift는 배경과 타이틀을 함께 끌어올리는 양(렌더 높이 비율)
+// login-bg.png 실측값. 배경이 잘려도 텍스트·버튼이 그림과 어긋나지 않게
+// 세로 비율로 기준선을 잡는다.
+//  titleAnchor  타이틀 위치 — 상단 새싹 아이콘(0.22)과 식물(0.43) 사이
+//  groundAnchor 잔디 아래끝 — 버튼은 이 아래에 놓인다
+//  actionsMaxTop 버튼이 화면 밖으로 밀리지 않게 하는 상한(화면 높이 비율)
+//  lift         배경·타이틀·버튼을 함께 끌어올리는 양(렌더 높이 비율)
 const LANDING_BG = {
   width: 851,
   height: 1849,
   titleAnchor: 0.29,
+  groundAnchor: 0.762,
+  actionsMaxTop: 0.78,
   lift: 0.05,
 } as const;
 
@@ -459,16 +463,20 @@ function HomeScreen({
 }) {
   const { width, height } = useWindowDimensions();
 
-  // cover로 화면 중앙에 놓인 배경의 실제 위치를 역산해서,
-  // 배경과 타이틀을 lift만큼 같이 끌어올린다. 타이틀은 배경 새싹 아이콘과
-  // 식물 캐릭터 사이 유지. (배경 아래쪽은 원본 여백이라 노출되는 띠는
-  // Colors.background와 사실상 동색)
+  // cover로 화면 중앙에 놓인 배경의 실제 위치를 역산해서, 배경·타이틀·버튼을
+  // lift만큼 같이 끌어올린다. 타이틀은 배경 새싹 아이콘과 식물 캐릭터 사이,
+  // 버튼은 잔디 아래끝 기준으로 배치. (배경 아래쪽은 원본 여백이라 노출되는
+  // 띠는 Colors.background와 사실상 동색)
   const imageScale = Math.max(width / LANDING_BG.width, height / LANDING_BG.height);
   const imageHeight = LANDING_BG.height * imageScale;
   const imageTop = (height - imageHeight) / 2 - imageHeight * LANDING_BG.lift;
   const titleTop = Math.max(
     imageTop + imageHeight * LANDING_BG.titleAnchor,
     Spacing.huge2,
+  );
+  const actionsTop = Math.min(
+    imageTop + imageHeight * LANDING_BG.groundAnchor + Spacing.xxxl,
+    height * LANDING_BG.actionsMaxTop,
   );
 
   return (
@@ -481,7 +489,7 @@ function HomeScreen({
       <View style={[styles.landingTitle, { top: titleTop }]}>
         <Text style={styles.brandText}>LeafLog</Text>
       </View>
-      <View style={styles.landingActions}>
+      <View style={[styles.landingActions, { top: actionsTop }]}>
         <AppButton label="로그인" onPress={onLogin} />
         <AppButton label="회원가입" variant="secondary" onPress={onSignup} />
       </View>
@@ -965,11 +973,11 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
   },
   // 배경 잔디 아래 빈 영역에 버튼을 놓아 배경 그림을 가리지 않게 한다
+  // (top은 배경 위치에 맞춰 런타임에 계산 — HomeScreen 참고)
   landingActions: {
     position: "absolute",
     left: Spacing.huge2,
     right: Spacing.huge2,
-    bottom: Spacing.huge2,
     gap: Spacing.md,
   },
   pressed: {
