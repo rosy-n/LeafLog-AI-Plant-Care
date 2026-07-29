@@ -29,6 +29,7 @@ import {
 } from "./src/api";
 import MainApp from "./App.js";
 import AppButton from "./src/components/AppButton";
+import PixelButton from "./src/components/PixelButton";
 import SocialButton from "./src/components/SocialButton";
 
 type Screen = "home" | "login" | "signup" | "nickname";
@@ -492,8 +493,13 @@ function HomeScreen({
         <Text style={styles.tagline}>매일 쌓이는 초록의 기록</Text>
       </View>
       <View style={[styles.landingActions, { top: actionsTop }]}>
-        <AppButton label="로그인" onPress={onLogin} />
-        <AppButton label="회원가입" variant="secondary" onPress={onSignup} />
+        <PixelButton label="로그인" size="lg" onPress={onLogin} />
+        <PixelButton
+          label="회원가입"
+          color={Colors.background}
+          size="lg"
+          onPress={onSignup}
+        />
       </View>
     </ImageBackground>
   );
@@ -983,11 +989,13 @@ const styles = StyleSheet.create({
   },
   // 배경 잔디 아래 빈 영역에 버튼을 놓아 배경 그림을 가리지 않게 한다
   // (top은 배경 위치에 맞춰 런타임에 계산 — HomeScreen 참고)
+  // 픽셀 버튼은 계단형 드롭섀도가 아래로 삐져나와 붙어 보이므로
+  // 기본 gap보다 넉넉하게 띄운다 (로그인 위치는 그대로, 회원가입만 내려간다)
   landingActions: {
     position: "absolute",
     left: Spacing.huge2,
     right: Spacing.huge2,
-    gap: Spacing.md,
+    gap: Spacing.lg,
   },
   pressed: {
     opacity: 0.78,
