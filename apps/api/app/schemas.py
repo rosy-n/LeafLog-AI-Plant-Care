@@ -1,4 +1,5 @@
 import re
+from typing import Literal
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator
 
@@ -160,6 +161,23 @@ class CareRecordCreate(BaseModel):
     care_type: str
     note: str | None = None
     completed_at: str | None = None
+
+
+class PersonaChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=500)
+
+
+class PersonaChatRequest(BaseModel):
+    persona: str
+    message: str = Field(min_length=1, max_length=500)
+    # 서버는 대화 기록을 저장하지 않는다 — 클라이언트가 최근 턴만 매번 실어 보낸다.
+    history: list[PersonaChatMessage] = Field(default_factory=list, max_length=10)
+
+
+class PersonaChatResponse(BaseModel):
+    reply: str
+    persona: str
 
 
 class PlantListItem(BaseModel):

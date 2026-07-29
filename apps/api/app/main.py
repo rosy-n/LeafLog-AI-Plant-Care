@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from . import persona_chat
 from .config import settings
 from .database import Base, engine, get_db
 from .image_preprocessing import (
@@ -18,7 +19,7 @@ from .image_preprocessing import (
     preprocess_plant_photo,
     remove_background_for_sprite,
 )
-from .models import AppUser, CareRecord, MediaAsset, Plant, PlantSpecies
+from .models import AppUser, CareRecord, CareSchedule, MediaAsset, Plant, PlantSpecies
 from .schemas import (
     AvailabilityResponse,
     AuthResponse,
@@ -27,6 +28,8 @@ from .schemas import (
     CareRecordItem,
     CareSummary,
     LoginRequest,
+    PersonaChatRequest,
+    PersonaChatResponse,
     PlantCreate,
     PlantDetail,
     PlantImagePreprocessResponse,
@@ -111,6 +114,36 @@ def _owned_plant_or_404(plant_id: int, current_user: "AppUser", db: Session) -> 
     if plant is None or plant.user_id != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="식물을 찾을 수 없습니다.")
     return plant
+
+
+# plant_species가 아직 미확인(species_id NULL)인 개체용 대체 문구.
+# ai/persona-chat/test_persona.py의 원래 TODO 주석에서 예시로 든 표현을 그대로 사용 —
+# 실제 문구는 팀 논의 후 바뀔 수 있다.
+UNKNOWN_SPECIES_PLACEHOLDER = "미확인 식물종"
+
+
+def _persona_plant_context(plant: Plant, current_user: AppUser, db: Session) -> dict[str, str]:
+    species = db.get(PlantSpecies, plant.species_id) if plant.species_id else None
+    return {
+        "plant_name": plant.nickname,
+        "species_name": species.common_name_ko if species else UNKNOWN_SPECIES_PLACEHOLDER,
+        "user_name": current_user.nickname,
+    }
+
+
+def _persona_watering_schedule(plant_id: int, db: Session) -> persona_chat.WateringSchedule | None:
+    schedule = db.scalar(
+        select(CareSchedule).where(
+            CareSchedule.plant_id == plant_id,
+            CareSchedule.care_type == "WATERING",
+        )
+    )
+    if schedule is None:
+        return None
+    return persona_chat.WateringSchedule(
+        interval_days=schedule.interval_days,
+        next_due_date=schedule.next_due_date,
+    )
 
 
 @app.on_event("startup")
@@ -561,6 +594,42 @@ def delete_care_record(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="기록을 찾을 수 없습니다.")
     db.delete(record)
     db.commit()
+
+
+@app.post("/api/plants/{plant_id}/persona-chat", response_model=PersonaChatResponse)
+def persona_chat_reply(
+    plant_id: int,
+    payload: PersonaChatRequest,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PersonaChatResponse:
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+
+    # persona는 파일 경로 조립에 그대로 쓰이므로, 정해진 페르소나 목록에 있는 값만 허용한다
+    # (경로 조작 방지).
+    if payload.persona not in persona_chat.PERSONA_NAMES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="지원하지 않는 페르소나입니다.")
+
+    plant_context = _persona_plant_context(plant, current_user, db)
+    watering_schedule = _persona_watering_schedule(plant_id, db)
+
+    try:
+        reply = persona_chat.chat_with_ollama(
+            persona_file_name=payload.persona,
+            watering_schedule=watering_schedule,
+            # 날씨/대기질 API는 아직 연동 전 — 등록되지 않음으로 처리된다.
+            weather_air_quality=None,
+            conversation_history=[
+                {"role": message.role, "content": message.content} for message in payload.history
+            ],
+            user_message=payload.message,
+            reference_date=persona_chat.today_in_korea(),
+            plant_context=plant_context,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+    return PersonaChatResponse(reply=reply, persona=payload.persona)
 
 
 @app.get("/auth/me", response_model=UserRead)
