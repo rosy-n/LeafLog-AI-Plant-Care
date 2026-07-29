@@ -29,8 +29,7 @@ import {
 } from "./src/api";
 import MainApp from "./App.js";
 import AppButton from "./src/components/AppButton";
-import PixelButton, { PixelSurface } from "./src/components/PixelButton";
-import SocialButton from "./src/components/SocialButton";
+import PixelButton from "./src/components/PixelButton";
 
 type Screen = "home" | "login" | "signup" | "nickname";
 type CheckStatus = "idle" | "checking" | "available" | "taken";
@@ -567,12 +566,6 @@ function LoginScreen(props: {
           style={styles.loginButton}
         />
         <FormMessage message={props.errors.api} pixel />
-        <Divider pixel />
-        <View style={styles.socials}>
-          <SocialButton icon="G" label="Google" />
-          <SocialButton icon="" label="Apple" />
-          <SocialButton icon="●" label="Kakao" tone="kakao" />
-        </View>
       </View>
     </AuthScaffold>
   );
@@ -929,16 +922,6 @@ function SmallButton({
   );
 }
 
-function Divider({ pixel = false }: { pixel?: boolean }) {
-  return (
-    <View style={styles.divider}>
-      <View style={styles.dividerLine} />
-      <Text style={[styles.dividerText, pixel && styles.pixelText]}>또는</Text>
-      <View style={styles.dividerLine} />
-    </View>
-  );
-}
-
 function TermRow({
   label,
   checked,
@@ -1205,27 +1188,6 @@ const styles = StyleSheet.create({
   },
   loginButton: {
     marginTop: Spacing.huge2,
-  },
-  divider: {
-    marginTop: Spacing.huge2,
-    marginBottom: Spacing.xxxl,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.lg,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.border,
-  },
-  dividerText: {
-    color: Colors.textGray,
-    fontFamily: Fonts.nanumSquareNeo.regular,
-    fontSize: FontSizes.body,
-  },
-  socials: {
-    flexDirection: "row",
-    gap: Spacing.md,
   },
   terms: {
     marginTop: Spacing.xs,
