@@ -14,6 +14,8 @@ type PixelButtonProps = {
   onPress: () => void;
   /** 버튼 채움색 — colors 토큰 값을 넘겨받는다 (기본: 메인 초록) */
   color?: string;
+  /** md: 기본(모달·인라인) · lg: 랜딩 메인 액션 — 패딩과 라벨 크기가 함께 커진다 */
+  size?: "md" | "lg";
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 };
@@ -58,9 +60,11 @@ export default function PixelButton({
   label,
   onPress,
   color = Colors.primary,
+  size = "md",
   disabled = false,
   style,
 }: PixelButtonProps) {
+  const large = size === "lg";
   return (
     <Pressable
       onPress={onPress}
@@ -87,8 +91,10 @@ export default function PixelButton({
         <View style={styles.glossBar} />
         <View style={styles.glossDot} />
         {/* 라벨 (흐름 배치 → 버튼 크기를 결정, 항상 최상단) */}
-        <View style={styles.content}>
-          <PixelOutlineText style={styles.label}>{label}</PixelOutlineText>
+        <View style={[styles.content, large && styles.contentLarge]}>
+          <PixelOutlineText style={[styles.label, large && styles.labelLarge]}>
+            {label}
+          </PixelOutlineText>
         </View>
       </View>
     </Pressable>
@@ -117,9 +123,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
   },
+  contentLarge: {
+    paddingHorizontal: Spacing.xxl,
+    paddingVertical: Spacing.lg,
+  },
   label: {
     fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.bodyLarge,
+  },
+  labelLarge: {
+    fontSize: FontSizes.title,
   },
   shadowLayer: {
     position: "absolute",
