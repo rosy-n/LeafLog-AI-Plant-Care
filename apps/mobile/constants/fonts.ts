@@ -19,4 +19,5 @@ export const FontSizes = {
   screenTitle: 28,
   display: 34,
   displayLarge: 48,
+  hero: 64,          // 랜딩 브랜드 타이틀 — 스케일 최상단
 } as const;

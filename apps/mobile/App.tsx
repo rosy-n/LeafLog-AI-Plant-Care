@@ -955,8 +955,8 @@ const styles = StyleSheet.create({
   brandText: {
     color: Colors.primary,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: FontSizes.displayLarge,
-    lineHeight: 54,
+    fontSize: FontSizes.hero,
+    lineHeight: 72,
     textShadowColor: Colors.primary,
     textShadowOffset: { width: 1, height: 2 },
     textShadowRadius: 0,
