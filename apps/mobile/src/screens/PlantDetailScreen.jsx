@@ -314,7 +314,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                 }}
                             >
                                 <Image
-                                    source={require("../../assets/icons/watering_icon.png")}
+                                    source={require("../../assets/icons/water_icon.png")}
                                     style={styles.dropImage}
                                     resizeMode="contain"
                                 />
@@ -431,7 +431,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
 
                         <LiquidGlassButton size={68} onPress={handleWaterPress}>
                             <Image
-                                source={require("../../assets/icons/watering_icon.png")}
+                                source={require("../../assets/icons/water_icon.png")}
                                 style={styles.buttonIconLarge}
                                 resizeMode="contain"
                             />
