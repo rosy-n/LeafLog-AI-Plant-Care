@@ -29,7 +29,7 @@ import {
 } from "./src/api";
 import MainApp from "./App.js";
 import AppButton from "./src/components/AppButton";
-import PixelButton from "./src/components/PixelButton";
+import PixelButton, { PixelSurface } from "./src/components/PixelButton";
 import SocialButton from "./src/components/SocialButton";
 
 type Screen = "home" | "login" | "signup" | "nickname";
@@ -605,11 +605,12 @@ function SignupScreen(props: {
 }) {
   return (
     <AuthScaffold onBack={props.onBack}>
-      <AuthHeader title="회원가입" subtitle="LeafLog와 함께 시작해요!" compact />
+      <AuthHeader title="회원가입" subtitle="LeafLog와 함께 시작해요!" compact pixel />
       <View style={styles.signupForm}>
         <Field
           label="이메일"
           compact
+          pixel
           error={props.errors.signupEmail}
           message={props.errors.emailCheck}
           messageTone={props.emailCheckStatus === "available" ? "success" : "error"}
@@ -625,6 +626,7 @@ function SignupScreen(props: {
               autoCorrect={false}
               style={[
                 styles.input,
+                styles.pixelText,
                 styles.signupInput,
                 styles.checkInput,
                 props.errors.signupEmail && styles.inputError,
@@ -637,7 +639,7 @@ function SignupScreen(props: {
             />
           </View>
         </Field>
-        <Field label="비밀번호" compact error={props.errors.signupPassword}>
+        <Field label="비밀번호" compact pixel error={props.errors.signupPassword}>
           <View style={styles.inputWrap}>
             <TextInput
               value={props.password}
@@ -647,15 +649,16 @@ function SignupScreen(props: {
               secureTextEntry={!props.showPassword}
               style={[
                 styles.input,
+                styles.pixelText,
                 styles.signupInput,
                 styles.inputWithIcon,
                 props.errors.signupPassword && styles.inputError,
               ]}
             />
-            <PasswordToggle visible={props.showPassword} onPress={props.onTogglePassword} />
+            <PasswordToggle visible={props.showPassword} onPress={props.onTogglePassword} pixel />
           </View>
         </Field>
-        <Field label="비밀번호 확인" compact error={props.errors.signupConfirm}>
+        <Field label="비밀번호 확인" compact pixel error={props.errors.signupConfirm}>
           <View style={styles.inputWrap}>
             <TextInput
               value={props.confirm}
@@ -665,12 +668,13 @@ function SignupScreen(props: {
               secureTextEntry={!props.showConfirm}
               style={[
                 styles.input,
+                styles.pixelText,
                 styles.signupInput,
                 styles.inputWithIcon,
                 props.errors.signupConfirm && styles.inputError,
               ]}
             />
-            <PasswordToggle visible={props.showConfirm} onPress={props.onToggleConfirm} />
+            <PasswordToggle visible={props.showConfirm} onPress={props.onToggleConfirm} pixel />
           </View>
         </Field>
         <View style={styles.terms}>
@@ -679,9 +683,14 @@ function SignupScreen(props: {
           <TermRow label="[필수] 개인정보 수집 및 이용 동의" checked={props.agreePrivacy} onPress={props.onTogglePrivacy} />
           <TermRow label="[선택] 마케팅 정보 수신 동의" checked={props.agreeMarketing} onPress={props.onToggleMarketing} />
         </View>
-        <FormMessage message={props.errors.terms} />
+        <FormMessage message={props.errors.terms} pixel />
       </View>
-      <AppButton label="회원가입" onPress={props.onNext} style={styles.signupButton} />
+      <PixelButton
+        label="회원가입"
+        onPress={props.onNext}
+        size="lg"
+        style={styles.signupButton}
+      />
     </AuthScaffold>
   );
 }
@@ -1181,7 +1190,7 @@ const styles = StyleSheet.create({
   },
   smallButtonText: {
     color: Colors.primary,
-    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.small,
   },
   forgot: {
@@ -1249,26 +1258,26 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     color: Colors.white,
-    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.caption,
     lineHeight: 12,
   },
   termText: {
     flex: 1,
     color: Colors.textBlack,
-    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.small,
   },
   termTextStrong: {
     color: Colors.textGray,
-    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.body,
   },
   viewLink: {
     width: 38,
     color: Colors.textBlack,
     textAlign: "right",
-    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.small,
   },
   signupButton: {
