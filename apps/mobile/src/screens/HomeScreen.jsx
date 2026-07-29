@@ -16,7 +16,7 @@ import { Colors, GreenTint, Aqua, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const BG_IMAGES = {
-    "home-bg": require("../../assets/images/home-bg.png"),
+    "home-bg": require("../../assets/images/home_clear_bg.png"),
     "store_bg1": require("../../assets/images/store_bg1.png"),
     "store_bg2": require("../../assets/images/store_bg2.png"),
 };

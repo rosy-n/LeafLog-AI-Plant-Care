@@ -49,7 +49,7 @@ function toGardenPlant(plant) {
 }
 
 const imageAssets = [
-    require("./assets/images/home-bg.png"),
+    require("./assets/images/home_clear_bg.png"),
     require("./assets/images/store_bg1.png"),
     require("./assets/images/store_bg2.png"),
     require("./assets/images/detail-bg.png"),
