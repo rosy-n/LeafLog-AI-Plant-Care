@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Aqua, Accent, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const BG_IMAGES = {
@@ -81,7 +81,11 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                 {/* 상단 왼쪽: 날씨, 미세먼지 */}
                 <View style={styles.topLeftArea}>
                     <GlassButton size={60}>
-                        <WeatherIcon />
+                        <Image
+                            source={require("../../assets/icons/snow_icon.png")}
+                            style={styles.weatherIcon}
+                            resizeMode="contain"
+                        />
                     </GlassButton>
 
                     <GlassButton size={60}>
@@ -301,17 +305,6 @@ function GlassButton({ children, size = 62, onPress }) {
     );
 }
 
-function WeatherIcon() {
-    return (
-        <View style={styles.weatherWrap}>
-            <Ionicons name="cloud" size={43} color={Colors.white} />
-            <View style={styles.wind1} />
-            <View style={styles.wind2} />
-            <View style={styles.wind3} />
-        </View>
-    );
-}
-
 function AirIcon() {
     return (
         <View style={styles.airCircle}>
@@ -517,38 +510,9 @@ const styles = StyleSheet.create({
         backgroundColor: Glass.frost60,
     },
 
-    weatherWrap: {
-        width: 56,
-        height: 56,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    wind1: {
-        position: "absolute",
-        left: 9,
-        bottom: 16,
-        width: 34,
-        height: 4,
-        borderRadius: Radius.xs,
-        backgroundColor: Aqua.bright,
-    },
-    wind2: {
-        position: "absolute",
-        left: 17,
-        bottom: 24,
-        width: 28,
-        height: 4,
-        borderRadius: Radius.xs,
-        backgroundColor: Aqua.bright,
-    },
-    wind3: {
-        position: "absolute",
-        left: 25,
-        bottom: 32,
-        width: 18,
-        height: 4,
-        borderRadius: Radius.xs,
-        backgroundColor: Aqua.bright,
+    weatherIcon: {
+        width: 40,
+        height: 40,
     },
 
     airCircle: {
