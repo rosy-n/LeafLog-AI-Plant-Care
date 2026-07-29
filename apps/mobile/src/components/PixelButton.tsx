@@ -9,11 +9,24 @@ import PixelOutlineText from "./PixelOutlineText";
 const STEP = Spacing.xs; // 계단 한 칸 = 픽셀 하나
 const BORDER = 3; // 검정 외곽선 두께 (xxs 2 ~ xs 4 사이 값 — 3px 토큰이 없어 직접 지정)
 
+type PixelSurfaceProps = {
+  onPress: () => void;
+  /** 버튼 채움색 — colors 토큰 값을 넘겨받는다 (기본: 메인 초록) */
+  color?: string;
+  disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
+  /** 내용 영역 패딩 재정의 — 버튼 크기가 여기서 결정된다 */
+  contentStyle?: StyleProp<ViewStyle>;
+  children: React.ReactNode;
+};
+
 type PixelButtonProps = {
   label: string;
   onPress: () => void;
   /** 버튼 채움색 — colors 토큰 값을 넘겨받는다 (기본: 메인 초록) */
   color?: string;
+  /** md: 기본(모달·인라인) · lg: 랜딩 메인 액션 — 패딩과 라벨 크기가 함께 커진다 */
+  size?: "md" | "lg";
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 };
@@ -50,17 +63,19 @@ function PixelShape({ color, inset }: { color: string; inset: number }) {
 }
 
 /**
- * 픽셀 아트 스타일 버튼 (assets/button_ex.png 참고).
+ * 픽셀 아트 버튼의 껍데기 (assets/button_ex.png 참고).
  * 계단형 검정 픽셀 테두리 + 솔리드 채움 + 블록형 좌상단 하이라이트 +
- * 하단 음영 + 계단형 드롭섀도로 레트로 픽셀 버튼을 표현한다.
+ * 하단 음영 + 계단형 드롭섀도. 내용(children)은 호출부가 결정한다 —
+ * 라벨 한 줄이면 PixelButton, 아이콘+라벨 조합이면 SocialButton 처럼.
  */
-export default function PixelButton({
-  label,
+export function PixelSurface({
   onPress,
   color = Colors.primary,
   disabled = false,
   style,
-}: PixelButtonProps) {
+  contentStyle,
+  children,
+}: PixelSurfaceProps) {
   return (
     <Pressable
       onPress={onPress}
@@ -86,12 +101,35 @@ export default function PixelButton({
         {/* 좌상단 블록형 픽셀 하이라이트 */}
         <View style={styles.glossBar} />
         <View style={styles.glossDot} />
-        {/* 라벨 (흐름 배치 → 버튼 크기를 결정, 항상 최상단) */}
-        <View style={styles.content}>
-          <PixelOutlineText style={styles.label}>{label}</PixelOutlineText>
-        </View>
+        {/* 내용 (흐름 배치 → 버튼 크기를 결정, 항상 최상단) */}
+        <View style={[styles.content, contentStyle]}>{children}</View>
       </View>
     </Pressable>
+  );
+}
+
+/** 라벨 한 줄만 있는 기본 픽셀 버튼. */
+export default function PixelButton({
+  label,
+  onPress,
+  color = Colors.primary,
+  size = "md",
+  disabled = false,
+  style,
+}: PixelButtonProps) {
+  const large = size === "lg";
+  return (
+    <PixelSurface
+      onPress={onPress}
+      color={color}
+      disabled={disabled}
+      style={style}
+      contentStyle={large && styles.contentLarge}
+    >
+      <PixelOutlineText style={[styles.label, large && styles.labelLarge]}>
+        {label}
+      </PixelOutlineText>
+    </PixelSurface>
   );
 }
 
@@ -117,9 +155,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
   },
+  contentLarge: {
+    paddingHorizontal: Spacing.xxl,
+    paddingVertical: Spacing.lg,
+  },
   label: {
     fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.bodyLarge,
+  },
+  labelLarge: {
+    fontSize: FontSizes.title,
   },
   shadowLayer: {
     position: "absolute",
