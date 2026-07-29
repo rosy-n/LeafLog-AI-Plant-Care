@@ -519,9 +519,9 @@ function LoginScreen(props: {
 }) {
   return (
     <AuthScaffold onBack={props.onBack}>
-      <AuthHeader title="로그인" subtitle="다시 만나서 반가워요!" />
+      <AuthHeader title="로그인" subtitle="다시 만나서 반가워요!" pixel />
       <View style={styles.form}>
-        <Field label="이메일" error={props.errors.loginEmail}>
+        <Field label="이메일" error={props.errors.loginEmail} pixel>
           <TextInput
             value={props.email}
             onChangeText={props.onEmail}
@@ -530,10 +530,14 @@ function LoginScreen(props: {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
-            style={[styles.input, props.errors.loginEmail && styles.inputError]}
+            style={[
+              styles.input,
+              styles.pixelText,
+              props.errors.loginEmail && styles.inputError,
+            ]}
           />
         </Field>
-        <Field label="비밀번호" error={props.errors.loginPassword}>
+        <Field label="비밀번호" error={props.errors.loginPassword} pixel>
           <View style={styles.inputWrap}>
             <TextInput
               value={props.password}
@@ -543,24 +547,27 @@ function LoginScreen(props: {
               secureTextEntry={!props.showPassword}
               style={[
                 styles.input,
+                styles.pixelText,
                 styles.inputWithIcon,
                 props.errors.loginPassword && styles.inputError,
               ]}
             />
-            <PasswordToggle visible={props.showPassword} onPress={props.onTogglePassword} />
+            <PasswordToggle visible={props.showPassword} onPress={props.onTogglePassword} pixel />
           </View>
         </Field>
         <Pressable style={styles.forgot} onPress={() => Alert.alert("준비 중", "비밀번호 찾기는 다음 단계에서 연결하면 됩니다.")}>
-          <Text style={styles.forgotText}>비밀번호를 잊으셨나요?</Text>
+          <Text style={[styles.forgotText, styles.pixelText]}>비밀번호를 잊으셨나요?</Text>
         </Pressable>
-        <AppButton
-          label="로그인"
+        {/* PixelButton은 loading 상태가 없어 제출 중에는 라벨로 알린다 */}
+        <PixelButton
+          label={props.isSubmitting ? "로그인 중" : "로그인"}
           onPress={props.onSubmit}
-          loading={props.isSubmitting}
+          size="lg"
+          disabled={props.isSubmitting}
           style={styles.loginButton}
         />
-        <FormMessage message={props.errors.api} />
-        <Divider />
+        <FormMessage message={props.errors.api} pixel />
+        <Divider pixel />
         <View style={styles.socials}>
           <SocialButton icon="G" label="Google" />
           <SocialButton icon="" label="Apple" />
@@ -784,21 +791,25 @@ function BackButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+// pixel: 던근모(픽셀) 글꼴로 렌더 — 로그인 화면만 켜져 있고
+// 회원가입·닉네임 화면은 기존 나눔스퀘어네오를 유지한다
 function AuthHeader({
   title,
   subtitle,
   compact = false,
+  pixel = false,
 }: {
   title: string;
   subtitle: string;
   compact?: boolean;
+  pixel?: boolean;
 }) {
   return (
     <View style={[styles.authHead, compact && styles.authHeadCompact]}>
       <Image source={assets.leaf} style={styles.authLeaf} />
-      <Text style={styles.authTitle}>{title}</Text>
-      <Text style={styles.authSubtitle}>
-        {subtitle} <Text style={styles.heart}>♡</Text>
+      <Text style={[styles.authTitle, pixel && styles.pixelText]}>{title}</Text>
+      <Text style={[styles.authSubtitle, pixel && styles.pixelText]}>
+        {subtitle} <Text style={[styles.heart, pixel && styles.pixelText]}>♡</Text>
       </Text>
     </View>
   );
@@ -811,6 +822,7 @@ function Field({
   message,
   messageTone = "error",
   compact = false,
+  pixel = false,
 }: {
   label: string;
   children: React.ReactNode;
@@ -818,16 +830,20 @@ function Field({
   message?: string;
   messageTone?: "error" | "success";
   compact?: boolean;
+  pixel?: boolean;
 }) {
   return (
     <View style={[styles.field, compact && styles.fieldCompact]}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, pixel && styles.pixelText]}>{label}</Text>
       {children}
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? (
+        <Text style={[styles.errorText, pixel && styles.pixelText]}>{error}</Text>
+      ) : null}
       {message ? (
         <Text
           style={[
             styles.errorText,
+            pixel && styles.pixelText,
             messageTone === "success" && styles.successText,
           ]}
         >
@@ -841,13 +857,17 @@ function Field({
 function PasswordToggle({
   visible,
   onPress,
+  pixel = false,
 }: {
   visible: boolean;
   onPress: () => void;
+  pixel?: boolean;
 }) {
   return (
     <Pressable style={styles.passwordToggle} onPress={onPress} hitSlop={8}>
-      <Text style={styles.passwordToggleText}>{visible ? "숨김" : "보기"}</Text>
+      <Text style={[styles.passwordToggleText, pixel && styles.pixelText]}>
+        {visible ? "숨김" : "보기"}
+      </Text>
     </Pressable>
   );
 }
@@ -855,14 +875,22 @@ function PasswordToggle({
 function FormMessage({
   message,
   tone = "error",
+  pixel = false,
 }: {
   message?: string;
   tone?: "error" | "success";
+  pixel?: boolean;
 }) {
   if (!message) return null;
 
   return (
-    <Text style={[styles.formMessage, tone === "success" && styles.successText]}>
+    <Text
+      style={[
+        styles.formMessage,
+        pixel && styles.pixelText,
+        tone === "success" && styles.successText,
+      ]}
+    >
       {message}
     </Text>
   );
@@ -892,11 +920,11 @@ function SmallButton({
   );
 }
 
-function Divider() {
+function Divider({ pixel = false }: { pixel?: boolean }) {
   return (
     <View style={styles.divider}>
       <View style={styles.dividerLine} />
-      <Text style={styles.dividerText}>또는</Text>
+      <Text style={[styles.dividerText, pixel && styles.pixelText]}>또는</Text>
       <View style={styles.dividerLine} />
     </View>
   );
@@ -943,11 +971,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
     overflow: "hidden",
+    // scale(<1)의 기준점이 중앙이면 프레임 위쪽이 화면 아래로 밀려서
+    // 뒤로가기 버튼 등 상단 absolute 요소가 통째로 내려간다 → 위쪽 고정
+    transformOrigin: "top center",
   },
   screen: {
     flex: 1,
     backgroundColor: Colors.background,
     position: "relative",
+  },
+  // 픽셀 글꼴 오버레이 — 색·크기는 각 스타일에서 오고 글꼴만 바꾼다
+  pixelText: {
+    fontFamily: Fonts.neoDunggeunmo,
   },
   sprite: {
     position: "absolute",
@@ -1009,7 +1044,8 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: "absolute",
-    top: 28,
+    // SafeArea 상단에서 한 단계만 띄운다 (더 줄이면 안드로이드 상태바에 닿음)
+    top: Spacing.lg,
     left: 22,
     width: 34,
     height: 34,
