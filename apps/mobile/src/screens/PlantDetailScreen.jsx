@@ -513,7 +513,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                         <View style={styles.confirmBackdrop}>
                             <View style={styles.confirmCard}>
                                 <Image
-                                    source={require("../../assets/icons/watering_icon.png")}
+                                    source={require("../../assets/icons/water_icon.png")}
                                     style={styles.confirmIcon}
                                     resizeMode="contain"
                                 />
