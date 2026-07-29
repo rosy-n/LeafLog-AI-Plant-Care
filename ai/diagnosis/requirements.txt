@@ -1,0 +1,12 @@
+torch
+transformers
+qdrant-client
+anthropic
+pandas
+openpyxl
+pillow
+python-dotenv
+tqdm
+umap-learn
+scikit-learn
+flask
