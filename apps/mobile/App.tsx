@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  ImageBackground,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -45,8 +46,7 @@ type FormErrors = Partial<{
 }>;
 
 const assets = {
-  cloudLeft: require("./assets/home-cloud-left.png"),
-  cloudRight: require("./assets/home-cloud-right.png"),
+  landingBg: require("./assets/images/login-bg.png"),
   plant: require("./assets/home-plant.png"),
   meadow: require("./assets/home-meadow.png"),
   leaf: require("./assets/repot-title-icon.png"),
@@ -54,6 +54,14 @@ const assets = {
   nicknamePlant: require("./assets/nickname-plant-scene.png"),
 };
 
+
+// login-bg.png 실측값. titleAnchor는 상단 새싹 아이콘 바로 아래 지점의
+// 세로 비율 — 배경이 잘려도 타이틀이 그림과 어긋나지 않게 하는 기준선
+const LANDING_BG = {
+  width: 851,
+  height: 1849,
+  titleAnchor: 0.235,
+} as const;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -325,6 +333,17 @@ export default function App() {
     return <MainApp user={auth.user} />;
   }
 
+  // 랜딩은 배경 이미지가 화면 정중앙을 기준으로 꽉 차야 하므로
+  // 402x874 고정 프레임 밖에서 전체 화면으로 렌더한다
+  if (screen === "home") {
+    return (
+      <View style={styles.landingRoot}>
+        <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+        <HomeScreen onLogin={goLogin} onSignup={goSignup} />
+      </View>
+    );
+  }
+
   const frameStyle = {
     width: appWidth,
     minHeight: height,
@@ -339,12 +358,6 @@ export default function App() {
         style={styles.keyboard}
       >
         <View style={[styles.frame, frameStyle]}>
-          {screen === "home" && (
-            <HomeScreen
-              onLogin={goLogin}
-              onSignup={goSignup}
-            />
-          )}
           {screen === "login" && (
             <LoginScreen
               email={loginEmail}
@@ -441,24 +454,35 @@ function HomeScreen({
   onLogin: () => void;
   onSignup: () => void;
 }) {
+  const { width, height } = useWindowDimensions();
+
+  // cover로 화면 중앙에 놓인 배경의 실제 위치를 역산해서,
+  // 타이틀이 배경 상단 새싹 아이콘 바로 아래에 오도록 맞춘다
+  const imageScale = Math.max(width / LANDING_BG.width, height / LANDING_BG.height);
+  const imageHeight = LANDING_BG.height * imageScale;
+  const imageTop = (height - imageHeight) / 2;
+  const titleTop = Math.max(
+    imageTop + imageHeight * LANDING_BG.titleAnchor,
+    Spacing.huge2,
+  );
+
   return (
-    <View style={styles.screen}>
-      <Image source={assets.cloudLeft} style={[styles.sprite, styles.cloudLeft]} />
-      <Image source={assets.cloudRight} style={[styles.sprite, styles.cloudRight]} />
-      <View style={styles.landingTitle}>
-        <Image source={assets.leaf} style={styles.titleLeaf} />
+    <ImageBackground
+      source={assets.landingBg}
+      style={styles.screen}
+      resizeMode="cover"
+    >
+      <View style={[styles.landingTitle, { top: titleTop }]}>
         <Text style={styles.brandText}>LeafLog</Text>
         <Text style={styles.tagline}>
           작은 식물, 큰 행복 <Text style={styles.heart}>♡</Text>
         </Text>
       </View>
-      <Image source={assets.plant} style={[styles.sprite, styles.landingPlant]} />
       <View style={styles.landingActions}>
         <AppButton label="로그인" onPress={onLogin} />
         <AppButton label="회원가입" variant="secondary" onPress={onSignup} />
       </View>
-      <Image source={assets.meadow} style={[styles.sprite, styles.meadow]} />
-    </View>
+    </ImageBackground>
   );
 }
 
@@ -887,6 +911,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     alignItems: "center",
   },
+  landingRoot: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   keyboard: {
     flex: 1,
     width: "100%",
@@ -906,32 +934,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     resizeMode: "contain",
   },
-  cloudLeft: {
-    top: 96,
-    left: 38,
-    width: 110,
-    height: 54,
-  },
-  cloudRight: {
-    top: 109,
-    right: 36,
-    width: 98,
-    height: 57,
-  },
+  // top은 배경 위치에 맞춰 런타임에 계산 (HomeScreen 참고)
   landingTitle: {
     position: "absolute",
-    top: 105,
-    left: 71,
-    width: 260,
+    left: Spacing.xl,
+    right: Spacing.xl,
     alignItems: "center",
   },
-  titleLeaf: {
-    width: 39,
-    height: 29,
-    resizeMode: "contain",
-  },
   brandText: {
-    marginTop: Spacing.xl,
     color: Colors.primary,
     fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.displayLarge,
@@ -950,12 +960,6 @@ const styles = StyleSheet.create({
     color: Colors.danger,
     fontFamily: Fonts.nanumSquareNeo.heavy,
   },
-  landingPlant: {
-    top: 323,
-    left: 40,
-    width: 325,
-    height: 236,
-  },
   meadow: {
     left: 0,
     bottom: 0,
@@ -963,13 +967,13 @@ const styles = StyleSheet.create({
     height: 78,
     resizeMode: "cover",
   },
+  // 배경 잔디 아래 빈 영역에 버튼을 놓아 배경 그림을 가리지 않게 한다
   landingActions: {
     position: "absolute",
-    left: 49,
-    right: 49,
-    top: 625,
+    left: Spacing.huge2,
+    right: Spacing.huge2,
+    bottom: Spacing.huge2,
     gap: Spacing.md,
-    backgroundColor: Colors.background,
   },
   pressed: {
     opacity: 0.78,
