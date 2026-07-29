@@ -55,12 +55,15 @@ const assets = {
 };
 
 
-// login-bg.png 실측값. titleAnchor는 상단 새싹 아이콘 바로 아래 지점의
-// 세로 비율 — 배경이 잘려도 타이틀이 그림과 어긋나지 않게 하는 기준선
+// login-bg.png 실측값. titleAnchor는 타이틀이 놓일 지점의 세로 비율 —
+// 상단 새싹 아이콘(0.22)과 식물 캐릭터(0.43) 사이.
+// 배경이 잘려도 타이틀이 그림과 어긋나지 않게 하는 기준선.
+// lift는 배경과 타이틀을 함께 끌어올리는 양(렌더 높이 비율)
 const LANDING_BG = {
   width: 851,
   height: 1849,
-  titleAnchor: 0.235,
+  titleAnchor: 0.29,
+  lift: 0.05,
 } as const;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -457,10 +460,12 @@ function HomeScreen({
   const { width, height } = useWindowDimensions();
 
   // cover로 화면 중앙에 놓인 배경의 실제 위치를 역산해서,
-  // 타이틀이 배경 상단 새싹 아이콘 바로 아래에 오도록 맞춘다
+  // 배경과 타이틀을 lift만큼 같이 끌어올린다. 타이틀은 배경 새싹 아이콘과
+  // 식물 캐릭터 사이 유지. (배경 아래쪽은 원본 여백이라 노출되는 띠는
+  // Colors.background와 사실상 동색)
   const imageScale = Math.max(width / LANDING_BG.width, height / LANDING_BG.height);
   const imageHeight = LANDING_BG.height * imageScale;
-  const imageTop = (height - imageHeight) / 2;
+  const imageTop = (height - imageHeight) / 2 - imageHeight * LANDING_BG.lift;
   const titleTop = Math.max(
     imageTop + imageHeight * LANDING_BG.titleAnchor,
     Spacing.huge2,
@@ -470,13 +475,11 @@ function HomeScreen({
     <ImageBackground
       source={assets.landingBg}
       style={styles.screen}
+      imageStyle={{ transform: [{ translateY: -imageHeight * LANDING_BG.lift }] }}
       resizeMode="cover"
     >
       <View style={[styles.landingTitle, { top: titleTop }]}>
         <Text style={styles.brandText}>LeafLog</Text>
-        <Text style={styles.tagline}>
-          작은 식물, 큰 행복 <Text style={styles.heart}>♡</Text>
-        </Text>
       </View>
       <View style={styles.landingActions}>
         <AppButton label="로그인" onPress={onLogin} />
@@ -949,12 +952,6 @@ const styles = StyleSheet.create({
     textShadowColor: Colors.primary,
     textShadowOffset: { width: 1, height: 2 },
     textShadowRadius: 0,
-  },
-  tagline: {
-    marginTop: Spacing.lg,
-    color: Colors.textGray,
-    fontFamily: Fonts.nanumSquareNeo.extraBold,
-    fontSize: FontSizes.bodyLarge,
   },
   heart: {
     color: Colors.danger,
