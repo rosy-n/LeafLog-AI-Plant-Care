@@ -298,7 +298,11 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                     ],
                                 }}
                             >
-                                <Text style={styles.dropEmoji}>💧</Text>
+                                <Image
+                                source={require("../../assets/icons/water_icon.png")}
+                                style={styles.dropImage}
+                                resizeMode="contain"
+                            />
                             </Animated.View>
                         ))}
                     </View>
@@ -412,7 +416,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
 
                         <LiquidGlassButton size={68} onPress={handleWaterPress}>
                             <Image
-                                source={require("../../assets/icons/watering_icon.png")}
+                                source={require("../../assets/icons/water_icon.png")}
                                 style={styles.buttonIconLarge}
                                 resizeMode="contain"
                             />
@@ -595,8 +599,9 @@ const styles = StyleSheet.create({
         alignItems: "center",
         zIndex: 40,
     },
-    dropEmoji: {
-        fontSize: FontSizes.display,
+    dropImage: {
+        width: 38,
+        height: 38,
     },
     plantName: {
         fontFamily: Fonts.neoDunggeunmo,
