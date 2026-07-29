@@ -57,14 +57,15 @@ const assets = {
 
 // login-bg.png 실측값. 배경이 잘려도 텍스트·버튼이 그림과 어긋나지 않게
 // 세로 비율로 기준선을 잡는다.
-//  titleAnchor  타이틀 위치 — 상단 새싹 아이콘(0.22)과 식물(0.43) 사이
+//  titleAnchor  타이틀 블록(LeafLog+멘트) 시작점 —
+//               상단 새싹 아이콘(0.22)과 식물(0.43) 사이
 //  groundAnchor 잔디 아래끝 — 버튼은 이 아래에 놓인다
 //  actionsMaxTop 버튼이 화면 밖으로 밀리지 않게 하는 상한(화면 높이 비율)
 //  lift         배경·타이틀·버튼을 함께 끌어올리는 양(렌더 높이 비율)
 const LANDING_BG = {
   width: 851,
   height: 1849,
-  titleAnchor: 0.29,
+  titleAnchor: 0.25,
   groundAnchor: 0.762,
   actionsMaxTop: 0.78,
   lift: 0.05,
@@ -488,6 +489,7 @@ function HomeScreen({
     >
       <View style={[styles.landingTitle, { top: titleTop }]}>
         <Text style={styles.brandText}>LeafLog</Text>
+        <Text style={styles.tagline}>매일 쌓이는 초록의 기록</Text>
       </View>
       <View style={[styles.landingActions, { top: actionsTop }]}>
         <AppButton label="로그인" onPress={onLogin} />
@@ -951,6 +953,13 @@ const styles = StyleSheet.create({
     left: Spacing.xl,
     right: Spacing.xl,
     alignItems: "center",
+  },
+  tagline: {
+    marginTop: Spacing.md,
+    color: Colors.textGray,
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.subtitle,
+    lineHeight: 24,
   },
   brandText: {
     color: Colors.primary,
