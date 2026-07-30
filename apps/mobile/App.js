@@ -44,6 +44,7 @@ function toGardenPlant(plant) {
         hearts: PLACEHOLDER_HEARTS,
         memorial: plant.status === "DEAD",
         commonNameKo: plant.common_name_ko,
+        persona: plant.persona,
         createdAt: plant.created_at,
     };
 }

@@ -25,7 +25,7 @@ import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import PixelButton from "../components/PixelButton";
 import PixelSpeechBubble from "../components/PixelSpeechBubble";
-import { getPlantCare, createCareRecord } from "../api";
+import { getPlantCare, createCareRecord, updatePlant, getPersonas, personaChat } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
@@ -49,15 +49,8 @@ function daysSince(iso) {
 
 let dropIdCounter = 0;
 
-// TODO: Qwen 연동 전 임시 페르소나 응답 (식물이 1인칭으로 말하는 톤, 2~3문장)
-const PLANT_REPLIES = [
-    "헤헤, 그렇게 말해주니 잎이 반짝이는 것 같아! 오늘따라 기분이 참 좋아. 너도 좋은 하루 보내고 있어?",
-    "오늘은 햇빛을 듬뿍 받아서 아주 든든해. 창가에 두니까 잎마다 힘이 나는 기분이야. 이대로만 지내면 무럭무럭 자랄 것 같아!",
-    "조금 목이 마른 것 같기도 해. 그래도 아직은 견딜 만하니까 너무 걱정하지는 마. 흙이 바싹 마르면 그때 물 한 잔 부탁할게!",
-    "너랑 이야기하니까 하루가 훨씬 즐거워졌어. 이렇게 말 걸어줘서 정말 고마워. 앞으로도 자주 놀러 와 줄 거지?",
-    "요즘 나 조금씩 자라고 있는 거 느껴져? 새 잎이 돋을 생각에 벌써 설레. 천천히 지켜봐 주면 멋지게 클게!",
-    "음... 아직 말솜씨가 서툴러서 미안해. 그래도 네 마음은 잎끝까지 다 전해지고 있어. 곧 더 근사하게 대답할 수 있을 거야!",
-];
+// 캐릭터가 아직 말투 규칙을 못 지켰을 때(서버 502 등) 대화창에 그대로 보여줄 안전 문구
+const CHAT_FALLBACK_REPLY = "음... 지금은 대답하기 어려워. 잠시 후 다시 말해줄래?";
 
 export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     const plant = route?.params?.plant;
@@ -83,7 +76,21 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     const [chatMode, setChatMode] = useState(false);
     const [chatReply, setChatReply] = useState("");   // 캐릭터의 현재 대답
     const [chatInput, setChatInput] = useState("");
-    const replyIndexRef = useRef(0);
+    const [isSending, setIsSending] = useState(false);
+
+    // 페르소나(성격) — plant.persona가 아직 없으면(add-plant 단계에 선택 UI가 없어 null) 첫 대화 시도 시 선택 모달을 띄운다
+    const [persona, setPersona] = useState(plant?.persona ?? null);
+    const [personaOptions, setPersonaOptions] = useState([]);
+    const [personaPickerVisible, setPersonaPickerVisible] = useState(false);
+
+    // 서버는 대화 기록을 저장하지 않는다 — 클라이언트가 최근 5턴(최대 10개 메시지)만 매번 실어 보낸다
+    const chatHistoryRef = useRef([]);
+
+    useEffect(() => {
+        getPersonas()
+            .then(setPersonaOptions)
+            .catch((e) => console.warn("페르소나 목록 로드 실패:", e?.message));
+    }, []);
 
     useEffect(() => {
         const id = plant?.id;
@@ -210,12 +217,22 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
         setTimeout(() => setIsWatering(false), 1200);
     };
 
-    // 대화 모드 진입 — 메뉴가 열려 있으면 닫고 인사말로 시작
-    const openChat = () => {
-        if (menuOpen) closeMenu();
+    // 실제 대화 시작 — 로컬 기록 초기화 + 인사말(서버 호출 없이 고정 문구)로 시작
+    const startChatSession = () => {
+        chatHistoryRef.current = [];
         setChatInput("");
         setChatReply(`안녕! 나 ${plantName}야. 오늘도 만나서 반가워 🌿 뭐든 편하게 말 걸어줘!`);
         setChatMode(true);
+    };
+
+    // 대화 모드 진입 — 메뉴가 열려 있으면 닫고, 페르소나가 아직 없으면 선택부터 받는다
+    const openChat = () => {
+        if (menuOpen) closeMenu();
+        if (!persona) {
+            setPersonaPickerVisible(true);
+            return;
+        }
+        startChatSession();
     };
 
     const closeChat = () => {
@@ -223,17 +240,44 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
         setChatInput("");
     };
 
-    // 사용자 입력 전송 — 캐릭터 대답만 갱신 (사용자 입력은 표시 안 함, 기록도 저장 안 함)
-    // TODO: Qwen API 호출로 교체
-    const sendChat = () => {
+    // 페르소나 선택 — 식물에 저장한 뒤 바로 대화 시작
+    const choosePersona = async (slug) => {
+        const id = plant?.id;
+        if (!id) return;
+        try {
+            await updatePlant(Number(id), { persona: slug });
+            setPersona(slug);
+            setPersonaPickerVisible(false);
+            startChatSession();
+        } catch (e) {
+            console.warn("페르소나 저장 실패:", e?.message);
+        }
+    };
+
+    // 사용자 입력 전송 — 실제 persona-chat API 호출 (사용자 입력은 화면에 표시 안 함, 응답만 갱신)
+    const sendChat = async () => {
         const trimmed = chatInput.trim();
-        if (!trimmed) return;
+        const id = plant?.id;
+        if (!trimmed || isSending || !id) return;
+
         setChatInput("");
-        setTimeout(() => {
-            const reply = PLANT_REPLIES[replyIndexRef.current % PLANT_REPLIES.length];
-            replyIndexRef.current += 1;
-            setChatReply(reply);
-        }, 450);
+        setIsSending(true);
+        const historyBeforeSend = chatHistoryRef.current;
+
+        try {
+            const result = await personaChat(Number(id), trimmed, historyBeforeSend);
+            chatHistoryRef.current = [
+                ...historyBeforeSend,
+                { role: "user", content: trimmed },
+                { role: "assistant", content: result.reply },
+            ].slice(-10);
+            setChatReply(result.reply);
+        } catch (e) {
+            console.warn("persona-chat 호출 실패:", e?.message);
+            setChatReply(CHAT_FALLBACK_REPLY);
+        } finally {
+            setIsSending(false);
+        }
     };
 
     return (
@@ -491,10 +535,13 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                         onSubmitEditing={sendChat}
                                     />
                                     <TouchableOpacity
-                                        style={[styles.chatSendButton, !chatInput.trim() && styles.chatSendButtonDisabled]}
+                                        style={[
+                                            styles.chatSendButton,
+                                            (!chatInput.trim() || isSending) && styles.chatSendButtonDisabled,
+                                        ]}
                                         onPress={sendChat}
                                         activeOpacity={0.8}
-                                        disabled={!chatInput.trim()}
+                                        disabled={!chatInput.trim() || isSending}
                                     >
                                         <Ionicons name="arrow-up" size={20} color={Colors.white} />
                                     </TouchableOpacity>
@@ -502,6 +549,35 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                             </View>
                         </KeyboardAvoidingView>
                     )}
+
+                    {/* ── 페르소나(성격) 선택 모달 — 대화 최초 진입 시, 아직 미선택인 경우만 ── */}
+                    <Modal
+                        visible={personaPickerVisible}
+                        transparent
+                        animationType="fade"
+                        onRequestClose={() => setPersonaPickerVisible(false)}
+                    >
+                        <View style={styles.confirmBackdrop}>
+                            <View style={styles.personaCard}>
+                                <Text style={styles.confirmTitle}>성격 선택</Text>
+                                <Text style={styles.confirmMessage}>
+                                    {plantName}의 성격을 골라주세요!
+                                </Text>
+
+                                <View style={styles.personaGrid}>
+                                    {personaOptions.map((option) => (
+                                        <PixelButton
+                                            key={option.slug}
+                                            label={option.label}
+                                            color={Colors.primary}
+                                            onPress={() => choosePersona(option.slug)}
+                                            style={styles.personaButton}
+                                        />
+                                    ))}
+                                </View>
+                            </View>
+                        </View>
+                    </Modal>
 
                     {/* ── 물주기 확인 모달 (앱 픽셀 말풍선 디자인) ── */}
                     <Modal
@@ -819,6 +895,30 @@ const styles = StyleSheet.create({
     },
     confirmButton: {
         flex: 1,
+    },
+
+    // ── 페르소나 선택 모달 (2열 그리드) ──────────────
+    personaCard: {
+        width: "100%",
+        maxWidth: 340,
+        backgroundColor: Paper.cream,
+        borderWidth: 3,
+        borderColor: Colors.primary,
+        opacity: 0.9,
+        paddingVertical: Spacing.xxl,
+        paddingHorizontal: Spacing.xl,
+        alignItems: "center",
+    },
+    personaGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "space-between",
+        width: "100%",
+        gap: Spacing.md,
+    },
+    personaButton: {
+        flexBasis: "47%",
+        marginBottom: Spacing.sm,
     },
 
     // 개체별탭 햄버거 버튼 디자인

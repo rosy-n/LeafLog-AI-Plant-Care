@@ -126,6 +126,9 @@ class Plant(Base):
     started_at: Mapped[date | None] = mapped_column(Date, nullable=True)
     dead_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # persona-chat 캐릭터 성격 — 선택 전에는 NULL (persona_chat.PERSONA_SLUG_TO_FILE 키와 일치)
+    persona: Mapped[str | None] = mapped_column(String(30), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
@@ -141,6 +144,10 @@ class Plant(Base):
         CheckConstraint(
             "status IN ('ALIVE', 'SICK', 'DEAD')",
             name="ck_plant_status",
+        ),
+        CheckConstraint(
+            "persona IN ('SUNSHINE', 'CHIC', 'RELAXED', 'TIMID', 'SAGE', 'PLAYFUL', 'DILIGENT', 'DREAMER')",
+            name="ck_plant_persona",
         ),
     )
 
