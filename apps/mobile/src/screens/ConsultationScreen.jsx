@@ -173,7 +173,7 @@ export default function ConsultationScreen({ navigation, route }) {
                 style={styles.container}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                <ScreenHeader title={consultation.title} onBack={() => navigation.goBack()} titleStyle={{ fontSize: FontSizes.subtitle }} />
+                <ScreenHeader title={consultation.title} onBack={() => navigation.goBack()} />
 
                 <ScrollView
                     ref={scrollViewRef}
