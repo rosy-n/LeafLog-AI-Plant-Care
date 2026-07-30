@@ -1,6 +1,6 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View, Text, StyleSheet } from "react-native";
+import BackButton from "./BackButton";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors } from "../../constants/colors";
 import { Gutter } from "../../constants/spacing";
@@ -17,14 +17,7 @@ import { HEADER_HEIGHT } from "../../constants/layout";
 export default function ScreenHeader({ title, onBack, right = null, center = null, titleStyle = null }) {
     return (
         <View style={styles.header}>
-            <TouchableOpacity
-                style={styles.button}
-                onPress={onBack}
-                activeOpacity={0.75}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-                <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-            </TouchableOpacity>
+            <BackButton onPress={onBack} style={styles.button} />
 
             {center != null ? center : (
                 <Text style={[styles.title, titleStyle]} numberOfLines={1}>{title}</Text>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import CharacterScreen      from '../../app/add-plant/character';
 import NameScreen           from '../../app/add-plant/name';
 import InfoScreen           from '../../app/add-plant/info';
 
+import BackButton from '../components/BackButton';
 import { Colors } from '../../constants/colors';
 import { Spacing, Radius } from "../../constants/spacing";
 import { Fonts, FontSizes } from '../../constants/fonts';
@@ -39,13 +40,7 @@ function AddPlantHeader() {
 
   return (
     <View style={[styles.header, { paddingTop: top }]}>
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={styles.backBtn}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-      >
-        <Text style={styles.backIcon}>{'<'}</Text>
-      </TouchableOpacity>
+      <BackButton onPress={() => navigation.goBack()} style={styles.backBtn} />
 
       <View style={styles.progressRow}>
         {Array.from({ length: TOTAL }).map((_, i) => (
@@ -87,14 +82,11 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.md,
     gap: Spacing.md,
   },
+  // 진행바가 있는 컴팩트 헤더 — 공용 BackButton의 48×48 박스를 줄여 쓴다
   backBtn: {
     width: 32,
+    height: 38,
     alignItems: 'flex-start',
-  },
-  backIcon: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: FontSizes.title,
-    color: Colors.textBlack,
   },
   progressRow: {
     flex: 1,
