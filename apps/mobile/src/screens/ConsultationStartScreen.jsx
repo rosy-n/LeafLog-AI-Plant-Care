@@ -86,7 +86,7 @@ export default function ConsultStartScreen({ navigation }) {
                 style={styles.container}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                <ScreenHeader title="식물 상담" onBack={() => navigation.goBack()} titleStyle={{ fontSize: FontSizes.title }} />
+                <ScreenHeader title="식물 상담" onBack={() => navigation.goBack()} />
 
                 <View style={styles.guideBox}>
                     <Text style={styles.guideTitle}>촬영 가이드</Text>

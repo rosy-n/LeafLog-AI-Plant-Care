@@ -67,7 +67,7 @@ export default function ConsultationHistoryScreen({ navigation }) {
         <SafeAreaView style={styles.safeArea}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-            <ScreenHeader title="상담 기록" onBack={() => navigation.goBack()} titleStyle={{ fontSize: FontSizes.title }} />
+            <ScreenHeader title="상담 기록" onBack={() => navigation.goBack()} />
 
             <View style={styles.container}>
                 <View style={styles.searchRow}>
