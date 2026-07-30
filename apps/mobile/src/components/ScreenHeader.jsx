@@ -15,7 +15,8 @@ import { HEADER_HEIGHT, headerTitle } from "../../constants/layout";
 export default function ScreenHeader({ title, onBack, right = null, center = null, titleStyle = null }) {
     return (
         <View style={styles.header}>
-            <BackButton onPress={onBack} style={styles.button} />
+            {/* 제목과 같은 글자 크기로 — 헤더 안에서 높이를 맞춘다 */}
+            <BackButton onPress={onBack} size={headerTitle.fontSize} style={styles.button} />
 
             {center != null ? center : (
                 <Text style={[styles.title, titleStyle]} numberOfLines={1}>{title}</Text>
