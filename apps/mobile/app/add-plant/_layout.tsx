@@ -1,7 +1,8 @@
 import { Slot, useRouter, useSegments } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import BackButton from '../../src/components/BackButton';
 import { Colors } from '../../constants/colors';
 import { Fonts, FontSizes } from '../../constants/fonts';
 
@@ -28,13 +29,7 @@ function AddPlantHeader() {
   return (
     <View style={[styles.header, { paddingTop: top }]}>
       {/* Left: back button */}
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={styles.backBtn}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-      >
-        <Text style={styles.backIcon}>{'<'}</Text>
-      </TouchableOpacity>
+      <BackButton onPress={() => router.back()} style={styles.backBtn} />
 
       {/* Center: 4-segment progress bar */}
       <View style={styles.progressRow}>
@@ -85,15 +80,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
 
-  // back button
+  // back button — 공용 BackButton의 48×48 박스를 컴팩트 헤더에 맞게 줄인다
   backBtn: {
     width: 32,
+    height: 38,
     alignItems: 'flex-start',
-  },
-  backIcon: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: FontSizes.title,
-    color: Colors.textBlack,
   },
 
   // progress segments

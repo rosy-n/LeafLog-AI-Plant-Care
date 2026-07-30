@@ -29,6 +29,7 @@ import {
 } from "./src/api";
 import MainApp from "./App.js";
 import AppButton from "./src/components/AppButton";
+import BackButton from "./src/components/BackButton";
 import PixelButton from "./src/components/PixelButton";
 
 type Screen = "home" | "login" | "signup" | "nickname";
@@ -698,7 +699,7 @@ function NicknameScreen(props: {
 }) {
   return (
     <View style={styles.screen}>
-      <BackButton onPress={props.onBack} />
+      <BackButton onPress={props.onBack} style={styles.backButton} />
       <ScrollView
         contentContainerStyle={styles.nicknameScroll}
         keyboardShouldPersistTaps="handled"
@@ -773,20 +774,11 @@ function AuthScaffold({
 }) {
   return (
     <View style={styles.screen}>
-      <BackButton onPress={onBack} />
+      <BackButton onPress={onBack} style={styles.backButton} />
       <ScrollView contentContainerStyle={styles.authScroll} keyboardShouldPersistTaps="handled">
         {children}
       </ScrollView>
     </View>
-  );
-}
-
-function BackButton({ onPress }: { onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={styles.backButton} hitSlop={12}>
-      {/* 던근모에는 '‹'(U+2039) 글리프가 없어 폴백된다 — ASCII '<'를 쓴다 */}
-      <Text style={styles.backText}>&lt;</Text>
-    </Pressable>
   );
 }
 
@@ -1036,23 +1028,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.section,
     paddingBottom: Spacing.huge,
   },
+  // 글리프·크기는 공용 BackButton이 갖고, 여기서는 위치만 잡는다
   backButton: {
     position: "absolute",
     // SafeArea 상단에서 한 단계만 띄운다 (더 줄이면 안드로이드 상태바에 닿음)
     top: Spacing.lg,
     left: Spacing.lg,
-    width: 48,
-    height: 48,
     zIndex: 30,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backText: {
-    // 인증 화면 부제(authSubtitle)와 같은 회색
-    color: Colors.textGray,
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: FontSizes.display,
-    lineHeight: 38,
   },
   authHead: {
     marginTop: 68,
