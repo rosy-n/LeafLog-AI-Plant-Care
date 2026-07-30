@@ -62,6 +62,27 @@ PERSONA_NAMES = {
     "dreamer.txt": "몽상가형",
 }
 
+# DB(plant.persona)/API에 노출되는 값 — 프롬프트 파일 경로(persona_file_name)는 서버 내부에서만 쓰고
+# 클라이언트/DB에는 이 slug만 오간다 (plant 테이블 ck_plant_persona 제약과 반드시 일치해야 함).
+PERSONA_SLUG_TO_FILE = {
+    "SUNSHINE": "sunshine.txt",
+    "CHIC": "chic.txt",
+    "RELAXED": "relaxed.txt",
+    "TIMID": "timid.txt",
+    "SAGE": "sage.txt",
+    "PLAYFUL": "playful.txt",
+    "DILIGENT": "diligent.txt",
+    "DREAMER": "dreamer.txt",
+}
+
+
+def list_persona_options() -> list[dict[str, str]]:
+    """모바일 선택 UI용 (slug, label) 목록. PERSONA_NAMES가 표시 이름의 단일 출처다."""
+    return [
+        {"slug": slug, "label": PERSONA_NAMES[file_name]}
+        for slug, file_name in PERSONA_SLUG_TO_FILE.items()
+    ]
+
 
 def today_in_korea() -> date:
     return datetime.now(KOREA_TIMEZONE).date()

@@ -30,6 +30,7 @@ from .schemas import (
     LoginRequest,
     PersonaChatRequest,
     PersonaChatResponse,
+    PersonaOption,
     PlantCreate,
     PlantDetail,
     PlantImagePreprocessResponse,
@@ -415,6 +416,7 @@ def list_plants(
             is_favorite=plant.is_favorite,
             status=plant.status,
             character_image_url=char_map.get(plant.plant_id),
+            persona=plant.persona,
             created_at=plant.created_at.isoformat(),
         )
         for plant, common_name_ko in rows
@@ -467,6 +469,10 @@ def update_plant(
         plant.pot_size = (data["pot_size"] or None)
     if "height" in data:
         plant.height = (data["height"] or None)
+    if "persona" in data and data["persona"] is not None:
+        if data["persona"] not in persona_chat.PERSONA_SLUG_TO_FILE:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="유효하지 않은 페르소나입니다.")
+        plant.persona = data["persona"]
 
     db.commit()
     db.refresh(plant)
@@ -489,6 +495,7 @@ def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
         height=plant.height,
         is_favorite=plant.is_favorite,
         character_image_url=_latest_character_url(plant.plant_id, db),
+        persona=plant.persona,
         started_at=plant.started_at.isoformat() if plant.started_at else None,
         created_at=plant.created_at.isoformat(),
     )
@@ -596,6 +603,11 @@ def delete_care_record(
     db.commit()
 
 
+@app.get("/api/personas", response_model=list[PersonaOption])
+def list_personas() -> list[PersonaOption]:
+    return [PersonaOption(**option) for option in persona_chat.list_persona_options()]
+
+
 @app.post("/api/plants/{plant_id}/persona-chat", response_model=PersonaChatResponse)
 def persona_chat_reply(
     plant_id: int,
@@ -605,17 +617,19 @@ def persona_chat_reply(
 ) -> PersonaChatResponse:
     plant = _owned_plant_or_404(plant_id, current_user, db)
 
-    # persona는 파일 경로 조립에 그대로 쓰이므로, 정해진 페르소나 목록에 있는 값만 허용한다
-    # (경로 조작 방지).
-    if payload.persona not in persona_chat.PERSONA_NAMES:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="지원하지 않는 페르소나입니다.")
+    # persona는 클라이언트가 아니라 plant.persona(DB)에서 가져온다 — 캐릭터별로 한 번 정해지는 값이라
+    # 매 요청마다 클라이언트가 보낼 필요가 없고, 임의의 페르소나로 스푸핑되는 것도 막을 수 있다.
+    if plant.persona is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="아직 페르소나가 설정되지 않았어요.")
+
+    persona_file_name = persona_chat.PERSONA_SLUG_TO_FILE[plant.persona]
 
     plant_context = _persona_plant_context(plant, current_user, db)
     watering_schedule = _persona_watering_schedule(plant_id, db)
 
     try:
         reply = persona_chat.chat_with_ollama(
-            persona_file_name=payload.persona,
+            persona_file_name=persona_file_name,
             watering_schedule=watering_schedule,
             # 날씨/대기질 API는 아직 연동 전 — 등록되지 않음으로 처리된다.
             weather_air_quality=None,
@@ -629,7 +643,7 @@ def persona_chat_reply(
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
-    return PersonaChatResponse(reply=reply, persona=payload.persona)
+    return PersonaChatResponse(reply=reply, persona=plant.persona)
 
 
 @app.get("/auth/me", response_model=UserRead)

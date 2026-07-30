@@ -126,6 +126,7 @@ class PlantDetail(BaseModel):
     height: str | None = None
     is_favorite: bool = False
     character_image_url: str | None = None
+    persona: str | None = None
     started_at: str | None = None
     created_at: str
 
@@ -138,6 +139,7 @@ class PlantUpdate(BaseModel):
     pot_type: str | None = None
     pot_size: str | None = None
     height: str | None = None
+    persona: str | None = None
 
 
 class CareSummary(BaseModel):
@@ -169,7 +171,7 @@ class PersonaChatMessage(BaseModel):
 
 
 class PersonaChatRequest(BaseModel):
-    persona: str
+    # persona는 더 이상 클라이언트가 보내지 않는다 — plant.persona(DB)에 저장된 값을 서버가 조회해서 쓴다.
     message: str = Field(min_length=1, max_length=500)
     # 서버는 대화 기록을 저장하지 않는다 — 클라이언트가 최근 턴만 매번 실어 보낸다.
     history: list[PersonaChatMessage] = Field(default_factory=list, max_length=10)
@@ -178,6 +180,12 @@ class PersonaChatRequest(BaseModel):
 class PersonaChatResponse(BaseModel):
     reply: str
     persona: str
+
+
+class PersonaOption(BaseModel):
+    # 모바일 페르소나 선택 UI용 — slug는 plant.persona/PersonaChatResponse.persona와 동일한 값
+    slug: str
+    label: str
 
 
 class PlantListItem(BaseModel):
@@ -190,4 +198,5 @@ class PlantListItem(BaseModel):
     is_favorite: bool = False
     status: str = "ALIVE"
     character_image_url: str | None = None
+    persona: str | None = None
     created_at: str

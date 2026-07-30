@@ -30,6 +30,7 @@ export type PlantListItem = {
   is_favorite: boolean;
   status: string;
   character_image_url: string | null;
+  persona: string | null;
   created_at: string;
 };
 
@@ -184,6 +185,7 @@ export type PlantDetail = {
   height: string | null;
   is_favorite: boolean;
   character_image_url: string | null;
+  persona: string | null;
   started_at: string | null;
   created_at: string;
 };
@@ -200,6 +202,7 @@ export type PlantUpdate = {
   pot_type?: string | null;
   pot_size?: string | null;
   height?: string | null;
+  persona?: string;
 };
 
 // 식물 프로필 부분 수정 (토큰 자동 첨부)
@@ -287,4 +290,37 @@ export function removeGeneratedImageBackground(
     `/images/remove-background?canvas_size=${canvasSize}&quality_mode=${qualityMode}`,
     createImageFormData(image),
   );
+}
+
+export type PersonaOption = {
+  slug: string;
+  label: string;
+};
+
+// 선택 가능한 페르소나 8종 (slug/한글 라벨) — 서버의 persona_chat.PERSONA_NAMES가 단일 출처
+export function getPersonas() {
+  return request<PersonaOption[]>("/api/personas");
+}
+
+export type PersonaChatTurn = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type PersonaChatResult = {
+  reply: string;
+  persona: string;
+};
+
+// 캐릭터 대화 한 턴 호출 — 서버는 대화 기록을 저장하지 않으므로 history에는 최근 5턴(최대 10개)만 실어 보낸다.
+// 식물에 persona가 아직 설정되지 않았으면 서버가 400을 반환한다 (updatePlant로 먼저 설정 필요).
+export function personaChat(
+  plantId: number,
+  message: string,
+  history: PersonaChatTurn[] = [],
+) {
+  return request<PersonaChatResult>(`/api/plants/${plantId}/persona-chat`, {
+    method: "POST",
+    body: JSON.stringify({ message, history }),
+  });
 }
