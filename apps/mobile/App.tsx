@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { useFonts } from "expo-font";
 import { Fonts, FontSizes } from "./constants/fonts";
 import { Colors } from "./constants/colors";
@@ -50,8 +50,6 @@ const assets = {
   plant: require("./assets/home-plant.png"),
   meadow: require("./assets/home-meadow.png"),
   leaf: require("./assets/repot-title-icon.png"),
-  nicknameSun: require("./assets/nickname-sun.png"),
-  nicknamePlant: require("./assets/nickname-plant-scene.png"),
 };
 
 
@@ -128,11 +126,6 @@ export default function App() {
 
   const allRequiredAgreed = agreeTerms && agreePrivacy;
   const allAgreed = allRequiredAgreed && agreeMarketing;
-
-  const nicknameGreeting = useMemo(() => {
-    const trimmed = nickname.trim();
-    return trimmed.length > 0 ? `안녕하세요, ${trimmed}님!` : "안녕하세요, 초록님!";
-  }, [nickname]);
 
   function toggleAllTerms() {
     const next = !allAgreed;
@@ -434,7 +427,6 @@ export default function App() {
           {screen === "nickname" && (
             <NicknameScreen
               nickname={nickname}
-              greeting={nicknameGreeting}
               error={formErrors.nickname}
               apiError={formErrors.api}
               isSubmitting={isSubmitting}
@@ -690,7 +682,6 @@ function SignupScreen(props: {
 
 function NicknameScreen(props: {
   nickname: string;
-  greeting: string;
   error?: string;
   apiError?: string;
   isSubmitting: boolean;
@@ -701,22 +692,17 @@ function NicknameScreen(props: {
   return (
     <View style={styles.screen}>
       <BackButton onPress={props.onBack} />
-      <ScrollView contentContainerStyle={styles.nicknameScroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.nickHero}>
-          <View style={styles.nickBubbleShadow} />
-          <View style={styles.nickBubble}>
-            <Text style={styles.nickBubbleText}>{props.greeting}</Text>
-            <View style={styles.cursor} />
-            <View style={styles.nickBubbleTailBorder} />
-            <View style={styles.nickBubbleTailFill} />
-          </View>
-          <Image source={assets.nicknameSun} style={styles.nickSun} />
-          <Image source={assets.nicknamePlant} style={styles.nickPlantScene} />
-        </View>
+      <ScrollView
+        contentContainerStyle={styles.nicknameScroll}
+        keyboardShouldPersistTaps="handled"
+        // 키보드가 올라오면 그만큼 스크롤 영역을 밀어 입력창이 가리지 않게 한다
+        automaticallyAdjustKeyboardInsets
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.nickTitle}>어떻게 불러드릴까요?</Text>
         <Text style={styles.nickCopy}>닉네임은 앱 내에서{"\n"}다른 식집사들에게 표시돼요!</Text>
         <View style={styles.nickForm}>
-          <Field label="닉네임" error={props.error}>
+          <Field label="닉네임" error={props.error} pixel>
             <View style={styles.inputWrap}>
               <TextInput
                 value={props.nickname}
@@ -726,6 +712,7 @@ function NicknameScreen(props: {
                 autoCapitalize="none"
                 style={[
                   styles.input,
+                  styles.pixelText,
                   styles.counterInput,
                   props.error && styles.inputError,
                 ]}
@@ -735,11 +722,13 @@ function NicknameScreen(props: {
             </View>
           </Field>
           <Text style={styles.hint}>2~10자, 한글/영문/숫자 사용 가능</Text>
-          <FormMessage message={props.apiError} />
-          <AppButton
-            label="시작하기"
+          <FormMessage message={props.apiError} pixel />
+          {/* PixelButton은 loading 상태가 없어 제출 중에는 라벨로 알린다 */}
+          <PixelButton
+            label={props.isSubmitting ? "시작하는 중" : "시작하기"}
             onPress={props.onSubmit}
-            loading={props.isSubmitting}
+            disabled={props.isSubmitting}
+            size="lg"
             style={styles.startButton}
           />
         </View>
@@ -793,8 +782,7 @@ function BackButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-// pixel: 던근모(픽셀) 글꼴로 렌더 — 로그인 화면만 켜져 있고
-// 회원가입·닉네임 화면은 기존 나눔스퀘어네오를 유지한다
+// pixel: 던근모(픽셀) 글꼴로 렌더 — 로그인·회원가입·닉네임 화면에서 켠다
 function AuthHeader({
   title,
   subtitle,
@@ -1245,106 +1233,25 @@ const styles = StyleSheet.create({
   signupButton: {
     marginTop: Spacing.xxxl,
   },
+  // 제목은 로그인·회원가입 헤더(authHead marginTop: 68)와 같은 시작선에 둔다
   nicknameScroll: {
+    flexGrow: 1,
     paddingHorizontal: Spacing.section,
-    paddingBottom: Spacing.huge,
-  },
-  nickHero: {
-    position: "relative",
-    width: 330,
-    height: 220,
-    marginTop: 130,
-    alignSelf: "center",
-  },
-  nickBubbleShadow: {
-    position: "absolute",
-    top: 7,
-    left: 83,
-    width: 174,
-    height: 48,
-    backgroundColor: Colors.white,
-  },
-  nickSun: {
-    position: "absolute",
-    top: 26,
-    right: 38,
-    width: 46,
-    height: 48,
-    resizeMode: "contain",
-  },
-  nickPlantScene: {
-    position: "absolute",
-    top: 78,
-    left: 72,
-    width: 186,
-    height: 124,
-    resizeMode: "contain",
-  },
-  nickBubble: {
-    position: "absolute",
-    top: 3,
-    left: 79,
-    width: 174,
-    height: 48,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    zIndex: 3,
-    overflow: "visible",
-  },
-  nickBubbleTailBorder: {
-    position: "absolute",
-    left: 64,
-    bottom: -9,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderTopWidth: 9,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    borderTopColor: Colors.border,
-  },
-  nickBubbleTailFill: {
-    position: "absolute",
-    left: 65,
-    bottom: -7,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 7,
-    borderRightWidth: 7,
-    borderTopWidth: 8,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    borderTopColor: Colors.background,
-  },
-  nickBubbleText: {
-    color: Colors.textBlack,
-    fontFamily: Fonts.nanumSquareNeo.heavy,
-    fontSize: FontSizes.body,
-  },
-  cursor: {
-    width: 2,
-    height: 14,
-    marginLeft: Spacing.xxs,
-    backgroundColor: Colors.primary,
+    paddingTop: Spacing.huge2 + Spacing.xl,
+    paddingBottom: Spacing.huge2,
   },
   nickTitle: {
-    marginTop: Spacing.xxl,
     color: Colors.primary,
     textAlign: "center",
-    fontFamily: Fonts.nanumSquareNeo.heavy,
+    fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.screenTitle,
     lineHeight: 33,
   },
   nickCopy: {
-    marginTop: Spacing.xl,
+    marginTop: Spacing.lg,
     color: Colors.textGray,
     textAlign: "center",
-    fontFamily: Fonts.nanumSquareNeo.bold,
+    fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.bodyLarge,
     lineHeight: 23,
   },
@@ -1359,16 +1266,17 @@ const styles = StyleSheet.create({
     top: 16,
     right: 13,
     color: Colors.textGray,
-    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.small,
   },
   hint: {
     marginTop: -14,
     marginLeft: Spacing.xxs,
     color: Colors.textFaint,
-    fontFamily: Fonts.nanumSquareNeo.extraBold,
+    fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.small,
   },
+  // 폼 바로 아래에 붙여 둔다 (화면 하단으로 밀지 않음)
   startButton: {
     marginTop: Spacing.huge,
   },
