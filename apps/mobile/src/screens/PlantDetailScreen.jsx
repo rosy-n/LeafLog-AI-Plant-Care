@@ -10,6 +10,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     Animated,
+    Modal,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -18,14 +19,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ResourceCounter from "../components/ResourceCounter";
-import ScreenHeader from "../components/ScreenHeader";
 import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
+import PixelButton from "../components/PixelButton";
+import PixelSpeechBubble from "../components/PixelSpeechBubble";
 import { getPlantCare, createCareRecord } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Glass, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const MENU_ITEMS = [
@@ -74,11 +76,12 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     // 물주기 애니메이션 (식물 위로 떨어지는 물방울) + 진행 중 중복 탭 방지
     const [wateringDrops, setWateringDrops] = useState([]);
     const [isWatering, setIsWatering] = useState(false);
+    // 물주기 확인 모달
+    const [waterConfirmVisible, setWaterConfirmVisible] = useState(false);
 
     // 캐릭터 대화 모드 — 이 화면 위에서 말풍선/입력만 표시 (기록은 남기지 않음)
     const [chatMode, setChatMode] = useState(false);
     const [chatReply, setChatReply] = useState("");   // 캐릭터의 현재 대답
-    const [lastUserMsg, setLastUserMsg] = useState(""); // 사용자의 마지막 입력
     const [chatInput, setChatInput] = useState("");
     const replyIndexRef = useRef(0);
 
@@ -171,8 +174,20 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
         });
     };
 
-    // 물주기 버튼: 물방울 애니메이션 + WATERING 관리 기록 저장 → 💧 D+N 갱신
-    const handleWaterPress = async () => {
+    // 물주기 버튼: 확인 모달을 먼저 띄우고, 사용자가 확인해야 실제 물주기 처리
+    const handleWaterPress = () => {
+        if (isWatering) return;
+        setWaterConfirmVisible(true);
+    };
+
+    // 확인 모달에서 "물주기" 선택 → 모달 닫고 실제 물주기 실행
+    const confirmWater = () => {
+        setWaterConfirmVisible(false);
+        doWater();
+    };
+
+    // 실제 물주기: 물방울 애니메이션 + WATERING 관리 기록 저장 → 💧 D+N 갱신
+    const doWater = async () => {
         if (isWatering) return;
         setIsWatering(true);
 
@@ -198,7 +213,6 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     // 대화 모드 진입 — 메뉴가 열려 있으면 닫고 인사말로 시작
     const openChat = () => {
         if (menuOpen) closeMenu();
-        setLastUserMsg("");
         setChatInput("");
         setChatReply(`안녕! 나 ${plantName}야. 오늘도 만나서 반가워 🌿 뭐든 편하게 말 걸어줘!`);
         setChatMode(true);
@@ -209,12 +223,11 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
         setChatInput("");
     };
 
-    // 사용자 입력 전송 — 마지막 입력만 표시하고 캐릭터 대답을 갱신 (기록은 저장 안 함)
+    // 사용자 입력 전송 — 캐릭터 대답만 갱신 (사용자 입력은 표시 안 함, 기록도 저장 안 함)
     // TODO: Qwen API 호출로 교체
     const sendChat = () => {
         const trimmed = chatInput.trim();
         if (!trimmed) return;
-        setLastUserMsg(trimmed);
         setChatInput("");
         setTimeout(() => {
             const reply = PLANT_REPLIES[replyIndexRef.current % PLANT_REPLIES.length];
@@ -244,11 +257,13 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                     )}
 
                     {!chatMode && (
-                        <View style={styles.speechBubble}>
-                            <Text style={styles.speechText}>안녕! 좋은 아침이야</Text>
-                            <View style={styles.tailBorder} />
-                            <View style={styles.tailInner} />
-                        </View>
+                        <PixelSpeechBubble
+                            style={styles.speechBubble}
+                            textStyle={styles.speechText}
+                            tailOffset={125}
+                        >
+                            안녕! 좋은 아침이야
+                        </PixelSpeechBubble>
                     )}
 
                     {!chatMode && (
@@ -298,7 +313,11 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                     ],
                                 }}
                             >
-                                <Text style={styles.dropEmoji}>💧</Text>
+                                <Image
+                                    source={require("../../assets/icons/water_icon.png")}
+                                    style={styles.dropImage}
+                                    resizeMode="contain"
+                                />
                             </Animated.View>
                         ))}
                     </View>
@@ -426,17 +445,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                             style={styles.chatOverlay}
                             behavior={Platform.OS === "ios" ? "padding" : "height"}
                         >
-                            {/* 상단 헤더 — 뒤로가기 + 식물 이름 */}
-                            <ScreenHeader title={plantName} onBack={closeChat} />
-
-                            {/* 캐릭터 대답 말풍선 (2~3문장 · 자동 높이) */}
-                            <View style={styles.chatReplyBubble}>
-                                <Text style={styles.chatReplyText}>{chatReply}</Text>
-                                <View style={styles.chatTailBorder} />
-                                <View style={styles.chatTailInner} />
-                            </View>
-
-                            {/* 캐릭터 — 처음부터 상단 고정 위치. 키보드가 올라와도 움직이지 않음 */}
+                            {/* 캐릭터 — 가운데, 상단 영역 (남는 공간을 채우며 중앙 정렬) */}
                             <View style={styles.chatCharacterArea}>
                                 {appliedItem ? (
                                     <Image
@@ -454,20 +463,22 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                 )}
                             </View>
 
-                            {/* 남는 공간 — 키보드가 올라오면 이 영역만 줄어들어 캐릭터는 고정 */}
-                            <View style={styles.chatSpacer} />
+                            {/* 식물 대화창 — 첫 줄에 식물 이름(메인 초록·고정), 그 아래 대사만 갱신 */}
+                            <View style={styles.chatReplyBubble}>
+                                <Text style={styles.chatPlantName}>{plantName}</Text>
+                                <Text style={styles.chatReplyText}>{chatReply}</Text>
+                            </View>
 
-                            {/* 입력 영역 (사용자의 마지막 입력 + 입력창) */}
+                            {/* 입력 영역 (입력창) */}
                             <View style={styles.chatInputArea}>
-                                {lastUserMsg ? (
-                                    <View style={styles.userMsgRow}>
-                                        <View style={styles.userMsgBubble}>
-                                            <Text style={styles.userMsgText}>{lastUserMsg}</Text>
-                                        </View>
-                                    </View>
-                                ) : null}
-
                                 <View style={styles.chatInputBar}>
+                                    <TouchableOpacity
+                                        style={styles.chatCloseButton}
+                                        onPress={closeChat}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Ionicons name="close" size={20} color={GreenTint.strong} />
+                                    </TouchableOpacity>
                                     <TextInput
                                         style={styles.chatInput}
                                         value={chatInput}
@@ -475,6 +486,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                         placeholder={`${plantName}에게 말 걸어보세요`}
                                         placeholderTextColor={GreenTint.medium}
                                         multiline
+                                        autoFocus
                                         textAlignVertical="center"
                                         onSubmitEditing={sendChat}
                                     />
@@ -490,6 +502,43 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                             </View>
                         </KeyboardAvoidingView>
                     )}
+
+                    {/* ── 물주기 확인 모달 (앱 픽셀 말풍선 디자인) ── */}
+                    <Modal
+                        visible={waterConfirmVisible}
+                        transparent
+                        animationType="fade"
+                        onRequestClose={() => setWaterConfirmVisible(false)}
+                    >
+                        <View style={styles.confirmBackdrop}>
+                            <View style={styles.confirmCard}>
+                                <Image
+                                    source={require("../../assets/icons/water_icon.png")}
+                                    style={styles.confirmIcon}
+                                    resizeMode="contain"
+                                />
+                                <Text style={styles.confirmTitle}>물주기</Text>
+                                <Text style={styles.confirmMessage}>
+                                    {plantName}에게 물을 줄까요?
+                                </Text>
+
+                                <View style={styles.confirmButtonRow}>
+                                    <PixelButton
+                                        label="취소"
+                                        color={Colors.textGray}
+                                        onPress={() => setWaterConfirmVisible(false)}
+                                        style={styles.confirmButton}
+                                    />
+                                    <PixelButton
+                                        label="물주기"
+                                        color={Colors.primary}
+                                        onPress={confirmWater}
+                                        style={styles.confirmButton}
+                                    />
+                                </View>
+                            </View>
+                        </View>
+                    </Modal>
                 </SafeAreaView>
             </ImageBackground>
         </View>
@@ -530,38 +579,16 @@ const styles = StyleSheet.create({
     speechBubble: {
         position: "absolute",
         top: 265,
-        right: 42,
+        left: "50%",
+        marginLeft: -125, // width(250)의 절반 → 화면(=식물) 가로 중앙 정렬
         width: 250,
         height: 70,
-        backgroundColor: Colors.white,
-        borderWidth: 4,
-        borderColor: Colors.textBlack,
-        alignItems: "center",
-        justifyContent: "center",
         zIndex: 20,
     },
     speechText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
         color: Colors.textBlack,
-    },
-    tailBorder: {
-        position: "absolute",
-        bottom: -22,
-        left: 58,
-        width: 31,
-        height: 31,
-        backgroundColor: Colors.textBlack,
-        transform: [{ rotate: "45deg" }],
-    },
-    tailInner: {
-        position: "absolute",
-        bottom: -14,
-        left: 64,
-        width: 20,
-        height: 20,
-        backgroundColor: Colors.white,
-        transform: [{ rotate: "45deg" }],
     },
 
     plantLabelGroup: {
@@ -595,8 +622,9 @@ const styles = StyleSheet.create({
         alignItems: "center",
         zIndex: 40,
     },
-    dropEmoji: {
-        fontSize: FontSizes.display,
+    dropImage: {
+        width: 34,
+        height: 34,
     },
     plantName: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -660,30 +688,34 @@ const styles = StyleSheet.create({
         flex: 1,
         zIndex: 50,
     },
-    // 캐릭터 대답 말풍선 (2~3문장, 자동 높이)
+    // 캐릭터 영역 — 남는 공간을 채우되 캐릭터는 대화창 바로 위 가운데에 정렬
+    chatCharacterArea: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "flex-end",
+        marginBottom: Spacing.xs,
+    },
+    chatCharacterImage: {
+        width: 190,
+        height: 190,
+    },
+
+    // 식물 대화창 — 캐릭터 아래, 입력창 바로 위
     chatReplyBubble: {
-        marginTop: Spacing.lg,
         marginHorizontal: 20,
+        marginBottom: Spacing.md,
         backgroundColor: Colors.white,
         borderWidth: 4,
         borderColor: Colors.textBlack,
         paddingVertical: Spacing.lg,
         paddingHorizontal: Spacing.lg,
     },
-
-    // 캐릭터 영역 — 상단 고정 위치 (말풍선 아래). 키보드와 무관하게 그대로
-    chatCharacterArea: {
-        alignItems: "center",
-        justifyContent: "center",
-        marginTop: Spacing.section,
-    },
-    chatCharacterImage: {
-        width: 190,
-        height: 190,
-    },
-    // 캐릭터와 입력 사이 여백 — 키보드가 올라오면 이 영역만 줄어듦
-    chatSpacer: {
-        flex: 1,
+    // 대화창 첫 줄 — 식물 이름 (메인 초록, 대사가 바뀌어도 고정)
+    chatPlantName: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.subtitle,
+        color: Colors.primary,
+        marginBottom: Spacing.xs,
     },
     chatReplyText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -691,51 +723,12 @@ const styles = StyleSheet.create({
         lineHeight: 26,
         color: Colors.textBlack,
     },
-    chatTailBorder: {
-        position: "absolute",
-        bottom: -22,
-        left: "50%",
-        marginLeft: -15,
-        width: 31,
-        height: 31,
-        backgroundColor: Colors.textBlack,
-        transform: [{ rotate: "45deg" }],
-    },
-    chatTailInner: {
-        position: "absolute",
-        bottom: -14,
-        left: "50%",
-        marginLeft: -10,
-        width: 20,
-        height: 20,
-        backgroundColor: Colors.white,
-        transform: [{ rotate: "45deg" }],
-    },
 
     // 입력 영역 (flex 컬럼 하단)
     chatInputArea: {
         paddingHorizontal: Spacing.lg,
-        paddingBottom: Platform.OS === "ios" ? 24 : 16,
+        paddingBottom: Platform.OS === "ios" ? Spacing.sm : Spacing.xs,
         gap: Spacing.md,
-    },
-    userMsgRow: {
-        alignItems: "flex-end",
-        marginBottom: Spacing.xs,
-    },
-    userMsgBubble: {
-        maxWidth: "80%",
-        backgroundColor: Colors.primary,
-        borderRadius: Radius.xl,
-        borderTopRightRadius: Radius.xs,
-        paddingVertical: Spacing.md,
-        paddingHorizontal: Spacing.lg,
-    },
-    userMsgText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
-        lineHeight: 24,
-        color: Colors.white,
-        includeFontPadding: false,
     },
     chatInputBar: {
         flexDirection: "row",
@@ -744,9 +737,18 @@ const styles = StyleSheet.create({
         borderRadius: Radius.xl,
         borderWidth: 1,
         borderColor: GreenTint.haze,
-        paddingLeft: Spacing.lg,
+        paddingLeft: Spacing.xs,
         paddingRight: Spacing.xs,
         paddingVertical: Spacing.xs,
+    },
+    chatCloseButton: {
+        width: 34,
+        height: 34,
+        borderRadius: Radius.pill,
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: Spacing.xs,
+        marginBottom: Spacing.xxs,
     },
     chatInput: {
         flex: 1,
@@ -770,6 +772,53 @@ const styles = StyleSheet.create({
     },
     chatSendButtonDisabled: {
         backgroundColor: GreenTint.line,
+    },
+
+    // ── 물주기 확인 모달 (픽셀 말풍선 카드) ──────────────
+    confirmBackdrop: {
+        flex: 1,
+        backgroundColor: Colors.scrim,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: Spacing.xl,
+    },
+    confirmCard: {
+        width: "100%",
+        maxWidth: 320,
+        backgroundColor: Paper.cream,
+        borderWidth: 3,
+        borderColor: Colors.primary,
+        opacity: 0.9,
+        paddingVertical: Spacing.xxl,
+        paddingHorizontal: Spacing.xl,
+        alignItems: "center",
+    },
+    confirmIcon: {
+        width: 48,
+        height: 48,
+        marginBottom: Spacing.md,
+    },
+    confirmTitle: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.title,
+        color: Colors.primary,
+        marginBottom: Spacing.sm,
+    },
+    confirmMessage: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        lineHeight: 26,
+        color: Colors.textBlack,
+        textAlign: "center",
+        marginBottom: Spacing.xl,
+    },
+    confirmButtonRow: {
+        flexDirection: "row",
+        gap: Spacing.md,
+        width: "100%",
+    },
+    confirmButton: {
+        flex: 1,
     },
 
     // 개체별탭 햄버거 버튼 디자인
