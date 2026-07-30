@@ -590,7 +590,14 @@ function SignupScreen(props: {
 }) {
   return (
     <AuthScaffold onBack={props.onBack}>
-      <AuthHeader title="회원가입" subtitle="LeafLog와 함께 시작해요!" compact pixel icon={false} />
+      <AuthHeader
+        title="회원가입"
+        subtitle="LeafLog와 함께 시작해요!"
+        compact
+        pixel
+        icon={false}
+        heart={false}
+      />
       <View style={styles.signupForm}>
         <Field
           label="이메일"
@@ -777,32 +784,36 @@ function AuthScaffold({
 function BackButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={styles.backButton} hitSlop={12}>
-      <Text style={styles.backText}>‹</Text>
+      {/* 던근모에는 '‹'(U+2039) 글리프가 없어 폴백된다 — ASCII '<'를 쓴다 */}
+      <Text style={styles.backText}>&lt;</Text>
     </Pressable>
   );
 }
 
 // pixel: 던근모(픽셀) 글꼴로 렌더 — 로그인·회원가입·닉네임 화면에서 켠다
-// icon: 제목 위 잎사귀 아이콘 (회원가입 화면은 끈다)
+// icon: 제목 위 잎사귀 아이콘 · heart: 부제 뒤 하트 (회원가입 화면은 둘 다 끈다)
 function AuthHeader({
   title,
   subtitle,
   compact = false,
   pixel = false,
   icon = true,
+  heart = true,
 }: {
   title: string;
   subtitle: string;
   compact?: boolean;
   pixel?: boolean;
   icon?: boolean;
+  heart?: boolean;
 }) {
   return (
     <View style={[styles.authHead, compact && styles.authHeadCompact]}>
       {icon && <Image source={assets.leaf} style={styles.authLeaf} />}
       <Text style={[styles.authTitle, pixel && styles.pixelText]}>{title}</Text>
       <Text style={[styles.authSubtitle, pixel && styles.pixelText]}>
-        {subtitle} <Text style={[styles.heart, pixel && styles.pixelText]}>♡</Text>
+        {subtitle}
+        {heart && <Text style={[styles.heart, pixel && styles.pixelText]}> ♡</Text>}
       </Text>
     </View>
   );
@@ -1037,10 +1048,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   backText: {
-    color: Colors.textBlack,
-    fontFamily: Fonts.nanumSquareNeo.regular,
-    fontSize: FontSizes.displayLarge,
-    lineHeight: 52,
+    // 인증 화면 부제(authSubtitle)와 같은 회색
+    color: Colors.textGray,
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.display,
+    lineHeight: 38,
   },
   authHead: {
     marginTop: 68,
