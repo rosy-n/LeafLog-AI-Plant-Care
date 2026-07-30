@@ -590,7 +590,7 @@ function SignupScreen(props: {
 }) {
   return (
     <AuthScaffold onBack={props.onBack}>
-      <AuthHeader title="회원가입" subtitle="LeafLog와 함께 시작해요!" compact pixel />
+      <AuthHeader title="회원가입" subtitle="LeafLog와 함께 시작해요!" compact pixel icon={false} />
       <View style={styles.signupForm}>
         <Field
           label="이메일"
@@ -783,20 +783,23 @@ function BackButton({ onPress }: { onPress: () => void }) {
 }
 
 // pixel: 던근모(픽셀) 글꼴로 렌더 — 로그인·회원가입·닉네임 화면에서 켠다
+// icon: 제목 위 잎사귀 아이콘 (회원가입 화면은 끈다)
 function AuthHeader({
   title,
   subtitle,
   compact = false,
   pixel = false,
+  icon = true,
 }: {
   title: string;
   subtitle: string;
   compact?: boolean;
   pixel?: boolean;
+  icon?: boolean;
 }) {
   return (
     <View style={[styles.authHead, compact && styles.authHeadCompact]}>
-      <Image source={assets.leaf} style={styles.authLeaf} />
+      {icon && <Image source={assets.leaf} style={styles.authLeaf} />}
       <Text style={[styles.authTitle, pixel && styles.pixelText]}>{title}</Text>
       <Text style={[styles.authSubtitle, pixel && styles.pixelText]}>
         {subtitle} <Text style={[styles.heart, pixel && styles.pixelText]}>♡</Text>
@@ -1026,9 +1029,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     // SafeArea 상단에서 한 단계만 띄운다 (더 줄이면 안드로이드 상태바에 닿음)
     top: Spacing.lg,
-    left: 22,
-    width: 34,
-    height: 34,
+    left: Spacing.lg,
+    width: 48,
+    height: 48,
     zIndex: 30,
     alignItems: "center",
     justifyContent: "center",
@@ -1036,8 +1039,8 @@ const styles = StyleSheet.create({
   backText: {
     color: Colors.textBlack,
     fontFamily: Fonts.nanumSquareNeo.regular,
-    fontSize: FontSizes.display,
-    lineHeight: 38,
+    fontSize: FontSizes.displayLarge,
+    lineHeight: 52,
   },
   authHead: {
     marginTop: 68,
