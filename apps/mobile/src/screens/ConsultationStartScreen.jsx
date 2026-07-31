@@ -86,7 +86,7 @@ export default function ConsultStartScreen({ navigation }) {
                 style={styles.container}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                <ScreenHeader title="식물 상담" onBack={() => navigation.goBack()} titleStyle={{ fontSize: FontSizes.title }} />
+                <ScreenHeader title="식물 상담" onBack={() => navigation.goBack()} />
 
                 <View style={styles.guideBox}>
                     <Text style={styles.guideTitle}>촬영 가이드</Text>
@@ -208,14 +208,14 @@ const styles = StyleSheet.create({
     },
 
     guideTitle: {
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: Colors.primary,
         marginBottom: Spacing.sm,
     },
 
     guideText: {
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         lineHeight: 17,
         color: GreenTint.deep,
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     },
 
     assistantText: {
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         lineHeight: 21,
         color: Colors.textBlack,
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     },
 
     userText: {
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         lineHeight: 20,
         color: Colors.white,
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     },
 
     input: {
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: GreenTint.deep,
         minHeight: 20,
