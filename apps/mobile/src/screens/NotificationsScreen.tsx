@@ -11,7 +11,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-const FONT = "NeoDunggeunmoPro-Regular";
+import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
+import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 
 const PLANT_IMAGES: Record<string, any> = {
     spaghetti: require("../../assets/plants/spaghetti.png"),
@@ -68,11 +72,9 @@ export default function NotificationsScreen({
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>알림</Text>
-                </View>
+                <ScreenHeader title="알림" onBack={() => navigation.goBack()} />
 
                 <ScrollView
                     showsVerticalScrollIndicator={false}
@@ -101,23 +103,12 @@ export default function NotificationsScreen({
                             <Ionicons
                                 name="notifications-off-outline"
                                 size={40}
-                                color="#C8D8BC"
+                                color={GreenTint.soft}
                             />
                             <Text style={styles.emptyText}>알림이 없어요</Text>
                         </View>
                     )}
                 </ScrollView>
-
-                {/* 하단 닫기 버튼 */}
-                <View style={styles.footer}>
-                    <TouchableOpacity
-                        style={styles.closeBtn}
-                        onPress={() => navigation.goBack()}
-                        activeOpacity={0.8}
-                    >
-                        <Ionicons name="close" size={26} color="#2B3E25" />
-                    </TouchableOpacity>
-                </View>
             </SafeAreaView>
         </View>
     );
@@ -126,71 +117,55 @@ export default function NotificationsScreen({
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
     safe: {
         flex: 1,
     },
 
-    header: {
-        height: 60,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 24,
-    },
-    headerTitle: {
-        fontFamily: FONT,
-        fontSize: 25,
-        color: "#111111",
-        includeFontPadding: false,
-    },
-
     scrollContent: {
-        paddingHorizontal: 20,
-        paddingTop: 4,
-        paddingBottom: 20,
-        gap: 16,
+        ...screenContent,
         flexGrow: 1,
     },
 
     section: {
-        gap: 10,
+        gap: Spacing.md,
     },
 
     sectionLabel: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#5A8A5A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
 
     sectionDividerRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
-        marginTop: 4,
+        gap: Spacing.md,
+        marginTop: Spacing.xs,
     },
     dividerLine: {
         flex: 1,
         height: 1,
-        backgroundColor: "#E0EBCD",
+        backgroundColor: GreenTint.soft,
     },
 
     card: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#FFFFFF",
-        borderRadius: 18,
+        backgroundColor: Colors.white,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
-        borderColor: "#E0EBCD",
+        borderColor: GreenTint.soft,
         overflow: "hidden",
-        paddingRight: 16,
-        paddingVertical: 6,
-        gap: 12,
+        paddingRight: Spacing.lg,
+        paddingVertical: Spacing.sm,
+        gap: Spacing.md,
     },
     cardUnread: {
-        backgroundColor: "#F4FBF0",
-        borderColor: "#B8D8A8",
+        backgroundColor: Colors.background,
+        borderColor: GreenTint.soft,
     },
     unreadBar: {
         position: "absolute",
@@ -198,36 +173,36 @@ const styles = StyleSheet.create({
         top: 0,
         bottom: 0,
         width: 4,
-        backgroundColor: "#5A9A5A",
-        borderTopLeftRadius: 16,
-        borderBottomLeftRadius: 16,
+        backgroundColor: GreenTint.medium,
+        borderTopLeftRadius: Radius.lg,
+        borderBottomLeftRadius: Radius.lg,
     },
     plantImage: {
         width: 72,
         height: 72,
-        marginLeft: 8,
+        marginLeft: Spacing.sm,
     },
     cardBody: {
         flex: 1,
-        gap: 5,
+        gap: Spacing.xs,
     },
     title: {
-        fontFamily: FONT,
-        fontSize: 11,
-        color: "#8AA880",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.medium,
         includeFontPadding: false,
     },
     speech: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#1E3D1C",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.primary,
         includeFontPadding: false,
         lineHeight: 20,
     },
     time: {
-        fontFamily: FONT,
-        fontSize: 11,
-        color: "#9AAA90",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.line,
         includeFontPadding: false,
     },
 
@@ -235,36 +210,14 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        gap: 12,
+        gap: Spacing.md,
         paddingTop: 80,
     },
     emptyText: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#B0C0A8",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.line,
         includeFontPadding: false,
     },
 
-    footer: {
-        height: 80,
-        justifyContent: "center",
-        paddingHorizontal: 24,
-        borderTopWidth: 1,
-        borderTopColor: "#EEF5E6",
-    },
-    closeBtn: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: "#FFFFFF",
-        borderWidth: 1.5,
-        borderColor: "#D0E8C0",
-        alignItems: "center",
-        justifyContent: "center",
-        shadowColor: "#335235",
-        shadowOpacity: 0.1,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: 3,
-    },
 });

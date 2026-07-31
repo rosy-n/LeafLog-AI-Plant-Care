@@ -1,5 +1,11 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# apps/api/.env 로드 — 실행 위치와 무관하게 config.py 기준으로 탐색
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 def _database_url() -> str:
@@ -22,6 +28,15 @@ class Settings:
         ).split(",")
         if origin.strip()
     )
+    # S3 — media_asset object_key로 presigned GET URL 생성용
+    # 자격증명은 boto3 기본 체인(환경변수 / ~/.aws / IAM 역할)에서 자동 로드
+    s3_bucket: str = os.getenv("S3_BUCKET", "")
+    s3_region: str = os.getenv("S3_REGION", os.getenv("AWS_REGION", "ap-northeast-2"))
+    s3_presign_expire: int = int(os.getenv("S3_PRESIGN_EXPIRE_SECONDS", "3600"))
+    # 백엔드가 object_key로 직접 presign할지 여부.
+    # 버킷에 GetObject 가능한 자격증명이 있을 때만 true (실서비스/배포 환경).
+    # false면 저장된 file_url을 그대로 반환 (예: 콘솔에서 만든 presigned URL로 로컬 테스트).
+    s3_presign_enabled: bool = os.getenv("S3_PRESIGN", "false").strip().lower() in ("1", "true", "yes", "on")
 
 
 settings = Settings()

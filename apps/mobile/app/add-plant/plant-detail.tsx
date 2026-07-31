@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useEffect, useState } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
 import { getPlantDetail, getPlantImages } from '../../services/nongsaro';
 import type { NongsaroPlantDetail } from '../../types/plant';
@@ -29,12 +29,21 @@ export default function PlantDetailScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const [det, imgs] = await Promise.all([
+        // allSettled: 상세 정보가 없는 식물도 기본 정보(이름)로 계속 진행
+        const [detResult, imgsResult] = await Promise.allSettled([
           getPlantDetail(cntntsNo),
           getPlantImages(cntntsNo),
         ]);
-        setDetail(det);
-        setImages(imgs);
+
+        if (detResult.status === 'fulfilled') {
+          setDetail(detResult.value);
+        }
+        // 상세 정보 없음 → detail=null 유지, UI는 cntntsSj(검색어) 표시
+
+        if (imgsResult.status === 'fulfilled') {
+          setImages(imgsResult.value);
+        }
+        // 이미지 없음 → 빈 슬롯으로 표시
       } catch (e: any) {
         Alert.alert('오류', e.message ?? '식물 정보를 불러오는 중 문제가 발생했어요.');
         router.back();

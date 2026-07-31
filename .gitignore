@@ -43,3 +43,23 @@ data/large/
 *.safetensors
 models/
 checkpoints/
+
+# AI character generation artifacts
+ai/character-generation/artifacts/*.safetensors
+ai/character-generation/data/
+ai/character-generation/models/
+ai/character-generation/outputs/
+ai/character-generation/**/*.tar.gz
+ai/character-generation/**/*.zip
+
+# ai/diagnosis (Visual RAG prototype) — never commit real data or API keys
+ai/diagnosis/data/
+ai/diagnosis/images
+ai/diagnosis/images_cropped
+ai/diagnosis/test_images/
+ai/diagnosis/qdrant_storage/
+ai/diagnosis/outputs/
+ai/diagnosis/*.xlsx
+ai/diagnosis/*.npy
+ai/diagnosis/*.pkl
+ai/diagnosis/.env

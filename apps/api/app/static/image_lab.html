@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LeafLog Image Lab</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif;
+      color: #183126;
+      background: #f4f7f2;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+    }
+
+    header {
+      padding: 28px max(24px, calc((100vw - 1180px) / 2));
+      color: #fff;
+      background: #245b3d;
+      border-bottom: 5px solid #f0bf4c;
+    }
+
+    header p {
+      margin: 6px 0 0;
+      color: #dceae1;
+      font-size: 14px;
+    }
+
+    h1, h2, p { letter-spacing: 0; }
+    h1 { margin: 0; font-size: 26px; }
+    h2 { margin: 0 0 6px; font-size: 20px; }
+
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 28px auto 56px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    .toolbar p, .section-heading p {
+      margin: 0;
+      color: #5f6f66;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .settings {
+      display: flex;
+      align-items: end;
+      gap: 10px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      color: #3c4e44;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    select, input[type="file"] {
+      min-height: 42px;
+      border: 1px solid #b9c7be;
+      border-radius: 6px;
+      background: #fff;
+      color: #183126;
+      font: inherit;
+    }
+
+    select { padding: 0 36px 0 12px; }
+    input[type="file"] { width: 100%; padding: 8px; }
+
+    input[type="file"]::file-selector-button {
+      margin-right: 12px;
+      padding: 7px 12px;
+      border: 0;
+      border-radius: 4px;
+      color: #fff;
+      background: #4f765d;
+      cursor: pointer;
+    }
+
+    section {
+      padding: 24px 0 30px;
+      border-top: 1px solid #d5ded8;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) auto;
+      align-items: end;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    button, .download {
+      min-height: 42px;
+      padding: 0 17px;
+      border: 0;
+      border-radius: 6px;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    button {
+      color: #fff;
+      background: #d96b4b;
+    }
+
+    button:hover { background: #c55b3d; }
+    button:disabled { cursor: wait; opacity: .55; }
+
+    .previews {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .previews.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .preview {
+      overflow: hidden;
+      border: 1px solid #ccd7d0;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 46px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #e0e6e2;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .download {
+      display: inline-flex;
+      min-height: 30px;
+      align-items: center;
+      padding: 0 10px;
+      color: #245b3d;
+      background: #e9f1eb;
+      font-size: 12px;
+    }
+
+    .image-stage {
+      display: grid;
+      aspect-ratio: 1;
+      place-items: center;
+      background: #eef2ef;
+    }
+
+    .image-stage.checker {
+      background-color: #fff;
+      background-image:
+        linear-gradient(45deg, #dfe5e1 25%, transparent 25%),
+        linear-gradient(-45deg, #dfe5e1 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #dfe5e1 75%),
+        linear-gradient(-45deg, transparent 75%, #dfe5e1 75%);
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+      background-size: 16px 16px;
+    }
+
+    img {
+      display: none;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    img.ready { display: block; }
+
+    .empty {
+      padding: 18px;
+      color: #7b8980;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .status {
+      min-height: 22px;
+      margin: 10px 0 0;
+      color: #53655a;
+      font-size: 13px;
+    }
+
+    .status.error { color: #b13e34; }
+    [hidden] { display: none !important; }
+
+    @media (max-width: 760px) {
+      header { padding: 22px 18px; }
+      main { width: min(100% - 24px, 1180px); margin-top: 20px; }
+      .toolbar, .section-heading { align-items: stretch; flex-direction: column; }
+      .settings { align-items: stretch; flex-direction: column; }
+      .controls { grid-template-columns: 1fr; }
+      .previews, .previews.two { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>LeafLog Image Lab</h1>
+    <p>식물 사진 전처리와 생성 캐릭터 배경 제거를 눈으로 확인하는 개발 도구</p>
+  </header>
+
+  <main>
+    <div class="toolbar">
+      <p>첫 실행은 배경 제거 모델을 내려받기 때문에 시간이 더 걸릴 수 있습니다.</p>
+      <div class="settings">
+        <div>
+          <label for="quality-mode">처리 품질</label>
+          <select id="quality-mode">
+            <option value="quality" selected>고품질 2단계 (BiRefNet)</option>
+            <option value="fast">빠른 처리 (IS-Net)</option>
+          </select>
+        </div>
+        <div>
+          <label for="canvas-size">출력 크기</label>
+          <select id="canvas-size">
+            <option value="512">512 x 512</option>
+            <option value="768">768 x 768</option>
+            <option value="1024" selected>1024 x 1024</option>
+            <option value="1536">1536 x 1536</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <section>
+      <div class="section-heading">
+        <div>
+          <h2>1. 원본 식물 사진 전처리</h2>
+          <p>복잡한 배경을 제거하고 SDXL에 넣을 흰 배경 이미지를 만듭니다.</p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div>
+          <label for="plant-file">식물 사진</label>
+          <input id="plant-file" type="file" accept="image/*">
+        </div>
+        <button id="plant-run" type="button">전처리 실행</button>
+      </div>
+
+      <div class="previews">
+        <article class="preview">
+          <div class="preview-head">원본</div>
+          <div class="image-stage">
+            <span class="empty">사진을 선택하세요</span>
+            <img id="plant-original" alt="선택한 원본 식물 사진">
+          </div>
+        </article>
+        <article class="preview">
+          <div class="preview-head">
+            <span>SDXL 입력용 흰 배경</span>
+            <a id="white-download" class="download" download="plant-sdxl-input.png" hidden>PNG 저장</a>
+          </div>
+          <div class="image-stage">
+            <span class="empty">처리 결과</span>
+            <img id="plant-white" alt="흰 배경 전처리 결과">
+          </div>
+        </article>
+        <article class="preview">
+          <div class="preview-head">
+            <span>투명 배경</span>
+            <a id="plant-download" class="download" download="plant-transparent.png" hidden>PNG 저장</a>
+          </div>
+          <div class="image-stage checker">
+            <span class="empty">처리 결과</span>
+            <img id="plant-transparent" alt="투명 배경 전처리 결과">
+          </div>
+        </article>
+      </div>
+      <p id="plant-status" class="status" aria-live="polite"></p>
+    </section>
+
+    <section>
+      <div class="section-heading">
+        <div>
+          <h2>2. 생성 캐릭터 후처리</h2>
+          <p>RunPod에서 생성한 이미지의 배경을 제거해 모바일용 투명 PNG로 만듭니다.</p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div>
+          <label for="generated-file">생성 이미지</label>
+          <input id="generated-file" type="file" accept="image/*">
+        </div>
+        <button id="generated-run" type="button">배경 제거 실행</button>
+      </div>
+
+      <div class="previews two">
+        <article class="preview">
+          <div class="preview-head">생성 원본</div>
+          <div class="image-stage">
+            <span class="empty">사진을 선택하세요</span>
+            <img id="generated-original" alt="선택한 생성 이미지">
+          </div>
+        </article>
+        <article class="preview">
+          <div class="preview-head">
+            <span>모바일용 투명 배경</span>
+            <a id="generated-download" class="download" download="character-transparent.png" hidden>PNG 저장</a>
+          </div>
+          <div class="image-stage checker">
+            <span class="empty">처리 결과</span>
+            <img id="generated-transparent" alt="투명 배경 생성 이미지">
+          </div>
+        </article>
+      </div>
+      <p id="generated-status" class="status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <script>
+    const canvasSize = document.querySelector("#canvas-size");
+    const qualityMode = document.querySelector("#quality-mode");
+
+    function showImage(image, source) {
+      image.src = source;
+      image.classList.add("ready");
+      image.previousElementSibling.hidden = true;
+    }
+
+    function clearImage(image) {
+      image.removeAttribute("src");
+      image.classList.remove("ready");
+      image.previousElementSibling.hidden = false;
+    }
+
+    function previewSelection(input, image, resultImages, downloads) {
+      const file = input.files[0];
+      resultImages.forEach(clearImage);
+      downloads.forEach((download) => download.hidden = true);
+      if (!file) {
+        clearImage(image);
+        return;
+      }
+      showImage(image, URL.createObjectURL(file));
+    }
+
+    async function postImage(endpoint, input, button, status) {
+      const file = input.files[0];
+      if (!file) {
+        status.textContent = "먼저 이미지 파일을 선택하세요.";
+        status.className = "status error";
+        return null;
+      }
+
+      const form = new FormData();
+      form.append("file", file, file.name);
+      button.disabled = true;
+      status.textContent = "이미지를 처리하고 있습니다...";
+      status.className = "status";
+
+      try {
+        const query = new URLSearchParams({
+          canvas_size: canvasSize.value,
+          quality_mode: qualityMode.value,
+        });
+        const response = await fetch(`${endpoint}?${query}`, {
+          method: "POST",
+          body: form,
+        });
+        const body = await response.json();
+        if (!response.ok) {
+          throw new Error(body.detail || "이미지 처리에 실패했습니다.");
+        }
+        status.textContent = "처리가 완료되었습니다.";
+        return body;
+      } catch (error) {
+        status.textContent = error.message;
+        status.className = "status error";
+        return null;
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    const plantFile = document.querySelector("#plant-file");
+    const plantOriginal = document.querySelector("#plant-original");
+    const plantWhite = document.querySelector("#plant-white");
+    const plantTransparent = document.querySelector("#plant-transparent");
+    const whiteDownload = document.querySelector("#white-download");
+    const plantDownload = document.querySelector("#plant-download");
+
+    plantFile.addEventListener("change", () => {
+      previewSelection(
+        plantFile,
+        plantOriginal,
+        [plantWhite, plantTransparent],
+        [whiteDownload, plantDownload],
+      );
+    });
+
+    document.querySelector("#plant-run").addEventListener("click", async (event) => {
+      const result = await postImage(
+        "/images/preprocess-plant",
+        plantFile,
+        event.currentTarget,
+        document.querySelector("#plant-status"),
+      );
+      if (!result) return;
+
+      const whiteSource = `data:image/png;base64,${result.sdxl_input_png_base64}`;
+      const transparentSource = `data:image/png;base64,${result.transparent_png_base64}`;
+      showImage(plantWhite, whiteSource);
+      showImage(plantTransparent, transparentSource);
+      whiteDownload.href = whiteSource;
+      whiteDownload.hidden = false;
+      plantDownload.href = transparentSource;
+      plantDownload.hidden = false;
+    });
+
+    const generatedFile = document.querySelector("#generated-file");
+    const generatedOriginal = document.querySelector("#generated-original");
+    const generatedTransparent = document.querySelector("#generated-transparent");
+    const generatedDownload = document.querySelector("#generated-download");
+
+    generatedFile.addEventListener("change", () => {
+      previewSelection(
+        generatedFile,
+        generatedOriginal,
+        [generatedTransparent],
+        [generatedDownload],
+      );
+    });
+
+    document.querySelector("#generated-run").addEventListener("click", async (event) => {
+      const result = await postImage(
+        "/images/remove-background",
+        generatedFile,
+        event.currentTarget,
+        document.querySelector("#generated-status"),
+      );
+      if (!result) return;
+
+      const transparentSource = `data:image/png;base64,${result.transparent_png_base64}`;
+      showImage(generatedTransparent, transparentSource);
+      generatedDownload.href = transparentSource;
+      generatedDownload.hidden = false;
+    });
+  </script>
+</body>
+</html>

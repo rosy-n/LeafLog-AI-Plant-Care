@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
+import { Spacing, Radius } from '../../../constants/spacing';
 
 export const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -8,17 +9,17 @@ export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.huge,
   },
 
   title: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 22,
+    fontSize: FontSizes.title,
     color: Colors.textBlack,
     lineHeight: 32,
-    marginBottom: 24,
+    marginBottom: Spacing.xxl,
     textAlign: 'center',
   },
 
@@ -26,26 +27,26 @@ export const styles = StyleSheet.create({
   cameraBtn: {
     flexDirection: 'row',
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 18,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    marginBottom: 20,
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
   },
-  cameraBtnIcon: { fontSize: 20 },
+  cameraBtnIcon: { fontSize: FontSizes.title },
   cameraBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
 
   // Divider
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    gap: 10,
+    marginBottom: Spacing.xl,
+    gap: Spacing.md,
   },
   dividerLine: {
     flex: 1,
@@ -54,7 +55,7 @@ export const styles = StyleSheet.create({
   },
   dividerText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
   },
 
@@ -62,50 +63,50 @@ export const styles = StyleSheet.create({
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
   searchWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.white,
-    borderRadius: 10,
+    borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 14,
+    paddingHorizontal: Spacing.lg,
   },
   searchWrapperActive: {
     borderColor: Colors.primary,
   },
   searchIcon: {
-    fontSize: 16,
-    marginRight: 8,
+    fontSize: FontSizes.bodyLarge,
+    marginRight: Spacing.sm,
   },
   searchInput: {
     flex: 1,
     height: 48,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textBlack,
   },
-  searchSpinner: { marginLeft: 8 },
+  searchSpinner: { marginLeft: Spacing.sm },
 
   cancelBtn: {
-    paddingHorizontal: 4,
-    paddingVertical: 4,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.xs,
   },
   cancelText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 14,
+    fontSize: FontSizes.body,
     color: Colors.primary,
   },
 
   // Dropdown
   dropdown: {
     backgroundColor: Colors.white,
-    borderRadius: 10,
+    borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    marginTop: 4,
+    marginTop: Spacing.xs,
     overflow: 'hidden',
     shadowColor: Colors.textBlack,
     shadowOpacity: 0.08,
@@ -116,25 +117,25 @@ export const styles = StyleSheet.create({
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    gap: Spacing.md,
   },
   dropdownThumb: {
     width: 36,
     height: 36,
-    borderRadius: 6,
+    borderRadius: Radius.sm,
     backgroundColor: Colors.primaryLight,
   },
   dropdownText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
   },
   dropdownSeparator: {
     height: 1,
     backgroundColor: Colors.separator,
-    marginHorizontal: 14,
+    marginHorizontal: Spacing.lg,
   },
 
   // Loading overlay
@@ -143,12 +144,12 @@ export const styles = StyleSheet.create({
     backgroundColor: Colors.overlay,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 14,
+    gap: Spacing.lg,
     zIndex: 100,
   },
   overlayText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 14,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
   },
 });

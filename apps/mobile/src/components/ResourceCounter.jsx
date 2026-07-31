@@ -1,5 +1,8 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, Image, StyleSheet } from "react-native";
+import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors } from "../../constants/colors";
+import { Spacing } from "../../constants/spacing";
 
 const STROKE_DIRS = [
     [-1,  0], [ 1,  0],
@@ -22,7 +25,7 @@ function OutlineText({ children, style, strokeWidth = 2 }) {
                             position: "absolute",
                             top:  p + dy * p,
                             left: p + dx * p,
-                            color: "#000000",
+                            color: Colors.textBlack,
                         },
                     ]}
                 >
@@ -34,20 +37,28 @@ function OutlineText({ children, style, strokeWidth = 2 }) {
     );
 }
 
-export default function ResourceCounter() {
+export default function ResourceCounter({ wateringDays, nutrientDays }) {
     return (
         <View style={styles.container}>
             <View style={styles.row}>
-                <Text style={styles.drop}>💧</Text>
+                <Image
+                    source={require("../../assets/icons/water_icon.png")}
+                    style={styles.icon}
+                    resizeMode="contain"
+                />
                 <OutlineText style={styles.text} strokeWidth={2}>
-                    D + 4
+                    D + {wateringDays ?? 0}
                 </OutlineText>
             </View>
 
             <View style={styles.row}>
-                <Text style={styles.nutrient}>✚</Text>
+                <Image
+                    source={require("../../assets/icons/nutrients_icon.png")}
+                    style={styles.icon}
+                    resizeMode="contain"
+                />
                 <OutlineText style={styles.text} strokeWidth={2}>
-                    D + 10
+                    D + {nutrientDays ?? 0}
                 </OutlineText>
             </View>
         </View>
@@ -56,7 +67,7 @@ export default function ResourceCounter() {
 
 const styles = StyleSheet.create({
     container: {
-        gap: 4,
+        gap: Spacing.xs,
     },
 
     row: {
@@ -65,20 +76,10 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
 
-    drop: {
+    icon: {
         width: 38,
-        fontSize: 31,
-        marginRight: 7,
-    },
-
-    nutrient: {
-        width: 38,
-        fontSize: 35,
-        marginRight: 7,
-        color: "#39D13A",
-        textShadowColor: "#177E25",
-        textShadowOffset: { width: 2, height: 2 },
-        textShadowRadius: 0,
+        height: 38,
+        marginRight: Spacing.sm,
     },
 
     outlineWrapper: {
@@ -86,13 +87,13 @@ const styles = StyleSheet.create({
     },
 
     outlineFill: {
-        color: "#FFFFFF",
+        color: Colors.white,
     },
 
     text: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        fontSize: 27,
-        color: "#FFFFFF",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.screenTitle,
+        color: Colors.white,
         letterSpacing: 0.5,
         lineHeight: 32,
     },

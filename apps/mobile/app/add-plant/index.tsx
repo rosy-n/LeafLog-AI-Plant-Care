@@ -10,8 +10,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Colors } from '../../constants/colors';
 import { useRef, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter } from '../../src/hooks/useAddPlantRouter';
 import * as ImagePicker from 'expo-image-picker';
 
 import { searchPlants } from '../../services/nongsaro';
@@ -158,7 +159,7 @@ export default function AddPlantIndexScreen() {
               ref={inputRef}
               style={styles.searchInput}
               placeholder="식물 이름으로 검색 (예: 스파티필룸)"
-              placeholderTextColor="#A0A0A0"
+              placeholderTextColor={Colors.textFaint}
               value={searchText}
               onChangeText={handleSearchChange}
               onFocus={handleSearchFocus}

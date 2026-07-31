@@ -12,7 +12,11 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import LiquidGlassButton from "../components/LiquidGlassButton";
+import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
+import { Colors, GreenTint, Leaf, Accent, Glass } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
+import { plantImages } from "../data/plants";
 
 const ITEMS = [
     {
@@ -71,7 +75,8 @@ function getLevelProgressPercent(score, level) {
     return Math.min(((score - current) / (next - current)) * 100, 100);
 }
 
-export default function PlantDecorateScreen({ navigation, appliedItem, setAppliedItem }) {
+export default function PlantDecorateScreen({ navigation, route, appliedItem, setAppliedItem }) {
+    const plant = route?.params?.plant;
     const affinityScore = 725;
     const affinityLevel = getAffinityLevel(affinityScore);
     const progressPercent = getLevelProgressPercent(affinityScore, affinityLevel);
@@ -87,24 +92,20 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#E8F5DF" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
 
                 {/* Header */}
-                <View style={styles.header}>
-                    <View style={styles.headerButton} />
-                    <Text style={styles.headerTitle}>식물 꾸미기</Text>
-                    <View style={styles.headerButton} />
-                </View>
+                <ScreenHeader title="식물 꾸미기" onBack={() => navigation.goBack()} />
 
                 {/* Affinity Card */}
                 <View style={styles.affinityCardWrap}>
                     <BlurView intensity={28} tint="light" style={styles.affinityBlur}>
                         <LinearGradient
                             colors={[
-                                "rgba(255,255,255,0.75)",
-                                "rgba(220,245,208,0.55)",
-                                "rgba(195,230,180,0.38)",
+                                Glass.frost72,
+                                Glass.mist,
+                                Glass.mistSoft,
                             ]}
                             start={{ x: 0.1, y: 0 }}
                             end={{ x: 1, y: 1 }}
@@ -141,7 +142,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                                     </View>
                                     <View style={styles.progressBg}>
                                         <LinearGradient
-                                            colors={["#72C959", "#3E8C2D"]}
+                                            colors={[Leaf.bright, Leaf.deep]}
                                             start={{ x: 0, y: 0 }}
                                             end={{ x: 1, y: 0 }}
                                             style={[
@@ -167,7 +168,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                             />
                         ) : (
                             <Image
-                                source={require("../../assets/plants/spaghetti.png")}
+                                source={plant?.imageUri ? { uri: plant.imageUri } : plantImages[plant?.imageKey ?? "spaghetti"]}
                                 style={styles.plantPreviewImage}
                                 resizeMode="contain"
                             />
@@ -181,7 +182,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
 
                     {selectedItem ? (
                         <View style={styles.appliedBadge}>
-                            <Ionicons name="checkmark-circle" size={14} color="#3A8C2D" />
+                            <Ionicons name="checkmark-circle" size={14} color={GreenTint.strong} />
                             <Text style={styles.appliedBadgeText}>{selectedItem.label} 적용 중</Text>
                         </View>
                     ) : (
@@ -196,8 +197,8 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                     <BlurView intensity={22} tint="light" style={styles.itemSectionBlur}>
                         <LinearGradient
                             colors={[
-                                "rgba(255,255,255,0.68)",
-                                "rgba(225,245,215,0.48)",
+                                Glass.frost72,
+                                Glass.mist,
                             ]}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 0, y: 1 }}
@@ -236,17 +237,17 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                                                         colors={
                                                             isSelected
                                                                 ? [
-                                                                      "rgba(110,200,85,0.65)",
-                                                                      "rgba(55,155,45,0.45)",
+                                                                      Glass.leafBright,
+                                                                      Glass.leafSoft,
                                                                   ]
                                                                 : isUnlocked
                                                                 ? [
-                                                                      "rgba(255,255,255,0.72)",
-                                                                      "rgba(215,238,205,0.45)",
+                                                                      Glass.frost72,
+                                                                      Glass.mist,
                                                                   ]
                                                                 : [
-                                                                      "rgba(200,200,200,0.45)",
-                                                                      "rgba(170,170,170,0.3)",
+                                                                      Glass.gray45,
+                                                                      Glass.gray30,
                                                                   ]
                                                         }
                                                         start={{ x: 0.1, y: 0 }}
@@ -267,7 +268,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                                                                 <Ionicons
                                                                     name="lock-closed"
                                                                     size={20}
-                                                                    color="rgba(255,255,255,0.9)"
+                                                                    color={Glass.frost92}
                                                                 />
                                                             </View>
                                                         )}
@@ -277,7 +278,7 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                                                                 <Ionicons
                                                                     name="checkmark"
                                                                     size={13}
-                                                                    color="#FFFFFF"
+                                                                    color={Colors.white}
                                                                 />
                                                             </View>
                                                         )}
@@ -316,14 +317,6 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
                     </BlurView>
                 </View>
 
-                <LiquidGlassButton
-                    size={60}
-                    onPress={() => navigation.goBack()}
-                    style={styles.closeBtn}
-                >
-                    <Ionicons name="close" size={30} color="#2B3E25" />
-                </LiquidGlassButton>
-
                 {selectedItem && (
                     <TouchableOpacity
                         style={styles.removeButton}
@@ -344,120 +337,101 @@ export default function PlantDecorateScreen({ navigation, appliedItem, setApplie
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#E8F5DF",
+        backgroundColor: Colors.background,
     },
     safe: {
         flex: 1,
     },
 
     // Header
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    headerTitle: {
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        fontSize: 27,
-        color: "#111111",
-        includeFontPadding: false,
-    },
 
     // Affinity Card
     affinityCardWrap: {
-        marginHorizontal: 20,
-        marginTop: 12,
-        marginBottom: 16,
-        borderRadius: 18,
+        marginHorizontal: Spacing.xl,
+        marginTop: Spacing.md,
+        marginBottom: Spacing.lg,
+        borderRadius: Radius.xl,
         overflow: "hidden",
-        shadowColor: "#2D4A20",
+        shadowColor: GreenTint.deep,
         shadowOpacity: 0.14,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
         elevation: 4,
     },
     affinityBlur: {
-        borderRadius: 18,
+        borderRadius: Radius.xl,
         overflow: "hidden",
         borderWidth: 1.2,
-        borderColor: "rgba(255,255,255,0.75)",
+        borderColor: Glass.frost72,
     },
     affinityGradient: {
-        paddingHorizontal: 18,
-        paddingVertical: 14,
-        borderRadius: 18,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.lg,
+        borderRadius: Radius.xl,
     },
     affinityRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 12,
+        gap: Spacing.md,
     },
     affinityBlock: {
         flex: 1,
         alignItems: "center",
-        gap: 4,
+        gap: Spacing.xs,
     },
     affinityLabel: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 11,
-        color: "#4A6240",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.deep,
     },
     affinityScore: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 22,
-        color: "#1F3C18",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.title,
+        color: Colors.primary,
     },
     affinityUnit: {
-        fontSize: 14,
-        color: "#3A5830",
+        fontSize: FontSizes.body,
+        color: GreenTint.deep,
     },
     affinityLevelText: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 22,
-        color: "#2B6B20",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.title,
+        color: GreenTint.deep,
     },
     affinityDivider: {
         width: 1,
         height: 36,
-        backgroundColor: "rgba(80,130,60,0.25)",
+        backgroundColor: GreenTint.line,
     },
     progressRow: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
         width: "100%",
-        paddingHorizontal: 2,
+        paddingHorizontal: Spacing.xxs,
     },
     nextThresholdText: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 10,
-        color: "#5A7A4A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.caption,
+        color: GreenTint.strong,
     },
     progressBg: {
         width: "100%",
         height: 8,
-        backgroundColor: "rgba(100,150,80,0.22)",
-        borderRadius: 99,
+        backgroundColor: GreenTint.soft,
+        borderRadius: Radius.pill,
         overflow: "hidden",
-        marginTop: 2,
+        marginTop: Spacing.xxs,
     },
     progressFill: {
         height: "100%",
-        borderRadius: 99,
+        borderRadius: Radius.pill,
     },
 
     // Plant Preview
     plantPreviewArea: {
         alignItems: "center",
-        marginBottom: 12,
+        marginBottom: Spacing.md,
     },
     plantPreviewInner: {
         width: 190,
@@ -471,121 +445,121 @@ const styles = StyleSheet.create({
     },
     plantLabelGroup: {
         alignItems: "center",
-        marginTop: 4,
-        gap: 2,
+        marginTop: Spacing.xs,
+        gap: Spacing.xxs,
     },
     plantName: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 20,
-        color: "#1F3018",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.title,
+        color: Colors.primary,
     },
     plantDay: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 13,
-        color: "#4A6840",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.deep,
     },
     appliedBadge: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
-        marginTop: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 5,
-        backgroundColor: "rgba(80,180,60,0.18)",
-        borderRadius: 99,
+        gap: Spacing.xs,
+        marginTop: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        backgroundColor: GreenTint.soft,
+        borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: "rgba(60,140,45,0.35)",
+        borderColor: GreenTint.line,
     },
     appliedBadgeText: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 11,
-        color: "#2E6A22",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.deep,
     },
     noItemBadge: {
-        marginTop: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 5,
-        backgroundColor: "rgba(150,150,150,0.15)",
-        borderRadius: 99,
+        marginTop: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        backgroundColor: Glass.gray15,
+        borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: "rgba(150,150,150,0.3)",
+        borderColor: Glass.gray30b,
     },
     noItemBadgeText: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 11,
-        color: "#888",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textGray,
     },
 
     // Item Section
     itemSection: {
-        marginHorizontal: 16,
-        borderRadius: 22,
+        marginHorizontal: Spacing.lg,
+        borderRadius: Radius.xl,
         overflow: "hidden",
-        shadowColor: "#2D4A20",
+        shadowColor: GreenTint.deep,
         shadowOpacity: 0.12,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
         elevation: 4,
         borderWidth: 1.2,
-        borderColor: "rgba(255,255,255,0.75)",
+        borderColor: Glass.frost72,
     },
     itemSectionBlur: {
-        borderRadius: 22,
+        borderRadius: Radius.xl,
         overflow: "hidden",
     },
     itemSectionGradient: {
-        paddingTop: 16,
-        paddingBottom: 20,
-        borderRadius: 22,
+        paddingTop: Spacing.lg,
+        paddingBottom: Spacing.xl,
+        borderRadius: Radius.xl,
     },
     itemSectionTitle: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 14,
-        color: "#2A4020",
-        marginLeft: 18,
-        marginBottom: 14,
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.primary,
+        marginLeft: Spacing.xl,
+        marginBottom: Spacing.lg,
     },
     itemScroll: {
-        paddingHorizontal: 16,
-        gap: 12,
+        paddingHorizontal: Spacing.lg,
+        gap: Spacing.md,
     },
 
     // Item Cards
     itemCardWrap: {
         alignItems: "center",
         width: 80,
-        gap: 6,
+        gap: Spacing.sm,
     },
     itemCard: {
         width: 80,
         height: 80,
-        borderRadius: 18,
+        borderRadius: Radius.xl,
         overflow: "hidden",
-        shadowColor: "#2D4A20",
+        shadowColor: GreenTint.deep,
         shadowOpacity: 0.16,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 3 },
         elevation: 4,
         borderWidth: 1.5,
-        borderColor: "rgba(255,255,255,0.6)",
+        borderColor: Glass.frost60,
     },
     itemCardSelected: {
-        borderColor: "#5AB840",
+        borderColor: GreenTint.medium,
         borderWidth: 2.5,
     },
     itemCardLocked: {
-        borderColor: "rgba(180,180,180,0.4)",
+        borderColor: Glass.gray40,
     },
     itemCardBlur: {
         flex: 1,
-        borderRadius: 18,
+        borderRadius: Radius.xl,
         overflow: "hidden",
     },
     itemCardGradient: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        borderRadius: 18,
+        borderRadius: Radius.xl,
     },
     itemImage: {
         width: 54,
@@ -600,8 +574,8 @@ const styles = StyleSheet.create({
         height: "100%",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "rgba(60,60,60,0.35)",
-        borderRadius: 18,
+        backgroundColor: Glass.gray35d,
+        borderRadius: Radius.xl,
     },
     selectedCheck: {
         position: "absolute",
@@ -609,46 +583,39 @@ const styles = StyleSheet.create({
         right: 6,
         width: 18,
         height: 18,
-        borderRadius: 99,
-        backgroundColor: "#3E8C2D",
+        borderRadius: Radius.pill,
+        backgroundColor: GreenTint.strong,
         alignItems: "center",
         justifyContent: "center",
     },
     levelBadge: {
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 99,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xxs,
+        borderRadius: Radius.pill,
     },
     levelBadgeUnlocked: {
-        backgroundColor: "rgba(70,160,50,0.2)",
+        backgroundColor: GreenTint.soft,
         borderWidth: 1,
-        borderColor: "rgba(70,160,50,0.4)",
+        borderColor: GreenTint.line,
     },
     levelBadgeLocked: {
-        backgroundColor: "rgba(160,160,160,0.18)",
+        backgroundColor: Glass.gray18,
         borderWidth: 1,
-        borderColor: "rgba(160,160,160,0.35)",
+        borderColor: Glass.gray35,
     },
     levelBadgeText: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 10,
-        color: "#888",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.caption,
+        color: Colors.textGray,
     },
     levelBadgeTextUnlocked: {
-        color: "#2E7020",
+        color: GreenTint.deep,
     },
     itemLabel: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 10,
-        color: "#2A4020",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.caption,
+        color: Colors.primary,
         textAlign: "center",
-    },
-
-    closeBtn: {
-        position: "absolute",
-        bottom: 32,
-        left: 24,
-        zIndex: 100,
     },
 
     removeButton: {
@@ -656,16 +623,16 @@ const styles = StyleSheet.create({
         bottom: 42,
         right: 24,
         zIndex: 100,
-        paddingHorizontal: 28,
-        paddingVertical: 9,
-        backgroundColor: "rgba(200,80,60,0.14)",
-        borderRadius: 99,
+        paddingHorizontal: Spacing.section,
+        paddingVertical: Spacing.sm,
+        backgroundColor: Glass.warm14,
+        borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: "rgba(200,80,60,0.35)",
+        borderColor: Glass.warm35,
     },
     removeButtonText: {
-        fontFamily: "NeoDunggeunmo",
-        fontSize: 13,
-        color: "#A03020",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Accent.rust,
     },
 });
