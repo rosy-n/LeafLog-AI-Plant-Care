@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '../constants/colors';
-import { Fonts } from '../constants/fonts';
+import { Fonts, FontSizes } from '../constants/fonts';
 
 export default function HomeScreen() {
     const router = useRouter();
@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: 32,
+        fontSize: FontSizes.display,
         color: Colors.primary,
         marginBottom: 40,
     },
@@ -41,6 +41,6 @@ const styles = StyleSheet.create({
     buttonText: {
         fontFamily: Fonts.neoDunggeunmo,
         color: Colors.white,
-        fontSize: 16,
+        fontSize: FontSizes.bodyLarge,
     },
 });

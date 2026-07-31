@@ -1,61 +1,62 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../../constants/colors';
-import { Fonts } from '../../../constants/fonts';
+import { Fonts, FontSizes } from '../../../constants/fonts';
+import { Spacing, Radius } from '../../../constants/spacing';
 
 export const styles = StyleSheet.create({
   flex: { flex: 1 },
 
   container: {
     backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 48,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.huge2,
   },
 
   // Top plant header
   plantHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    marginBottom: 28,
+    gap: Spacing.lg,
+    marginBottom: Spacing.section,
     backgroundColor: Colors.white,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
   },
   plantHeaderImage: {
     width: 60,
     height: 60,
-    borderRadius: 10,
+    borderRadius: Radius.md,
     backgroundColor: Colors.primaryLight,
   },
   plantHeaderName: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 18,
+    fontSize: FontSizes.subtitle,
     color: Colors.textBlack,
   },
   plantHeaderScientific: {
-    fontSize: 12,
+    fontSize: FontSizes.small,
     fontStyle: 'italic',
     color: Colors.textGray,
-    marginTop: 2,
+    marginTop: Spacing.xxs,
   },
 
   // Section
-  section: { marginBottom: 28 },
+  section: { marginBottom: Spacing.section },
   sectionLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textBlack,
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   requiredMark: { color: Colors.primary },
 
   // Chip group
-  chipGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chipGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.pill,
     borderWidth: 1.5,
     borderColor: Colors.border,
     backgroundColor: Colors.white,
@@ -67,14 +68,14 @@ export const styles = StyleSheet.create({
   },
   chipLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
   },
   chipLabelActive: { color: Colors.white },
   chipSub: {
-    fontSize: 10,
+    fontSize: FontSizes.caption,
     color: Colors.textGray,
-    marginTop: 2,
+    marginTop: Spacing.xxs,
   },
   chipSubActive: { color: Colors.white },
 
@@ -82,11 +83,11 @@ export const styles = StyleSheet.create({
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 0,
+    gap: Spacing.none,
     alignSelf: 'flex-start',
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: 10,
+    borderRadius: Radius.md,
     backgroundColor: Colors.white,
     overflow: 'hidden',
   },
@@ -98,49 +99,49 @@ export const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   stepperBtnText: {
-    fontSize: 20,
+    fontSize: FontSizes.title,
     color: Colors.primary,
     fontFamily: Fonts.neoDunggeunmo,
   },
   stepperValueWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: Spacing.md,
     borderLeftWidth: 1,
     borderRightWidth: 1,
     borderColor: Colors.border,
     height: 44,
     minWidth: 80,
     justifyContent: 'center',
-    gap: 4,
+    gap: Spacing.xs,
   },
   stepperInput: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textBlack,
     minWidth: 40,
     textAlign: 'center',
   },
   stepperUnit: {
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
   },
 
   // Date row (두 날짜 나란히)
   dateRow: {
     flexDirection: 'row',
-    gap: 16,
+    gap: Spacing.lg,
   },
   dateBlock: { flex: 1 },
   dateBlockLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   datePickerRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.sm,
   },
   dateDropdown: {
     flex: 1,
@@ -150,18 +151,18 @@ export const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 10,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.md,
     height: 40,
   },
   dateDropdownText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 13,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
   },
   dateDropdownPlaceholder: { color: Colors.textGray },
   dateDropdownArrow: {
-    fontSize: 10,
+    fontSize: FontSizes.caption,
     color: Colors.textGray,
   },
 
@@ -173,33 +174,33 @@ export const styles = StyleSheet.create({
   },
   pickerSheet: {
     backgroundColor: Colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 32,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    paddingBottom: Spacing.xxxl,
     maxHeight: 340,
   },
   pickerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.separator,
   },
   pickerTitle: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 14,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
   },
   pickerDoneText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.primary,
   },
   pickerItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
     borderBottomWidth: 1,
     borderBottomColor: Colors.separator,
   },
@@ -208,7 +209,7 @@ export const styles = StyleSheet.create({
   },
   pickerItemText: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 15,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textBlack,
     textAlign: 'center',
   },
@@ -217,37 +218,37 @@ export const styles = StyleSheet.create({
   // Soil input
   soilInput: {
     backgroundColor: Colors.white,
-    borderRadius: 10,
+    borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 12,
-    fontSize: 14,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.md,
+    fontSize: FontSizes.body,
     color: Colors.textBlack,
     minHeight: 80,
   },
   charCount: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 12,
+    fontSize: FontSizes.small,
     color: Colors.textGray,
     textAlign: 'right',
-    marginTop: 4,
+    marginTop: Spacing.xs,
   },
 
   // Save button
   saveBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.lg,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: Spacing.sm,
   },
   saveBtnDisabled: { backgroundColor: Colors.disabled },
   saveBtnText: {
     color: Colors.white,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 16,
+    fontSize: FontSizes.bodyLarge,
   },
   saveBtnTextDisabled: { color: Colors.textGray },
 });

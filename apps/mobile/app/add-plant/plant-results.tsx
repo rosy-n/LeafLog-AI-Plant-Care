@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useEffect, useState } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
 import { searchPlants, getPlantDetail } from '../../services/nongsaro';
 import type { PlantNetResult } from '../../types/plant';

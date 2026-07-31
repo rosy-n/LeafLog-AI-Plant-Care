@@ -16,6 +16,10 @@ import { Ionicons } from "@expo/vector-icons";
 import PlantImage from "../components/PlantImage";
 import HeartsRow from "../components/HeartsRow";
 import LiquidGlassButton from "../components/LiquidGlassButton";
+import { Fonts, FontSizes } from "../../constants/fonts";
+import { Colors, GreenTint, Paper, Leaf, Accent, Glass } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SKY_HEIGHT = 126;
@@ -50,7 +54,7 @@ function applySortFilter(plantList, sort, query) {
     return result;
 }
 
-export default function GardenScreen({ navigation, plants, setPlants, username }) {
+export default function GardenScreen({ navigation, plants, setPlants, username, reloadPlants }) {
     const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
     const searchAnim = useRef(new Animated.Value(0)).current;
 
@@ -91,6 +95,8 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
     */
     useFocusEffect(
         useCallback(() => {
+            // 정원 재진입 시 DB에서 최신 목록 반영 (식물 등록 후 등)
+            reloadPlants?.();
             if (isFirstFocusRef.current) {
                 isFirstFocusRef.current = false;
                 return;
@@ -98,7 +104,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
             setDisplayPlants(
                 applySortFilter(plantsRef.current, sortKeyRef.current, searchQueryRef.current)
             );
-        }, [])
+        }, [reloadPlants])
     );
 
     useEffect(() => {
@@ -216,7 +222,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
                                         ref={searchInputRef}
                                         style={styles.searchInput}
                                         placeholder="식물 이름 검색"
-                                        placeholderTextColor="#A7A7A7"
+                                        placeholderTextColor={Colors.textFaint}
                                         value={searchQuery}
                                         onChangeText={setSearchQuery}
                                         returnKeyType="search"
@@ -247,7 +253,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
                                 <Ionicons
                                     name={isSearchActive ? "close" : "search"}
                                     size={25}
-                                    color="#2F6D2E"
+                                    color={GreenTint.deep}
                                 />
                             </LiquidGlassButton>
                         </View>
@@ -275,11 +281,9 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
                         <View style={styles.card}>
                             <TouchableOpacity
                                 activeOpacity={0.8}
-                                onPress={() => {
-                                    if (item.id === "1") navigation.replace("PlantDetail");
-                                }}
+                                onPress={() => navigation.replace("PlantDetail", { plant: item })}
                             >
-                                <PlantImage imageKey={item.imageKey} width={118} height={118} />
+                                <PlantImage uri={item.imageUri} imageKey={item.imageKey} width={118} height={118} />
                             </TouchableOpacity>
 
                             <View style={styles.nameRow}>
@@ -291,23 +295,23 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
                                     onPress={() => toggleFavorite(item.id)}
                                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                 >
-                                    <Text style={[styles.star, { color: item.favorite ? "#E2C23A" : "#A7A7A7" }]}>
+                                    <Text style={[styles.star, { color: item.favorite ? Leaf.gold : Colors.textFaint }]}>
                                         ★
                                     </Text>
                                 </TouchableOpacity>
                             </View>
 
-                            <HeartsRow count={item.hearts} size={17} />
+                            <HeartsRow count={item.hearts} size={15} />
                         </View>
                     )}
                 />
 
                 <LiquidGlassButton
                     size={60}
-                    onPress={closeGarden}
-                    style={styles.closeBtn}
+                    onPress={() => navigation.navigate('AddPlant')}
+                    style={styles.addBtn}
                 >
-                    <Ionicons name="close" size={30} color="#2F6D2E" />
+                    <Ionicons name="add" size={34} color={GreenTint.deep} />
                 </LiquidGlassButton>
 
                 {showSortMenu && (
@@ -350,7 +354,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username }
 }
 
 const greenTextShadow = {
-    textShadowColor: "#CFE6BE",
+    textShadowColor: GreenTint.soft,
     textShadowOffset: { width: 1.3, height: 1.3 },
     textShadowRadius: 0,
 };
@@ -367,36 +371,36 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: "#FFFDF1",
+        backgroundColor: Colors.white,
     },
 
     dragZone: {
-        backgroundColor: "#FFFDF1",
+        backgroundColor: Colors.white,
     },
     dragHandle: {
         alignSelf: "center",
         width: 70,
         height: 5,
-        borderRadius: 3,
-        backgroundColor: "#E3DED1",
-        marginTop: 12,
-        marginBottom: 8,
+        borderRadius: Radius.xs,
+        backgroundColor: Colors.border,
+        marginTop: Spacing.md,
+        marginBottom: Spacing.sm,
     },
 
     header: {
         height: 76,
-        paddingHorizontal: 18,
-        backgroundColor: "#FFFDF1",
+        paddingHorizontal: Spacing.xl,
+        backgroundColor: Colors.white,
         borderBottomWidth: 1,
-        borderBottomColor: "#DEDCCB",
+        borderBottomColor: Colors.border,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
     },
     title: {
-        fontSize: 20,
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        color: "#2F702D",
+        fontSize: FontSizes.title,
+        fontFamily: Fonts.neoDunggeunmo,
+        color: GreenTint.deep,
         letterSpacing: 0.3,
         flexShrink: 1,
         ...greenTextShadow,
@@ -410,80 +414,80 @@ const styles = StyleSheet.create({
     },
 
     sortButton: {
-        marginRight: 18,
+        marginRight: Spacing.xl,
     },
     sortButtonText: {
-        fontSize: 16,
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        color: "#2F702D",
+        fontSize: FontSizes.bodyLarge,
+        fontFamily: Fonts.neoDunggeunmo,
+        color: GreenTint.deep,
     },
     sortButtonTextMemorial: {
-        color: "#8B6B5E",
+        color: Accent.brown,
     },
 
     searchContainer: {
         flex: 1,
         height: 38,
-        backgroundColor: "rgba(255,255,255,0.95)",
-        borderRadius: 10,
-        paddingHorizontal: 12,
+        backgroundColor: Glass.frost92,
+        borderRadius: Radius.md,
+        paddingHorizontal: Spacing.md,
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: "#DEDCCB",
-        marginRight: 10,
+        borderColor: Colors.border,
+        marginRight: Spacing.md,
     },
     searchInput: {
-        fontSize: 15,
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        color: "#2F7830",
-        padding: 0,
+        fontSize: FontSizes.bodyLarge,
+        fontFamily: Fonts.neoDunggeunmo,
+        color: GreenTint.deep,
+        padding: Spacing.none,
     },
 
     sortMenuShadow: {
         position: "absolute",
         top: 101,
         right: 70,
-        shadowColor: "#385236",
+        shadowColor: GreenTint.deep,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.14,
         shadowRadius: 8,
         elevation: 8,
-        borderRadius: 12,
+        borderRadius: Radius.md,
     },
     sortMenu: {
-        backgroundColor: "#FFFDF1",
-        borderRadius: 12,
+        backgroundColor: Colors.white,
+        borderRadius: Radius.md,
         borderWidth: 1,
-        borderColor: "#DEDCCB",
+        borderColor: Colors.border,
         minWidth: 130,
         overflow: "hidden",
     },
     sortMenuItem: {
-        paddingVertical: 13,
-        paddingHorizontal: 18,
+        paddingVertical: Spacing.md,
+        paddingHorizontal: Spacing.xl,
     },
     sortMenuItemDivider: {
         borderBottomWidth: 1,
-        borderBottomColor: "#EEEAD8",
+        borderBottomColor: Paper.tan,
     },
     sortMenuText: {
-        fontSize: 15,
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        color: "#5A7A59",
+        fontSize: FontSizes.bodyLarge,
+        fontFamily: Fonts.neoDunggeunmo,
+        color: GreenTint.strong,
         letterSpacing: -0.3,
     },
     sortMenuTextActive: {
-        color: "#2F7030",
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        color: GreenTint.deep,
+        fontFamily: Fonts.neoDunggeunmo,
     },
     sortMenuTextMemorial: {
-        color: "#8B6B5E",
+        color: Accent.brown,
     },
 
     listContent: {
-        paddingTop: 24,
-        paddingHorizontal: 18,
-        paddingBottom: 40,
+        ...screenContent,
+        paddingTop: Spacing.xxl,
+        gap: Spacing.none,
     },
     columnWrapper: {
         justifyContent: "flex-start",
@@ -491,7 +495,7 @@ const styles = StyleSheet.create({
     card: {
         width: "33.333%",
         alignItems: "center",
-        marginBottom: 28,
+        marginBottom: Spacing.section,
     },
     nameRow: {
         marginTop: -3,
@@ -500,25 +504,25 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     plantName: {
-        fontSize: 18,
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        color: "#2F7830",
+        fontSize: FontSizes.subtitle,
+        fontFamily: Fonts.neoDunggeunmo,
+        color: GreenTint.deep,
         letterSpacing: -1,
         ...greenTextShadow,
     },
     star: {
-        marginLeft: 1,
-        fontSize: 21,
-        fontFamily: "NeoDunggeunmoPro-Regular",
-        textShadowColor: "#5F644F",
+        marginLeft: Spacing.xxs,
+        fontSize: FontSizes.title,
+        fontFamily: Fonts.neoDunggeunmo,
+        textShadowColor: Colors.textGray,
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 0,
     },
 
-    closeBtn: {
+    addBtn: {
         position: "absolute",
-        bottom: 32,
-        left: 24,
+        bottom: 28,
+        right: 24,
         zIndex: 100,
     },
 
@@ -527,8 +531,8 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     emptyStateText: {
-        fontSize: 15,
-        color: "#A7A7A7",
-        fontFamily: "NeoDunggeunmoPro-Regular",
+        fontSize: FontSizes.bodyLarge,
+        color: Colors.textFaint,
+        fontFamily: Fonts.neoDunggeunmo,
     },
 });

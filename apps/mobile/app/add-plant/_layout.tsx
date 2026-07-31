@@ -1,9 +1,10 @@
 import { Slot, useRouter, useSegments } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import BackButton from '../../src/components/BackButton';
 import { Colors } from '../../constants/colors';
-import { Fonts } from '../../constants/fonts';
+import { Fonts, FontSizes } from '../../constants/fonts';
 
 const TOTAL = 4;
 
@@ -28,13 +29,7 @@ function AddPlantHeader() {
   return (
     <View style={[styles.header, { paddingTop: top }]}>
       {/* Left: back button */}
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={styles.backBtn}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-      >
-        <Text style={styles.backIcon}>{'<'}</Text>
-      </TouchableOpacity>
+      <BackButton onPress={() => router.back()} style={styles.backBtn} />
 
       {/* Center: 4-segment progress bar */}
       <View style={styles.progressRow}>
@@ -85,15 +80,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
 
-  // back button
+  // back button — 공용 BackButton의 48×48 박스를 컴팩트 헤더에 맞게 줄인다
   backBtn: {
     width: 32,
+    height: 38,
     alignItems: 'flex-start',
-  },
-  backIcon: {
-    fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 20,
-    color: Colors.textBlack,
   },
 
   // progress segments
@@ -106,7 +97,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#D8D8D8',
+    backgroundColor: Colors.disabled,
   },
   segmentActive: {
     backgroundColor: Colors.primary,
@@ -117,7 +108,7 @@ const styles = StyleSheet.create({
     width: 32,
     textAlign: 'right',
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: 12,
+    fontSize: FontSizes.small,
     color: Colors.textGray,
   },
 });

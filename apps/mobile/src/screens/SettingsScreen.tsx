@@ -15,7 +15,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-const FONT = "NeoDunggeunmoPro-Regular";
+import { Fonts, FontSizes } from "../../constants/fonts";
+import ScreenHeader from "../components/ScreenHeader";
+import { Colors, GreenTint } from "../../constants/colors";
+import { Spacing, Radius } from "../../constants/spacing";
+import { screenContent } from "../../constants/layout";
 
 const FAQ_ITEMS = [
     {
@@ -47,7 +51,7 @@ function RowDivider() {
 function SectionLabel({ icon, label }: { icon: string; label: string }) {
     return (
         <View style={styles.sectionLabelRow}>
-            <Ionicons name={icon as any} size={16} color="#5A8A5A" />
+            <Ionicons name={icon as any} size={16} color={GreenTint.strong} />
             <Text style={styles.sectionLabelText}>{label}</Text>
         </View>
     );
@@ -66,7 +70,7 @@ function VolumeControl({
                 onPress={() => onChange(Math.max(0, value - 1))}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-                <Ionicons name="remove-circle-outline" size={26} color="#5A8A5A" />
+                <Ionicons name="remove-circle-outline" size={26} color={GreenTint.strong} />
             </TouchableOpacity>
             <View style={styles.volumeTrack}>
                 {Array.from({ length: 10 }, (_, i) => (
@@ -83,7 +87,7 @@ function VolumeControl({
                 onPress={() => onChange(Math.min(10, value + 1))}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-                <Ionicons name="add-circle-outline" size={26} color="#5A8A5A" />
+                <Ionicons name="add-circle-outline" size={26} color={GreenTint.strong} />
             </TouchableOpacity>
         </View>
     );
@@ -166,19 +170,9 @@ export default function SettingsScreen({
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFFF0" />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
             <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        style={styles.headerButton}
-                        onPress={() => navigation.goBack()}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="chevron-back" size={28} color="#2B3E25" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>설정</Text>
-                    <View style={styles.headerButton} />
-                </View>
+                <ScreenHeader title="설정" onBack={() => navigation.goBack()} />
 
                 <KeyboardAvoidingView
                     style={{ flex: 1 }}
@@ -225,7 +219,7 @@ export default function SettingsScreen({
                                         activeOpacity={0.7}
                                     >
                                         <Text style={styles.nameValue}>{username}</Text>
-                                        <Ionicons name="pencil-outline" size={16} color="#8AB08A" />
+                                        <Ionicons name="pencil-outline" size={16} color={GreenTint.line} />
                                     </TouchableOpacity>
                                 )}
                             </View>
@@ -238,7 +232,7 @@ export default function SettingsScreen({
                                 activeOpacity={0.75}
                             >
                                 <Text style={styles.rowLabel}>로그아웃</Text>
-                                <Ionicons name="log-out-outline" size={20} color="#8AB08A" />
+                                <Ionicons name="log-out-outline" size={20} color={GreenTint.line} />
                             </TouchableOpacity>
 
                             <RowDivider />
@@ -249,7 +243,7 @@ export default function SettingsScreen({
                                 activeOpacity={0.75}
                             >
                                 <Text style={styles.deleteLabel}>계정 삭제</Text>
-                                <Ionicons name="chevron-forward" size={18} color="#D4887A" />
+                                <Ionicons name="chevron-forward" size={18} color={Colors.remove} />
                             </TouchableOpacity>
                         </View>
 
@@ -263,9 +257,9 @@ export default function SettingsScreen({
                                 <Switch
                                     value={notifEnabled}
                                     onValueChange={setNotifEnabled}
-                                    trackColor={{ false: "#E0E0E0", true: "#A8D5A2" }}
-                                    thumbColor="#FFFFFF"
-                                    ios_backgroundColor="#E0E0E0"
+                                    trackColor={{ false: Colors.border, true: GreenTint.line }}
+                                    thumbColor={Colors.white}
+                                    ios_backgroundColor={Colors.border}
                                 />
                             </View>
 
@@ -280,7 +274,7 @@ export default function SettingsScreen({
                                                     onPress={() => adjustHour(1)}
                                                     hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }}
                                                 >
-                                                    <Ionicons name="chevron-up" size={20} color="#5A8A5A" />
+                                                    <Ionicons name="chevron-up" size={20} color={GreenTint.strong} />
                                                 </TouchableOpacity>
                                                 <Text style={styles.timeValue}>
                                                     {String(notifHour).padStart(2, "0")}
@@ -289,7 +283,7 @@ export default function SettingsScreen({
                                                     onPress={() => adjustHour(-1)}
                                                     hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }}
                                                 >
-                                                    <Ionicons name="chevron-down" size={20} color="#5A8A5A" />
+                                                    <Ionicons name="chevron-down" size={20} color={GreenTint.strong} />
                                                 </TouchableOpacity>
                                             </View>
 
@@ -300,7 +294,7 @@ export default function SettingsScreen({
                                                     onPress={() => adjustMinute(1)}
                                                     hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }}
                                                 >
-                                                    <Ionicons name="chevron-up" size={20} color="#5A8A5A" />
+                                                    <Ionicons name="chevron-up" size={20} color={GreenTint.strong} />
                                                 </TouchableOpacity>
                                                 <Text style={styles.timeValue}>
                                                     {String(notifMinute).padStart(2, "0")}
@@ -309,7 +303,7 @@ export default function SettingsScreen({
                                                     onPress={() => adjustMinute(-1)}
                                                     hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }}
                                                 >
-                                                    <Ionicons name="chevron-down" size={20} color="#5A8A5A" />
+                                                    <Ionicons name="chevron-down" size={20} color={GreenTint.strong} />
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
@@ -342,9 +336,9 @@ export default function SettingsScreen({
                                 <Switch
                                     value={vibration}
                                     onValueChange={setVibration}
-                                    trackColor={{ false: "#E0E0E0", true: "#A8D5A2" }}
-                                    thumbColor="#FFFFFF"
-                                    ios_backgroundColor="#E0E0E0"
+                                    trackColor={{ false: Colors.border, true: GreenTint.line }}
+                                    thumbColor={Colors.white}
+                                    ios_backgroundColor={Colors.border}
                                 />
                             </View>
                         </View>
@@ -376,7 +370,7 @@ export default function SettingsScreen({
                                             <Ionicons
                                                 name={isOpen ? "chevron-up" : "chevron-down"}
                                                 size={16}
-                                                color="#8AB08A"
+                                                color={GreenTint.line}
                                             />
                                         </TouchableOpacity>
 
@@ -406,7 +400,7 @@ export default function SettingsScreen({
                                 <Ionicons
                                     name={showInquiry ? "chevron-up" : "chevron-down"}
                                     size={18}
-                                    color="#8AB08A"
+                                    color={GreenTint.line}
                                 />
                             </TouchableOpacity>
 
@@ -417,7 +411,7 @@ export default function SettingsScreen({
                                             <Ionicons
                                                 name="checkmark-circle"
                                                 size={32}
-                                                color="#5A9A5A"
+                                                color={GreenTint.medium}
                                             />
                                             <Text style={styles.inquiryDoneText}>
                                                 문의가 접수되었습니다.{"\n"}빠르게 답변 드릴게요!
@@ -428,7 +422,7 @@ export default function SettingsScreen({
                                             <TextInput
                                                 style={styles.inquiryInput}
                                                 placeholder="문의 내용을 입력해주세요"
-                                                placeholderTextColor="#C0C8BC"
+                                                placeholderTextColor={Colors.textFaint}
                                                 value={inquiryContent}
                                                 onChangeText={setInquiryContent}
                                                 multiline
@@ -465,76 +459,53 @@ export default function SettingsScreen({
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#FAFFF0",
+        backgroundColor: Colors.background,
     },
     safe: {
         flex: 1,
     },
 
-    header: {
-        height: 60,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 24,
-    },
-    headerButton: {
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    headerTitle: {
-        fontFamily: FONT,
-        fontSize: 25,
-        color: "#111111",
-        includeFontPadding: false,
-    },
-
     scrollContent: {
-        paddingHorizontal: 20,
-        paddingTop: 8,
-        paddingBottom: 40,
-        gap: 14,
+        ...screenContent,
     },
 
     card: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 20,
+        backgroundColor: Colors.white,
+        borderRadius: Radius.xl,
         borderWidth: 1.5,
-        borderColor: "#E0EBCD",
-        paddingHorizontal: 20,
-        paddingVertical: 4,
+        borderColor: GreenTint.soft,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.xs,
     },
 
     sectionLabelRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
-        paddingVertical: 14,
+        gap: Spacing.sm,
+        paddingVertical: Spacing.lg,
     },
     sectionLabelText: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#5A8A5A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
 
     divider: {
         height: 1,
-        backgroundColor: "#F0EEE2",
+        backgroundColor: Colors.separator,
     },
 
     row: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingVertical: 14,
+        paddingVertical: Spacing.lg,
     },
     rowLabel: {
-        fontFamily: FONT,
-        fontSize: 15,
-        color: "#222222",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: Colors.textBlack,
         includeFontPadding: false,
     },
 
@@ -542,48 +513,48 @@ const styles = StyleSheet.create({
     nameDisplayRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
+        gap: Spacing.sm,
     },
     nameValue: {
-        fontFamily: FONT,
-        fontSize: 15,
-        color: "#2F702D",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: GreenTint.deep,
         includeFontPadding: false,
     },
     nameEditRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
+        gap: Spacing.sm,
     },
     nameInput: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#111111",
-        backgroundColor: "#F6FAF0",
-        borderRadius: 8,
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        backgroundColor: Colors.background,
+        borderRadius: Radius.sm,
         borderWidth: 1,
-        borderColor: "#D8E8C8",
-        paddingHorizontal: 10,
-        paddingVertical: 6,
+        borderColor: GreenTint.soft,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
         minWidth: 100,
         includeFontPadding: false,
     },
     saveBtn: {
-        backgroundColor: "#2F702D",
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 7,
+        backgroundColor: GreenTint.deep,
+        borderRadius: Radius.sm,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
     },
     saveBtnText: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#FFFFFF",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.white,
         includeFontPadding: false,
     },
     deleteLabel: {
-        fontFamily: FONT,
-        fontSize: 15,
-        color: "#D4887A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: Colors.remove,
         includeFontPadding: false,
     },
 
@@ -591,153 +562,153 @@ const styles = StyleSheet.create({
     timePicker: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 6,
+        gap: Spacing.sm,
     },
     timeSpinner: {
         alignItems: "center",
-        gap: 2,
+        gap: Spacing.xxs,
     },
     timeValue: {
-        fontFamily: FONT,
-        fontSize: 22,
-        color: "#111111",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.title,
+        color: Colors.textBlack,
         minWidth: 36,
         textAlign: "center",
         includeFontPadding: false,
     },
     timeColon: {
-        fontFamily: FONT,
-        fontSize: 22,
-        color: "#111111",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.title,
+        color: Colors.textBlack,
         includeFontPadding: false,
-        marginBottom: 2,
+        marginBottom: Spacing.xxs,
     },
 
     // 볼륨
     volumeItem: {
-        paddingVertical: 14,
-        gap: 10,
+        paddingVertical: Spacing.lg,
+        gap: Spacing.md,
     },
     volumeRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 10,
+        gap: Spacing.md,
     },
     volumeTrack: {
         flex: 1,
         flexDirection: "row",
-        gap: 3,
+        gap: Spacing.xs,
     },
     volumeSegment: {
         flex: 1,
         height: 8,
-        borderRadius: 4,
+        borderRadius: Radius.xs,
     },
     volumeSegmentOn: {
-        backgroundColor: "#5A9A5A",
+        backgroundColor: GreenTint.medium,
     },
     volumeSegmentOff: {
-        backgroundColor: "#E0EBCD",
+        backgroundColor: GreenTint.soft,
     },
 
     // FAQ
     faqSectionTitle: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#7A9A7A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.medium,
         includeFontPadding: false,
-        paddingTop: 4,
-        paddingBottom: 8,
+        paddingTop: Spacing.xs,
+        paddingBottom: Spacing.sm,
     },
     faqRow: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingVertical: 13,
-        gap: 10,
+        paddingVertical: Spacing.md,
+        gap: Spacing.md,
     },
     faqQuestion: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#222222",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
         flex: 1,
         includeFontPadding: false,
     },
     faqAnswer: {
-        backgroundColor: "#F6FAF0",
-        borderRadius: 10,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-        marginBottom: 6,
+        backgroundColor: Colors.background,
+        borderRadius: Radius.md,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.md,
+        marginBottom: Spacing.sm,
     },
     faqAnswerText: {
-        fontFamily: FONT,
-        fontSize: 13,
-        color: "#444444",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
         lineHeight: 20,
         includeFontPadding: false,
     },
 
     // 문의하기
     inquiryArea: {
-        gap: 10,
-        paddingBottom: 10,
+        gap: Spacing.md,
+        paddingBottom: Spacing.md,
     },
     inquiryInput: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#111111",
-        backgroundColor: "#F6FAF0",
-        borderRadius: 10,
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        backgroundColor: Colors.background,
+        borderRadius: Radius.md,
         borderWidth: 1,
-        borderColor: "#D8E8C8",
-        paddingHorizontal: 12,
-        paddingTop: 10,
-        paddingBottom: 10,
+        borderColor: GreenTint.soft,
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.md,
         height: 110,
         textAlignVertical: "top",
         includeFontPadding: false,
     },
     inquirySubmitBtn: {
-        backgroundColor: "#2F702D",
-        borderRadius: 12,
-        paddingVertical: 13,
+        backgroundColor: GreenTint.deep,
+        borderRadius: Radius.md,
+        paddingVertical: Spacing.md,
         alignItems: "center",
-        shadowColor: "#2F702D",
+        shadowColor: GreenTint.deep,
         shadowOpacity: 0.2,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 3 },
         elevation: 3,
     },
     inquirySubmitBtnDisabled: {
-        backgroundColor: "#B8CEB0",
+        backgroundColor: GreenTint.soft,
         shadowOpacity: 0,
         elevation: 0,
     },
     inquirySubmitText: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#FFFFFF",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.white,
         includeFontPadding: false,
     },
     inquiryDone: {
         alignItems: "center",
-        gap: 10,
-        paddingVertical: 18,
+        gap: Spacing.md,
+        paddingVertical: Spacing.xl,
     },
     inquiryDoneText: {
-        fontFamily: FONT,
-        fontSize: 14,
-        color: "#4A7A4A",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.strong,
         textAlign: "center",
         lineHeight: 22,
         includeFontPadding: false,
     },
 
     versionText: {
-        fontFamily: FONT,
-        fontSize: 12,
-        color: "#B0B8A8",
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textFaint,
         textAlign: "center",
         includeFontPadding: false,
     },
