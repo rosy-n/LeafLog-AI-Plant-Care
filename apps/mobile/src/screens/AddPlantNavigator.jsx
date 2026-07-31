@@ -12,6 +12,7 @@ import AddPlantPlantDetail  from '../../app/add-plant/plant-detail';
 import CharacterScreen      from '../../app/add-plant/character';
 import NameScreen           from '../../app/add-plant/name';
 import InfoScreen           from '../../app/add-plant/info';
+import PersonaScreen        from '../../app/add-plant/persona';
 
 import BackButton from '../components/BackButton';
 import { Colors } from '../../constants/colors';
@@ -20,7 +21,7 @@ import { Fonts, FontSizes } from '../../constants/fonts';
 
 const Stack = createNativeStackNavigator();
 
-const TOTAL = 4;
+const TOTAL = 5;
 const STEP_MAP = {
   AddPlantIndex:       1,
   OrganSelect:         1,
@@ -30,6 +31,7 @@ const STEP_MAP = {
   Character:           2,
   Name:                3,
   Info:                4,
+  Persona:             5,
 };
 
 function AddPlantHeader() {
@@ -69,6 +71,7 @@ export default function AddPlantNavigator() {
       <Stack.Screen name="Character"           component={CharacterScreen} />
       <Stack.Screen name="Name"                component={NameScreen} />
       <Stack.Screen name="Info"                component={InfoScreen} />
+      <Stack.Screen name="Persona"             component={PersonaScreen} />
     </Stack.Navigator>
   );
 }
