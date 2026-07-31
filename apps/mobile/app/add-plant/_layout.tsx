@@ -6,13 +6,14 @@ import BackButton from '../../src/components/BackButton';
 import { Colors } from '../../constants/colors';
 import { Fonts, FontSizes } from '../../constants/fonts';
 
-const TOTAL = 4;
+const TOTAL = 5;
 
 const STEP_MAP: Record<string, number> = {
   index: 1,
   character: 2,
   name: 3,
   info: 4,
+  persona: 5,
 };
 
 // ---------------------------------------------------------------------------

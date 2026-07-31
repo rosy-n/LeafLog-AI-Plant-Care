@@ -246,15 +246,13 @@ export default function InfoScreen() {
 
       const created = await createPlant(payload);
 
-      // 등록 직후 열리는 PlantDetail이 방금 만든 식물을 표시하도록 전달
-      router.replace({
-        pathname: '/',
+      // 페르소나(성격)는 plant_id가 있어야 저장 가능 → 식물 생성 후 다음 단계에서 선택
+      router.push({
+        pathname: '/add-plant/persona',
         params: {
-          plant: {
-            id: String(created.id),
-            name: created.nickname,
-            createdAt: created.created_at,
-          },
+          plantId: String(created.id),
+          nickname: created.nickname,
+          createdAt: created.created_at,
         },
       });
     } catch (e: any) {
