@@ -1,10 +1,8 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors } from "../../constants/colors";
+import { View, Text, StyleSheet } from "react-native";
+import BackButton from "./BackButton";
 import { Gutter } from "../../constants/spacing";
-import { HEADER_HEIGHT } from "../../constants/layout";
+import { HEADER_HEIGHT, headerTitle } from "../../constants/layout";
 
 /**
  * 공통 화면 헤더 (뒤로가기 + 제목/커스텀 중앙 + 우측 슬롯)
@@ -12,19 +10,13 @@ import { HEADER_HEIGHT } from "../../constants/layout";
  * - onBack:     뒤로가기 핸들러
  * - right:      우측 커스텀 노드 (미지정 시 44×44 스페이서로 균형)
  * - center:     중앙 커스텀 노드 (지정 시 title 대신 렌더)
- * - titleStyle: 제목 스타일 오버라이드 (크기 등)
+ * - titleStyle: 제목 스타일 오버라이드 — 크기는 화면끼리 어긋나므로 바꾸지 말 것
  */
 export default function ScreenHeader({ title, onBack, right = null, center = null, titleStyle = null }) {
     return (
         <View style={styles.header}>
-            <TouchableOpacity
-                style={styles.button}
-                onPress={onBack}
-                activeOpacity={0.75}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-                <Ionicons name="chevron-back" size={28} color={Colors.primary} />
-            </TouchableOpacity>
+            {/* 제목과 같은 글자 크기로 — 헤더 안에서 높이를 맞춘다 */}
+            <BackButton onPress={onBack} size={headerTitle.fontSize} style={styles.button} />
 
             {center != null ? center : (
                 <Text style={[styles.title, titleStyle]} numberOfLines={1}>{title}</Text>
@@ -49,10 +41,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    title: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.screenTitle,
-        color: Colors.textBlack,
-        includeFontPadding: false,
-    },
+    // 제목 스타일은 constants/layout.ts에서 관리 — 여기서 값을 바꾸지 않는다
+    title: headerTitle,
 });

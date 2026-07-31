@@ -173,7 +173,7 @@ export default function ConsultationScreen({ navigation, route }) {
                 style={styles.container}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                <ScreenHeader title={consultation.title} onBack={() => navigation.goBack()} titleStyle={{ fontSize: FontSizes.subtitle }} />
+                <ScreenHeader title={consultation.title} onBack={() => navigation.goBack()} />
 
                 <ScrollView
                     ref={scrollViewRef}
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     },
 
     historyLabelText: {
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: GreenTint.medium,
         includeFontPadding: false,
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     },
 
     continueDividerText: {
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: GreenTint.medium,
         includeFontPadding: false,
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     },
 
     assistantText: {
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         lineHeight: 21,
         color: Colors.textBlack,
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     },
 
     userText: {
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         lineHeight: 20,
         color: Colors.white,
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     },
 
     input: {
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: GreenTint.deep,
         minHeight: 20,

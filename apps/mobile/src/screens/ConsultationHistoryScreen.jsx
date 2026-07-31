@@ -67,7 +67,7 @@ export default function ConsultationHistoryScreen({ navigation }) {
         <SafeAreaView style={styles.safeArea}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-            <ScreenHeader title="상담 기록" onBack={() => navigation.goBack()} titleStyle={{ fontSize: FontSizes.title }} />
+            <ScreenHeader title="상담 기록" onBack={() => navigation.goBack()} />
 
             <View style={styles.container}>
                 <View style={styles.searchRow}>
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
         height: "100%",
         fontSize: FontSizes.body,
         color: Colors.textBlack,
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         paddingVertical: Spacing.none,
         includeFontPadding: false,
     },
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: FontSizes.bodyLarge,
         color: Colors.textBlack,
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         includeFontPadding: false,
         marginRight: Spacing.sm,
     },
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     cardSummary: {
         fontSize: FontSizes.small,
         color: Colors.textBlack,
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         includeFontPadding: false,
         marginBottom: Spacing.sm,
         lineHeight: 18,
@@ -228,13 +228,13 @@ const styles = StyleSheet.create({
     cardDetail: {
         fontSize: FontSizes.small,
         color: Colors.textGray,
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         includeFontPadding: false,
         lineHeight: 17,
     },
 
     emptyText: {
-        fontFamily: Fonts.nanumSquareNeo.bold,
+        fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: Colors.textFaint,
         textAlign: "center",
