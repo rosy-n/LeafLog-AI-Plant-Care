@@ -47,6 +47,7 @@ checkpoints/
 # AI character generation artifacts
 ai/character-generation/artifacts/*.safetensors
 ai/character-generation/data/
+ai/character-generation/local-artifacts/
 ai/character-generation/models/
 ai/character-generation/outputs/
 ai/character-generation/**/*.tar.gz

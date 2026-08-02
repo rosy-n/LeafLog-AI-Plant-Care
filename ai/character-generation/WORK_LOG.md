@@ -33,3 +33,5 @@
 - SDXL 베이스는 Civitai 재다운로드 방식으로 전환
 - GitHub용 설정, 환경 기록, 재현 문서를 분리
 - 자동 생성 한국어 문서의 mojibake를 발견해 검증된 정보로 다시 작성
+- RunPod에서 v1 최종 LoRA와 epoch 1-5 체크포인트를 추가로 회수
+- v1 중간 LoRA는 로컬에만 보관하고 최종 LoRA만 GitHub Release로 배포
