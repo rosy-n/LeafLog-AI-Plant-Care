@@ -250,7 +250,11 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                         size={70}
                         onPress={() => navigation.navigate("Garden")}
                     >
-                        <Text style={styles.allText}>all</Text>
+                        <Image
+                            source={require("../../assets/icons/all_icon.png")}
+                            style={styles.allIcon}
+                            resizeMode="contain"
+                        />
                     </GlassButton>
                 </View>
             </ImageBackground>
@@ -552,10 +556,8 @@ const styles = StyleSheet.create({
         borderRadius: Radius.md,
     },
 
-    allText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.screenTitle,
-        color: GreenTint.deep,
-        textTransform: "lowercase",
+    allIcon: {
+        width: 42,
+        height: 42,
     },
 });
