@@ -245,3 +245,49 @@ class MediaAsset(Base):
             name="ck_media_asset_type",
         ),
     )
+
+
+class UserSetting(Base):
+    __tablename__ = "user_setting"
+
+    # docs/database-schema.sql의 user_setting 전체 컬럼 중 날씨/대기질 기능
+    # 범위(default_location)만 구현한다. push_enabled 등 알림 관련 컬럼과
+    # home_background_item_id(Item 모델 없음)는 이번 스코프가 아니라 제외.
+    setting_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("app_user.user_id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    # "서울특별시 마포구" 형태 — region_data.Region.name과 정확히 일치해야 한다.
+    default_location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+class WeatherLog(Base):
+    __tablename__ = "weather_log"
+
+    weather_log_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("app_user.user_id", ondelete="CASCADE"), nullable=False
+    )
+    # 날씨는 유저/위치 단위지 식물 단위가 아니라 이번 기능에서는 항상 NULL —
+    # Plant.location_name(실내 위치 enum)과는 별개 개념이다.
+    plant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("plant.plant_id", ondelete="SET NULL"), nullable=True
+    )
+
+    location_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    temperature_c: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    humidity_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    pm10: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    pm25: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+
+    weather_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    air_quality_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    source_api: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    raw_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

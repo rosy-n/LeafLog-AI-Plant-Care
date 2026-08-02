@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -7,6 +7,7 @@ import {
     ScrollView,
     Dimensions,
     StatusBar,
+    ActivityIndicator,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -15,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Line, Polyline, Circle, Text as SvgText } from "react-native-svg";
 
 import PlantImage from "../components/PlantImage";
+import { getCurrentEnvironment, getEnvironmentHistory } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint, Gauge, GaugeTint, Glass } from "../../constants/colors";
@@ -23,97 +25,25 @@ import { screenContent } from "../../constants/layout";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// ─── Mock Data ─────────────────────────────────────────────────────────────
+const PERIOD_KEYS = ["일", "주", "월"];
+const PERIOD_DAYS = { "일": 1, "주": 7, "월": 30 };
 
-const DAILY_DATASETS = [
-    {
-        label: "2025.05.15",
-        temperature:  [18, 17, 16, 17, 20, 24, 27, 26, 23],
-        airHumidity:  [65, 68, 72, 70, 58, 48, 42, 45, 52],
-        soilHumidity: [55, 54, 54, 53, 52, 50, 48, 49, 50],
-        dust: 18,
-    },
-    {
-        label: "2025.05.14",
-        temperature:  [17, 16, 15, 16, 19, 23, 25, 24, 22],
-        airHumidity:  [62, 65, 70, 68, 60, 52, 46, 48, 54],
-        soilHumidity: [57, 56, 55, 54, 53, 51, 50, 51, 52],
-        dust: 22,
-    },
-    {
-        label: "2025.05.13",
-        temperature:  [19, 18, 17, 18, 22, 26, 28, 27, 24],
-        airHumidity:  [60, 62, 68, 66, 55, 46, 40, 43, 50],
-        soilHumidity: [53, 52, 52, 51, 50, 48, 47, 48, 49],
-        dust: 15,
-    },
-];
-
-const WEEKLY_DATASETS = [
-    {
-        label: "5.12 ~ 5.18",
-        temperature:  [22, 24, 19, 21, 25, 23, 20],
-        airHumidity:  [60, 55, 72, 65, 50, 58, 62],
-        soilHumidity: [52, 50, 48, 55, 52, 48, 46],
-        dust: 20,
-    },
-    {
-        label: "5.5 ~ 5.11",
-        temperature:  [20, 22, 23, 21, 18, 20, 22],
-        airHumidity:  [58, 60, 55, 62, 70, 65, 58],
-        soilHumidity: [50, 52, 54, 52, 58, 55, 53],
-        dust: 25,
-    },
-    {
-        label: "4.28 ~ 5.4",
-        temperature:  [18, 19, 21, 20, 22, 24, 23],
-        airHumidity:  [62, 65, 60, 58, 55, 52, 56],
-        soilHumidity: [48, 50, 52, 55, 53, 50, 48],
-        dust: 18,
-    },
-];
-
-function genMonthly(seed) {
-    return Array.from({ length: 30 }, (_, i) => ({
-        temperature:  Math.round(18 + Math.sin((i + seed) * 0.4) * 5 + 4),
-        airHumidity:  Math.round(55 + Math.cos((i + seed) * 0.3) * 12),
-        soilHumidity: Math.round(50 + Math.sin((i + seed) * 0.2) * 8),
-    }));
-}
-
-const MONTHLY_DATASETS = [
-    { label: "2025.05", data: genMonthly(0), dust: 18 },
-    { label: "2025.04", data: genMonthly(5), dust: 22 },
-    { label: "2025.03", data: genMonthly(10), dust: 15 },
-].map(({ label, data, dust }) => ({
-    label,
-    temperature:  data.map((d) => d.temperature),
-    airHumidity:  data.map((d) => d.airHumidity),
-    soilHumidity: data.map((d) => d.soilHumidity),
-    dust,
-}));
-
-// ─── Chart Config ────────────────────────────────────────────────────────────
-
-const CHART_CFG = {
-    daily: {
-        xLabels: ["0", "6", "12", "18", "24"],
-        xLabelIndices: [0, 2, 4, 6, 8],
-        dataCount: 9,
-    },
-    weekly: {
-        xLabels: ["월", "화", "수", "목", "금", "토", "일"],
-        xLabelIndices: [0, 1, 2, 3, 4, 5, 6],
-        dataCount: 7,
-    },
-    monthly: {
-        xLabels: ["1", "6", "15", "22", "30"],
-        xLabelIndices: [0, 5, 14, 21, 29],
-        dataCount: 30,
-    },
+// 날씨/대기질 상태 → 총평 카드에 쓸 이모지·문구 (환경 오케스트레이션의 분류 문자열과 정확히 일치해야 함)
+const WEATHER_COMMENTS = {
+    "맑음": { emoji: "☀️", text: "맑아요", color: Gauge.gold, bg: GaugeTint.goldFaint, border: GaugeTint.goldSoft },
+    "흐림": { emoji: "☁️", text: "흐려요", color: Gauge.coolText, bg: GaugeTint.coolFaint, border: GaugeTint.coolSoft },
+    "비": { emoji: "🌧️", text: "비가 와요", color: Gauge.coolDeep, bg: GaugeTint.coolFaint, border: GaugeTint.coolSoft },
+    "눈": { emoji: "❄️", text: "눈이 와요", color: Gauge.coolDeep, bg: GaugeTint.coolFaint, border: GaugeTint.coolSoft },
 };
 
-// ─── SVG Line Chart ───────────────────────────────────────────────────────────
+const AIR_QUALITY_COMMENTS = {
+    "좋음": { emoji: "😄", text: "공기 좋아요", color: GreenTint.deep, bg: GreenTint.faint, border: GreenTint.soft },
+    "보통": { emoji: "🙂", text: "공기 보통이에요", color: Gauge.gold, bg: GaugeTint.goldFaint, border: GaugeTint.goldSoft },
+    "나쁨": { emoji: "😷", text: "공기가 나빠요", color: Gauge.warmDeep, bg: GaugeTint.hotFaint, border: GaugeTint.hotSoft },
+    "매우나쁨": { emoji: "😫", text: "공기가 매우 나빠요", color: Gauge.hot, bg: GaugeTint.hotFaint, border: GaugeTint.hotSoft },
+};
+
+// ─── Chart ──────────────────────────────────────────────────────────────────
 
 const CHART_H = 210;
 const PAD_L = 42;
@@ -125,19 +55,37 @@ const PLOT_H = CHART_H - PAD_T - PAD_B;
 const normTemp = (v) => PAD_T + PLOT_H * (1 - v / 40);
 const normHum  = (v) => PAD_T + PLOT_H * (1 - v / 100);
 
-function LineChart({ tempData, airData, soilData, periodKey }) {
+// n개 포인트 중 라벨을 표시할 인덱스를 최대 maxLabels개, 균등 간격으로 고른다 —
+// 실데이터는 daily/weekly/monthly마다 개수가 고정돼 있지 않아서(스냅샷 저장 주기에 따라
+// 달라짐) 미리 정해둔 그리드 대신 매번 계산한다.
+function pickLabelIndices(n, maxLabels = 5) {
+    if (n <= 1) return n === 1 ? [0] : [];
+    const count = Math.min(maxLabels, n);
+    if (count <= 1) return [0];
+    return Array.from(new Set(
+        Array.from({ length: count }, (_, i) => Math.round((i * (n - 1)) / (count - 1)))
+    ));
+}
+
+function formatAxisLabel(isoString, periodKey) {
+    const d = new Date(isoString);
+    if (Number.isNaN(d.getTime())) return "";
+    if (periodKey === "daily") return `${String(d.getHours()).padStart(2, "0")}시`;
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function LineChart({ tempData, humidityData, timestamps, periodKey }) {
     const chartWidth = SCREEN_WIDTH - 40;
     const plotWidth = chartWidth - PAD_L - PAD_R;
-    const cfg = CHART_CFG[periodKey];
-    const n = cfg.dataCount;
+    const n = tempData.length;
 
-    const xOf = (i) => PAD_L + (i / (n - 1)) * plotWidth;
-
+    const xOf = (i) => (n <= 1 ? PAD_L + plotWidth / 2 : PAD_L + (i / (n - 1)) * plotWidth);
     const pts = (data, normFn) =>
         data.map((v, i) => `${xOf(i).toFixed(1)},${normFn(v).toFixed(1)}`).join(" ");
 
     const gridRows = [0, 25, 50, 75, 100];
     const tempYLabels = [40, 30, 20, 10, 0];
+    const labelIdx = pickLabelIndices(n);
 
     return (
         <Svg width={chartWidth} height={CHART_H}>
@@ -158,81 +106,34 @@ function LineChart({ tempData, airData, soilData, periodKey }) {
 
             {/* Left y-axis: °C */}
             {tempYLabels.map((val, i) => (
-                <SvgText
-                    key={i}
-                    x={PAD_L - 5}
-                    y={normTemp(val) + 4}
-                    textAnchor="end"
-                    fontSize={9}
-                    fill={Gauge.warmDeep}
-                >
+                <SvgText key={i} x={PAD_L - 5} y={normTemp(val) + 4} textAnchor="end" fontSize={9} fill={Gauge.warmDeep}>
                     {val}
                 </SvgText>
             ))}
 
             {/* Right y-axis: % */}
             {gridRows.map((pct, i) => (
-                <SvgText
-                    key={i}
-                    x={chartWidth - PAD_R + 5}
-                    y={normHum(pct) + 4}
-                    textAnchor="start"
-                    fontSize={9}
-                    fill={Gauge.coolDeep}
-                >
+                <SvgText key={i} x={chartWidth - PAD_R + 5} y={normHum(pct) + 4} textAnchor="start" fontSize={9} fill={Gauge.coolDeep}>
                     {pct}
                 </SvgText>
             ))}
 
             {/* Axis line */}
-            <Line
-                x1={PAD_L} y1={PAD_T + PLOT_H}
-                x2={chartWidth - PAD_R} y2={PAD_T + PLOT_H}
-                stroke={GreenTint.line}
-                strokeWidth={1}
-            />
+            <Line x1={PAD_L} y1={PAD_T + PLOT_H} x2={chartWidth - PAD_R} y2={PAD_T + PLOT_H} stroke={GreenTint.line} strokeWidth={1} />
 
             {/* Lines */}
-            <Polyline
-                points={pts(airData, normHum)}
-                fill="none" stroke={Gauge.cool}
-                strokeWidth={2}
-                strokeLinejoin="round" strokeLinecap="round"
-            />
-            <Polyline
-                points={pts(soilData, normHum)}
-                fill="none" stroke={GreenTint.medium}
-                strokeWidth={2}
-                strokeLinejoin="round" strokeLinecap="round"
-            />
-            <Polyline
-                points={pts(tempData, normTemp)}
-                fill="none" stroke={Gauge.warm}
-                strokeWidth={2.5}
-                strokeLinejoin="round" strokeLinecap="round"
-            />
+            <Polyline points={pts(humidityData, normHum)} fill="none" stroke={Gauge.cool} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+            <Polyline points={pts(tempData, normTemp)} fill="none" stroke={Gauge.warm} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
 
-            {/* Dots at labeled positions */}
-            {cfg.xLabelIndices.map((di) => (
+            {/* Dots + x labels at labeled positions */}
+            {labelIdx.map((di) => (
                 <React.Fragment key={di}>
                     <Circle cx={xOf(di)} cy={normTemp(tempData[di])} r={3.5} fill={Gauge.warm} />
-                    <Circle cx={xOf(di)} cy={normHum(airData[di])}  r={3}   fill={Gauge.cool} />
-                    <Circle cx={xOf(di)} cy={normHum(soilData[di])} r={3}   fill={GreenTint.medium} />
+                    <Circle cx={xOf(di)} cy={normHum(humidityData[di])} r={3} fill={Gauge.cool} />
+                    <SvgText x={xOf(di)} y={CHART_H - 4} textAnchor="middle" fontSize={10} fill={GreenTint.deep}>
+                        {formatAxisLabel(timestamps[di], periodKey)}
+                    </SvgText>
                 </React.Fragment>
-            ))}
-
-            {/* X-axis labels */}
-            {cfg.xLabelIndices.map((di, li) => (
-                <SvgText
-                    key={li}
-                    x={xOf(di)}
-                    y={CHART_H - 4}
-                    textAnchor="middle"
-                    fontSize={10}
-                    fill={GreenTint.deep}
-                >
-                    {cfg.xLabels[li]}
-                </SvgText>
             ))}
         </Svg>
     );
@@ -240,65 +141,81 @@ function LineChart({ tempData, airData, soilData, periodKey }) {
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
-function StatCard({ icon, label, value, rating }) {
+function StatCard({ icon, label, value }) {
     return (
         <View style={styles.statCard}>
             <View style={styles.statIconWrap}>{icon}</View>
             <Text style={styles.statLabel}>{label}</Text>
             <Text style={styles.statValue}>{value}</Text>
-            <View style={styles.ratingBadge}>
-                <Ionicons name="checkmark-circle" size={12} color={GreenTint.deep} />
-                <Text style={styles.ratingText}>{rating}</Text>
-            </View>
         </View>
     );
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function avg(arr) {
-    return (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1);
+function avg(values) {
+    if (values.length === 0) return null;
+    return (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
 }
 
-const PERIOD_KEYS = ["일", "주", "월"];
-const PERIOD_MAP  = { "일": "daily", "주": "weekly", "월": "monthly" };
-
-const CONDITIONS = [
-    { emoji: "🥰", text: "따뜻해요", color: Gauge.hot, bg: GaugeTint.hotFaint,  border: GaugeTint.hotSoft  },
-    { emoji: "😊", text: "촉촉해요", color: Gauge.coolText, bg: GaugeTint.coolFaint, border: GaugeTint.coolSoft },
-    { emoji: "😄", text: "쾌적해요", color: Gauge.gold, bg: GaugeTint.goldFaint, border: GaugeTint.goldSoft },
-];
+const PERIOD_MAP = { "일": "daily", "주": "weekly", "월": "monthly" };
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SensorDataScreen({ navigation, route }) {
     const plant = route?.params?.plant;
-    const [period, setPeriod]     = useState("일");
-    const [periodIdx, setPeriodIdx] = useState(0);
+    const [period, setPeriod] = useState("일");
+    const [history, setHistory] = useState(null);
+    const [current, setCurrent] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    const datasets =
-        period === "일" ? DAILY_DATASETS :
-        period === "주" ? WEEKLY_DATASETS :
-        MONTHLY_DATASETS;
+    useEffect(() => {
+        let cancelled = false;
+        setIsLoading(true);
+        setError(null);
 
-    const maxIdx = datasets.length - 1;
-    const ds = datasets[periodIdx];
+        Promise.all([
+            getEnvironmentHistory(PERIOD_DAYS[period]),
+            // 오늘의 총평은 현재 스냅샷 기준 — 위치 미설정(400) 등으로 실패해도
+            // 히스토리 차트 자체는 계속 보여준다.
+            getCurrentEnvironment().catch(() => null),
+        ])
+            .then(([historyResult, currentResult]) => {
+                if (cancelled) return;
+                setHistory(historyResult);
+                setCurrent(currentResult);
+            })
+            .catch((err) => {
+                if (cancelled) return;
+                setError(err instanceof Error ? err.message : "데이터를 불러오지 못했어요.");
+            })
+            .finally(() => {
+                if (!cancelled) setIsLoading(false);
+            });
 
-    const summaryTitle =
-        period === "일" ? "오늘의 총평" :
-        period === "주" ? "이번 주 총평" : "이번 달 총평";
+        return () => {
+            cancelled = true;
+        };
+    }, [period]);
 
-    const avgLabel =
-        period === "일" ? "오늘 평균" :
-        period === "주" ? "이번 주 평균" : "이번 달 평균";
+    const weatherPoints = history?.weather_points ?? [];
+    const airQualityPoints = history?.air_quality_points ?? [];
 
-    const avgTemp = avg(ds.temperature);
-    const avgAir  = avg(ds.airHumidity);
-    const avgSoil = avg(ds.soilHumidity);
+    const tempData = weatherPoints.map((p) => p.temperature_c ?? 0);
+    const humidityData = weatherPoints.map((p) => p.humidity_pct ?? 0);
+    const timestamps = weatherPoints.map((p) => p.observed_at);
 
-    const handlePeriodChange = (p) => { setPeriod(p); setPeriodIdx(0); };
-    const handlePrev = () => { if (periodIdx < maxIdx) setPeriodIdx(periodIdx + 1); };
-    const handleNext = () => { if (periodIdx > 0)      setPeriodIdx(periodIdx - 1); };
+    const avgTemp = avg(tempData);
+    const avgHumidity = avg(humidityData);
+    const avgPm10 = avg(airQualityPoints.map((p) => p.pm10).filter((v) => v != null));
+    const avgPm25 = avg(airQualityPoints.map((p) => p.pm25).filter((v) => v != null));
+
+    const summaryTitle = period === "일" ? "오늘의 총평" : period === "주" ? "이번 주 총평" : "이번 달 총평";
+    const avgLabel = period === "일" ? "오늘 평균" : period === "주" ? "이번 주 평균" : "이번 달 평균";
+
+    const weatherComment = current ? WEATHER_COMMENTS[current.weather_status] : null;
+    const airQualityComment = current ? AIR_QUALITY_COMMENTS[current.air_quality_status] : null;
 
     return (
         <View style={styles.root}>
@@ -318,7 +235,7 @@ export default function SensorDataScreen({ navigation, route }) {
                             <TouchableOpacity
                                 key={p}
                                 style={[styles.periodTab, period === p && styles.periodTabActive]}
-                                onPress={() => handlePeriodChange(p)}
+                                onPress={() => setPeriod(p)}
                                 activeOpacity={0.75}
                             >
                                 <Text style={[styles.periodTabText, period === p && styles.periodTabTextActive]}>
@@ -328,34 +245,9 @@ export default function SensorDataScreen({ navigation, route }) {
                         ))}
                     </View>
 
-                    {/* Period Navigator */}
-                    <View style={styles.periodNav}>
-                        <TouchableOpacity
-                            onPress={handlePrev}
-                            style={styles.navArrow}
-                            activeOpacity={0.7}
-                            disabled={periodIdx >= maxIdx}
-                        >
-                            <Ionicons
-                                name="chevron-back"
-                                size={22}
-                                color={periodIdx >= maxIdx ? Colors.textFaint : Colors.primary}
-                            />
-                        </TouchableOpacity>
-                        <Text style={styles.periodLabel}>{ds.label}</Text>
-                        <TouchableOpacity
-                            onPress={handleNext}
-                            style={styles.navArrow}
-                            activeOpacity={0.7}
-                            disabled={periodIdx <= 0}
-                        >
-                            <Ionicons
-                                name="chevron-forward"
-                                size={22}
-                                color={periodIdx <= 0 ? Colors.textFaint : Colors.primary}
-                            />
-                        </TouchableOpacity>
-                    </View>
+                    {current?.location_name && (
+                        <Text style={styles.locationLabel}>{current.location_name} 기준</Text>
+                    )}
 
                     {/* Chart Card */}
                     <View style={styles.card}>
@@ -365,34 +257,42 @@ export default function SensorDataScreen({ navigation, route }) {
                                 start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
                                 style={styles.cardGradient}
                             >
-                                {/* Y-axis unit labels */}
-                                <View style={styles.yAxisLabelRow}>
-                                    <Text style={[styles.yAxisUnit, { color: Gauge.warmDeep }]}>°C</Text>
-                                    <Text style={[styles.yAxisUnit, { color: Gauge.coolDeep }]}>%</Text>
-                                </View>
+                                {isLoading ? (
+                                    <ActivityIndicator color={Colors.primary} style={styles.chartLoading} />
+                                ) : error ? (
+                                    <Text style={styles.emptyText}>{error}</Text>
+                                ) : tempData.length === 0 ? (
+                                    <Text style={styles.emptyText}>
+                                        아직 쌓인 기록이 없어요.{"\n"}앱을 계속 사용하면 데이터가 채워져요!
+                                    </Text>
+                                ) : (
+                                    <>
+                                        {/* Y-axis unit labels */}
+                                        <View style={styles.yAxisLabelRow}>
+                                            <Text style={[styles.yAxisUnit, { color: Gauge.warmDeep }]}>°C</Text>
+                                            <Text style={[styles.yAxisUnit, { color: Gauge.coolDeep }]}>%</Text>
+                                        </View>
 
-                                <LineChart
-                                    tempData={ds.temperature}
-                                    airData={ds.airHumidity}
-                                    soilData={ds.soilHumidity}
-                                    periodKey={PERIOD_MAP[period]}
-                                />
+                                        <LineChart
+                                            tempData={tempData}
+                                            humidityData={humidityData}
+                                            timestamps={timestamps}
+                                            periodKey={PERIOD_MAP[period]}
+                                        />
 
-                                {/* Legend */}
-                                <View style={styles.legend}>
-                                    <View style={styles.legendItem}>
-                                        <View style={[styles.legendDot, { backgroundColor: Gauge.warm }]} />
-                                        <Text style={styles.legendText}>온도(°C)</Text>
-                                    </View>
-                                    <View style={styles.legendItem}>
-                                        <View style={[styles.legendDot, { backgroundColor: Gauge.cool }]} />
-                                        <Text style={styles.legendText}>공기습도(%)</Text>
-                                    </View>
-                                    <View style={styles.legendItem}>
-                                        <View style={[styles.legendDot, { backgroundColor: GreenTint.medium }]} />
-                                        <Text style={styles.legendText}>토양습도(%)</Text>
-                                    </View>
-                                </View>
+                                        {/* Legend */}
+                                        <View style={styles.legend}>
+                                            <View style={styles.legendItem}>
+                                                <View style={[styles.legendDot, { backgroundColor: Gauge.warm }]} />
+                                                <Text style={styles.legendText}>기온(°C)</Text>
+                                            </View>
+                                            <View style={styles.legendItem}>
+                                                <View style={[styles.legendDot, { backgroundColor: Gauge.cool }]} />
+                                                <Text style={styles.legendText}>습도(%)</Text>
+                                            </View>
+                                        </View>
+                                    </>
+                                )}
                             </LinearGradient>
                         </BlurView>
                     </View>
@@ -409,22 +309,21 @@ export default function SensorDataScreen({ navigation, route }) {
                                     <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={48} height={48} />
                                     <Text style={styles.cardTitle}>{summaryTitle}</Text>
                                 </View>
-                                <View style={styles.conditionRow}>
-                                    {CONDITIONS.map((c, i) => (
-                                        <View
-                                            key={i}
-                                            style={[
-                                                styles.conditionBox,
-                                                { backgroundColor: c.bg, borderColor: c.border },
-                                            ]}
-                                        >
-                                            <Text style={styles.conditionBoxEmoji}>{c.emoji}</Text>
-                                            <Text style={[styles.conditionBoxText, { color: c.color }]}>
-                                                {c.text}
-                                            </Text>
-                                        </View>
-                                    ))}
-                                </View>
+                                {weatherComment || airQualityComment ? (
+                                    <View style={styles.conditionRow}>
+                                        {[weatherComment, airQualityComment].filter(Boolean).map((c, i) => (
+                                            <View
+                                                key={i}
+                                                style={[styles.conditionBox, { backgroundColor: c.bg, borderColor: c.border }]}
+                                            >
+                                                <Text style={styles.conditionBoxEmoji}>{c.emoji}</Text>
+                                                <Text style={[styles.conditionBoxText, { color: c.color }]}>{c.text}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                ) : (
+                                    <Text style={styles.emptyText}>위치를 설정하면 오늘의 날씨를 볼 수 있어요.</Text>
+                                )}
                             </LinearGradient>
                         </BlurView>
                     </View>
@@ -443,28 +342,24 @@ export default function SensorDataScreen({ navigation, route }) {
                                         <StatCard
                                             icon={<Ionicons name="thermometer" size={26} color={Gauge.warm} />}
                                             label="평균 기온"
-                                            value={`${avgTemp}°C`}
-                                            rating="적정"
+                                            value={avgTemp !== null ? `${avgTemp}°C` : "-"}
                                         />
                                         <StatCard
                                             icon={<Ionicons name="water" size={26} color={Gauge.cool} />}
-                                            label="공기 습도"
-                                            value={`${avgAir}%`}
-                                            rating="적정"
+                                            label="평균 습도"
+                                            value={avgHumidity !== null ? `${avgHumidity}%` : "-"}
                                         />
                                     </View>
                                     <View style={styles.statsRow}>
                                         <StatCard
-                                            icon={<MaterialCommunityIcons name="water-percent" size={26} color={GreenTint.medium} />}
-                                            label="토양 습도"
-                                            value={`${avgSoil}%`}
-                                            rating="적정"
+                                            icon={<Ionicons name="cloud-outline" size={26} color={GreenTint.medium} />}
+                                            label="미세먼지(PM10)"
+                                            value={avgPm10 !== null ? `${avgPm10} μg/m³` : "-"}
                                         />
                                         <StatCard
-                                            icon={<Ionicons name="cloud-outline" size={26} color={GreenTint.medium} />}
-                                            label="미세먼지"
-                                            value={`${ds.dust} μg/m³`}
-                                            rating="적정"
+                                            icon={<MaterialCommunityIcons name="weather-hazy" size={26} color={GreenTint.medium} />}
+                                            label="초미세먼지(PM2.5)"
+                                            value={avgPm25 !== null ? `${avgPm25} μg/m³` : "-"}
                                         />
                                     </View>
                                 </View>
@@ -488,8 +383,6 @@ const styles = StyleSheet.create({
     safe: {
         flex: 1,
     },
-
-    // Header
 
     scrollContent: {
         ...screenContent,
@@ -527,24 +420,10 @@ const styles = StyleSheet.create({
         color: Colors.primary,
     },
 
-    // Period Navigator
-    periodNav: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: Spacing.md,
-    },
-    navArrow: {
-        width: 36,
-        height: 36,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    periodLabel: {
+    locationLabel: {
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
-        color: Colors.primary,
-        minWidth: 120,
+        fontSize: FontSizes.small,
+        color: GreenTint.strong,
         textAlign: "center",
     },
 
@@ -574,6 +453,17 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: Colors.primary,
+    },
+
+    chartLoading: {
+        paddingVertical: Spacing.huge,
+    },
+    emptyText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.strong,
+        textAlign: "center",
+        paddingVertical: Spacing.xl,
     },
 
     // Y-axis unit row
@@ -672,22 +562,5 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
         color: Colors.primary,
-    },
-    ratingBadge: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: Spacing.xs,
-        marginTop: Spacing.xs,
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: Spacing.xs,
-        backgroundColor: GreenTint.faint,
-        borderRadius: Radius.pill,
-        borderWidth: 1,
-        borderColor: GreenTint.line,
-    },
-    ratingText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.small,
-        color: GreenTint.deep,
     },
 });

@@ -1,3 +1,5 @@
+import Constants from "expo-constants";
+
 import type { NewPlantPayload } from "../types/plant";
 
 export type AuthResponse = {
@@ -62,9 +64,20 @@ export type UploadableImage = {
   type?: string;
 };
 
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://localhost:8000";
+// EXPO_PUBLIC_API_BASE_URL이 명시돼 있으면 그 값을 우선 사용(터널 모드 등).
+// 없으면 Expo Go가 이미 연결된 Metro 번들러의 호스트 IP를 그대로 재사용해서
+// Wi-Fi가 바뀌어도 .env를 매번 고치지 않아도 되게 한다.
+function resolveApiBaseUrl(): string {
+  const explicit = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
+  if (explicit) return explicit;
+
+  const host = Constants.expoConfig?.hostUri?.split(":")[0];
+  if (host) return `http://${host}:8000`;
+
+  return "http://localhost:8000";
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 async function request<T>(
   path: string,
@@ -323,4 +336,63 @@ export function personaChat(
     method: "POST",
     body: JSON.stringify({ message, history }),
   });
+}
+
+export type UserSettingResponse = {
+  // region_data.Region.name과 정확히 일치하는 "서울특별시 마포구" 형태, 미설정이면 null
+  default_location: string | null;
+};
+
+// 현재 위치 설정 조회 — 미설정이면 default_location: null (400이 아님)
+export function getUserSettings() {
+  return request<UserSettingResponse>("/api/settings");
+}
+
+// GPS 좌표로 위치 설정/변경 — 서버가 가장 가까운 시/군/구를 찾아 저장한다
+export function updateUserLocation(lat: number, lng: number) {
+  return request<UserSettingResponse>("/api/settings", {
+    method: "PATCH",
+    body: JSON.stringify({ lat, lng }),
+  });
+}
+
+export type CurrentEnvironmentResponse = {
+  location_name: string;
+  weather_status: string;
+  air_quality_status: string;
+  temperature_c: number;
+  humidity_pct: number;
+  pm10_value: number | null;
+  pm25_value: number | null;
+  khai_value: number | null;
+  observed_at: string;
+};
+
+// 현재 날씨/대기질 — 위치 미설정이면 서버가 400을 반환한다 (위치 설정 화면으로 유도)
+export function getCurrentEnvironment() {
+  return request<CurrentEnvironmentResponse>("/api/environment/current");
+}
+
+export type WeatherHistoryPoint = {
+  observed_at: string;
+  temperature_c: number | null;
+  humidity_pct: number | null;
+  weather_status: string | null;
+};
+
+export type AirQualityHistoryPoint = {
+  observed_at: string;
+  pm10: number | null;
+  pm25: number | null;
+  air_quality_status: string | null;
+};
+
+export type EnvironmentHistoryResponse = {
+  weather_points: WeatherHistoryPoint[];
+  air_quality_points: AirQualityHistoryPoint[];
+};
+
+// 최근 N일 날씨/대기질 기록 (데이터 화면 그래프용)
+export function getEnvironmentHistory(days = 7) {
+  return request<EnvironmentHistoryResponse>(`/api/environment/history?days=${days}`);
 }

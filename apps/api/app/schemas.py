@@ -200,3 +200,46 @@ class PlantListItem(BaseModel):
     character_image_url: str | None = None
     persona: str | None = None
     created_at: str
+
+
+class UserSettingRead(BaseModel):
+    # default_location은 region_data.Region.name과 정확히 일치("서울특별시 마포구" 형태)
+    default_location: str | None = None
+
+
+class UserSettingUpdate(BaseModel):
+    # 위치는 GPS 좌표로만 받는다 — 서버가 region_data에서 가장 가까운 지역을
+    # 찾아 default_location에 저장한다(직접 지역명을 받는 수동 검색 UI는 없음).
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+
+
+class CurrentEnvironmentResponse(BaseModel):
+    location_name: str
+    weather_status: str
+    air_quality_status: str
+    temperature_c: float
+    humidity_pct: float
+    pm10_value: float | None = None
+    pm25_value: float | None = None
+    khai_value: float | None = None
+    observed_at: str
+
+
+class WeatherHistoryPoint(BaseModel):
+    observed_at: str
+    temperature_c: float | None = None
+    humidity_pct: float | None = None
+    weather_status: str | None = None
+
+
+class AirQualityHistoryPoint(BaseModel):
+    observed_at: str
+    pm10: float | None = None
+    pm25: float | None = None
+    air_quality_status: str | None = None
+
+
+class EnvironmentHistoryResponse(BaseModel):
+    weather_points: list[WeatherHistoryPoint]
+    air_quality_points: list[AirQualityHistoryPoint]
