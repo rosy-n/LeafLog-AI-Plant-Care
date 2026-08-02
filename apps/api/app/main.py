@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import persona_chat
+from . import air_quality, environment, persona_chat, region_data
 from .config import settings
 from .database import Base, engine, get_db
 from .image_preprocessing import (
@@ -19,14 +19,17 @@ from .image_preprocessing import (
     preprocess_plant_photo,
     remove_background_for_sprite,
 )
-from .models import AppUser, CareRecord, CareSchedule, MediaAsset, Plant, PlantSpecies
+from .models import AppUser, CareRecord, CareSchedule, MediaAsset, Plant, PlantSpecies, UserSetting
 from .schemas import (
     AvailabilityResponse,
+    AirQualityHistoryPoint,
     AuthResponse,
     BackgroundRemovalResponse,
     CareRecordCreate,
     CareRecordItem,
     CareSummary,
+    CurrentEnvironmentResponse,
+    EnvironmentHistoryResponse,
     LoginRequest,
     PersonaChatRequest,
     PersonaChatResponse,
@@ -39,6 +42,9 @@ from .schemas import (
     PlantRead,
     SignupRequest,
     UserRead,
+    UserSettingRead,
+    UserSettingUpdate,
+    WeatherHistoryPoint,
 )
 from .security import create_access_token, decode_access_token, hash_password, verify_password
 from .storage import presigned_get_url
@@ -144,6 +150,31 @@ def _persona_watering_schedule(plant_id: int, db: Session) -> persona_chat.Water
     return persona_chat.WateringSchedule(
         interval_days=schedule.interval_days,
         next_due_date=schedule.next_due_date,
+    )
+
+
+def _persona_weather_air_quality(
+    current_user: AppUser, db: Session
+) -> persona_chat.WeatherAirQuality | None:
+    # 외부 API 실패/네트워크 예외는 반드시 잡아서 None을 반환한다 — persona-chat이
+    # 날씨 API 장애 때문에 죽으면 안 된다. 프롬프트는 이미 None을 "등록되지 않음"으로
+    # 우아하게 처리한다.
+    setting = db.scalar(select(UserSetting).where(UserSetting.user_id == current_user.user_id))
+    if setting is None or setting.default_location is None:
+        return None
+
+    region = region_data.find_region(setting.default_location)
+    if region is None:
+        return None
+
+    try:
+        current = environment.get_current_environment(region)
+    except RuntimeError:
+        return None
+
+    return persona_chat.WeatherAirQuality(
+        weather_status=current.weather_status,
+        air_quality_status=current.air_quality_status,
     )
 
 
@@ -626,13 +657,13 @@ def persona_chat_reply(
 
     plant_context = _persona_plant_context(plant, current_user, db)
     watering_schedule = _persona_watering_schedule(plant_id, db)
+    weather_air_quality = _persona_weather_air_quality(current_user, db)
 
     try:
         reply = persona_chat.chat_with_ollama(
             persona_file_name=persona_file_name,
             watering_schedule=watering_schedule,
-            # 날씨/대기질 API는 아직 연동 전 — 등록되지 않음으로 처리된다.
-            weather_air_quality=None,
+            weather_air_quality=weather_air_quality,
             conversation_history=[
                 {"role": message.role, "content": message.content} for message in payload.history
             ],
@@ -649,3 +680,109 @@ def persona_chat_reply(
 @app.get("/auth/me", response_model=UserRead)
 def me(current_user: AppUser = Depends(get_current_user)) -> UserRead:
     return UserRead.model_validate(current_user)
+
+
+@app.get("/api/settings", response_model=UserSettingRead)
+def get_settings(
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserSettingRead:
+    setting = db.scalar(select(UserSetting).where(UserSetting.user_id == current_user.user_id))
+    return UserSettingRead(default_location=setting.default_location if setting else None)
+
+
+@app.patch("/api/settings", response_model=UserSettingRead)
+def update_settings(
+    payload: UserSettingUpdate,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserSettingRead:
+    # 위치는 GPS 좌표로만 받는다 — region_data에서 가장 가까운 지역을 찾아 저장한다.
+    region = region_data.nearest_region(payload.lat, payload.lng)
+
+    setting = db.scalar(select(UserSetting).where(UserSetting.user_id == current_user.user_id))
+    if setting is None:
+        setting = UserSetting(user_id=current_user.user_id, default_location=region.name)
+        db.add(setting)
+    else:
+        setting.default_location = region.name
+    db.commit()
+
+    return UserSettingRead(default_location=region.name)
+
+
+@app.get("/api/environment/current", response_model=CurrentEnvironmentResponse)
+def get_current_environment_route(
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CurrentEnvironmentResponse:
+    setting = db.scalar(select(UserSetting).where(UserSetting.user_id == current_user.user_id))
+    if setting is None or setting.default_location is None:
+        # 모바일은 이 400을 보고 위치 설정 화면으로 유도한다.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="위치가 설정되지 않았어요.")
+
+    region = region_data.find_region(setting.default_location)
+    if region is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="저장된 위치를 찾을 수 없어요.")
+
+    # record_snapshot이 첫 row를 넣기 전에 먼저 확인해야 "첫 조회"를 정확히 판단할 수 있다.
+    is_first_visit = not environment.has_any_snapshot(db, current_user.user_id)
+
+    try:
+        current = environment.get_current_environment(region)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+    environment.record_snapshot(db, current_user.user_id, region.name, current)
+
+    if is_first_visit:
+        try:
+            station_name = air_quality.nearest_station(region.lat, region.lng)
+            environment.backfill_air_quality_history(db, current_user.user_id, region.name, station_name)
+        except RuntimeError:
+            pass  # 최초 백필 실패는 이번 응답을 막을 이유가 아니다
+
+    return CurrentEnvironmentResponse(
+        location_name=region.name,
+        weather_status=current.weather_status,
+        air_quality_status=current.air_quality_status,
+        temperature_c=current.temperature_c,
+        humidity_pct=current.humidity_pct,
+        pm10_value=current.pm10_value,
+        pm25_value=current.pm25_value,
+        khai_value=current.khai_value,
+        observed_at=current.observed_at.isoformat(),
+    )
+
+
+@app.get("/api/environment/history", response_model=EnvironmentHistoryResponse)
+def get_environment_history(
+    days: int = Query(default=7, ge=1, le=30),
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> EnvironmentHistoryResponse:
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    rows = environment.query_history(db, current_user.user_id, since)
+
+    weather_points = [
+        WeatherHistoryPoint(
+            observed_at=row.observed_at.isoformat(),
+            temperature_c=float(row.temperature_c) if row.temperature_c is not None else None,
+            humidity_pct=float(row.humidity_pct) if row.humidity_pct is not None else None,
+            weather_status=row.weather_status,
+        )
+        for row in rows
+        if row.temperature_c is not None
+    ]
+    air_quality_points = [
+        AirQualityHistoryPoint(
+            observed_at=row.observed_at.isoformat(),
+            pm10=float(row.pm10) if row.pm10 is not None else None,
+            pm25=float(row.pm25) if row.pm25 is not None else None,
+            air_quality_status=row.air_quality_status,
+        )
+        for row in rows
+        if row.pm10 is not None or row.pm25 is not None or row.air_quality_status is not None
+    ]
+
+    return EnvironmentHistoryResponse(weather_points=weather_points, air_quality_points=air_quality_points)

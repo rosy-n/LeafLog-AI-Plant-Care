@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     ImageBackground,
     View,
@@ -12,8 +12,23 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Accent, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Accent, Gauge, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
+import { getCurrentEnvironment } from "../api";
+
+const WEATHER_ICONS = {
+    "맑음": require("../../assets/icons/sunny_icon.png"),
+    "흐림": require("../../assets/icons/cloudy_icon.png"),
+    "비": require("../../assets/icons/rainy_icon.png"),
+    "눈": require("../../assets/icons/snow_icon.png"),
+};
+
+const AIR_QUALITY_COLORS = {
+    "좋음": GreenTint.medium,
+    "보통": GreenTint.medium,
+    "나쁨": Gauge.warm,
+    "매우나쁨": Gauge.hot,
+};
 
 const BG_IMAGES = {
     "home-bg": require("../../assets/images/home_clear_bg.png"),
@@ -29,10 +44,28 @@ const HOME_MENU_ITEMS = [
 export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnread = false }) {
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [environment, setEnvironment] = useState(null);
 
     const menuAnimations = useRef(
         HOME_MENU_ITEMS.map(() => new Animated.Value(0))
     ).current;
+
+    useEffect(() => {
+        let cancelled = false;
+        // 위치가 아직 설정되지 않았으면 서버가 400을 준다 — 이 경우 기본 아이콘을 그대로 둔다
+        // (위치 설정은 회원가입/설정 화면에서 처리, 홈에서는 조용히 실패한다).
+        getCurrentEnvironment()
+            .then((result) => {
+                if (!cancelled) setEnvironment(result);
+            })
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    const weatherIconSource = WEATHER_ICONS[environment?.weather_status] ?? WEATHER_ICONS["흐림"];
+    const airQualityColor = AIR_QUALITY_COLORS[environment?.air_quality_status] ?? GreenTint.medium;
 
     const openMenu = () => {
         setMenuVisible(true);
@@ -78,18 +111,18 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                 resizeMode="cover"
                 style={styles.background}
             >
-                {/* 상단 왼쪽: 날씨, 미세먼지 */}
+                {/* 상단 왼쪽: 날씨, 미세먼지 — 탭하면 데이터 화면으로 이동 */}
                 <View style={styles.topLeftArea}>
-                    <GlassButton size={60}>
+                    <GlassButton size={60} onPress={() => navigation.navigate("SensorData")}>
                         <Image
-                            source={require("../../assets/icons/snow_icon.png")}
+                            source={weatherIconSource}
                             style={styles.weatherIcon}
                             resizeMode="contain"
                         />
                     </GlassButton>
 
-                    <GlassButton size={60}>
-                        <AirIcon />
+                    <GlassButton size={60} onPress={() => navigation.navigate("SensorData")}>
+                        <AirIcon color={airQualityColor} />
                     </GlassButton>
                 </View>
 
@@ -305,12 +338,12 @@ function GlassButton({ children, size = 62, onPress }) {
     );
 }
 
-function AirIcon() {
+function AirIcon({ color = GreenTint.medium }) {
     return (
-        <View style={styles.airCircle}>
-            <View style={styles.airEyeLeft} />
-            <View style={styles.airEyeRight} />
-            <View style={styles.airMouth} />
+        <View style={[styles.airCircle, { borderColor: color }]}>
+            <View style={[styles.airEyeLeft, { backgroundColor: color }]} />
+            <View style={[styles.airEyeRight, { backgroundColor: color }]} />
+            <View style={[styles.airMouth, { borderColor: color }]} />
         </View>
     );
 }

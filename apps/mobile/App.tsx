@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import * as Location from "expo-location";
 import { useFonts } from "expo-font";
 import { Fonts, FontSizes } from "./constants/fonts";
 import { Colors } from "./constants/colors";
@@ -22,9 +23,11 @@ import {
 } from "react-native";
 import {
   checkEmail,
+  getUserSettings,
   login,
   setAuthToken,
   signup,
+  updateUserLocation,
   type AuthResponse,
 } from "./src/api";
 import MainApp from "./App.js";
@@ -124,6 +127,34 @@ export default function App() {
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showSignupConfirm, setShowSignupConfirm] = useState(false);
   const [emailCheckStatus, setEmailCheckStatus] = useState<CheckStatus>("idle");
+  const [locationStatus, setLocationStatus] = useState<
+    "unknown" | "checking" | "needed" | "done"
+  >("unknown");
+
+  // 로그인/회원가입 직후 위치가 이미 설정돼 있는지 한 번 확인한다 — 신규
+  // 가입자뿐 아니라, 예전에 "나중에 설정할게요"를 눌러둔 기존 사용자도 다시
+  // 위치 설정 화면을 보게 된다.
+  useEffect(() => {
+    if (!auth) {
+      setLocationStatus("unknown");
+      return;
+    }
+    let cancelled = false;
+    setLocationStatus("checking");
+    getUserSettings()
+      .then((result) => {
+        if (cancelled) return;
+        setLocationStatus(result.default_location ? "done" : "needed");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // 조회 실패해도 로그인 자체를 막지 않는다 — 위치 설정 화면에서 다시 시도 가능
+        setLocationStatus("needed");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [auth]);
 
   const allRequiredAgreed = agreeTerms && agreePrivacy;
   const allAgreed = allRequiredAgreed && agreeMarketing;
@@ -332,6 +363,31 @@ export default function App() {
   }
 
   if (auth) {
+    if (locationStatus === "needed") {
+      return (
+        <SafeAreaView style={styles.root}>
+          <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+          <LocationSetupScreen
+            onDone={() => setLocationStatus("done")}
+            onSkip={() => setLocationStatus("done")}
+          />
+        </SafeAreaView>
+      );
+    }
+    if (locationStatus === "checking" || locationStatus === "unknown") {
+      return (
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: Colors.background,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      );
+    }
     return <MainApp user={auth.user} />;
   }
 
@@ -739,6 +795,66 @@ function NicknameScreen(props: {
             size="lg"
             style={styles.startButton}
           />
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function LocationSetupScreen({
+  onDone,
+  onSkip,
+}: {
+  onDone: () => void;
+  onSkip: () => void;
+}) {
+  const [isRequesting, setIsRequesting] = useState(false);
+  const [error, setError] = useState<string | undefined>();
+
+  async function handleUseCurrentLocation() {
+    setError(undefined);
+    setIsRequesting(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setError("위치 권한이 필요해요. 나중에 설정에서 다시 시도할 수 있어요.");
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      await updateUserLocation(position.coords.latitude, position.coords.longitude);
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "위치를 가져오지 못했어요. 다시 시도해주세요.");
+    } finally {
+      setIsRequesting(false);
+    }
+  }
+
+  return (
+    <View style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={styles.nicknameScroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.nickTitle}>어디에 살고 계신가요?</Text>
+        <Text style={styles.nickCopy}>
+          내 동네 날씨와 대기질을{"\n"}홈 화면에서 바로 확인할 수 있어요!
+        </Text>
+        <View style={styles.nickForm}>
+          <FormMessage message={error} pixel />
+          <PixelButton
+            label={isRequesting ? "위치 확인 중" : "내 위치로 설정하기"}
+            onPress={handleUseCurrentLocation}
+            disabled={isRequesting}
+            size="lg"
+            style={styles.startButton}
+          />
+          <Pressable style={styles.skipLink} onPress={onSkip} hitSlop={8} disabled={isRequesting}>
+            <Text style={[styles.forgotText, styles.pixelText]}>나중에 설정할게요</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </View>
@@ -1164,6 +1280,10 @@ const styles = StyleSheet.create({
   forgot: {
     alignSelf: "flex-end",
     marginTop: -1,
+  },
+  skipLink: {
+    alignSelf: "center",
+    marginTop: Spacing.xl,
   },
   forgotText: {
     color: Colors.primary,

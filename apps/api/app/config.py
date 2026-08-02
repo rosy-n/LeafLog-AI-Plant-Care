@@ -37,6 +37,10 @@ class Settings:
     # 버킷에 GetObject 가능한 자격증명이 있을 때만 true (실서비스/배포 환경).
     # false면 저장된 file_url을 그대로 반환 (예: 콘솔에서 만든 presigned URL로 로컬 테스트).
     s3_presign_enabled: bool = os.getenv("S3_PRESIGN", "false").strip().lower() in ("1", "true", "yes", "on")
+    # 공공데이터포털 — 기상청 단기예보 조회서비스 / 에어코리아 대기오염정보 조회서비스
+    # (디코딩된 서비스키를 그대로 넣는다 — requests가 쿼리스트링 인코딩을 알아서 처리)
+    kma_api_key: str = os.getenv("KMA_API_KEY", "")
+    airkorea_api_key: str = os.getenv("AIRKOREA_API_KEY", "")
 
 
 settings = Settings()
