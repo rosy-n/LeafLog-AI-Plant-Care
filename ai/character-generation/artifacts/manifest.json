@@ -12,6 +12,55 @@
       "source": "https://civitai.com/models/277680?modelVersionId=364043"
     },
     {
+      "filename": "plantpet_sprite_lora.safetensors",
+      "role": "lora_v1_epoch_6_final",
+      "size_bytes": 456488788,
+      "sha256": "3f9a9525a5f7534b9fd9a5f852628ab665566f3316695e48ac8565713264746e",
+      "external_backup": true,
+      "local_backup": true,
+      "source": "https://github.com/rosy-n/LeafLog-AI-Plant-Care/releases/tag/plantpet-lora-v1"
+    },
+    {
+      "filename": "plantpet_sprite_lora-000001.safetensors",
+      "role": "lora_v1_epoch_1",
+      "size_bytes": 456488788,
+      "sha256": "7573fee3fec9c86eee3d342baa6c0b4070ea2aa4a2dd020134cad23545592332",
+      "external_backup": false,
+      "local_backup": true
+    },
+    {
+      "filename": "plantpet_sprite_lora-000002.safetensors",
+      "role": "lora_v1_epoch_2",
+      "size_bytes": 456488788,
+      "sha256": "af559511fc0181a792e4929b77767da60ea007cbf57c81d2ad2601951b24c813",
+      "external_backup": false,
+      "local_backup": true
+    },
+    {
+      "filename": "plantpet_sprite_lora-000003.safetensors",
+      "role": "lora_v1_epoch_3",
+      "size_bytes": 456488788,
+      "sha256": "0bf5c8f4d022fe929a00bdefad9711ce5b36ee825199da62df4dc3bfcf248bf4",
+      "external_backup": false,
+      "local_backup": true
+    },
+    {
+      "filename": "plantpet_sprite_lora-000004.safetensors",
+      "role": "lora_v1_epoch_4",
+      "size_bytes": 456488788,
+      "sha256": "adfc051c803e34f42681b199f8abe6ef5287df1f6c7511dee1c3b7784b85a253",
+      "external_backup": false,
+      "local_backup": true
+    },
+    {
+      "filename": "plantpet_sprite_lora-000005.safetensors",
+      "role": "lora_v1_epoch_5",
+      "size_bytes": 456488788,
+      "sha256": "d4831477d2868e8a92607abbd2905d960735fb045683374bf36aff0591839e16",
+      "external_backup": false,
+      "local_backup": true
+    },
+    {
       "filename": "plantpet_sprite_lora_v2.safetensors",
       "role": "lora_epoch_6_final",
       "size_bytes": 456486332,
