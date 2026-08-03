@@ -1,4 +1,6 @@
-# LoRA 학습 재현
+# LoRA v2 학습 재현
+
+2026-07-08의 v1 학습은 [TRAINING_V1.md](TRAINING_V1.md)에 별도로 기록한다.
 
 ## 목표
 
