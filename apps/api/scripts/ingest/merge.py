@@ -257,8 +257,24 @@ class SpeciesIndex:
         self.created = 0
 
         self.existing: list[PlantSpecies] = list(db.scalars(select(PlantSpecies)).all())
+        # 1차 — 식별 키(scientific_name_norm) 기준 등록. 항상 이쪽이 우선이다.
         for species in self.existing:
             self._register(species)
+        # 2차 — 현재 scientific_name 에서 파생한 키도 추가 등록.
+        #
+        # scientific_name_norm 은 행이 처음 만들어질 때 정해지는 식별 키라,
+        # 이후 상위 소스가 scientific_name 을 교정해도 갱신되지 않는다.
+        # 그래서 협죽도처럼 학명이 'Nerium oleander L.' 로 교정됐는데도
+        # norm 은 'nerium indicum' 으로 남아 ASPCA 와 매칭되지 않는 종이 2,488개 있었다.
+        # (독성 강한 식물의 안전 정보가 빠지는 문제)
+        #
+        # 식별 키를 다시 쓰는 건 UNIQUE 충돌·기존 링크 파손 위험이 있어 하지 않고,
+        # 대신 한 종을 여러 이름 키로 찾을 수 있게만 만든다.
+        self.alias_keys = 0
+        for species in self.existing:
+            alt = normalize_scientific_name(species.scientific_name)
+            if alt and alt != species.scientific_name_norm:
+                self._register_alias(species, alt)
 
         self.by_id: dict[int, PlantSpecies] = {
             s.species_id: s for s in self.existing if s.species_id is not None
@@ -289,11 +305,17 @@ class SpeciesIndex:
 
     def _index_keys(self, species: PlantSpecies, norm: str) -> None:
         base = species_level_norm(norm)
-        if base:
+        if base and species not in self.by_base[base]:
             self.by_base[base].append(species)
         genus = norm.split()[0].split("'")[0] if norm.split() else ""
-        if genus:
+        if genus and species not in self.by_genus[genus]:
             self.by_genus[genus].append(species)
+
+    def _register_alias(self, species: PlantSpecies, alt: str) -> None:
+        """식별 키와 다른 이름 키를 추가로 등록. 식별 키가 이미 차지한 자리는 건드리지 않는다."""
+        self.by_norm.setdefault(alt, species)
+        self._index_keys(species, alt)
+        self.alias_keys += 1
 
     def _register(self, species: PlantSpecies) -> None:
         norm = species.scientific_name_norm
@@ -463,7 +485,10 @@ def main(argv: list[str] | None = None) -> None:
     try:
         log("기존 종/링크 인덱스 적재")
         index = SpeciesIndex(db)
-        log(f"  종 {len(index.by_norm)}(학명키) / 링크 {len(index.link_keys)} / 검토큐 {len(index.review_rows)}")
+        log(
+            f"  종 {len(index.by_norm)}(학명키, 이름 별칭 {index.alias_keys}건 포함)"
+            f" / 링크 {len(index.link_keys)} / 검토큐 {len(index.review_rows)}"
+        )
 
         filled = backfill_norms(db, index)
         log(f"기존 종 학명 정규화 backfill: {filled}건")
