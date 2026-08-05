@@ -157,6 +157,72 @@ export function signup(payload: {
   });
 }
 
+// ---------------------------------------------------------------------------
+// 종 마스터 (plant_species) — 등록 1단계 검색은 외부 API 대신 이 엔드포인트를 사용
+// ---------------------------------------------------------------------------
+
+export type SpeciesListItem = {
+  species_id: number;
+  common_name_ko: string;
+  common_name_en: string | null;
+  scientific_name: string | null;
+  family_name: string | null;
+  image_url: string | null;
+  difficulty: string;
+};
+
+export type SpeciesDetail = {
+  species_id: number;
+  common_name_ko: string;
+  common_name_en: string | null;
+  scientific_name: string | null;
+  family_name: string | null;
+  genus_name: string | null;
+  category: string | null;
+  description: string | null;
+  origin: string | null;
+  origin_country: string | null;
+  distribution: string | null;
+  difficulty: string;
+  light_level: string;
+  light_min_lux: number | null;
+  light_max_lux: number | null;
+  temp_min_c: number | null;
+  temp_max_c: number | null;
+  temp_min_winter_c: number | null;
+  humidity_min_pct: number | null;
+  humidity_max_pct: number | null;
+  watering_interval_days: number | null;
+  size_raw: string | null;
+  height_min_cm: number | null;
+  height_max_cm: number | null;
+  flowering_period: string | null;
+  fruiting_period: string | null;
+  is_toxic: boolean;
+  // null = 해당 동물 자료 없음
+  toxic_to_dogs: boolean | null;
+  toxic_to_cats: boolean | null;
+  toxic_to_horses: boolean | null;
+  toxicity_info: string | null;
+  bug_info: string | null;
+  care_tips: string | null;
+  image_url: string | null;
+  // 출처 표기용 — KFS_STD / RDA_INDOOR / ASPCA / NATURE_KNA
+  sources: string[];
+};
+
+// 국명·영문명·학명 부분검색 (토큰 자동 첨부)
+export function searchSpecies(keyword: string, limit = 20) {
+  return request<SpeciesListItem[]>(
+    `/api/species?q=${encodeURIComponent(keyword)}&limit=${limit}`,
+  );
+}
+
+// 종 상세 — 4개 소스를 병합해 둔 돌봄 정보
+export function getSpecies(speciesId: number) {
+  return request<SpeciesDetail>(`/api/species/${speciesId}`);
+}
+
 // 로그인 토큰 필요 (setAuthToken으로 저장된 값이 자동 첨부됨)
 export function createPlant(payload: NewPlantPayload) {
   return request<PlantResponse>("/api/plants", {
