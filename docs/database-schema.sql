@@ -65,6 +65,9 @@ CREATE TABLE plant_species (
     common_name_en          VARCHAR(100),
     -- 학명
     scientific_name         VARCHAR(150),
+    -- 학명 정규화 결과 — 저자명/변종표기 제거 + 소문자 (예: 'monstera deliciosa')
+    -- 외부 4개 소스를 같은 종으로 묶는 매칭 키
+    scientific_name_norm    VARCHAR(150),
     -- 과 familyKorNm
     family_name             VARCHAR(150),
     -- 속 genusKorNm
@@ -72,6 +75,10 @@ CREATE TABLE plant_species (
     category                VARCHAR(100),
     -- 자생지
     origin                 VARCHAR(255),
+    -- 원산지 (nature.go.kr)
+    origin_country          VARCHAR(255),
+    -- 분포 (nature.go.kr)
+    distribution            TEXT,
     -- 특징
     description             TEXT,
 
@@ -85,9 +92,11 @@ CREATE TABLE plant_species (
     light_min_lux           INTEGER,
     light_max_lux           INTEGER,
 
-        -- 온도
+        -- 생육 적정 온도
     temp_min_c              NUMERIC(5,2),
     temp_max_c              NUMERIC(5,2),
+    -- 겨울 최저온도 — 생육 적정 하한과 다른 값 (농진청 실내정원용 식물)
+    temp_min_winter_c       NUMERIC(5,2),
     -- 습도
     humidity_min_pct        NUMERIC(5,2),
     humidity_max_pct        NUMERIC(5,2),
@@ -97,11 +106,21 @@ CREATE TABLE plant_species (
 
     -- 꽃 피는 시기
         flowering_period VARCHAR(100),
+        -- 결실기 (산림청 표준식물종정보)
+        fruiting_period  VARCHAR(100),
         -- 꽃 색상
         flower_color_codes      TEXT[],
 
-        -- 독성 여부
+        -- 크기 — 원문 문자열("높이 2~3m") 보존 + 파싱값 병행
+        size_raw                VARCHAR(200),
+        height_min_cm           INTEGER,
+        height_max_cm           INTEGER,
+
+        -- 독성 여부 — 동물별 (ASPCA). NULL = 자료 없음, is_toxic 은 셋 중 하나라도 true 면 true
     is_toxic                BOOLEAN DEFAULT false,
+    toxic_to_dogs           BOOLEAN,
+    toxic_to_cats           BOOLEAN,
+    toxic_to_horses         BOOLEAN,
     toxicity_info           TEXT,
     -- 병충해 정보
     bugInfo               TEXT,
@@ -116,6 +135,20 @@ CREATE TABLE plant_species (
     created_at              TIMESTAMP DEFAULT now(),
     updated_at              TIMESTAMP DEFAULT now()
 );
+
+-- 소스 매칭 키 — 정규화 학명은 종당 하나여야 함 (NULL 은 사용자 등록 유래 행이라 중복 허용)
+CREATE UNIQUE INDEX uq_plant_species_sci_norm
+    ON plant_species (scientific_name_norm)
+    WHERE scientific_name_norm IS NOT NULL;
+
+-- 식물 등록 시 종 이름 부분검색용
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX idx_plant_species_name_ko_trgm
+    ON plant_species USING gin (common_name_ko gin_trgm_ops);
+CREATE INDEX idx_plant_species_name_en_trgm
+    ON plant_species USING gin (common_name_en gin_trgm_ops);
+CREATE INDEX idx_plant_species_sci_name_trgm
+    ON plant_species USING gin (scientific_name gin_trgm_ops);
 
 --=======================
 --2-1. 반려식물 프로필
@@ -188,6 +221,147 @@ CREATE TABLE media_asset (
     created_at      TIMESTAMP DEFAULT now(),
 
     UNIQUE (object_key)
+);
+
+
+-- =========================================================
+-- 2-3. 종 정보 외부 데이터 소스
+-- =========================================================
+-- 4개 소스를 적재 시점(배치)에 plant_species 한 행으로 병합한다.
+-- 앱/API 런타임은 plant_species 만 조회하고 아래 src_* 테이블은 읽지 않는다.
+--   KFS_STD     산림청 표준식물종정보 (파일데이터 CSV)     → 크기, 개화기, 결실기
+--   RDA_INDOOR  농촌진흥청 실내정원용 식물 (OpenAPI)       → 광원, 물주기, 겨울최저온도, 습도, 난이도
+--   ASPCA       ASPCA Toxic and Non-Toxic Plants (HTML)   → 개/고양이/말 독성
+--   NATURE_KNA  국가생물종지식정보시스템 (국립수목원 API)  → 국명/학명, 과·속, 자생지, 원산지, 분포
+--
+-- 필드 충돌 시 우선순위:
+--   분류·이름·자생지·원산지·분포 → NATURE_KNA > KFS_STD
+--   크기·개화기·결실기           → KFS_STD
+--   광원·물주기·온습도·난이도    → RDA_INDOOR
+--   독성                         → ASPCA > RDA_INDOOR
+
+CREATE TABLE data_source (
+    source_code   VARCHAR(30) PRIMARY KEY
+                  CHECK (source_code IN ('KFS_STD', 'RDA_INDOOR', 'ASPCA', 'NATURE_KNA')),
+    source_name   VARCHAR(200) NOT NULL,
+    source_url    TEXT,
+    license_note  TEXT,
+    -- 낮을수록 우선 (분류 정보 병합 시 tie-break)
+    priority      INTEGER NOT NULL DEFAULT 100,
+    created_at    TIMESTAMP DEFAULT now()
+);
+
+-- 적재 실행 이력
+CREATE TABLE ingest_run (
+    run_id        BIGSERIAL PRIMARY KEY,
+    source_code   VARCHAR(30) NOT NULL REFERENCES data_source(source_code),
+    started_at    TIMESTAMP DEFAULT now(),
+    finished_at   TIMESTAMP,
+    status        VARCHAR(20) DEFAULT 'RUNNING'
+                  CHECK (status IN ('RUNNING', 'SUCCESS', 'FAILED')),
+    row_count     INTEGER,
+    error_note    TEXT
+);
+
+-- 정본(plant_species) ↔ 소스 레코드 연결. 재적재 시 UPSERT 기준이 된다.
+-- 연결이 하나도 없는 plant_species 행 = 사용자 등록 유래(마스터 미수록) 종
+CREATE TABLE species_source_link (
+    link_id       BIGSERIAL PRIMARY KEY,
+    species_id    BIGINT NOT NULL REFERENCES plant_species(species_id) ON DELETE CASCADE,
+    source_code   VARCHAR(30) NOT NULL REFERENCES data_source(source_code),
+    -- 소스 고유 키: KFS_STD=국가표준식물목록 ID, RDA_INDOOR=cntntsNo, ASPCA=학명, NATURE_KNA=국명+학명
+    source_key    VARCHAR(200) NOT NULL,
+    match_method  VARCHAR(30) NOT NULL
+                  CHECK (match_method IN ('SCI_NAME', 'KO_NAME', 'MANUAL')),
+    confidence    NUMERIC(3,2),
+    linked_at     TIMESTAMP DEFAULT now(),
+
+    UNIQUE (source_code, source_key)
+);
+
+-- 산림청 표준식물종정보 — 크기, 개화기, 결실기
+CREATE TABLE src_kfs_species (
+    source_key      VARCHAR(200) PRIMARY KEY,
+    ko_name         VARCHAR(200),
+    sci_name        VARCHAR(300),
+    sci_name_norm   VARCHAR(150),
+    size_raw        VARCHAR(200),
+    flowering_period VARCHAR(100),
+    fruiting_period VARCHAR(100),
+    -- 원본 행 전체 보존 — 매핑 누락분을 재적재 없이 복구하기 위함
+    payload         JSONB NOT NULL,
+    ingest_run_id   BIGINT REFERENCES ingest_run(run_id) ON DELETE SET NULL,
+    fetched_at      TIMESTAMP DEFAULT now()
+);
+
+-- 농촌진흥청 실내정원용 식물 — 코드값 원본 그대로 저장, 코드→값 변환은 병합 단계에서
+CREATE TABLE src_rda_indoor (
+    source_key      VARCHAR(200) PRIMARY KEY,   -- cntntsNo
+    ko_name         VARCHAR(200),
+    sci_name        VARCHAR(300),
+    sci_name_norm   VARCHAR(150),
+    light_code      VARCHAR(30),
+    water_cycle_code VARCHAR(30),
+    winter_temp_code VARCHAR(30),
+    growth_temp_code VARCHAR(30),
+    humidity_code   VARCHAR(30),
+    manage_level_code VARCHAR(30),
+    toxic_desc      TEXT,
+    payload         JSONB NOT NULL,
+    ingest_run_id   BIGINT REFERENCES ingest_run(run_id) ON DELETE SET NULL,
+    fetched_at      TIMESTAMP DEFAULT now()
+);
+
+-- ASPCA 독성 목록 — 동물별 독성 여부
+CREATE TABLE src_aspca_toxicity (
+    source_key      VARCHAR(200) PRIMARY KEY,   -- 학명 원문
+    common_name_en  VARCHAR(300),
+    sci_name        VARCHAR(300),
+    sci_name_norm   VARCHAR(150),
+    toxic_to_dogs   BOOLEAN,
+    toxic_to_cats   BOOLEAN,
+    toxic_to_horses BOOLEAN,
+    clinical_signs  TEXT,
+    payload         JSONB NOT NULL,
+    ingest_run_id   BIGINT REFERENCES ingest_run(run_id) ON DELETE SET NULL,
+    fetched_at      TIMESTAMP DEFAULT now()
+);
+
+-- 국가생물종지식정보시스템 — 분류/이름의 정본 소스
+CREATE TABLE src_nature_taxon (
+    source_key      VARCHAR(200) PRIMARY KEY,
+    ko_name         VARCHAR(200),
+    en_name         VARCHAR(200),
+    sci_name        VARCHAR(300),
+    sci_name_norm   VARCHAR(150),
+    family_name     VARCHAR(150),
+    genus_name      VARCHAR(100),
+    native_habitat  VARCHAR(255),
+    origin_country  VARCHAR(255),
+    distribution    TEXT,
+    payload         JSONB NOT NULL,
+    ingest_run_id   BIGINT REFERENCES ingest_run(run_id) ON DELETE SET NULL,
+    fetched_at      TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX idx_src_kfs_sci_norm     ON src_kfs_species (sci_name_norm);
+CREATE INDEX idx_src_rda_sci_norm     ON src_rda_indoor (sci_name_norm);
+CREATE INDEX idx_src_aspca_sci_norm   ON src_aspca_toxicity (sci_name_norm);
+CREATE INDEX idx_src_nature_sci_norm  ON src_nature_taxon (sci_name_norm);
+
+-- 학명 매칭 실패 → 사람이 확인할 큐
+CREATE TABLE species_match_review (
+    review_id     BIGSERIAL PRIMARY KEY,
+    source_code   VARCHAR(30) NOT NULL REFERENCES data_source(source_code),
+    source_key    VARCHAR(200) NOT NULL,
+    raw_name      VARCHAR(300),
+    -- 후보 목록 [{species_id, name, score}, ...]
+    candidates    JSONB,
+    resolved_species_id BIGINT REFERENCES plant_species(species_id) ON DELETE SET NULL,
+    resolved_at   TIMESTAMP,
+    created_at    TIMESTAMP DEFAULT now(),
+
+    UNIQUE (source_code, source_key)
 );
 
 

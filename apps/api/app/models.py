@@ -53,10 +53,15 @@ class PlantSpecies(Base):
     common_name_ko: Mapped[str] = mapped_column(String(100), nullable=False)
     common_name_en: Mapped[str | None] = mapped_column(String(100), nullable=True)
     scientific_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    # 외부 소스 매칭 키 — 저자명/변종표기 제거 + 소문자 (예: 'monstera deliciosa')
+    scientific_name_norm: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
     family_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
     genus_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # origin(자생지) / origin_country(원산지) / distribution(분포) — nature.go.kr 기준으로 분리
     origin: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    origin_country: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    distribution: Mapped[str | None] = mapped_column(Text, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     difficulty: Mapped[str] = mapped_column(String(30), default="UNKNOWN")
@@ -65,18 +70,32 @@ class PlantSpecies(Base):
     light_min_lux: Mapped[int | None] = mapped_column(Integer, nullable=True)
     light_max_lux: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # 생육 적정 온도
     temp_min_c: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     temp_max_c: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    # 겨울 최저온도 — 생육 적정 하한과 다른 값
+    temp_min_winter_c: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     humidity_min_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     humidity_max_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
 
     watering_interval_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     flowering_period: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # 결실기
+    fruiting_period: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # 꽃 색상 코드 목록 (스키마의 TEXT[] → SQLite 호환 위해 JSON 배열로 저장)
     flower_color_codes: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
+    # 크기 — 원문 문자열 보존 + 파싱값 병행
+    size_raw: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    height_min_cm: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height_max_cm: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # is_toxic 은 아래 셋 중 하나라도 true 면 true (파생값). None = 자료 없음
     is_toxic: Mapped[bool] = mapped_column(Boolean, default=False)
+    toxic_to_dogs: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    toxic_to_cats: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    toxic_to_horses: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     toxicity_info: Mapped[str | None] = mapped_column(Text, nullable=True)
     # 병충해 정보
     bug_info: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -237,4 +256,192 @@ class MediaAsset(Base):
             "'RAG_REFERENCE_IMAGE', 'PROFILE_IMAGE', 'OTHER')",
             name="ck_media_asset_type",
         ),
+    )
+
+
+# =========================================================
+# 종 정보 외부 데이터 소스 (docs/database-schema.sql 2-3)
+# 적재 배치 전용 — 런타임 API 는 plant_species 만 조회한다
+# =========================================================
+
+SOURCE_CODES = ("KFS_STD", "RDA_INDOOR", "ASPCA", "NATURE_KNA")
+
+
+class DataSource(Base):
+    __tablename__ = "data_source"
+
+    source_code: Mapped[str] = mapped_column(String(30), primary_key=True)
+    source_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    license_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 낮을수록 우선 (분류 정보 병합 시 tie-break)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint(
+            "source_code IN ('KFS_STD', 'RDA_INDOOR', 'ASPCA', 'NATURE_KNA')",
+            name="ck_data_source_code",
+        ),
+    )
+
+
+class IngestRun(Base):
+    __tablename__ = "ingest_run"
+
+    run_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    source_code: Mapped[str] = mapped_column(
+        ForeignKey("data_source.source_code"), nullable=False
+    )
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="RUNNING")
+    row_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('RUNNING', 'SUCCESS', 'FAILED')",
+            name="ck_ingest_run_status",
+        ),
+    )
+
+
+class SpeciesSourceLink(Base):
+    """정본(plant_species) ↔ 소스 레코드 연결. 재적재 시 UPSERT 기준.
+
+    이 테이블에 연결이 하나도 없는 plant_species 행 = 사용자 등록 유래(마스터 미수록) 종.
+    """
+
+    __tablename__ = "species_source_link"
+
+    link_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    species_id: Mapped[int] = mapped_column(
+        ForeignKey("plant_species.species_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    source_code: Mapped[str] = mapped_column(
+        ForeignKey("data_source.source_code"), nullable=False
+    )
+    source_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    match_method: Mapped[str] = mapped_column(String(30), nullable=False)
+    confidence: Mapped[Decimal | None] = mapped_column(Numeric(3, 2), nullable=True)
+    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("source_code", "source_key", name="uq_species_source_link_src"),
+        CheckConstraint(
+            "match_method IN ('SCI_NAME', 'KO_NAME', 'MANUAL')",
+            name="ck_species_source_link_match_method",
+        ),
+    )
+
+
+class SrcKfsSpecies(Base):
+    """산림청 표준식물종정보 — 크기, 개화기, 결실기."""
+
+    __tablename__ = "src_kfs_species"
+
+    source_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    ko_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    sci_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    sci_name_norm: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
+    size_raw: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    flowering_period: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    fruiting_period: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # 원본 행 전체 보존 — 매핑 누락분을 재적재 없이 복구하기 위함 (PG: JSONB)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    ingest_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ingest_run.run_id", ondelete="SET NULL"), nullable=True
+    )
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class SrcRdaIndoor(Base):
+    """농촌진흥청 실내정원용 식물 — 코드값 원본 그대로. 코드→값 변환은 병합 단계에서."""
+
+    __tablename__ = "src_rda_indoor"
+
+    # cntntsNo
+    source_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    ko_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    sci_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    sci_name_norm: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
+    light_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    water_cycle_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    winter_temp_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    growth_temp_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    humidity_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    manage_level_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    toxic_desc: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    ingest_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ingest_run.run_id", ondelete="SET NULL"), nullable=True
+    )
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class SrcAspcaToxicity(Base):
+    """ASPCA 독성 목록 — 동물별 독성 여부. None = 해당 동물 자료 없음."""
+
+    __tablename__ = "src_aspca_toxicity"
+
+    # 학명 원문
+    source_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    common_name_en: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    sci_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    sci_name_norm: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
+    toxic_to_dogs: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    toxic_to_cats: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    toxic_to_horses: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    clinical_signs: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    ingest_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ingest_run.run_id", ondelete="SET NULL"), nullable=True
+    )
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class SrcNatureTaxon(Base):
+    """국가생물종지식정보시스템 — 분류/이름의 정본 소스."""
+
+    __tablename__ = "src_nature_taxon"
+
+    source_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    ko_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    en_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    sci_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    sci_name_norm: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
+    family_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    genus_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    native_habitat: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    origin_country: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    distribution: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    ingest_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ingest_run.run_id", ondelete="SET NULL"), nullable=True
+    )
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class SpeciesMatchReview(Base):
+    """학명 매칭 실패 → 사람이 확인할 큐."""
+
+    __tablename__ = "species_match_review"
+
+    review_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    source_code: Mapped[str] = mapped_column(
+        ForeignKey("data_source.source_code"), nullable=False
+    )
+    source_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    raw_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # 후보 목록 [{species_id, name, score}, ...]
+    candidates: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    resolved_species_id: Mapped[int | None] = mapped_column(
+        ForeignKey("plant_species.species_id", ondelete="SET NULL"), nullable=True
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("source_code", "source_key", name="uq_species_match_review_src"),
     )

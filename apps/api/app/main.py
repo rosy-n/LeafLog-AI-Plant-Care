@@ -5,7 +5,7 @@ from urllib.parse import unquote, urlparse
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,7 +18,7 @@ from .image_preprocessing import (
     preprocess_plant_photo,
     remove_background_for_sprite,
 )
-from .models import AppUser, CareRecord, MediaAsset, Plant, PlantSpecies
+from .models import AppUser, CareRecord, MediaAsset, Plant, PlantSpecies, SpeciesSourceLink
 from .schemas import (
     AvailabilityResponse,
     AuthResponse,
@@ -34,6 +34,8 @@ from .schemas import (
     PlantUpdate,
     PlantRead,
     SignupRequest,
+    SpeciesDetail,
+    SpeciesListItem,
     UserRead,
 )
 from .security import create_access_token, decode_access_token, hash_password, verify_password
@@ -263,15 +265,82 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
     return AuthResponse(access_token=create_access_token(str(user.user_id)), user=UserRead.model_validate(user))
 
 
+@app.get("/api/species", response_model=list[SpeciesListItem])
+def search_species(
+    q: str = Query(..., min_length=1, max_length=100, description="국명/영문명/학명 부분검색"),
+    limit: int = Query(20, ge=1, le=50),
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[SpeciesListItem]:
+    """종 마스터 검색 — 등록 1단계에서 외부 API 대신 이 엔드포인트를 사용한다.
+
+    ilike 부분검색이라 PostgreSQL/SQLite 양쪽에서 동작한다.
+    PG 에서는 pg_trgm GIN 인덱스(idx_plant_species_name_*_trgm)가 사용된다.
+    """
+    keyword = q.strip()
+    if not keyword:
+        return []
+
+    pattern = f"%{keyword}%"
+    # 접두 일치를 부분 일치보다 앞에, 같은 순위면 이름이 짧은 쪽을 앞에
+    prefix_rank = case((PlantSpecies.common_name_ko.ilike(f"{keyword}%"), 0), else_=1)
+
+    rows = db.scalars(
+        select(PlantSpecies)
+        .where(
+            or_(
+                PlantSpecies.common_name_ko.ilike(pattern),
+                PlantSpecies.common_name_en.ilike(pattern),
+                PlantSpecies.scientific_name.ilike(pattern),
+            )
+        )
+        .order_by(prefix_rank, func.length(PlantSpecies.common_name_ko), PlantSpecies.species_id)
+        .limit(limit)
+    ).all()
+
+    return [SpeciesListItem.model_validate(row) for row in rows]
+
+
+@app.get("/api/species/{species_id}", response_model=SpeciesDetail)
+def get_species(
+    species_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SpeciesDetail:
+    """종 상세 — 4개 소스를 배치에서 병합해 둔 결과를 한 행 조회로 반환."""
+    species = db.get(PlantSpecies, species_id)
+    if species is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="종을 찾을 수 없습니다.")
+
+    detail = SpeciesDetail.model_validate(species)
+    # 출처 표기용 — 연결이 없으면 사용자 등록 유래 종이라 빈 목록
+    detail.sources = list(
+        db.scalars(
+            select(SpeciesSourceLink.source_code)
+            .where(SpeciesSourceLink.species_id == species_id)
+            .order_by(SpeciesSourceLink.source_code)
+        ).all()
+    )
+    return detail
+
+
 @app.post("/api/plants", response_model=PlantRead, status_code=status.HTTP_201_CREATED)
 def create_plant(
     payload: PlantCreate,
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PlantRead:
-    # 1. 종(plant_species) get-or-create — 학명 우선, 없으면 국명으로 매칭
+    # 1. 종(plant_species) 결정
+    #    speciesId 가 오면 마스터 행을 그대로 사용 (GET /api/species 검색 결과)
+    #    없으면 학명/국명 get-or-create — PlantNet 이 인식했지만 마스터에 없는 종용 fallback
     species: PlantSpecies | None = None
-    if payload.scientificName:
+    if payload.speciesId is not None:
+        species = db.get(PlantSpecies, payload.speciesId)
+        if species is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="존재하지 않는 speciesId 입니다."
+            )
+    if species is None and payload.scientificName:
         species = db.scalar(
             select(PlantSpecies).where(PlantSpecies.scientific_name == payload.scientificName)
         )
