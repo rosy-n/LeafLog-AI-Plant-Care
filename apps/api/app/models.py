@@ -328,7 +328,10 @@ class SpeciesSourceLink(Base):
     linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     __table_args__ = (
-        UniqueConstraint("source_code", "source_key", name="uq_species_source_link_src"),
+        # 소스 1건이 여러 종에 걸릴 수 있다 (ASPCA 의 종 단위 독성 → 품종별 행)
+        UniqueConstraint(
+            "source_code", "source_key", "species_id", name="uq_species_source_link_src"
+        ),
         CheckConstraint(
             "match_method IN ('SCI_NAME', 'KO_NAME', 'MANUAL')",
             name="ck_species_source_link_match_method",

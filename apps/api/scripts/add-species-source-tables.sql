@@ -67,11 +67,29 @@ CREATE TABLE IF NOT EXISTS species_source_link (
     confidence    NUMERIC(3,2),
     linked_at     TIMESTAMP DEFAULT now(),
 
-    UNIQUE (source_code, source_key)
+    -- 소스 1건이 여러 종에 걸릴 수 있다 (ASPCA 의 종 단위 독성 → 품종별 행)
+    UNIQUE (source_code, source_key, species_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_species_source_link_species
     ON species_source_link (species_id);
+
+-- 이 스크립트의 이전 버전은 UNIQUE (source_code, source_key) 였다.
+-- 이미 그 버전으로 만들어진 DB 도 여기서 3컬럼 제약으로 교체된다.
+ALTER TABLE species_source_link
+    DROP CONSTRAINT IF EXISTS species_source_link_source_code_source_key_key;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'species_source_link_source_code_source_key_species_id_key'
+    ) THEN
+        ALTER TABLE species_source_link
+            ADD CONSTRAINT species_source_link_source_code_source_key_species_id_key
+            UNIQUE (source_code, source_key, species_id);
+    END IF;
+END
+$$;
 
 -- ---------------------------------------------------------
 -- 3) 소스 원본 테이블

@@ -282,8 +282,11 @@ def search_species(
         return []
 
     pattern = f"%{keyword}%"
-    # 접두 일치를 부분 일치보다 앞에, 같은 순위면 이름이 짧은 쪽을 앞에
+    # 접두 일치를 부분 일치보다 앞에
     prefix_rank = case((PlantSpecies.common_name_ko.ilike(f"{keyword}%"), 0), else_=1)
+    # 돌봄 정보(농진청 실내정원용 식물)가 있는 종을 앞에 —
+    # 산림청 표준식물종정보에는 야생 식물이 대량으로 들어와 있어 그것만으로는 목록이 산만해진다
+    care_rank = case((PlantSpecies.watering_interval_days.is_(None), 1), else_=0)
 
     rows = db.scalars(
         select(PlantSpecies)
@@ -294,7 +297,12 @@ def search_species(
                 PlantSpecies.scientific_name.ilike(pattern),
             )
         )
-        .order_by(prefix_rank, func.length(PlantSpecies.common_name_ko), PlantSpecies.species_id)
+        .order_by(
+            prefix_rank,
+            care_rank,
+            func.length(PlantSpecies.common_name_ko),
+            PlantSpecies.species_id,
+        )
         .limit(limit)
     ).all()
 

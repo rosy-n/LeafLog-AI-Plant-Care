@@ -37,6 +37,11 @@ class Settings:
     # 버킷에 GetObject 가능한 자격증명이 있을 때만 true (실서비스/배포 환경).
     # false면 저장된 file_url을 그대로 반환 (예: 콘솔에서 만든 presigned URL로 로컬 테스트).
     s3_presign_enabled: bool = os.getenv("S3_PRESIGN", "false").strip().lower() in ("1", "true", "yes", "on")
+    # 종 마스터 적재(scripts/ingest) 전용 외부 API 키 — 앱의 EXPO_PUBLIC_* 과 분리해 관리
+    # 농사로 OpenAPI (농촌진흥청_실내정원용 식물)
+    nongsaro_api_key: str = os.getenv("NONGSARO_API_KEY", "")
+    # 국립수목원 오픈API (국가생물종지식정보시스템) — 미발급 상태면 빈 값
+    nature_kna_api_key: str = os.getenv("NATURE_KNA_API_KEY", "")
 
 
 settings = Settings()
