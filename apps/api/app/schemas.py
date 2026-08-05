@@ -135,6 +135,18 @@ class SpeciesDetail(BaseModel):
     bug_info: str | None = None
     care_tips: str | None = None
     image_url: str | None = None
+
+    # 돌보기 정보 화면이 카드별로 나눠 쓰는 원문 (plant_species.metadata 에서 꺼낸 값)
+    water_cycle_label: str | None = None
+    light_label: str | None = None
+    fertilizer_info: str | None = None
+    soil_info: str | None = None
+    special_manage_info: str | None = None
+    placement: str | None = None
+    propagation: str | None = None
+    growth_rate: str | None = None
+    flower_color_names: str | None = None
+
     # 이 종의 값이 어느 소스에서 왔는지 — 화면 출처 표기용
     sources: list[str] = []
 
@@ -182,6 +194,9 @@ class PlantDetail(BaseModel):
     nickname: str
     common_name_ko: str | None = None
     scientific_name: str | None = None
+    # 종 마스터의 돌봄 정보 — 돌보기 정보 화면이 이걸 읽는다.
+    # 종이 연결되지 않은 개체이거나 마스터에 값이 없으면 None
+    species: SpeciesDetail | None = None
     status: str = "ALIVE"
     location_name: str | None = None
     light_condition: str | None = None

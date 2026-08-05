@@ -19,7 +19,7 @@ from app.config import settings
 from app.models import SrcRdaIndoor
 
 from . import nongsaro_codes as codes
-from ._common import ingest_run, log, normalize_scientific_name, session, upsert
+from ._common import Upserter, ingest_run, log, normalize_scientific_name, session
 
 BASE_URL = "http://api.nongsaro.go.kr/service/garden"
 PAGE_SIZE = 100
@@ -146,6 +146,7 @@ def main() -> None:
     db = session()
     try:
         with ingest_run(db, "RDA_INDOOR") as run:
+            upsert = Upserter(db, SrcRdaIndoor)
             log("실내정원용 식물 목록 조회")
             contents = list_contents()
             numbers = list(contents)
@@ -161,7 +162,7 @@ def main() -> None:
                 payload["_rtnThumbFileUrl"] = contents.get(cntnts_no) or ""
                 values = to_row(cntnts_no, payload)
                 values["ingest_run_id"] = run.run_id
-                upsert(db, SrcRdaIndoor, cntnts_no, values)
+                upsert(cntnts_no, values)
                 saved += 1
                 if index % 25 == 0:
                     db.commit()
@@ -169,6 +170,7 @@ def main() -> None:
                 time.sleep(REQUEST_DELAY_SEC)
 
             db.commit()
+            upsert.report()
             run.row_count = saved
             log(f"완료 — src_rda_indoor {saved}건")
     finally:

@@ -43,6 +43,10 @@ FILTERS = [
 ]
 
 _ROW_RE = re.compile(r'<div class="views-row[^"]*"[^>]*>(.*?)(?=<div class="views-row|\Z)', re.S)
+# 상세 페이지의 구조화 필드 — field-name-field-<이름> 안의 <span class="values">
+_DETAIL_FIELD_TMPL = (
+    r'field-name-field-{name}\b.*?<span class="values">(.*?)</span>'
+)
 _COMMON_RE = re.compile(
     r'views-field-title"\s*>.*?<div class="plant-title-name">(.*?)</div>', re.S
 )
@@ -83,6 +87,36 @@ def parse_rows(body: str) -> list[dict]:
     return rows
 
 
+def detail_field(body: str, name: str) -> str:
+    """상세 페이지에서 구조화 필드 하나를 뽑는다. 없으면 빈 문자열."""
+    match = re.search(_DETAIL_FIELD_TMPL.format(name=name), body, re.S)
+    return _clean(match.group(1)) if match else ""
+
+
+def fetch_detail(url: str) -> dict:
+    """증상·독성성분과, 목록 필터보다 더 확실한 동물별 독성 여부를 읽어온다."""
+    body = fetch(url)
+    toxic_to = detail_field(body, "toxicity")
+    non_toxic_to = detail_field(body, "non-toxicity")
+
+    def flag(animal: str) -> bool | None:
+        # 상세 페이지가 명시한 쪽을 그대로 신뢰. 둘 다 없으면 자료 없음(None)
+        if re.search(rf"Toxic to {animal}", toxic_to, re.IGNORECASE):
+            return True
+        if re.search(rf"Non-Toxic to {animal}", non_toxic_to, re.IGNORECASE):
+            return False
+        return None
+
+    return {
+        "clinical_signs": detail_field(body, "clinical-signs"),
+        "toxic_principles": detail_field(body, "toxic-principles"),
+        "additional_common_names": detail_field(body, "additional-common-names"),
+        "detail_toxic_to_dogs": flag("Dogs"),
+        "detail_toxic_to_cats": flag("Cats"),
+        "detail_toxic_to_horses": flag("Horses"),
+    }
+
+
 def crawl_filter(param: str, value: str) -> list[dict]:
     collected: list[dict] = []
     for page in range(MAX_PAGES):
@@ -120,6 +154,10 @@ def main() -> None:
                     "toxic_to_dogs": "",
                     "toxic_to_cats": "",
                     "toxic_to_horses": "",
+                    # 아래 3개는 2단계(상세 페이지)에서 채운다
+                    "clinical_signs": "",
+                    "toxic_principles": "",
+                    "additional_common_names": "",
                 },
             )
             column = f"toxic_to_{animal}"
@@ -130,6 +168,43 @@ def main() -> None:
     if not merged:
         raise SystemExit("수집 결과가 0건입니다. 페이지 구조가 바뀌었는지 확인하세요.")
 
+    # 2단계 — 상세 페이지에서 증상/독성성분 수집 + 동물별 독성 교차검증
+    log(f"상세 페이지 {len(merged)}건 수집 (증상·독성성분)")
+    corrected = 0
+    no_detail = 0
+    for done, record in enumerate(merged.values(), start=1):
+        url = record.get("detail_url")
+        if not url:
+            no_detail += 1
+            continue
+        try:
+            detail = fetch_detail(url)
+        except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+            log(f"  상세 실패 {url[-40:]}: {exc}")
+            no_detail += 1
+            continue
+
+        record["clinical_signs"] = detail["clinical_signs"]
+        record["toxic_principles"] = detail["toxic_principles"]
+        record["additional_common_names"] = detail["additional_common_names"]
+
+        # 상세 페이지가 명시한 값이 목록 필터로 유추한 값보다 확실하다
+        for animal in ("dogs", "cats", "horses"):
+            flagged = detail[f"detail_toxic_to_{animal}"]
+            if flagged is None:
+                continue
+            expected = "true" if flagged else "false"
+            column = f"toxic_to_{animal}"
+            if record[column] != expected:
+                corrected += 1
+                record[column] = expected
+
+        if done % 50 == 0:
+            log(f"  {done}/{len(merged)}")
+        time.sleep(REQUEST_DELAY_SEC)
+
+    log(f"상세 수집 완료 — 목록값 정정 {corrected}건, 상세 없음 {no_detail}건")
+
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     fields = [
         "sci_name_norm",
@@ -138,6 +213,9 @@ def main() -> None:
         "toxic_to_dogs",
         "toxic_to_cats",
         "toxic_to_horses",
+        "clinical_signs",
+        "toxic_principles",
+        "additional_common_names",
         "detail_url",
     ]
     with OUTPUT_CSV.open("w", encoding="utf-8", newline="") as fp:

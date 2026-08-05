@@ -9,7 +9,7 @@ import csv
 
 from app.models import SrcAspcaToxicity
 
-from ._common import DATA_DIR, ingest_run, log, normalize_scientific_name, session, upsert
+from ._common import DATA_DIR, Upserter, ingest_run, log, normalize_scientific_name, session
 
 INPUT_CSV = DATA_DIR / "aspca-toxic-plants.csv"
 
@@ -38,6 +38,7 @@ def main() -> None:
     db = session()
     try:
         with ingest_run(db, "ASPCA") as run:
+            upsert = Upserter(db, SrcAspcaToxicity)
             saved = 0
             for row in rows:
                 sci_name = (row.get("sci_name") or "").strip() or None
@@ -51,8 +52,6 @@ def main() -> None:
                     continue
 
                 upsert(
-                    db,
-                    SrcAspcaToxicity,
                     source_key[:200],
                     {
                         "common_name_en": common,
@@ -69,6 +68,7 @@ def main() -> None:
                 saved += 1
 
             db.commit()
+            upsert.report()
             run.row_count = saved
             log(f"완료 — src_aspca_toxicity {saved}건")
     finally:

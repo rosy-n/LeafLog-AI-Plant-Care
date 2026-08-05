@@ -11,7 +11,17 @@
 구현은 "낮은 우선순위부터 적용하고, 값이 있을 때만 덮어쓴다"로 같은 결과를 만든다.
 
 실행: cd apps/api && ./.venv/Scripts/python.exe -m scripts.ingest.merge
+     특정 소스만: python -m scripts.ingest.merge ASPCA
+       원격 PG 에서는 소스 하나 병합에도 수 분이 걸려서, 한 소스만 다시 적재했을 때
+       전체를 다시 돌리지 않도록 범위를 좁힌다. 단 두 가지 제약이 있다.
+         - 요청한 소스보다 우선순위가 높은(APPLY_ORDER 에서 뒤에 오는) 소스는 자동으로
+           함께 처리된다. 안 그러면 낮은 우선순위 소스가 상위 값을 덮어쓴다.
+           그래서 맨 뒤인 ASPCA 만 지정할 때가 가장 싸고, RDA_INDOOR 지정은 전체와 같다.
+         - 종을 만드는 소스(RDA_INDOOR/KFS_STD/NATURE_KNA)를 건너뛰면 그 소스가 만들
+           종에는 값이 붙지 않는다. 새 소스를 처음 넣을 때는 인자 없이 전체를 돌려야 한다.
 """
+import re
+import sys
 from collections import defaultdict
 
 from sqlalchemy import select
@@ -54,6 +64,20 @@ FAN_OUT_TO_CULTIVARS = {"ASPCA"}
 # 소스별 → plant_species 필드 변환
 # ---------------------------------------------------------------------------
 
+_BLANK_RUN = re.compile(r"\n{2,}")
+
+
+def tidy_text(raw: str | None) -> str | None:
+    """농사로 자유 텍스트 정리 — 줄 끝 공백 제거, 빈 줄 연속 축약.
+
+    원문에 개행이 수십 줄 붙어 오는 필드가 있어(speclmanageInfo) 그대로 두면 화면이 비어 보인다.
+    """
+    if not raw:
+        return None
+    lines = [line.rstrip() for line in str(raw).splitlines()]
+    return _BLANK_RUN.sub("\n", "\n".join(lines)).strip() or None
+
+
 def from_rda(row: SrcRdaIndoor) -> dict:
     payload = row.payload or {}
     values: dict = {
@@ -69,13 +93,34 @@ def from_rda(row: SrcRdaIndoor) -> dict:
         "image_url": (payload.get("_rtnThumbFileUrl") or "").split("|")[0].strip() or None,
     }
 
-    # 관리 팁 — 여러 자유 텍스트 필드를 합쳐 보관
+    # 관리 팁 — 여러 자유 텍스트 필드를 합친 사람이 읽는 요약
     tips = [
         payload.get(key)
         for key in ("adviseInfo", "speclmanageInfo", "frtlzrInfo", "soilInfo")
         if (payload.get(key) or "").strip()
     ]
     values["care_tips"] = "\n".join(tips) or None
+
+    # 화면이 항목별로 나눠 보여줄 수 있게 원문을 metadata 에 따로 보관.
+    # (돌보기 정보 화면의 비료주기 / 토양&분갈이 카드가 care_tips 한 덩어리로는 채워지지 않는다)
+    extra = {
+        "cntntsNo": row.source_key,
+        # 물주기 대표 일수는 팀이 정한 추정값이라, 원문 라벨을 함께 보여줄 수 있게 보관
+        "water_cycle_label": codes.code_map("WATER_CYCLE_CODE").get(row.water_cycle_code or ""),
+        # 광량도 LOW/MEDIUM/HIGH 보다 원문 라벨이 구체적이다
+        "light_label": tidy_text(payload.get("lighttdemanddoCodeNm")),
+        "fertilizer_info": tidy_text(payload.get("frtlzrInfo")),
+        "soil_info": tidy_text(payload.get("soilInfo")),
+        "special_manage_info": tidy_text(payload.get("speclmanageInfo")),
+        "use_info": tidy_text(payload.get("adviseInfo")),
+        "placement": tidy_text(payload.get("postngplaceCodeNm")),
+        "propagation": tidy_text(payload.get("prpgtmthCodeNm")),
+        "growth_rate": tidy_text(payload.get("grwtveCodeNm")),
+        "growth_style": tidy_text(payload.get("grwhstleCodeNm")),
+        "flower_color_names": tidy_text(payload.get("flclrCodeNm")),
+        "leaf_style": tidy_text(payload.get("lefStleInfo")),
+    }
+    values["extra_metadata"] = {k: v for k, v in extra.items() if v}
 
     # 난이도
     if row.manage_level_code:
@@ -365,9 +410,27 @@ def derive_is_toxic(species: PlantSpecies) -> None:
         species.is_toxic = bool((species.toxicity_info or "").strip())
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     # ingest_run 은 source_code CHECK 때문에 4개 소스만 기록할 수 있어 병합은 이력을 남기지 않는다.
     # 병합은 멱등이라 실패하면 그냥 다시 돌리면 된다.
+    requested = [arg.upper() for arg in (argv if argv is not None else sys.argv[1:])]
+    unknown = [code for code in requested if code not in APPLY_ORDER]
+    if unknown:
+        raise SystemExit(f"알 수 없는 소스: {unknown}\n사용 가능: {APPLY_ORDER}")
+
+    if requested:
+        # 요청한 소스보다 우선순위가 높은(뒤에 오는) 소스는 반드시 함께 다시 적용해야 한다.
+        # 그러지 않으면 낮은 우선순위 소스가 상위 소스의 값을 덮어쓴다.
+        # (예: RDA_INDOOR 만 돌리면 toxicity_info 가 ASPCA 증상 텍스트 → 농사로 텍스트로 되돌아간다)
+        start = min(APPLY_ORDER.index(code) for code in requested)
+        order = APPLY_ORDER[start:]
+        if order != requested:
+            log(f"요청: {requested} → 우선순위 유지를 위해 함께 처리: {order}")
+        else:
+            log(f"병합 대상 소스만 처리: {order}")
+    else:
+        order = list(APPLY_ORDER)
+
     db = session()
     try:
         log("기존 종/링크 인덱스 적재")
@@ -380,7 +443,7 @@ def main() -> None:
         touched: set[PlantSpecies] = set()
         total_linked = 0
 
-        for source_code in APPLY_ORDER:
+        for source_code in order:
             model, transform = SOURCES[source_code]
             rows = db.scalars(select(model)).all()
             if not rows:
@@ -390,6 +453,8 @@ def main() -> None:
             can_create = source_code in CAN_CREATE_SPECIES
             fan_out = source_code in FAN_OUT_TO_CULTIVARS
             reviewed = 0
+
+            log(f"{source_code}: 원본 {len(rows)}건 매칭 시작")
 
             # 1단계 — 매칭/생성만. 조회는 전부 메모리 인덱스에서.
             plans: list[tuple[str, dict, list[PlantSpecies], str]] = []
@@ -419,15 +484,18 @@ def main() -> None:
                 plans.append((row.source_key, values, matches, method))
 
             # 2단계 — 새 종을 한 번에 INSERT 해서 species_id 를 확보
+            log(f"  신규 종 flush ({index.created}건 누적)")
             db.flush()
 
             # 3단계 — 값 반영 + 링크 (UPDATE/INSERT 가 배치로 나간다)
+            log(f"  값 반영/링크 {len(plans)}건")
             for source_key, values, matches, method in plans:
                 for species in matches:
                     apply_values(species, values)
                     index.link(species.species_id, source_code, source_key, method)
                     touched.add(species)
 
+            log("  commit")
             db.commit()
             total_linked += len(plans)
             log(f"{source_code}: {len(plans)}건 반영, 검토 대기 {reviewed}건")

@@ -16,7 +16,7 @@ import unicodedata
 
 from app.models import SrcKfsSpecies
 
-from ._common import DATA_DIR, ingest_run, log, normalize_scientific_name, session, upsert
+from ._common import DATA_DIR, Upserter, ingest_run, log, normalize_scientific_name, session
 
 INPUT_CSV = DATA_DIR / "kfs-standard-plants.csv"
 
@@ -136,6 +136,7 @@ def main() -> None:
     db = session()
     try:
         with ingest_run(db, "KFS_STD") as run:
+            upsert = Upserter(db, SrcKfsSpecies)
             saved = 0
             for index, row in enumerate(rows, start=1):
                 def value(field: str) -> str | None:
@@ -155,8 +156,6 @@ def main() -> None:
                 size_raw = value("size_raw")
 
                 upsert(
-                    db,
-                    SrcKfsSpecies,
                     source_key,
                     {
                         "ko_name": ko_name,
@@ -176,6 +175,7 @@ def main() -> None:
                     log(f"  {index}/{len(rows)}")
 
             db.commit()
+            upsert.report()
             run.row_count = saved
             log(f"완료 — src_kfs_species {saved}건")
     finally:

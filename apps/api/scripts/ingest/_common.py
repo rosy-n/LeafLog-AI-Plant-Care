@@ -15,6 +15,7 @@ REPO_ROOT = API_ROOT.parents[1]
 if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
 
+from sqlalchemy import select  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from app.database import SessionLocal  # noqa: E402
@@ -167,15 +168,50 @@ def ingest_run(db: Session, source_code: str):
         db.commit()
 
 
-def upsert(db: Session, model, pk_value, values: dict) -> None:
-    """소스 원본 테이블 upsert — PK 는 단일 컬럼 source_key 를 가정."""
-    pk_name = model.__mapper__.primary_key[0].name
-    row = db.get(model, pk_value)
-    if row is None:
-        db.add(model(**{pk_name: pk_value}, **values))
-        return
-    for key, value in values.items():
-        setattr(row, key, value)
+class Upserter:
+    """소스 원본 테이블 upsert — PK 는 단일 컬럼 source_key 를 가정.
+
+    행마다 SELECT 를 날리면 원격 PG 에서 1만 행 적재가 수십 분짜리가 된다.
+    기존 행을 시작할 때 한 번만 통째로 읽어 메모리에 들고, 이후 INSERT/UPDATE 만 낸다.
+    """
+
+    def __init__(self, db: Session, model):
+        self.db = db
+        self.model = model
+        self.pk_name = model.__mapper__.primary_key[0].name
+        self.existing = {getattr(row, self.pk_name): row for row in db.scalars(select(model)).all()}
+        # VARCHAR(n) 길이 — SQLite 는 길이를 강제하지 않아 여기서 막지 않으면
+        # PostgreSQL 적재에서만 StringDataRightTruncation 으로 터진다.
+        self.limits = {
+            column.key: column.type.length
+            for column in model.__mapper__.columns
+            if isinstance(getattr(column.type, "length", None), int)
+        }
+        self.truncated: dict[str, int] = {}
+
+    def _fit(self, key: str, value):
+        limit = self.limits.get(key)
+        if limit is not None and isinstance(value, str) and len(value) > limit:
+            self.truncated[key] = self.truncated.get(key, 0) + 1
+            return value[:limit]
+        return value
+
+    def __call__(self, pk_value, values: dict) -> None:
+        values = {key: self._fit(key, value) for key, value in values.items()}
+        pk_value = self._fit(self.pk_name, pk_value)
+        row = self.existing.get(pk_value)
+        if row is None:
+            row = self.model(**{self.pk_name: pk_value}, **values)
+            self.db.add(row)
+            self.existing[pk_value] = row
+            return
+        for key, value in values.items():
+            setattr(row, key, value)
+
+    def report(self) -> None:
+        """잘린 컬럼이 있으면 조용히 넘기지 않고 알린다."""
+        for key, count in sorted(self.truncated.items()):
+            log(f"  주의: {self.model.__tablename__}.{key} 값 {count}건이 {self.limits[key]}자로 잘림")
 
 
 def log(message: str) -> None:

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import {
     View,
     Text,
@@ -8,11 +8,13 @@ import {
     Image,
     SafeAreaView,
     StatusBar,
+    ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
+import { getPlant } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint, Pink, Warm, Accent, Glass } from "../../constants/colors";
@@ -30,7 +32,92 @@ const CARE_SECTIONS = [
     { key: "pest", label: "문제와 해충" },
 ];
 
-export default function CareInfoScreen({ navigation }) {
+const NO_DATA = "아직 자료가 없어요";
+
+// 온·습도 막대의 표시 구간 (0~30°C, 0~100%)
+const TEMP_AXIS_MAX = 30;
+const HUMIDITY_AXIS_MAX = 100;
+
+// 막대에서 [min, max] 구간이 차지할 left/width (%)
+function rangeStyle(min, max, axisMax) {
+    if (min == null && max == null) return null;
+    const low = Math.max(0, Math.min(Number(min ?? max), axisMax));
+    const high = Math.max(low, Math.min(Number(max ?? min), axisMax));
+    const left = (low / axisMax) * 100;
+    // 폭이 0이면 눈에 안 보이므로 최소 12% 확보
+    const width = Math.max(((high - low) / axisMax) * 100, 12);
+    return { left: `${Math.min(left, 100 - width)}%`, width: `${width}%` };
+}
+
+// 광원 요구도 → 사람이 읽는 문장 (원문 라벨이 있으면 그걸 우선)
+const LIGHT_LEVEL_TEXT = {
+    LOW: "약한 빛에서도 잘 자라요",
+    MEDIUM: "밝은 간접광을 좋아해요",
+    HIGH: "햇빛을 많이 필요로 해요",
+};
+
+// 독성 3상태 — null 은 자료 없음
+function toxicityMark(flag) {
+    if (flag === true) return { icon: "위험", color: Pink.soft };
+    if (flag === false) return { icon: "안전", color: GreenTint.soft };
+    return { icon: "미확인", color: Colors.separator };
+}
+
+// 콤마로 이어진 원문을 칩 목록으로
+function toChips(raw) {
+    if (!raw) return [];
+    return raw
+        .split(/[,·]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+export default function CareInfoScreen({ navigation, route }) {
+    const plantParam = route?.params?.plant;
+    const plantId = plantParam?.id;
+
+    const [species, setSpecies] = useState(null);
+    const [plantName, setPlantName] = useState(plantParam?.name ?? "");
+    const [loading, setLoading] = useState(Boolean(plantId));
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        if (!plantId) {
+            setLoading(false);
+            return;
+        }
+        let cancelled = false;
+
+        getPlant(Number(plantId))
+            .then((detail) => {
+                if (cancelled) return;
+                setSpecies(detail.species ?? null);
+                setPlantName(detail.nickname ?? "");
+            })
+            .catch((err) => {
+                if (!cancelled) setError(err.message);
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [plantId]);
+
+    return (
+        <CareInfoView
+            navigation={navigation}
+            species={species}
+            plantName={plantName}
+            loading={loading}
+            error={error}
+        />
+    );
+}
+
+function CareInfoView({ navigation, species, plantName, loading, error }) {
     const scrollRef = useRef(null);
     const tabScrollRef = useRef(null);
     const sectionY = useRef({});
@@ -74,6 +161,43 @@ export default function CareInfoScreen({ navigation }) {
             tabScrollRef.current?.scrollTo({ x: Math.max(x - 16, 0), animated: true });
         }
     }, []);
+
+    const tempRange = rangeStyle(species?.temp_min_c, species?.temp_max_c, TEMP_AXIS_MAX);
+    const humidityRange = rangeStyle(
+        species?.humidity_min_pct,
+        species?.humidity_max_pct,
+        HUMIDITY_AXIS_MAX,
+    );
+    const pests = toChips(species?.bug_info);
+    const flowerColors = toChips(species?.flower_color_names);
+
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+                <ScreenHeader title="돌보기 정보" onBack={() => navigation.goBack()} />
+                <View style={styles.centered}>
+                    <ActivityIndicator color={Colors.primary} />
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (error || !species) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+                <ScreenHeader title="돌보기 정보" onBack={() => navigation.goBack()} />
+                <View style={styles.centered}>
+                    <Text style={styles.emptyText}>
+                        {error
+                            ? error
+                            : `${plantName || "이 식물"}은 아직 종 정보가 연결되지 않았어요.\n프로필에서 식물종을 선택하면 돌보기 정보를 볼 수 있어요.`}
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -149,13 +273,20 @@ export default function CareInfoScreen({ navigation }) {
                         onLayout={(event) => saveSectionY("plantInfo", event)}
                     >
                         <Text style={styles.cardText}>
-                            종명: 스파티필룸 (Spathiphyllum spp.)
+                            종명: {species.common_name_ko}
+                            {species.scientific_name ? ` (${species.scientific_name})` : ""}
                         </Text>
+                        {species.family_name ? (
+                            <Text style={styles.cardText}>과: {species.family_name}</Text>
+                        ) : null}
                         <Text style={styles.cardText}>
-                            자생지: 열대 중앙아메리카와 동남아시아의 습한 숲 바닥.
+                            원산지: {species.origin_country || species.origin || NO_DATA}
                         </Text>
+                        {species.size_raw ? (
+                            <Text style={styles.cardText}>크기: {species.size_raw}</Text>
+                        ) : null}
                         <Text style={styles.cardText}>
-                            특징: 광택 있는 짙은 녹색 잎과 흰 불염포가 돋보이는 상록 여러해살이 관엽식물입니다.
+                            특징: {species.description || NO_DATA}
                         </Text>
                     </View>
 
@@ -166,16 +297,28 @@ export default function CareInfoScreen({ navigation }) {
                     >
                         <Text style={styles.cardTitle}>물주기</Text>
 
-                        <View style={styles.infoRow}>
-                            <View style={styles.circleBlue}>
-                                <Text style={styles.bigNumber}>5</Text>
-                            </View>
+                        {species.watering_interval_days ? (
+                            <View style={styles.infoRow}>
+                                <View style={styles.circleBlue}>
+                                    <Text style={styles.bigNumber}>
+                                        {species.watering_interval_days}
+                                    </Text>
+                                </View>
 
-                            <View style={styles.textGroup}>
-                                <Text style={styles.mainInfo}>5일에 한 번</Text>
-                                <Text style={styles.subInfo}>겉흙이 마르면 흠뻑 주기</Text>
+                                <View style={styles.textGroup}>
+                                    <Text style={styles.mainInfo}>
+                                        {species.watering_interval_days}일에 한 번
+                                    </Text>
+                                    {species.water_cycle_label ? (
+                                        <Text style={styles.subInfo}>
+                                            {species.water_cycle_label}
+                                        </Text>
+                                    ) : null}
+                                </View>
                             </View>
-                        </View>
+                        ) : (
+                            <Text style={styles.mainInfo}>{NO_DATA}</Text>
+                        )}
                     </View>
 
                     {/* 햇빛 */}
@@ -190,7 +333,19 @@ export default function CareInfoScreen({ navigation }) {
                                 <Text style={styles.sunEmoji}>🌥️</Text>
                             </View>
 
-                            <Text style={styles.mainInfo}>밝은 간접광 선호</Text>
+                            <View style={styles.textGroup}>
+                                <Text style={styles.mainInfo}>
+                                    {species.light_label ||
+                                        LIGHT_LEVEL_TEXT[species.light_level] ||
+                                        NO_DATA}
+                                </Text>
+                                {species.light_min_lux ? (
+                                    <Text style={styles.subInfo}>
+                                        {species.light_min_lux.toLocaleString()}~
+                                        {species.light_max_lux?.toLocaleString()} Lux
+                                    </Text>
+                                ) : null}
+                            </View>
                         </View>
                     </View>
 
@@ -201,43 +356,53 @@ export default function CareInfoScreen({ navigation }) {
                     >
                         <Text style={styles.cardTitle}>적정 온·습도</Text>
 
-                        <View style={styles.rangeBlock}>
-                            <View style={styles.rangeBar}>
-                                <View
-                                    style={[
-                                        styles.rangeFillPink,
-                                        { left: "60%", width: "28%" },
-                                    ]}
-                                >
-                                    <Text style={styles.rangeText}>18~27°C</Text>
+                        {tempRange ? (
+                            <View style={styles.rangeBlock}>
+                                <View style={styles.rangeBar}>
+                                    <View style={[styles.rangeFillPink, tempRange]}>
+                                        <Text style={styles.rangeText}>
+                                            {Number(species.temp_min_c)}~
+                                            {Number(species.temp_max_c)}°C
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                <View style={styles.rangeLabelRow}>
+                                    <Text style={styles.rangeLabel}>0°C</Text>
+                                    <Text style={styles.rangeLabel}>15°C</Text>
+                                    <Text style={styles.rangeLabel}>30°C</Text>
                                 </View>
                             </View>
+                        ) : (
+                            <Text style={styles.mainInfo}>적정 온도: {NO_DATA}</Text>
+                        )}
 
-                            <View style={styles.rangeLabelRow}>
-                                <Text style={styles.rangeLabel}>0°C</Text>
-                                <Text style={styles.rangeLabel}>15°C</Text>
-                                <Text style={styles.rangeLabel}>30°C</Text>
-                            </View>
-                        </View>
+                        {humidityRange ? (
+                            <View style={styles.rangeBlock}>
+                                <View style={styles.rangeBar}>
+                                    <View style={[styles.rangeFillBlue, humidityRange]}>
+                                        <Text style={styles.rangeText}>
+                                            {Number(species.humidity_min_pct)}~
+                                            {Number(species.humidity_max_pct)}%
+                                        </Text>
+                                    </View>
+                                </View>
 
-                        <View style={styles.rangeBlock}>
-                            <View style={styles.rangeBar}>
-                                <View
-                                    style={[
-                                        styles.rangeFillBlue,
-                                        { left: "36%", width: "28%" },
-                                    ]}
-                                >
-                                    <Text style={styles.rangeText}>40~60%</Text>
+                                <View style={styles.rangeLabelRow}>
+                                    <Text style={styles.rangeLabel}>0%</Text>
+                                    <Text style={styles.rangeLabel}>50%</Text>
+                                    <Text style={styles.rangeLabel}>100%</Text>
                                 </View>
                             </View>
+                        ) : (
+                            <Text style={styles.mainInfo}>적정 습도: {NO_DATA}</Text>
+                        )}
 
-                            <View style={styles.rangeLabelRow}>
-                                <Text style={styles.rangeLabel}>0%</Text>
-                                <Text style={styles.rangeLabel}>50%</Text>
-                                <Text style={styles.rangeLabel}>100%</Text>
-                            </View>
-                        </View>
+                        {species.temp_min_winter_c != null ? (
+                            <Text style={styles.mainInfo}>
+                                겨울 최저 {Number(species.temp_min_winter_c)}°C 이상 유지
+                            </Text>
+                        ) : null}
                     </View>
 
                     {/* 비료 주기 */}
@@ -247,13 +412,19 @@ export default function CareInfoScreen({ navigation }) {
                     >
                         <Text style={styles.cardTitle}>비료 주기</Text>
 
-                        <View style={styles.infoRow}>
-                            <View style={styles.circleOrange}>
-                                <Text style={styles.bigNumber}>1</Text>
-                            </View>
+                        {species.fertilizer_info ? (
+                            <View style={styles.infoRow}>
+                                <View style={styles.circleOrange}>
+                                    <Text style={styles.sunEmoji}>🌱</Text>
+                                </View>
 
-                            <Text style={styles.mainInfo}>월 1회</Text>
-                        </View>
+                                <Text style={[styles.mainInfo, styles.flexText]}>
+                                    {species.fertilizer_info}
+                                </Text>
+                            </View>
+                        ) : (
+                            <Text style={styles.mainInfo}>{NO_DATA}</Text>
+                        )}
                     </View>
 
                     {/* 토양 & 분갈이 */}
@@ -265,15 +436,28 @@ export default function CareInfoScreen({ navigation }) {
 
                         <View style={styles.bulletRow}>
                             <View style={styles.circleYellow} />
-                            <Text style={styles.mainInfo}>
-                                유기물 있는 배수성 좋은 배양토
+                            <Text style={[styles.mainInfo, styles.flexText]}>
+                                {species.soil_info || `토양: ${NO_DATA}`}
                             </Text>
                         </View>
 
-                        <View style={styles.bulletRow}>
-                            <View style={styles.circleYellow} />
-                            <Text style={styles.mainInfo}>매년 봄</Text>
-                        </View>
+                        {species.special_manage_info ? (
+                            <View style={styles.bulletRow}>
+                                <View style={styles.circleYellow} />
+                                <Text style={[styles.mainInfo, styles.flexText]}>
+                                    {species.special_manage_info}
+                                </Text>
+                            </View>
+                        ) : null}
+
+                        {species.placement ? (
+                            <View style={styles.bulletRow}>
+                                <View style={styles.circleYellow} />
+                                <Text style={[styles.mainInfo, styles.flexText]}>
+                                    두는 곳: {species.placement}
+                                </Text>
+                            </View>
+                        ) : null}
                     </View>
 
                     {/* 독성 */}
@@ -284,33 +468,61 @@ export default function CareInfoScreen({ navigation }) {
                         <Text style={styles.cardTitle}>독성</Text>
 
                         <View style={styles.toxicityRow}>
-                            <View style={styles.toxicityItem}>
-                                <Image
-                                    source={require("../../assets/icons/toxicity-human.png")}
-                                    style={styles.toxicityImage}
-                                    resizeMode="contain"
-                                />
-                                <Text style={styles.toxicityLabel}>인간</Text>
-                            </View>
-
-                            <View style={styles.toxicityItem}>
-                                <Image
-                                    source={require("../../assets/icons/toxicity-dog.png")}
-                                    style={styles.toxicityImage}
-                                    resizeMode="contain"
-                                />
-                                <Text style={styles.toxicityLabel}>강아지</Text>
-                            </View>
-
-                            <View style={styles.toxicityItem}>
-                                <Image
-                                    source={require("../../assets/icons/toxicity-cat.png")}
-                                    style={styles.toxicityImage}
-                                    resizeMode="contain"
-                                />
-                                <Text style={styles.toxicityLabel}>고양이</Text>
-                            </View>
+                            {[
+                                {
+                                    label: "인간",
+                                    icon: require("../../assets/icons/toxicity-human.png"),
+                                    // ASPCA 는 반려동물만 다루고 농사로 독성 텍스트는 사람 기준이 아니다.
+                                    // 사람 독성만 따로 판정할 근거가 없어 미확인으로 둔다.
+                                    flag: null,
+                                },
+                                {
+                                    label: "강아지",
+                                    icon: require("../../assets/icons/toxicity-dog.png"),
+                                    flag: species.toxic_to_dogs,
+                                },
+                                {
+                                    label: "고양이",
+                                    icon: require("../../assets/icons/toxicity-cat.png"),
+                                    flag: species.toxic_to_cats,
+                                },
+                            ].map(({ label, icon, flag }) => {
+                                const mark = toxicityMark(flag);
+                                return (
+                                    <View key={label} style={styles.toxicityItem}>
+                                        <Image
+                                            source={icon}
+                                            style={[
+                                                styles.toxicityImage,
+                                                flag !== true && styles.toxicityImageMuted,
+                                            ]}
+                                            resizeMode="contain"
+                                        />
+                                        <Text style={styles.toxicityLabel}>{label}</Text>
+                                        <View
+                                            style={[
+                                                styles.toxicityBadge,
+                                                { backgroundColor: mark.color },
+                                            ]}
+                                        >
+                                            <Text style={styles.chipText}>{mark.icon}</Text>
+                                        </View>
+                                    </View>
+                                );
+                            })}
                         </View>
+
+                        {species.toxicity_info ? (
+                            <Text style={[styles.cardText, styles.toxicityNote]}>
+                                증상: {species.toxicity_info}
+                            </Text>
+                        ) : null}
+
+                        {species.sources?.includes("ASPCA") ? (
+                            <Text style={styles.sourceText}>
+                                반려동물 독성 출처: ASPCA Animal Poison Control
+                            </Text>
+                        ) : null}
                     </View>
 
                     {/* 특성 */}
@@ -322,13 +534,37 @@ export default function CareInfoScreen({ navigation }) {
 
                         <View style={styles.bulletRow}>
                             <View style={styles.circlePink} />
-                            <Text style={styles.mainInfo}>봄~여름</Text>
+                            <Text style={[styles.mainInfo, styles.flexText]}>
+                                개화기: {species.flowering_period || NO_DATA}
+                            </Text>
                         </View>
 
-                        <View style={styles.bulletRow}>
-                            <View style={styles.circlePink} />
-                            <Text style={styles.mainInfo}>하얀색, 녹색 꽃</Text>
-                        </View>
+                        {flowerColors.length > 0 ? (
+                            <View style={styles.bulletRow}>
+                                <View style={styles.circlePink} />
+                                <Text style={[styles.mainInfo, styles.flexText]}>
+                                    꽃색: {flowerColors.join(", ")}
+                                </Text>
+                            </View>
+                        ) : null}
+
+                        {species.fruiting_period ? (
+                            <View style={styles.bulletRow}>
+                                <View style={styles.circlePink} />
+                                <Text style={[styles.mainInfo, styles.flexText]}>
+                                    결실기: {species.fruiting_period}
+                                </Text>
+                            </View>
+                        ) : null}
+
+                        {species.growth_rate ? (
+                            <View style={styles.bulletRow}>
+                                <View style={styles.circlePink} />
+                                <Text style={[styles.mainInfo, styles.flexText]}>
+                                    생장 속도: {species.growth_rate}
+                                </Text>
+                            </View>
+                        ) : null}
                     </View>
 
                     {/* 문제와 해충 */}
@@ -338,20 +574,23 @@ export default function CareInfoScreen({ navigation }) {
                     >
                         <Text style={styles.cardTitle}>문제와 해충</Text>
 
-                        <View style={styles.chipContainer}>
-                            {[
-                                "뿌리 썩음",
-                                "잎끝 갈변",
-                                "노란 잎",
-                                "파리 벌레",
-                                "응애 벌레",
-                                "뿌리파리",
-                            ].map((item) => (
-                                <View key={item} style={styles.chip}>
-                                    <Text style={styles.chipText}>{item}</Text>
-                                </View>
-                            ))}
-                        </View>
+                        {pests.length > 0 ? (
+                            <View style={styles.chipContainer}>
+                                {pests.map((item) => (
+                                    <View key={item} style={styles.chip}>
+                                        <Text style={styles.chipText}>{item}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        ) : (
+                            <Text style={styles.mainInfo}>{NO_DATA}</Text>
+                        )}
+
+                        {species.sources?.length ? (
+                            <Text style={styles.sourceText}>
+                                자료 출처: {species.sources.join(", ")}
+                            </Text>
+                        ) : null}
                     </View>
                 </ScrollView>
             </View>
@@ -647,6 +886,51 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: Colors.textBlack,
+        includeFontPadding: false,
+    },
+
+    centered: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: Spacing.xl,
+    },
+
+    emptyText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        lineHeight: 22,
+        color: Colors.textBlack,
+        textAlign: "center",
+        includeFontPadding: false,
+    },
+
+    // 원문 텍스트가 길어 줄바꿈이 필요한 자리
+    flexText: {
+        flex: 1,
+        lineHeight: 22,
+    },
+
+    toxicityImageMuted: {
+        opacity: 0.35,
+    },
+
+    toxicityBadge: {
+        marginTop: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 2,
+        borderRadius: Radius.lg,
+    },
+
+    toxicityNote: {
+        marginTop: Spacing.lg,
+    },
+
+    sourceText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textFaint,
+        marginTop: Spacing.lg,
         includeFontPadding: false,
     },
 });

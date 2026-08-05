@@ -309,6 +309,38 @@ def search_species(
     return [SpeciesListItem.model_validate(row) for row in rows]
 
 
+def _to_species_detail(species: PlantSpecies, db: Session) -> SpeciesDetail:
+    """plant_species 한 행 → SpeciesDetail. 종 상세와 개체 상세가 같이 쓴다."""
+    detail = SpeciesDetail.model_validate(species)
+
+    # 카드별 원문은 metadata 에 들어 있다 (merge 의 from_rda 참고)
+    extra = species.extra_metadata or {}
+    for field in (
+        "water_cycle_label",
+        "light_label",
+        "fertilizer_info",
+        "soil_info",
+        "special_manage_info",
+        "placement",
+        "propagation",
+        "growth_rate",
+        "flower_color_names",
+    ):
+        value = extra.get(field)
+        if value:
+            setattr(detail, field, value)
+
+    # 출처 표기용 — 연결이 없으면 사용자 등록 유래 종이라 빈 목록
+    detail.sources = list(
+        db.scalars(
+            select(SpeciesSourceLink.source_code)
+            .where(SpeciesSourceLink.species_id == species.species_id)
+            .order_by(SpeciesSourceLink.source_code)
+        ).all()
+    )
+    return detail
+
+
 @app.get("/api/species/{species_id}", response_model=SpeciesDetail)
 def get_species(
     species_id: int,
@@ -319,17 +351,7 @@ def get_species(
     species = db.get(PlantSpecies, species_id)
     if species is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="종을 찾을 수 없습니다.")
-
-    detail = SpeciesDetail.model_validate(species)
-    # 출처 표기용 — 연결이 없으면 사용자 등록 유래 종이라 빈 목록
-    detail.sources = list(
-        db.scalars(
-            select(SpeciesSourceLink.source_code)
-            .where(SpeciesSourceLink.species_id == species_id)
-            .order_by(SpeciesSourceLink.source_code)
-        ).all()
-    )
-    return detail
+    return _to_species_detail(species, db)
 
 
 @app.post("/api/plants", response_model=PlantRead, status_code=status.HTTP_201_CREATED)
@@ -524,6 +546,8 @@ def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
         nickname=plant.nickname,
         common_name_ko=species.common_name_ko if species else None,
         scientific_name=species.scientific_name if species else None,
+        # 돌보기 정보 화면용 — 종이 없으면 None
+        species=_to_species_detail(species, db) if species else None,
         status=plant.status,
         location_name=plant.location_name,
         light_condition=plant.light_condition,
