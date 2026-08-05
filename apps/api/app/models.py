@@ -2,6 +2,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import (
+    ARRAY,
     JSON,
     BigInteger,
     Boolean,
@@ -83,8 +84,10 @@ class PlantSpecies(Base):
     flowering_period: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # 결실기
     fruiting_period: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    # 꽃 색상 코드 목록 (스키마의 TEXT[] → SQLite 호환 위해 JSON 배열로 저장)
-    flower_color_codes: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # 꽃 색상 코드 목록 — PostgreSQL 은 스키마 정의대로 TEXT[], SQLite 는 JSON 배열
+    flower_color_codes: Mapped[list | None] = mapped_column(
+        JSON().with_variant(ARRAY(Text()), "postgresql"), nullable=True
+    )
 
     # 크기 — 원문 문자열 보존 + 파싱값 병행
     size_raw: Mapped[str | None] = mapped_column(String(200), nullable=True)
@@ -407,7 +410,12 @@ class SrcAspcaToxicity(Base):
 
 
 class SrcNatureTaxon(Base):
-    """국가생물종지식정보시스템 — 분류/이름의 정본 소스."""
+    """국가생물종지식정보시스템 — 분류/이름의 정본 소스.
+
+    다운로드 파일 3종(자생/외래/재배)을 한 테이블에 모은다. ID 컬럼이 없어
+    source_key 는 '<그룹>:<학명>|<국명>' 복합키.
+    native_habitat/origin_country/distribution 은 파일에 컬럼이 없어 비어 있다.
+    """
 
     __tablename__ = "src_nature_taxon"
 
@@ -418,6 +426,8 @@ class SrcNatureTaxon(Base):
     sci_name_norm: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
     family_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
     genus_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # 자생 / 외래 / 재배 — 재배식물이 실내 관엽식물 커버리지의 핵심
+    plant_group: Mapped[str | None] = mapped_column(String(20), nullable=True)
     native_habitat: Mapped[str | None] = mapped_column(String(255), nullable=True)
     origin_country: Mapped[str | None] = mapped_column(String(255), nullable=True)
     distribution: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -426,6 +436,13 @@ class SrcNatureTaxon(Base):
         ForeignKey("ingest_run.run_id", ondelete="SET NULL"), nullable=True
     )
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint(
+            "plant_group IN ('NATIVE', 'ALIEN', 'CULTIVATED')",
+            name="ck_src_nature_taxon_plant_group",
+        ),
+    )
 
 
 class SpeciesMatchReview(Base):

@@ -56,7 +56,7 @@ apps/api/scripts/ingest/
 ├── rda_indoor.py       # 농사로 OpenAPI  → src_rda_indoor     (광원/물주기/온습도/난이도)
 ├── aspca_snapshot.py   # ASPCA 스크래핑  → data/aspca-toxic-plants.csv (1회 실행)
 ├── aspca.py            # 위 CSV          → src_aspca_toxicity (반려동물 독성)
-├── nature_kna.py       # 국립수목원 API  → src_nature_taxon   (분류/원산지/분포, 키 미발급)
+├── nature_kna.py       # nature.go.kr 파일 3종 → src_nature_taxon (국명·영문명·학명·과)
 ├── merge.py            # src_* → plant_species 병합
 └── run_all.py          # 위 전체를 순서대로
 ```
