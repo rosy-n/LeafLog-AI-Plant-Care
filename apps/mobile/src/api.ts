@@ -296,6 +296,12 @@ export type CareSummary = {
   days_since_fertilizing: number | null;
   last_repotted_at: string | null;
   days_since_repotting: number | null;
+  // 물주기 일정. watering_schedule_saved 가 false 면 저장된 일정이 아니라
+  // 종 권장값으로 계산한 예상치 (사용자가 조정한 값이 아님)
+  watering_interval_days: number | null;
+  next_watering_date: string | null;
+  days_until_watering: number | null;
+  watering_schedule_saved: boolean;
 };
 
 // 특정 식물의 최근 물주기/분갈이 요약 (토큰 자동 첨부)

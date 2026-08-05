@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -18,7 +18,15 @@ from .image_preprocessing import (
     preprocess_plant_photo,
     remove_background_for_sprite,
 )
-from .models import AppUser, CareRecord, MediaAsset, Plant, PlantSpecies, SpeciesSourceLink
+from .models import (
+    AppUser,
+    CareRecord,
+    CareSchedule,
+    MediaAsset,
+    Plant,
+    PlantSpecies,
+    SpeciesSourceLink,
+)
 from .schemas import (
     AvailabilityResponse,
     AuthResponse,
@@ -106,6 +114,54 @@ def _days_since(moment: datetime | None) -> int | None:
     # 저장·조회 모두 naive UTC 기준 — 캘린더 일수 차이로 "며칠 전" 계산
     aware = moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
     return max(0, (datetime.now(timezone.utc).date() - aware.date()).days)
+
+
+def _species_interval_days(plant: Plant, db: Session) -> int | None:
+    """종 마스터의 권장 물주기. 개체 일정을 처음 만들 때의 기본값으로만 쓴다."""
+    if not plant.species_id:
+        return None
+    species = db.get(PlantSpecies, plant.species_id)
+    interval = species.watering_interval_days if species else None
+    return interval if interval and interval > 0 else None
+
+
+def _upsert_watering_schedule(
+    plant: Plant, db: Session, last_watered: datetime | None = None
+) -> CareSchedule | None:
+    """물주기 일정을 만들거나 다음 예정일을 밀어준다.
+
+    interval_days 는 종 값을 '복사'해 둔다. 참조가 아니라 복사인 이유:
+      - 사용자가 개체별로 주기를 조정할 수 있어야 한다
+      - 마스터 재적재로 사용자의 일정이 멋대로 바뀌면 안 된다
+    이미 일정이 있으면 interval_days 는 건드리지 않고 next_due_date 만 갱신한다.
+
+    비료·분갈이 일정은 만들지 않는다 — 4개 소스 어디에도 권장 주기가 없어
+    임의 값을 넣으면 근거 없는 알림을 보내게 된다.
+    """
+    schedule = db.scalar(
+        select(CareSchedule).where(
+            CareSchedule.plant_id == plant.plant_id, CareSchedule.care_type == "WATERING"
+        )
+    )
+
+    interval = schedule.interval_days if schedule else _species_interval_days(plant, db)
+    if not interval:
+        return schedule
+
+    base = (last_watered or datetime.now(timezone.utc)).date()
+    next_due = base + timedelta(days=interval)
+
+    if schedule is None:
+        schedule = CareSchedule(
+            plant_id=plant.plant_id,
+            care_type="WATERING",
+            interval_days=interval,
+            next_due_date=next_due,
+        )
+        db.add(schedule)
+    else:
+        schedule.next_due_date = next_due
+    return schedule
 
 
 def _owned_plant_or_404(plant_id: int, current_user: "AppUser", db: Session) -> Plant:
@@ -433,6 +489,10 @@ def create_plant(
     if repotted_at:
         db.add(CareRecord(plant_id=plant.plant_id, care_type="REPOTTING", completed_at=repotted_at))
 
+    # 5. 물주기 일정 — 종의 권장 주기를 개체 일정으로 복사.
+    #    마지막 물준 날을 알면 그 날 기준, 모르면 등록일 기준으로 다음 예정일을 잡는다.
+    _upsert_watering_schedule(plant, db, last_watered=watered_at)
+
     db.commit()
     db.refresh(plant)
 
@@ -583,6 +643,25 @@ def plant_care_summary(
     watered = latest("WATERING")
     fertilized = latest("FERTILIZING")
     repotted = latest("REPOTTING")
+
+    # 물주기 일정 — 저장된 일정이 있으면 그 값, 없으면 종 권장값으로 계산한 예상치.
+    # 예상치는 저장하지 않는다 (조회가 사용자 데이터를 만들면 안 된다)
+    schedule = db.scalar(
+        select(CareSchedule).where(
+            CareSchedule.plant_id == plant_id, CareSchedule.care_type == "WATERING"
+        )
+    )
+    if schedule is not None:
+        interval = schedule.interval_days
+        next_due = schedule.next_due_date
+        saved = True
+    else:
+        interval = _species_interval_days(plant, db)
+        base = (watered or plant.created_at).date() if (watered or plant.created_at) else None
+        next_due = base + timedelta(days=interval) if (interval and base) else None
+        saved = False
+
+    today = datetime.now(timezone.utc).date()
     return CareSummary(
         last_watered_at=watered.isoformat() if watered else None,
         days_since_watering=_days_since(watered),
@@ -590,6 +669,10 @@ def plant_care_summary(
         days_since_fertilizing=_days_since(fertilized),
         last_repotted_at=repotted.isoformat() if repotted else None,
         days_since_repotting=_days_since(repotted),
+        watering_interval_days=interval,
+        next_watering_date=next_due.isoformat() if next_due else None,
+        days_until_watering=(next_due - today).days if next_due else None,
+        watering_schedule_saved=saved,
     )
 
 
@@ -627,7 +710,7 @@ def create_care_record(
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> CareRecordItem:
-    _owned_plant_or_404(plant_id, current_user, db)
+    plant = _owned_plant_or_404(plant_id, current_user, db)
     if payload.care_type not in CARE_TYPES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="지원하지 않는 관리 유형입니다.")
 
@@ -639,6 +722,12 @@ def create_care_record(
         completed_at=completed,
     )
     db.add(record)
+
+    # 물을 줬으면 다음 예정일을 밀어준다. 일정이 없던 개체(마스터 도입 전 등록분)는
+    # 이 시점에 종 권장값으로 만들어진다.
+    if payload.care_type == "WATERING":
+        _upsert_watering_schedule(plant, db, last_watered=completed)
+
     db.commit()
     db.refresh(record)
     return CareRecordItem(

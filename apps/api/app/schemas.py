@@ -229,6 +229,13 @@ class CareSummary(BaseModel):
     last_repotted_at: str | None = None
     days_since_repotting: int | None = None
 
+    # 물주기 일정 (care_schedule). 일정 행이 없으면 종 권장값으로 계산한 예상치가 들어가고
+    # watering_schedule_saved 가 false 가 된다 — 사용자가 조정한 값이 아니라는 뜻
+    watering_interval_days: int | None = None
+    next_watering_date: str | None = None
+    days_until_watering: int | None = None
+    watering_schedule_saved: bool = False
+
 
 class CareRecordItem(BaseModel):
     id: int
