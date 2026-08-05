@@ -12,8 +12,9 @@
 
 실행: cd apps/api && ./.venv/Scripts/python.exe -m scripts.ingest.merge
 """
-from sqlalchemy import or_, select
-from sqlalchemy.exc import IntegrityError
+from collections import defaultdict
+
+from sqlalchemy import select
 
 from app.models import (
     PlantSpecies,
@@ -31,7 +32,12 @@ from .kfs_file import parse_height_cm
 from .rda_indoor import reverse_lookup_all
 
 # 낮은 우선순위 → 높은 우선순위 순서. 뒤에 오는 소스가 앞의 값을 덮어쓴다.
-APPLY_ORDER = ["RDA_INDOOR", "KFS_STD", "ASPCA", "NATURE_KNA"]
+#
+# ASPCA 가 맨 뒤인 이유는 우선순위(독성: ASPCA > RDA_INDOOR) 때문만이 아니다.
+# ASPCA 는 종을 만들지 않고 이미 있는 종에만 붙으므로, 종을 만드는 세 소스가
+# 모두 끝난 뒤에 돌아야 붙을 수 있는 종을 다 붙인다. 앞에 두면 1회차에 대부분 놓친다.
+# (ASPCA 는 독성 필드만 쓰고 NATURE_KNA 는 독성을 안 써서 순서를 바꿔도 우선순위는 그대로다)
+APPLY_ORDER = ["RDA_INDOOR", "KFS_STD", "NATURE_KNA", "ASPCA"]
 
 # 새 종 행을 만들 수 있는 소스.
 # ASPCA 는 영문 일반명만 있어 새로 만들면 한국어 마스터가 영문 종으로 오염된다.
@@ -59,7 +65,8 @@ def from_rda(row: SrcRdaIndoor) -> dict:
         "category": payload.get("clCodeNm") or None,
         "description": payload.get("fncltyInfo") or None,
         "bug_info": payload.get("dlthtsCodeNm") or None,
-        "image_url": payload.get("_rtnThumbFileUrl") or None,
+        # 목록 API 의 rtnThumbFileUrl 은 여러 URL 을 '|' 로 이어 내려준다. 대표 1장만 쓴다.
+        "image_url": (payload.get("_rtnThumbFileUrl") or "").split("|")[0].strip() or None,
     }
 
     # 관리 팁 — 여러 자유 텍스트 필드를 합쳐 보관
@@ -184,96 +191,157 @@ SOURCES = {
 
 
 # ---------------------------------------------------------------------------
-# 매칭 / 적용
+# 매칭 인덱스
+#
+# 소스 행마다 SELECT 를 날리면 원격 PG 에서 행당 왕복이 3~4회 발생해
+# 2만 행 병합이 몇 시간짜리가 된다. 그래서 시작할 때 plant_species / 링크 /
+# 검토큐를 한 번씩 통째로 읽어 메모리 인덱스로 만들고, 이후 조회는 전부 메모리에서 한다.
+# 쓰기는 소스 단위로 flush/commit 하여 INSERT·UPDATE 가 배치로 나가게 한다.
 # ---------------------------------------------------------------------------
 
-def backfill_norms(db) -> int:
+class SpeciesIndex:
+    def __init__(self, db):
+        self.db = db
+        self.by_norm: dict[str, PlantSpecies] = {}
+        self.by_ko: dict[str, PlantSpecies] = {}
+        # 종 단위 키 → 기본종 + 품종 행들 (ASPCA 독성 전파용)
+        self.by_base: dict[str, list[PlantSpecies]] = defaultdict(list)
+        self.created = 0
+
+        self.existing: list[PlantSpecies] = list(db.scalars(select(PlantSpecies)).all())
+        for species in self.existing:
+            self._register(species)
+
+        self.by_id: dict[int, PlantSpecies] = {
+            s.species_id: s for s in self.existing if s.species_id is not None
+        }
+
+        self.link_keys: set[tuple[str, str, int]] = set(
+            db.execute(
+                select(
+                    SpeciesSourceLink.source_code,
+                    SpeciesSourceLink.source_key,
+                    SpeciesSourceLink.species_id,
+                )
+            ).all()
+        )
+        # 이전 적재에서 이 소스 행이 어느 종에 붙었는지 — 재적재의 1순위 기준.
+        # 이름이 나중에 상위 소스 값으로 바뀌어도 같은 종에 다시 붙게 해준다.
+        self.prior: dict[tuple[str, str], list[PlantSpecies]] = defaultdict(list)
+        for source_code, source_key, species_id in self.link_keys:
+            species = self.by_id.get(species_id)
+            if species is not None:
+                self.prior[(source_code, source_key)].append(species)
+        self.review_keys: set[tuple[str, str]] = set(
+            db.execute(
+                select(SpeciesMatchReview.source_code, SpeciesMatchReview.source_key)
+            ).all()
+        )
+
+    def _register(self, species: PlantSpecies) -> None:
+        norm = species.scientific_name_norm
+        if norm:
+            self.by_norm.setdefault(norm, species)
+            base = species_level_norm(norm)
+            if base:
+                self.by_base[base].append(species)
+        if species.common_name_ko:
+            self.by_ko.setdefault(species.common_name_ko, species)
+
+    def set_norm(self, species: PlantSpecies, norm: str) -> None:
+        """학명을 처음 알게 된 기존 행에 매칭 키를 채우고 인덱스도 갱신."""
+        species.scientific_name_norm = norm
+        self.by_norm.setdefault(norm, species)
+        base = species_level_norm(norm)
+        if base:
+            self.by_base[base].append(species)
+
+    def species_level_matches(self, norm: str | None) -> list[PlantSpecies]:
+        base = species_level_norm(norm)
+        return self.by_base.get(base, []) if base else []
+
+    def find_or_create(
+        self, norm: str | None, ko_name: str | None, values: dict, can_create: bool
+    ) -> tuple[PlantSpecies | None, str | None]:
+        if norm:
+            species = self.by_norm.get(norm)
+            if species is not None:
+                return species, "SCI_NAME"
+
+        if ko_name:
+            species = self.by_ko.get(ko_name)
+            if species is not None:
+                if norm and not species.scientific_name_norm:
+                    self.set_norm(species, norm)
+                return species, "KO_NAME"
+
+        if not can_create:
+            return None, None
+
+        # 국명이 있어야 새 행을 만들 수 있다 (common_name_ko 는 NOT NULL)
+        new_name = (
+            ko_name
+            or values.get("common_name_ko")
+            or values.get("common_name_en")
+            or values.get("scientific_name")
+        )
+        if not new_name:
+            return None, None
+
+        species = PlantSpecies(common_name_ko=new_name, scientific_name_norm=norm)
+        self.db.add(species)
+        self._register(species)
+        self.created += 1
+        return species, ("SCI_NAME" if norm else "KO_NAME")
+
+    def link(self, species_id: int, source_code: str, source_key: str, method: str) -> None:
+        """새 종은 flush 후에야 species_id 가 생기므로, 반드시 flush 뒤에 호출한다."""
+        key = (source_code, source_key, species_id)
+        if key in self.link_keys:
+            return
+        self.link_keys.add(key)
+        self.db.add(
+            SpeciesSourceLink(
+                species_id=species_id,
+                source_code=source_code,
+                source_key=source_key,
+                match_method=method,
+                confidence=1.0 if method == "SCI_NAME" else 0.7,
+            )
+        )
+
+    def queue_review(self, source_code: str, source_key: str, raw_name: str | None) -> None:
+        key = (source_code, source_key)
+        if key in self.review_keys:
+            return
+        self.review_keys.add(key)
+        self.db.add(
+            SpeciesMatchReview(
+                source_code=source_code,
+                source_key=source_key,
+                raw_name=raw_name,
+                candidates=None,
+            )
+        )
+
+
+def backfill_norms(db, index: "SpeciesIndex") -> int:
     """기존 plant_species(사용자 등록 유래 포함)의 scientific_name_norm 을 채운다.
 
     이걸 먼저 하지 않으면 마스터 병합이 같은 종을 새 행으로 또 만든다.
     같은 norm 이 이미 있으면(유니크 위반) 건드리지 않고 넘어간다.
     """
     filled = 0
-    rows = db.scalars(
-        select(PlantSpecies).where(
-            PlantSpecies.scientific_name_norm.is_(None),
-            PlantSpecies.scientific_name.is_not(None),
-        )
-    ).all()
-    for row in rows:
-        norm = normalize_scientific_name(row.scientific_name)
-        if not norm:
+    for species in index.existing:
+        if species.scientific_name_norm or not species.scientific_name:
             continue
-        exists = db.scalar(
-            select(PlantSpecies.species_id).where(PlantSpecies.scientific_name_norm == norm)
-        )
-        if exists:
+        norm = normalize_scientific_name(species.scientific_name)
+        if not norm or norm in index.by_norm:
             continue
-        row.scientific_name_norm = norm
-        try:
-            db.flush()
-            filled += 1
-        except IntegrityError:
-            db.rollback()
+        index.set_norm(species, norm)
+        filled += 1
     db.commit()
     return filled
-
-
-def find_species_level_matches(db, norm: str | None) -> list[PlantSpecies]:
-    """종 단위 키로 기본종 + 그 품종 행을 모두 찾는다 (ASPCA 독성 전파용).
-
-    'dracaena sanderiana' → 기본종 1행 + "dracaena sanderiana 'celes'" 등 품종 행 전부
-    """
-    base = species_level_norm(norm)
-    if not base:
-        return []
-    return list(
-        db.scalars(
-            select(PlantSpecies).where(
-                or_(
-                    PlantSpecies.scientific_name_norm == base,
-                    PlantSpecies.scientific_name_norm.like(f"{base} %"),
-                    PlantSpecies.scientific_name_norm.like(f"{base} '%"),
-                )
-            )
-        ).all()
-    )
-
-
-def find_or_create(db, norm: str | None, ko_name: str | None, values: dict, can_create: bool):
-    """(species, match_method) 반환. 매칭도 생성도 못 하면 (None, None)."""
-    if norm:
-        species = db.scalar(select(PlantSpecies).where(PlantSpecies.scientific_name_norm == norm))
-        if species:
-            return species, "SCI_NAME"
-
-    if ko_name:
-        species = db.scalar(
-            select(PlantSpecies).where(PlantSpecies.common_name_ko == ko_name)
-        )
-        if species:
-            # 학명을 처음 알게 된 경우 매칭 키를 채워 준다
-            if norm and not species.scientific_name_norm:
-                species.scientific_name_norm = norm
-            return species, "KO_NAME"
-
-    if not can_create:
-        return None, None
-
-    # 국명이 있어야 새 행을 만들 수 있다 (common_name_ko 는 NOT NULL)
-    new_name = (
-        ko_name
-        or values.get("common_name_ko")
-        or values.get("common_name_en")
-        or values.get("scientific_name")
-    )
-    if not new_name:
-        return None, None
-
-    species = PlantSpecies(common_name_ko=new_name, scientific_name_norm=norm)
-    db.add(species)
-    db.flush()
-    return species, ("SCI_NAME" if norm else "KO_NAME")
 
 
 def apply_values(species: PlantSpecies, values: dict) -> None:
@@ -284,47 +352,6 @@ def apply_values(species: PlantSpecies, values: dict) -> None:
         if isinstance(value, str) and not value.strip():
             continue
         setattr(species, field, value)
-
-
-def link(db, species_id: int, source_code: str, source_key: str, method: str) -> None:
-    existing = db.scalar(
-        select(SpeciesSourceLink).where(
-            SpeciesSourceLink.source_code == source_code,
-            SpeciesSourceLink.source_key == source_key,
-            SpeciesSourceLink.species_id == species_id,
-        )
-    )
-    if existing:
-        existing.match_method = method
-        return
-    db.add(
-        SpeciesSourceLink(
-            species_id=species_id,
-            source_code=source_code,
-            source_key=source_key,
-            match_method=method,
-            confidence=1.0 if method == "SCI_NAME" else 0.7,
-        )
-    )
-
-
-def queue_review(db, source_code: str, source_key: str, raw_name: str | None) -> None:
-    existing = db.scalar(
-        select(SpeciesMatchReview).where(
-            SpeciesMatchReview.source_code == source_code,
-            SpeciesMatchReview.source_key == source_key,
-        )
-    )
-    if existing:
-        return
-    db.add(
-        SpeciesMatchReview(
-            source_code=source_code,
-            source_key=source_key,
-            raw_name=raw_name,
-            candidates=None,
-        )
-    )
 
 
 def derive_is_toxic(species: PlantSpecies) -> None:
@@ -343,10 +370,14 @@ def main() -> None:
     # 병합은 멱등이라 실패하면 그냥 다시 돌리면 된다.
     db = session()
     try:
-        filled = backfill_norms(db)
+        log("기존 종/링크 인덱스 적재")
+        index = SpeciesIndex(db)
+        log(f"  종 {len(index.by_norm)}(학명키) / 링크 {len(index.link_keys)} / 검토큐 {len(index.review_keys)}")
+
+        filled = backfill_norms(db, index)
         log(f"기존 종 학명 정규화 backfill: {filled}건")
 
-        touched: set[int] = set()
+        touched: set[PlantSpecies] = set()
         total_linked = 0
 
         for source_code in APPLY_ORDER:
@@ -358,50 +389,58 @@ def main() -> None:
 
             can_create = source_code in CAN_CREATE_SPECIES
             fan_out = source_code in FAN_OUT_TO_CULTIVARS
-            linked = 0
             reviewed = 0
-            for index, row in enumerate(rows, start=1):
+
+            # 1단계 — 매칭/생성만. 조회는 전부 메모리 인덱스에서.
+            plans: list[tuple[str, dict, list[PlantSpecies], str]] = []
+            for row in rows:
                 values = transform(row)
 
                 if fan_out:
-                    # 종 단위 자료 → 기본종과 그 품종 행 전부에 반영
-                    matches = find_species_level_matches(db, row.sci_name_norm)
+                    # 종 단위 자료 → 기본종과 그 품종 행 전부에 반영.
+                    # 정규화 학명 기준이라 재실행해도 같은 집합이 나온다.
+                    matches = index.species_level_matches(row.sci_name_norm)
                     method = "SCI_NAME"
                 else:
-                    # ASPCA 원본에는 국명 컬럼이 없다 (영문 일반명만)
-                    species, method = find_or_create(
-                        db, row.sci_name_norm, getattr(row, "ko_name", None), values, can_create
-                    )
-                    matches = [species] if species is not None else []
+                    # 지난 적재에서 붙은 종이 있으면 그대로 재사용 (멱등성)
+                    matches = index.prior.get((source_code, row.source_key), [])
+                    method = "SCI_NAME" if row.sci_name_norm else "KO_NAME"
+                    if not matches:
+                        # ASPCA 원본에는 국명 컬럼이 없다 (영문 일반명만)
+                        species, method = index.find_or_create(
+                            row.sci_name_norm, getattr(row, "ko_name", None), values, can_create
+                        )
+                        matches = [species] if species is not None else []
 
                 if not matches:
-                    queue_review(db, source_code, row.source_key, row.sci_name or None)
+                    index.queue_review(source_code, row.source_key, row.sci_name or None)
                     reviewed += 1
                     continue
+                plans.append((row.source_key, values, matches, method))
 
+            # 2단계 — 새 종을 한 번에 INSERT 해서 species_id 를 확보
+            db.flush()
+
+            # 3단계 — 값 반영 + 링크 (UPDATE/INSERT 가 배치로 나간다)
+            for source_key, values, matches, method in plans:
                 for species in matches:
                     apply_values(species, values)
-                    link(db, species.species_id, source_code, row.source_key, method)
-                    touched.add(species.species_id)
-                linked += 1
-
-                if index % 1000 == 0:
-                    db.commit()
-                    log(f"  {source_code} {index}/{len(rows)}")
+                    index.link(species.species_id, source_code, source_key, method)
+                    touched.add(species)
 
             db.commit()
-            total_linked += linked
-            log(f"{source_code}: {linked}건 반영, 검토 대기 {reviewed}건")
+            total_linked += len(plans)
+            log(f"{source_code}: {len(plans)}건 반영, 검토 대기 {reviewed}건")
 
         # is_toxic 파생값 계산 — 동물별 플래그와 독성 텍스트를 종합
-        if touched:
-            for species in db.scalars(
-                select(PlantSpecies).where(PlantSpecies.species_id.in_(touched))
-            ).all():
-                derive_is_toxic(species)
-            db.commit()
+        for species in touched:
+            derive_is_toxic(species)
+        db.commit()
 
-        log(f"병합 완료 — plant_species {len(touched)}건 갱신 (연결 {total_linked}건)")
+        log(
+            f"병합 완료 — plant_species {len(touched)}건 갱신 "
+            f"(신규 {index.created}건, 연결 {total_linked}건)"
+        )
     finally:
         db.close()
 

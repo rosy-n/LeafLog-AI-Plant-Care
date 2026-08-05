@@ -151,6 +151,9 @@ CREATE TABLE IF NOT EXISTS src_nature_taxon (
     sci_name_norm   VARCHAR(150),
     family_name     VARCHAR(150),
     genus_name      VARCHAR(100),
+    -- 자생 / 외래 / 재배 (다운로드 파일 3종 구분)
+    plant_group     VARCHAR(20)
+                    CHECK (plant_group IN ('NATIVE', 'ALIEN', 'CULTIVATED')),
     native_habitat  VARCHAR(255),
     origin_country  VARCHAR(255),
     distribution    TEXT,
@@ -158,6 +161,20 @@ CREATE TABLE IF NOT EXISTS src_nature_taxon (
     ingest_run_id   BIGINT REFERENCES ingest_run(run_id) ON DELETE SET NULL,
     fetched_at      TIMESTAMP DEFAULT now()
 );
+
+-- 이 스크립트의 이전 버전에는 plant_group 이 없었다 (API 전제 설계)
+ALTER TABLE src_nature_taxon ADD COLUMN IF NOT EXISTS plant_group VARCHAR(20);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'ck_src_nature_taxon_plant_group'
+    ) THEN
+        ALTER TABLE src_nature_taxon
+            ADD CONSTRAINT ck_src_nature_taxon_plant_group
+            CHECK (plant_group IN ('NATIVE', 'ALIEN', 'CULTIVATED'));
+    END IF;
+END
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_src_kfs_sci_norm    ON src_kfs_species (sci_name_norm);
 CREATE INDEX IF NOT EXISTS idx_src_rda_sci_norm    ON src_rda_indoor (sci_name_norm);

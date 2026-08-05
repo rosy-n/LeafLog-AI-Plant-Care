@@ -229,16 +229,20 @@ CREATE TABLE media_asset (
 -- =========================================================
 -- 4개 소스를 적재 시점(배치)에 plant_species 한 행으로 병합한다.
 -- 앱/API 런타임은 plant_species 만 조회하고 아래 src_* 테이블은 읽지 않는다.
---   KFS_STD     산림청 표준식물종정보 (파일데이터 CSV)     → 크기, 개화기, 결실기
---   RDA_INDOOR  농촌진흥청 실내정원용 식물 (OpenAPI)       → 광원, 물주기, 겨울최저온도, 습도, 난이도
+--   KFS_STD     산림청 표준식물종정보 (파일데이터 CSV)     → 크기, 개화기, 결실기, 과국명
+--   RDA_INDOOR  농촌진흥청 실내정원용 식물 (OpenAPI)       → 광원, 물주기, 겨울최저온도, 습도, 난이도, 원산지
 --   ASPCA       ASPCA Toxic and Non-Toxic Plants (HTML)   → 개/고양이/말 독성
---   NATURE_KNA  국가생물종지식정보시스템 (국립수목원 API)  → 국명/학명, 과·속, 자생지, 원산지, 분포
+--   NATURE_KNA  국가생물종지식정보시스템 (다운로드 파일 3종) → 국명/영문명/학명, 과
 --
 -- 필드 충돌 시 우선순위:
---   분류·이름·자생지·원산지·분포 → NATURE_KNA > KFS_STD
---   크기·개화기·결실기           → KFS_STD
+--   분류·이름                    → NATURE_KNA > KFS_STD > RDA_INDOOR
+--   크기·개화기·결실기           → KFS_STD > RDA_INDOOR
 --   광원·물주기·온습도·난이도    → RDA_INDOOR
+--   원산지(origin_country)       → RDA_INDOOR (다른 소스에 없음)
 --   독성                         → ASPCA > RDA_INDOOR
+--
+-- 현재 소스 없음: origin(자생지), distribution(분포), genus_name(속)
+--   → 국립수목원 오픈API 키 발급 시 보강 대상
 
 CREATE TABLE data_source (
     source_code   VARCHAR(30) PRIMARY KEY
@@ -332,6 +336,9 @@ CREATE TABLE src_aspca_toxicity (
 );
 
 -- 국가생물종지식정보시스템 — 분류/이름의 정본 소스
+-- 다운로드 파일 3종(자생/외래/재배)을 한 테이블에 모은다.
+-- ID 컬럼이 없어 source_key 는 '<그룹>:<학명>|<국명>' 복합키를 쓴다.
+-- 이 파일들에는 자생지/원산지/분포 컬럼이 없어 아래 3개는 비어 있다 (API 연동 시 보강).
 CREATE TABLE src_nature_taxon (
     source_key      VARCHAR(200) PRIMARY KEY,
     ko_name         VARCHAR(200),
@@ -340,6 +347,9 @@ CREATE TABLE src_nature_taxon (
     sci_name_norm   VARCHAR(150),
     family_name     VARCHAR(150),
     genus_name      VARCHAR(100),
+    -- 자생 / 외래 / 재배 — 재배식물이 실내 관엽식물 커버리지의 핵심
+    plant_group     VARCHAR(20)
+                    CHECK (plant_group IN ('NATIVE', 'ALIEN', 'CULTIVATED')),
     native_habitat  VARCHAR(255),
     origin_country  VARCHAR(255),
     distribution    TEXT,

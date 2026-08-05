@@ -1,120 +1,169 @@
-"""국가생물종지식정보시스템(국립수목원 오픈API) → src_nature_taxon.
+"""국가생물종지식정보시스템(nature.go.kr) 다운로드 파일 → src_nature_taxon.
 
-국명/영문명/학명, 과·속, 자생지, 원산지, 분포의 정본 소스.
+국명/영문명/학명, 과 분류의 정본 소스. 자생·외래·재배 3개 파일을 한 테이블에 모은다.
 
-현재 상태: API 키 미발급. NATURE_KNA_API_KEY 가 비어 있으면 아무것도 하지 않고 종료한다.
-키를 발급받으면 .env 에 넣고 아래 ENDPOINT/필드 매핑만 실제 응답에 맞춰 확인하면 된다.
-(국립수목원 API 는 서비스별로 응답 태그가 달라 실물 응답 확인 후 확정 필요)
-
+준비:
+  https://www.nature.go.kr/main/Main.do 에서 3개 파일을 내려받아 data/ 에 아래 이름으로 저장
+    data/nature-native-plants.xls       자생식물
+    data/nature-alien-plants.xls        외래식물
+    data/nature-cultivated-plants.xls   재배식물
 실행: cd apps/api && ./.venv/Scripts/python.exe -m scripts.ingest.nature_kna
-"""
-import time
-import urllib.parse
-import urllib.request
-import xml.etree.ElementTree as ET
 
-from app.config import settings
+파일이 레거시 .xls(BIFF8)로 내려오므로 xlrd 로 읽는다. CSV/xlsx 로 변환해 둔 경우
+같은 이름의 .csv 가 있으면 그걸 우선 사용한다.
+
+※ 이 파일들에는 자생지·원산지·분포 컬럼이 없다. 따라서 plant_species.origin /
+  distribution 은 이 소스로 채워지지 않고, origin_country 는 RDA_INDOOR(orgplceInfo)
+  단독으로 남는다. 분포 정보가 필요하면 국립수목원 오픈API 키 발급 후 별도 보강해야 한다.
+"""
+import csv
+
 from app.models import SrcNatureTaxon
 
-from ._common import ingest_run, log, normalize_scientific_name, session, upsert
+from ._common import DATA_DIR, ingest_run, log, normalize_scientific_name, session, upsert
 
-# 국립수목원 국가생물종지식정보시스템 오픈API (식물도감 검색)
-ENDPOINT = "http://api.nature.go.kr/openapi/service/rest/PlantService"
-LIST_OPERATION = "plantSearch"
-DETAIL_OPERATION = "plantInfo"
-PAGE_SIZE = 100
-REQUEST_DELAY_SEC = 0.3
-
-# 응답 태그 → src_nature_taxon 컬럼. 키 발급 후 실제 응답으로 검증할 것.
-FIELD_MAP = {
-    "ko_name": ["korNm", "plantGnrlNm", "korNmA"],
-    "en_name": ["engNm", "engNmA"],
-    "sci_name": ["scinm", "sctnNm", "plantSpecsScnm"],
-    "family_name": ["familyKorNm", "familyNm"],
-    "genus_name": ["genusKorNm", "genusNm"],
-    "native_habitat": ["habitat", "hbtatNm", "distbNm"],
-    "origin_country": ["orgplce", "orgplceNm", "nativeNm"],
-    "distribution": ["distb", "distbInfo", "spcsDistbInfo"],
+# 파일 → plant_group. 파일이 없으면 그 그룹만 건너뛴다.
+FILES = {
+    "nature-native-plants": "NATIVE",
+    "nature-alien-plants": "ALIEN",
+    "nature-cultivated-plants": "CULTIVATED",
 }
 
+# 다운로드 파일의 실제 헤더 (20컬럼)
+COL_KO_NAME = "추천국명"
+COL_KO_ALIAS = "비추천국명"
+COL_EN_NAME = "추천영문명"
+COL_SCI_NAME = "학명"
+COL_SCI_FULL = "전체학명"
+COL_FAMILY_KO = "과국명"
+COL_GROUP = "식물분류"
+COL_STATUS = "구분"
 
-def _get(operation: str, **params) -> ET.Element:
-    params["serviceKey"] = settings.nature_kna_api_key
-    url = f"{ENDPOINT}/{operation}?{urllib.parse.urlencode(params)}"
-    with urllib.request.urlopen(url, timeout=30) as response:
-        root = ET.fromstring(response.read())
-    result_code = (root.findtext(".//resultCode") or "").strip()
-    if result_code and result_code not in ("00", "0000"):
-        raise RuntimeError(f"국립수목원 API 오류 ({result_code}) — {root.findtext('.//resultMsg')}")
-    return root
+REQUIRED_COLUMNS = [COL_KO_NAME, COL_SCI_NAME, COL_FAMILY_KO, COL_GROUP, COL_STATUS]
+
+# '구분' 이 정명인 행만 마스터에 반영한다 (이명 행이 섞이면 국명이 뒤집힌다)
+ACCEPTED_STATUS = {"정명"}
 
 
-def _pick(payload: dict, field: str) -> str | None:
-    for tag in FIELD_MAP[field]:
-        value = (payload.get(tag) or "").strip()
-        if value:
-            return value
-    return None
+def read_table(stem: str) -> list[dict] | None:
+    """data/<stem>.csv 또는 .xls 를 읽어 dict 목록으로. 둘 다 없으면 None."""
+    csv_path = DATA_DIR / f"{stem}.csv"
+    if csv_path.exists():
+        for encoding in ("utf-8-sig", "cp949", "utf-8"):
+            try:
+                with csv_path.open("r", encoding=encoding, newline="") as fp:
+                    rows = list(csv.DictReader(fp))
+                log(f"  {csv_path.name} ({encoding}) {len(rows)}행")
+                return rows
+            except UnicodeDecodeError:
+                continue
+        raise SystemExit(f"{csv_path.name} 인코딩을 판별할 수 없습니다.")
+
+    xls_path = DATA_DIR / f"{stem}.xls"
+    if not xls_path.exists():
+        return None
+
+    try:
+        import xlrd
+    except ModuleNotFoundError as exc:
+        raise SystemExit(
+            "xlrd 가 필요합니다 (레거시 .xls 읽기용): pip install -r requirements.txt"
+        ) from exc
+
+    sheet = xlrd.open_workbook(xls_path).sheet_by_index(0)
+    if sheet.nrows < 2:
+        return []
+    header = [str(sheet.cell_value(0, c)).strip() for c in range(sheet.ncols)]
+    rows = [
+        {header[c]: str(sheet.cell_value(r, c)).strip() for c in range(sheet.ncols)}
+        for r in range(1, sheet.nrows)
+    ]
+    log(f"  {xls_path.name} {len(rows)}행")
+    return rows
+
+
+def build_source_key(group: str, row: dict) -> str | None:
+    """파일에 ID 컬럼이 없어 학명+국명 복합키를 쓴다 (17,323건 전부 유일함을 확인).
+
+    학명이 빈 행(재배식물 3건)은 국명만으로 키를 만든다.
+    """
+    ko_name = (row.get(COL_KO_NAME) or "").strip()
+    sci_name = (row.get(COL_SCI_NAME) or "").strip()
+    if not ko_name and not sci_name:
+        return None
+    return f"{group}:{sci_name or ko_name}|{ko_name}"[:200]
+
+
+def to_values(group: str, row: dict) -> dict:
+    sci_name = (row.get(COL_SCI_NAME) or "").strip() or None
+    return {
+        "ko_name": (row.get(COL_KO_NAME) or "").strip() or None,
+        "en_name": (row.get(COL_EN_NAME) or "").strip() or None,
+        "sci_name": sci_name,
+        "sci_name_norm": normalize_scientific_name(sci_name),
+        "family_name": (row.get(COL_FAMILY_KO) or "").strip() or None,
+        # 이 파일들에는 속(genus) 컬럼이 없다
+        "genus_name": None,
+        # 자생지/원산지/분포 컬럼도 없다 — 다른 소스가 채운다
+        "native_habitat": None,
+        "origin_country": None,
+        "distribution": None,
+        "plant_group": group,
+        "payload": row,
+    }
 
 
 def main() -> None:
-    if not settings.nature_kna_api_key:
-        log("NATURE_KNA_API_KEY 가 비어 있어 nature_kna 적재를 건너뜁니다.")
-        log("  → 분류/원산지/분포는 KFS_STD·RDA_INDOOR 값으로만 채워집니다.")
-        return
+    tables: list[tuple[str, list[dict]]] = []
+    missing: list[str] = []
+    for stem, group in FILES.items():
+        rows = read_table(stem)
+        if rows is None:
+            missing.append(stem)
+            continue
+        tables.append((group, rows))
+
+    if not tables:
+        raise SystemExit(
+            "nature 파일이 없습니다. data/ 에 아래 이름으로 두세요 (.xls 또는 .csv):\n"
+            + "\n".join(f"  {stem}.xls" for stem in FILES)
+        )
+    if missing:
+        log(f"  없는 파일(해당 그룹 skip): {missing}")
 
     db = session()
     try:
         with ingest_run(db, "NATURE_KNA") as run:
             saved = 0
-            page = 1
-            while True:
-                root = _get(LIST_OPERATION, numOfRows=PAGE_SIZE, pageNo=page)
-                items = root.findall(".//item")
-                if not items:
-                    break
-                for item in items:
-                    payload = {child.tag: (child.text or "").strip() for child in item}
-                    sci_name = _pick(payload, "sci_name")
-                    ko_name = _pick(payload, "ko_name")
-                    source_key = (
-                        payload.get("plantPilbkNo")
-                        or payload.get("no")
-                        or sci_name
-                        or ko_name
-                    )
+            skipped_status = 0
+            for group, rows in tables:
+                if rows:
+                    absent = [c for c in REQUIRED_COLUMNS if c not in rows[0]]
+                    if absent:
+                        raise SystemExit(
+                            f"{group} 파일에 필요한 컬럼이 없습니다: {absent}\n"
+                            f"실제 헤더: {list(rows[0])}"
+                        )
+
+                for index, row in enumerate(rows, start=1):
+                    if (row.get(COL_STATUS) or "").strip() not in ACCEPTED_STATUS:
+                        skipped_status += 1
+                        continue
+                    source_key = build_source_key(group, row)
                     if not source_key:
                         continue
-                    upsert(
-                        db,
-                        SrcNatureTaxon,
-                        str(source_key)[:200],
-                        {
-                            "ko_name": ko_name,
-                            "en_name": _pick(payload, "en_name"),
-                            "sci_name": sci_name,
-                            "sci_name_norm": normalize_scientific_name(sci_name),
-                            "family_name": _pick(payload, "family_name"),
-                            "genus_name": _pick(payload, "genus_name"),
-                            "native_habitat": _pick(payload, "native_habitat"),
-                            "origin_country": _pick(payload, "origin_country"),
-                            "distribution": _pick(payload, "distribution"),
-                            "payload": payload,
-                            "ingest_run_id": run.run_id,
-                        },
-                    )
+                    values = to_values(group, row)
+                    values["ingest_run_id"] = run.run_id
+                    upsert(db, SrcNatureTaxon, source_key, values)
                     saved += 1
-
+                    if index % 2000 == 0:
+                        db.commit()
+                        log(f"  {group} {index}/{len(rows)}")
                 db.commit()
-                total = int((root.findtext(".//totalCount") or "0").strip() or 0)
-                log(f"  page {page}: 누적 {saved}/{total}")
-                if total and saved >= total:
-                    break
-                page += 1
-                time.sleep(REQUEST_DELAY_SEC)
+                log(f"  {group} 완료 (누적 {saved}건)")
 
             run.row_count = saved
-            log(f"완료 — src_nature_taxon {saved}건")
+            log(f"완료 — src_nature_taxon {saved}건 (정명 아님으로 제외 {skipped_status}건)")
     finally:
         db.close()
 
