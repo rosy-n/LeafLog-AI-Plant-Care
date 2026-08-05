@@ -276,7 +276,9 @@ CREATE TABLE species_source_link (
     confidence    NUMERIC(3,2),
     linked_at     TIMESTAMP DEFAULT now(),
 
-    UNIQUE (source_code, source_key)
+    -- 소스 1건이 여러 종에 걸릴 수 있다. 예: ASPCA 는 종 단위 독성만 제공하므로
+    -- Dracaena sanderiana 1건이 개운죽·금천죽·세레스 드라세나 세 품종에 모두 적용된다.
+    UNIQUE (source_code, source_key, species_id)
 );
 
 -- 산림청 표준식물종정보 — 크기, 개화기, 결실기
