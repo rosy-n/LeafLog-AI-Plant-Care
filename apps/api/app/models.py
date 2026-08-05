@@ -340,7 +340,7 @@ class SpeciesSourceLink(Base):
 
 
 class SrcKfsSpecies(Base):
-    """산림청 표준식물종정보 — 크기, 개화기, 결실기."""
+    """산림청 표준식물종정보 — 크기, 개화기, 결실기 (+ 과국명)."""
 
     __tablename__ = "src_kfs_species"
 
@@ -348,6 +348,8 @@ class SrcKfsSpecies(Base):
     ko_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     sci_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
     sci_name_norm: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
+    # 과국명 — NATURE_KNA 미연동 상태에서 과 정보의 유일한 소스
+    family_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
     size_raw: Mapped[str | None] = mapped_column(String(200), nullable=True)
     flowering_period: Mapped[str | None] = mapped_column(String(100), nullable=True)
     fruiting_period: Mapped[str | None] = mapped_column(String(100), nullable=True)

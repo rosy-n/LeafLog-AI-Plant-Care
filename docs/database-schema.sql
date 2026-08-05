@@ -281,12 +281,14 @@ CREATE TABLE species_source_link (
     UNIQUE (source_code, source_key, species_id)
 );
 
--- 산림청 표준식물종정보 — 크기, 개화기, 결실기
+-- 산림청 표준식물종정보 — 크기, 개화기, 결실기 (+ 과국명)
 CREATE TABLE src_kfs_species (
     source_key      VARCHAR(200) PRIMARY KEY,
     ko_name         VARCHAR(200),
     sci_name        VARCHAR(300),
     sci_name_norm   VARCHAR(150),
+    -- 과국명 — NATURE_KNA 미연동 상태에서 과 정보의 유일한 소스
+    family_name     VARCHAR(150),
     size_raw        VARCHAR(200),
     flowering_period VARCHAR(100),
     fruiting_period VARCHAR(100),

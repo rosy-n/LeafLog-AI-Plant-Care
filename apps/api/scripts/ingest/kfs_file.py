@@ -12,6 +12,7 @@
 """
 import csv
 import re
+import unicodedata
 
 from app.models import SrcKfsSpecies
 
@@ -20,22 +21,28 @@ from ._common import DATA_DIR, ingest_run, log, normalize_scientific_name, sessi
 INPUT_CSV = DATA_DIR / "kfs-standard-plants.csv"
 
 # 필드 → 허용 헤더 별칭 (공백/괄호 제거 후 비교)
+# 2025-11-20 배포본의 실제 헤더:
+#   연번, 국명, 학명, 과국명, 과명, 개화기시작(월), 결실기(월), 보호식물여부, 특산식물여부, 크기
 HEADER_ALIASES = {
-    "source_key": ["식물아이디", "국가표준식물목록id", "id", "번호", "일련번호", "종id"],
+    "source_key": ["연번", "식물아이디", "국가표준식물목록id", "id", "번호", "일련번호", "종id"],
     "ko_name": ["국명", "정명국명", "한글명", "국명한글", "식물명"],
     "sci_name": ["학명", "정명학명", "학명전체"],
+    "family_name": ["과국명", "과명국문", "과명"],
     "size_raw": ["크기", "높이", "수고", "생육형태크기", "규격"],
-    "flowering_period": ["개화기", "개화시기", "꽃피는시기"],
-    "fruiting_period": ["결실기", "결실시기", "열매시기"],
+    "flowering_period": ["개화기시작(월)", "개화기", "개화시기", "꽃피는시기"],
+    "fruiting_period": ["결실기(월)", "결실기", "결실시기", "열매시기"],
 }
 
-# 인코딩 후보 — 공공데이터 CSV 는 cp949 가 흔하다
+# 월 숫자만 들어오는 컬럼 — '7' → '7월'
+MONTH_ONLY_FIELDS = {"flowering_period", "fruiting_period"}
+
+# 인코딩 후보 — 공공데이터 CSV 는 cp949 가 흔하다 (이 배포본도 cp949, BOM 없음)
 ENCODINGS = ["utf-8-sig", "cp949", "utf-8"]
 
-_HEIGHT_RE = re.compile(
-    r"(?P<low>\d+(?:\.\d+)?)\s*(?:~|-|∼|—)?\s*(?P<high>\d+(?:\.\d+)?)?\s*(?P<unit>cm|m|mm)",
-    re.IGNORECASE,
-)
+_MEASURE = r"(?P<low>\d+(?:\.\d+)?)\s*(?:~|-|∼|—)?\s*(?P<high>\d+(?:\.\d+)?)?\s*(?P<unit>cm|m|mm)"
+# '크기' 는 문장형이라 잎/지름 수치가 섞여 있다. 높이·수고·키 뒤의 값을 먼저 찾는다.
+_HEIGHT_LABELED_RE = re.compile(r"(?:높이|수고|키가|키는|키)\s*" + _MEASURE, re.IGNORECASE)
+_HEIGHT_RE = re.compile(_MEASURE, re.IGNORECASE)
 
 
 def _norm_header(header: str) -> str:
@@ -65,12 +72,31 @@ def resolve_headers(fieldnames: list[str]) -> dict[str, str]:
     return mapping
 
 
+def format_month(raw: str | None) -> str | None:
+    """'7' → '7월'. 이미 '월'이 붙어 있거나 숫자가 아니면 원문 그대로."""
+    if not raw:
+        return None
+    value = raw.strip()
+    return f"{value}월" if value.isdigit() else value or None
+
+
 def parse_height_cm(size_raw: str | None) -> tuple[int | None, int | None]:
-    """'높이 2~3m' → (200, 300). 값이 없거나 못 읽으면 (None, None)."""
+    """'높이 2~3m' → (200, 300). 값이 없거나 못 읽으면 (None, None).
+
+    '높이 15m, 지름 30cm' 처럼 다른 부위 수치가 섞인 문장이 많아
+    높이·수고·키 뒤의 값을 먼저 찾고, 없을 때만 첫 측정값을 쓴다.
+    """
     if not size_raw:
         return None, None
-    match = _HEIGHT_RE.search(size_raw)
-    if not match:
+    # 원문에 전각 단위기호가 섞여 있다 ('높이 30-90㎝'). NFKC 로 ㎝→cm, ㎜→mm 로 펴준다.
+    text = unicodedata.normalize("NFKC", size_raw)
+    match = _HEIGHT_LABELED_RE.search(text) or _HEIGHT_RE.search(text)
+    if match is None:
+        # '높이가 70-90(140)cm' 처럼 범위와 단위 사이에 예외값 괄호가 끼면 위 패턴이 안 걸린다.
+        # 괄호를 걷어낸 문장으로 한 번 더 시도 (원문 매칭이 실패했을 때만)
+        stripped = re.sub(r"\([^)]*\)", " ", text)
+        match = _HEIGHT_LABELED_RE.search(stripped) or _HEIGHT_RE.search(stripped)
+    if match is None:
         return None, None
 
     unit = match.group("unit").lower()
@@ -116,7 +142,8 @@ def main() -> None:
                     column = mapping.get(field)
                     if not column:
                         return None
-                    return (row.get(column) or "").strip() or None
+                    raw = (row.get(column) or "").strip() or None
+                    return format_month(raw) if field in MONTH_ONLY_FIELDS else raw
 
                 sci_name = value("sci_name")
                 ko_name = value("ko_name")
@@ -135,6 +162,7 @@ def main() -> None:
                         "ko_name": ko_name,
                         "sci_name": sci_name,
                         "sci_name_norm": normalize_scientific_name(sci_name),
+                        "family_name": value("family_name"),
                         "size_raw": size_raw,
                         "flowering_period": value("flowering_period"),
                         "fruiting_period": value("fruiting_period"),

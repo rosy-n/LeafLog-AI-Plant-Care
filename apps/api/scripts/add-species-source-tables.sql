@@ -99,6 +99,8 @@ CREATE TABLE IF NOT EXISTS src_kfs_species (
     ko_name         VARCHAR(200),
     sci_name        VARCHAR(300),
     sci_name_norm   VARCHAR(150),
+    -- 과국명 — NATURE_KNA 미연동 상태에서 과 정보의 유일한 소스
+    family_name     VARCHAR(150),
     size_raw        VARCHAR(200),
     flowering_period VARCHAR(100),
     fruiting_period VARCHAR(100),
@@ -106,6 +108,9 @@ CREATE TABLE IF NOT EXISTS src_kfs_species (
     ingest_run_id   BIGINT REFERENCES ingest_run(run_id) ON DELETE SET NULL,
     fetched_at      TIMESTAMP DEFAULT now()
 );
+
+-- 이 스크립트의 이전 버전에는 family_name 이 없었다
+ALTER TABLE src_kfs_species ADD COLUMN IF NOT EXISTS family_name VARCHAR(150);
 
 CREATE TABLE IF NOT EXISTS src_rda_indoor (
     source_key      VARCHAR(200) PRIMARY KEY,

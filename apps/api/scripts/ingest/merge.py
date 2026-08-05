@@ -142,6 +142,7 @@ def from_kfs(row: SrcKfsSpecies) -> dict:
     return {
         "common_name_ko": row.ko_name,
         "scientific_name": row.sci_name,
+        "family_name": row.family_name,
         "size_raw": row.size_raw,
         "height_min_cm": low,
         "height_max_cm": high,
