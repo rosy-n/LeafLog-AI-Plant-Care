@@ -251,6 +251,9 @@ class SpeciesIndex:
         self.by_ko: dict[str, PlantSpecies] = {}
         # 종 단위 키 → 기본종 + 품종 행들 (ASPCA 독성 전파용)
         self.by_base: dict[str, list[PlantSpecies]] = defaultdict(list)
+        # 속명 → 그 속의 모든 종. ASPCA 는 'Spathiphyllum', 'Begonia spp.' 처럼
+        # 속 단위로만 독성을 주는 항목이 많아, 종 단위 인덱스로는 대부분 놓친다.
+        self.by_genus: dict[str, list[PlantSpecies]] = defaultdict(list)
         self.created = 0
 
         self.existing: list[PlantSpecies] = list(db.scalars(select(PlantSpecies)).all())
@@ -277,19 +280,26 @@ class SpeciesIndex:
             species = self.by_id.get(species_id)
             if species is not None:
                 self.prior[(source_code, source_key)].append(species)
-        self.review_keys: set[tuple[str, str]] = set(
-            db.execute(
-                select(SpeciesMatchReview.source_code, SpeciesMatchReview.source_key)
-            ).all()
-        )
+        # 검토 큐는 행째로 들고 있는다 — 나중에 매칭에 성공하면 지워야 하기 때문
+        self.review_rows: dict[tuple[str, str], SpeciesMatchReview] = {
+            (row.source_code, row.source_key): row
+            for row in db.scalars(select(SpeciesMatchReview)).all()
+        }
+        self.resolved_reviews = 0
+
+    def _index_keys(self, species: PlantSpecies, norm: str) -> None:
+        base = species_level_norm(norm)
+        if base:
+            self.by_base[base].append(species)
+        genus = norm.split()[0].split("'")[0] if norm.split() else ""
+        if genus:
+            self.by_genus[genus].append(species)
 
     def _register(self, species: PlantSpecies) -> None:
         norm = species.scientific_name_norm
         if norm:
             self.by_norm.setdefault(norm, species)
-            base = species_level_norm(norm)
-            if base:
-                self.by_base[base].append(species)
+            self._index_keys(species, norm)
         if species.common_name_ko:
             self.by_ko.setdefault(species.common_name_ko, species)
 
@@ -297,13 +307,21 @@ class SpeciesIndex:
         """학명을 처음 알게 된 기존 행에 매칭 키를 채우고 인덱스도 갱신."""
         species.scientific_name_norm = norm
         self.by_norm.setdefault(norm, species)
-        base = species_level_norm(norm)
-        if base:
-            self.by_base[base].append(species)
+        self._index_keys(species, norm)
 
     def species_level_matches(self, norm: str | None) -> list[PlantSpecies]:
+        """종 단위 자료를 붙일 대상 종 목록.
+
+        소스 학명이 속명만 있으면(ASPCA 의 'Spathiphyllum', 'Begonia spp.')
+        그 속의 모든 종에 붙인다. 속 단위로 유효한 자료라 그게 원래 의미다.
+        종소명까지 있으면 그 종과 그 품종 행들에만 붙인다.
+        """
         base = species_level_norm(norm)
-        return self.by_base.get(base, []) if base else []
+        if not base:
+            return []
+        if " " in base:
+            return self.by_base.get(base, [])
+        return self.by_genus.get(base, [])
 
     def find_or_create(
         self, norm: str | None, ko_name: str | None, values: dict, can_create: bool
@@ -357,17 +375,27 @@ class SpeciesIndex:
 
     def queue_review(self, source_code: str, source_key: str, raw_name: str | None) -> None:
         key = (source_code, source_key)
-        if key in self.review_keys:
+        if key in self.review_rows:
             return
-        self.review_keys.add(key)
-        self.db.add(
-            SpeciesMatchReview(
-                source_code=source_code,
-                source_key=source_key,
-                raw_name=raw_name,
-                candidates=None,
-            )
+        row = SpeciesMatchReview(
+            source_code=source_code,
+            source_key=source_key,
+            raw_name=raw_name,
+            candidates=None,
         )
+        self.review_rows[key] = row
+        self.db.add(row)
+
+    def clear_review(self, source_code: str, source_key: str) -> None:
+        """이번 실행에서 붙은 소스 행은 검토 큐에서 뺀다.
+
+        이걸 안 하면 매칭 규칙을 개선해 붙인 뒤에도 큐에 남아
+        '아직 확인이 필요한 항목'으로 잘못 보인다.
+        """
+        row = self.review_rows.pop((source_code, source_key), None)
+        if row is not None:
+            self.db.delete(row)
+            self.resolved_reviews += 1
 
 
 def backfill_norms(db, index: "SpeciesIndex") -> int:
@@ -435,7 +463,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         log("기존 종/링크 인덱스 적재")
         index = SpeciesIndex(db)
-        log(f"  종 {len(index.by_norm)}(학명키) / 링크 {len(index.link_keys)} / 검토큐 {len(index.review_keys)}")
+        log(f"  종 {len(index.by_norm)}(학명키) / 링크 {len(index.link_keys)} / 검토큐 {len(index.review_rows)}")
 
         filled = backfill_norms(db, index)
         log(f"기존 종 학명 정규화 backfill: {filled}건")
@@ -453,6 +481,11 @@ def main(argv: list[str] | None = None) -> None:
             can_create = source_code in CAN_CREATE_SPECIES
             fan_out = source_code in FAN_OUT_TO_CULTIVARS
             reviewed = 0
+
+            if fan_out:
+                # 덜 구체적인 행(속 단위)을 먼저 적용해서, 같은 종을 가리키는
+                # 더 구체적인 행(종·품종 단위)이 뒤에 와서 덮어쓰게 한다.
+                rows = sorted(rows, key=lambda r: len((r.sci_name_norm or "").split()))
 
             log(f"{source_code}: 원본 {len(rows)}건 매칭 시작")
 
@@ -481,6 +514,8 @@ def main(argv: list[str] | None = None) -> None:
                     index.queue_review(source_code, row.source_key, row.sci_name or None)
                     reviewed += 1
                     continue
+                # 붙었으면 지난 실행에서 남은 검토 항목을 해제
+                index.clear_review(source_code, row.source_key)
                 plans.append((row.source_key, values, matches, method))
 
             # 2단계 — 새 종을 한 번에 INSERT 해서 species_id 를 확보
