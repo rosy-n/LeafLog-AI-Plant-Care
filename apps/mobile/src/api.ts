@@ -207,6 +207,16 @@ export type SpeciesDetail = {
   bug_info: string | null;
   care_tips: string | null;
   image_url: string | null;
+  // 돌보기 정보 화면이 카드별로 쓰는 원문 (농사로 원문, 없으면 null)
+  water_cycle_label: string | null;
+  light_label: string | null;
+  fertilizer_info: string | null;
+  soil_info: string | null;
+  special_manage_info: string | null;
+  placement: string | null;
+  propagation: string | null;
+  growth_rate: string | null;
+  flower_color_names: string | null;
   // 출처 표기용 — KFS_STD / RDA_INDOOR / ASPCA / NATURE_KNA
   sources: string[];
 };
@@ -241,6 +251,9 @@ export type PlantDetail = {
   nickname: string;
   common_name_ko: string | null;
   scientific_name: string | null;
+  // 종 마스터의 돌봄 정보 — 돌보기 정보 화면이 읽는다.
+  // 종이 연결되지 않았거나 마스터에 값이 없으면 null
+  species: SpeciesDetail | null;
   status: string;
   location_name: string | null;
   light_condition: string | null;

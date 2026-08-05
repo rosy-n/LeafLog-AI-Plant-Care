@@ -20,7 +20,7 @@ import csv
 
 from app.models import SrcNatureTaxon
 
-from ._common import DATA_DIR, ingest_run, log, normalize_scientific_name, session, upsert
+from ._common import DATA_DIR, Upserter, ingest_run, log, normalize_scientific_name, session
 
 # 파일 → plant_group. 파일이 없으면 그 그룹만 건너뛴다.
 FILES = {
@@ -94,11 +94,25 @@ def build_source_key(group: str, row: dict) -> str | None:
     return f"{group}:{sci_name or ko_name}|{ko_name}"[:200]
 
 
+def first_english_name(raw: str | None) -> str | None:
+    """추천영문명은 여러 이름을 ';' 또는 ',' 로 이어 준다 (최대 204자). 대표 하나만 쓴다.
+
+    'common yarrow; devil's nettle; hundred-leaved grass; ...' → 'common yarrow'
+    """
+    if not raw:
+        return None
+    for separator in (";", ","):
+        if separator in raw:
+            raw = raw.split(separator)[0]
+            break
+    return raw.strip() or None
+
+
 def to_values(group: str, row: dict) -> dict:
     sci_name = (row.get(COL_SCI_NAME) or "").strip() or None
     return {
         "ko_name": (row.get(COL_KO_NAME) or "").strip() or None,
-        "en_name": (row.get(COL_EN_NAME) or "").strip() or None,
+        "en_name": first_english_name(row.get(COL_EN_NAME)),
         "sci_name": sci_name,
         "sci_name_norm": normalize_scientific_name(sci_name),
         "family_name": (row.get(COL_FAMILY_KO) or "").strip() or None,
@@ -134,6 +148,7 @@ def main() -> None:
     db = session()
     try:
         with ingest_run(db, "NATURE_KNA") as run:
+            upsert = Upserter(db, SrcNatureTaxon)
             saved = 0
             skipped_status = 0
             for group, rows in tables:
@@ -154,7 +169,7 @@ def main() -> None:
                         continue
                     values = to_values(group, row)
                     values["ingest_run_id"] = run.run_id
-                    upsert(db, SrcNatureTaxon, source_key, values)
+                    upsert(source_key, values)
                     saved += 1
                     if index % 2000 == 0:
                         db.commit()
@@ -162,6 +177,7 @@ def main() -> None:
                 db.commit()
                 log(f"  {group} 완료 (누적 {saved}건)")
 
+            upsert.report()
             run.row_count = saved
             log(f"완료 — src_nature_taxon {saved}건 (정명 아님으로 제외 {skipped_status}건)")
     finally:
