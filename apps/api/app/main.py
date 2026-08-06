@@ -576,6 +576,34 @@ def update_plant(
     plant = _owned_plant_or_404(plant_id, current_user, db)
     data = payload.model_dump(exclude_unset=True)
 
+    if "species_id" in data and data["species_id"] is not None:
+        new_species = db.get(PlantSpecies, data["species_id"])
+        if new_species is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="존재하지 않는 speciesId 입니다."
+            )
+        old_interval = _species_interval_days(plant, db)
+        plant.species_id = new_species.species_id
+
+        # 물주기 일정: 종이 바뀌면 권장 주기도 바뀐다. 다만 사용자가 직접 조정한 값은
+        # 덮지 않는다 — 이전 종의 권장값 그대로였을 때만(=손대지 않은 일정) 갱신한다.
+        schedule = db.scalar(
+            select(CareSchedule).where(
+                CareSchedule.plant_id == plant.plant_id, CareSchedule.care_type == "WATERING"
+            )
+        )
+        new_interval = new_species.watering_interval_days
+        if schedule is not None and new_interval and schedule.interval_days == old_interval:
+            schedule.interval_days = new_interval
+            last = db.scalar(
+                select(CareRecord.completed_at)
+                .where(CareRecord.plant_id == plant.plant_id, CareRecord.care_type == "WATERING")
+                .order_by(CareRecord.completed_at.desc())
+                .limit(1)
+            )
+            base = (last or datetime.now(timezone.utc)).date()
+            schedule.next_due_date = base + timedelta(days=new_interval)
+
     if "nickname" in data and data["nickname"] is not None:
         nickname = data["nickname"].strip()
         if not nickname:

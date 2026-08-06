@@ -212,6 +212,8 @@ class PlantDetail(BaseModel):
 
 class PlantUpdate(BaseModel):
     # 프로필 편집 — 넘어온 필드만 부분 수정
+    # 종을 다시 고르는 경우 (인식이 어긋났거나 마스터 도입 전에 등록한 개체)
+    species_id: int | None = None
     nickname: str | None = None
     status: str | None = None
     location_name: str | None = None

@@ -24,9 +24,10 @@ import re
 import sys
 from collections import defaultdict
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 
 from app.models import (
+    Plant,
     PlantSpecies,
     SpeciesMatchReview,
     SpeciesSourceLink,
@@ -37,7 +38,13 @@ from app.models import (
 )
 
 from . import nongsaro_codes as codes
-from ._common import log, normalize_scientific_name, session, species_level_norm
+from ._common import (
+    apply_name_alias,
+    log,
+    normalize_scientific_name,
+    session,
+    species_level_norm,
+)
 from .kfs_file import parse_height_cm
 from .rda_indoor import reverse_lookup_all
 
@@ -379,6 +386,26 @@ class SpeciesIndex:
         self.created += 1
         return species, ("SCI_NAME" if norm else "KO_NAME")
 
+    def drop_stale_links(self, source_code: str, source_key: str, keep: set[int]) -> int:
+        """이번 매칭 결과에 없는 지난 링크를 지운다.
+
+        학명 별칭으로 소스 행이 다른 종으로 옮겨가면 옛 링크가 남아 유령 연결이 된다.
+        """
+        removed = 0
+        for species in self.prior.get((source_code, source_key), []):
+            if species.species_id in keep:
+                continue
+            self.db.execute(
+                delete(SpeciesSourceLink).where(
+                    SpeciesSourceLink.source_code == source_code,
+                    SpeciesSourceLink.source_key == source_key,
+                    SpeciesSourceLink.species_id == species.species_id,
+                )
+            )
+            self.link_keys.discard((source_code, source_key, species.species_id))
+            removed += 1
+        return removed
+
     def link(self, species_id: int, source_code: str, source_key: str, method: str) -> None:
         """새 종은 flush 후에야 species_id 가 생기므로, 반드시 flush 뒤에 호출한다."""
         key = (source_code, source_key, species_id)
@@ -437,6 +464,74 @@ def backfill_norms(db, index: "SpeciesIndex") -> int:
         filled += 1
     db.commit()
     return filled
+
+
+def absorb_orphan_shells(db, index: "SpeciesIndex") -> int:
+    """학명 별칭으로 소스가 옮겨간 뒤 남은 껍데기 종 행을 정본 행에 흡수한다.
+
+    별칭을 추가하면 소스 행이 정본 종으로 옮겨가고, 원래 붙어 있던 행은
+    링크 없이 과거 값만 든 채 남는다. 그대로 두면 검색에 '수박페페'와
+    '수박페페로미아' 가 중복으로 나온다.
+
+    판정 기준은 '링크가 없는가' 가 아니라 '별칭표가 이 행을 다른 행과 같다고 말하는가' 다.
+    링크 개수로 판정했더니, 별칭 덕분에 종 단위 자료(ASPCA)가 껍데기에도 붙어서
+    링크가 0이 되지 않아 흡수되지 않았다.
+
+    조건 — 저장된 정규화 학명에 별칭표를 적용했을 때 '다른 기존 종' 이 나올 때만 흡수한다.
+      'peperomia sandersii' → 별칭 → 'peperomia argyreia' → 다른 종 존재 → 흡수
+    별칭표는 손으로 확인한 항목만 들어 있으므로 이 조건은 안전하다.
+    학명이 손상된 행(예: 국명은 떡갈나무인데 norm 이 ficus lyrata)은 별칭에 없어
+    그대로 남는다 — 임의 판단으로 엉뚱한 종에 합치는 사고를 막는다.
+    사용자 등록 유래 종도 별칭에 없어 보호된다.
+    """
+    absorbed = 0
+
+    for species in index.existing:
+        norm = species.scientific_name_norm
+        if species.species_id is None or not norm:
+            continue
+        aliased = apply_name_alias(norm)
+        if aliased == norm:
+            continue
+        target = index.by_norm.get(aliased)
+        if target is None or target.species_id == species.species_id:
+            continue
+
+        # 남은 소스 링크를 정본 종으로 이관 (중복이면 버린다)
+        moved_links = 0
+        for source_code, source_key, species_id in list(index.link_keys):
+            if species_id != species.species_id:
+                continue
+            index.link_keys.discard((source_code, source_key, species_id))
+            db.execute(
+                delete(SpeciesSourceLink).where(
+                    SpeciesSourceLink.source_code == source_code,
+                    SpeciesSourceLink.source_key == source_key,
+                    SpeciesSourceLink.species_id == species_id,
+                )
+            )
+            if (source_code, source_key, target.species_id) not in index.link_keys:
+                index.link(target.species_id, source_code, source_key, "MANUAL")
+                moved_links += 1
+
+        # 이 종을 가리키던 개체를 정본 종으로 옮긴다 (사용자 데이터 이전)
+        moved_plants = db.execute(
+            update(Plant)
+            .where(Plant.species_id == species.species_id)
+            .values(species_id=target.species_id)
+        ).rowcount
+
+        log(
+            f"  껍데기 흡수: [{species.species_id}] {species.common_name_ko}"
+            f" → [{target.species_id}] {target.common_name_ko}"
+            f" (링크 {moved_links}건, 개체 {moved_plants}건 이전)"
+        )
+        db.delete(species)
+        absorbed += 1
+
+    if absorbed:
+        db.commit()
+    return absorbed
 
 
 def apply_values(species: PlantSpecies, values: dict) -> None:
@@ -525,15 +620,24 @@ def main(argv: list[str] | None = None) -> None:
                     matches = index.species_level_matches(row.sci_name_norm)
                     method = "SCI_NAME"
                 else:
-                    # 지난 적재에서 붙은 종이 있으면 그대로 재사용 (멱등성)
-                    matches = index.prior.get((source_code, row.source_key), [])
-                    method = "SCI_NAME" if row.sci_name_norm else "KO_NAME"
-                    if not matches:
-                        # ASPCA 원본에는 국명 컬럼이 없다 (영문 일반명만)
+                    # 학명·국명으로 먼저 찾는다. 지난 적재의 링크(prior)는 최후 수단이다 —
+                    # prior 를 1순위로 두면 학명 별칭을 추가해도 이미 링크된 행이
+                    # 절대 옮겨가지 않는다 (수박페페가 정본 행과 병합되지 않던 원인).
+                    # prior 가 필요한 경우는 "이름이 바뀌어 학명·국명 조회가 모두 실패할 때"
+                    # 뿐이고, 그때 새 종을 중복 생성하는 것을 막아 준다.
+                    species, method = index.find_or_create(
+                        row.sci_name_norm, getattr(row, "ko_name", None), values, can_create=False
+                    )
+                    if species is None:
+                        prior = index.prior.get((source_code, row.source_key), [])
+                        if prior:
+                            species = prior[0]
+                            method = "SCI_NAME" if row.sci_name_norm else "KO_NAME"
+                    if species is None and can_create:
                         species, method = index.find_or_create(
                             row.sci_name_norm, getattr(row, "ko_name", None), values, can_create
                         )
-                        matches = [species] if species is not None else []
+                    matches = [species] if species is not None else []
 
                 if not matches:
                     index.queue_review(source_code, row.source_key, row.sci_name or None)
@@ -549,11 +653,17 @@ def main(argv: list[str] | None = None) -> None:
 
             # 3단계 — 값 반영 + 링크 (UPDATE/INSERT 가 배치로 나간다)
             log(f"  값 반영/링크 {len(plans)}건")
+            unlinked = 0
             for source_key, values, matches, method in plans:
                 for species in matches:
                     apply_values(species, values)
                     index.link(species.species_id, source_code, source_key, method)
                     touched.add(species)
+                unlinked += index.drop_stale_links(
+                    source_code, source_key, {s.species_id for s in matches}
+                )
+            if unlinked:
+                log(f"  옮겨간 소스 행의 옛 링크 {unlinked}건 제거")
 
             log("  commit")
             db.commit()
@@ -564,6 +674,13 @@ def main(argv: list[str] | None = None) -> None:
         for species in touched:
             derive_is_toxic(species)
         db.commit()
+
+        # 전체 병합일 때만 껍데기 정리 — 일부 소스만 돌리면 링크가 아직 안 붙은
+        # 행을 껍데기로 오인할 수 있다
+        if len(order) == len(APPLY_ORDER):
+            absorbed = absorb_orphan_shells(db, index)
+            if absorbed:
+                log(f"껍데기 종 {absorbed}건 흡수")
 
         log(
             f"병합 완료 — plant_species {len(touched)}건 갱신 "

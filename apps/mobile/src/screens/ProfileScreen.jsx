@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     View,
     Text,
@@ -12,6 +12,9 @@ import {
     StatusBar,
     Dimensions,
     Alert,
+    Modal,
+    ScrollView,
+    ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -21,7 +24,7 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import ScreenHeader from "../components/ScreenHeader";
-import { getPlant, updatePlant } from "../api";
+import { getPlant, updatePlant, searchSpecies } from "../api";
 import { plantImages } from "../data/plants";
 
 // 서버 enum 코드 → 한글 표시
@@ -53,6 +56,47 @@ export default function ProfileScreen({ navigation, route }) {
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState(null);
 
+    // 식물종 다시 고르기 — 인식이 어긋났거나 종 마스터 도입 전에 등록한 개체용
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [speciesQuery, setSpeciesQuery] = useState("");
+    const [speciesResults, setSpeciesResults] = useState([]);
+    const [speciesSearching, setSpeciesSearching] = useState(false);
+    const searchTimer = useRef(null);
+
+    const onSpeciesQueryChange = (text) => {
+        setSpeciesQuery(text);
+        if (searchTimer.current) clearTimeout(searchTimer.current);
+        if (!text.trim()) {
+            setSpeciesResults([]);
+            return;
+        }
+        searchTimer.current = setTimeout(async () => {
+            setSpeciesSearching(true);
+            try {
+                setSpeciesResults(await searchSpecies(text));
+            } catch (e) {
+                Alert.alert("오류", e?.message ?? "식물종 검색에 실패했어요.");
+            } finally {
+                setSpeciesSearching(false);
+            }
+        }, 400);
+    };
+
+    const openSpeciesPicker = () => {
+        setSpeciesQuery("");
+        setSpeciesResults([]);
+        setPickerOpen(true);
+    };
+
+    const chooseSpecies = (species) => {
+        setForm((f) => ({
+            ...f,
+            species_id: species.species_id,
+            species_name: species.common_name_ko,
+        }));
+        setPickerOpen(false);
+    };
+
     useEffect(() => {
         const id = plant?.id;
         if (!id) return;
@@ -77,6 +121,9 @@ export default function ProfileScreen({ navigation, route }) {
             location_name: detail?.location_name ?? null,
             pot_type: detail?.pot_type ?? "",
             pot_size: detail?.pot_size ?? "",
+            // 종은 바꾸지 않으면 null 로 남겨 PATCH 에 싣지 않는다
+            species_id: null,
+            species_name: detail?.species?.common_name_ko ?? detail?.common_name_ko ?? null,
         });
         setEditing(true);
     };
@@ -113,6 +160,8 @@ export default function ProfileScreen({ navigation, route }) {
                 pot_type: form.pot_type,
                 pot_size: form.pot_size,
                 height: form.height,
+                // 종을 다시 고른 경우에만 포함 (넘기지 않으면 서버가 건드리지 않음)
+                ...(form.species_id ? { species_id: form.species_id } : {}),
             });
             setDetail(updated);
             setEditing(false);
@@ -237,6 +286,18 @@ export default function ProfileScreen({ navigation, route }) {
                                     <Text style={styles.unit}>cm</Text>
                                 </View>
                                 <View style={styles.editRow}>
+                                    <Text style={styles.infoLabel}>식물종</Text>
+                                    <TouchableOpacity
+                                        style={styles.selectValue}
+                                        onPress={openSpeciesPicker}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={styles.selectValueText} numberOfLines={1}>
+                                            {form.species_name ?? "선택"} ▸
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={styles.editRow}>
                                     <Text style={styles.infoLabel}>위치</Text>
                                     <TouchableOpacity style={styles.selectValue} onPress={cycleLocation} activeOpacity={0.7}>
                                         <Text style={styles.selectValueText}>
@@ -270,6 +331,9 @@ export default function ProfileScreen({ navigation, route }) {
                         ) : (
                             <>
                                 <Text style={styles.infoText}>이름: {name}</Text>
+                                <Text style={styles.infoText}>
+                                    식물종: {detail?.species?.common_name_ko ?? detail?.common_name_ko ?? "-"}
+                                </Text>
                                 <Text style={styles.infoText}>상태: {statusText}</Text>
                                 <Text style={styles.infoText}>키: {heightText}</Text>
                                 <Text style={styles.infoText}>위치: {locationText}</Text>
@@ -290,6 +354,66 @@ export default function ProfileScreen({ navigation, route }) {
                         나의 정원에서 추억으로 이동
                     </Text>
                 </TouchableOpacity>
+
+                {/* 식물종 다시 고르기 */}
+                <Modal
+                    visible={pickerOpen}
+                    animationType="slide"
+                    transparent
+                    onRequestClose={() => setPickerOpen(false)}
+                >
+                    <View style={styles.pickerBackdrop}>
+                        <View style={styles.pickerSheet}>
+                            <View style={styles.pickerHeader}>
+                                <Text style={styles.pickerTitle}>식물종 다시 고르기</Text>
+                                <TouchableOpacity onPress={() => setPickerOpen(false)}>
+                                    <Ionicons name="close" size={26} color={Colors.textBlack} />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.pickerSearchRow}>
+                                <TextInput
+                                    style={styles.pickerInput}
+                                    value={speciesQuery}
+                                    onChangeText={onSpeciesQueryChange}
+                                    placeholder="식물 이름이나 학명으로 검색"
+                                    placeholderTextColor={Colors.textFaint}
+                                    autoFocus
+                                    returnKeyType="search"
+                                />
+                                {speciesSearching && <ActivityIndicator size="small" />}
+                            </View>
+
+                            <ScrollView
+                                style={styles.pickerList}
+                                keyboardShouldPersistTaps="handled"
+                            >
+                                {speciesResults.map((item) => (
+                                    <TouchableOpacity
+                                        key={item.species_id}
+                                        style={styles.pickerItem}
+                                        activeOpacity={0.7}
+                                        onPress={() => chooseSpecies(item)}
+                                    >
+                                        <Text style={styles.pickerItemName} numberOfLines={1}>
+                                            {item.common_name_ko}
+                                        </Text>
+                                        {item.scientific_name ? (
+                                            <Text style={styles.pickerItemSci} numberOfLines={1}>
+                                                {item.scientific_name}
+                                            </Text>
+                                        ) : null}
+                                    </TouchableOpacity>
+                                ))}
+                                {!speciesSearching &&
+                                speciesQuery.trim() &&
+                                speciesResults.length === 0 ? (
+                                    <Text style={styles.pickerEmpty}>검색 결과가 없어요</Text>
+                                ) : null}
+                            </ScrollView>
+                        </View>
+                    </View>
+                </Modal>
             </View>
             </TouchableWithoutFeedback>
         </SafeAreaView>
@@ -449,6 +573,90 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: Colors.white,
+        includeFontPadding: false,
+    },
+
+    // 식물종 다시 고르기 모달
+    pickerBackdrop: {
+        flex: 1,
+        justifyContent: "flex-end",
+        backgroundColor: "rgba(0, 0, 0, 0.35)",
+    },
+
+    pickerSheet: {
+        maxHeight: SCREEN_HEIGHT * 0.7,
+        backgroundColor: Colors.white,
+        borderTopLeftRadius: Radius.xl,
+        borderTopRightRadius: Radius.xl,
+        paddingHorizontal: Spacing.xl,
+        paddingTop: Spacing.xl,
+        paddingBottom: Spacing.xxl,
+    },
+
+    pickerHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: Spacing.lg,
+    },
+
+    pickerTitle: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.subtitle,
+        color: Colors.textBlack,
+        includeFontPadding: false,
+    },
+
+    pickerSearchRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: Spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.separator,
+        paddingBottom: Spacing.sm,
+        marginBottom: Spacing.sm,
+    },
+
+    pickerInput: {
+        flex: 1,
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        paddingVertical: Spacing.sm,
+        includeFontPadding: false,
+    },
+
+    pickerList: {
+        flexGrow: 0,
+    },
+
+    pickerItem: {
+        paddingVertical: Spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.separator,
+    },
+
+    pickerItemName: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        includeFontPadding: false,
+    },
+
+    pickerItemSci: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textFaint,
+        marginTop: 2,
+        includeFontPadding: false,
+    },
+
+    pickerEmpty: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textFaint,
+        textAlign: "center",
+        paddingVertical: Spacing.xl,
         includeFontPadding: false,
     },
 });
