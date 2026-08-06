@@ -21,7 +21,7 @@ import { Ionicons } from "@expo/vector-icons";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, Paper } from "../../constants/colors";
+import { Colors, Paper, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import ScreenHeader from "../components/ScreenHeader";
 import {
@@ -64,6 +64,20 @@ function daysTogether(iso) {
     const created = new Date(iso).getTime();
     if (Number.isNaN(created)) return null;
     return Math.max(0, Math.floor((Date.now() - created) / 86400000)) + 1;
+}
+
+// 읽기 모드 한 줄 — 라벨은 회색 고정폭, 값은 남는 폭을 쓴다.
+// '식물종: 수박페페로미아' 처럼 값이 길어도 라벨 기준선이 흐트러지지 않게 하기 위함.
+function InfoLine({ label, value, note }) {
+    return (
+        <View style={styles.infoLine}>
+            <Text style={styles.infoLineLabel}>{label}</Text>
+            <View style={styles.infoLineValueBox}>
+                <Text style={styles.infoText}>{value}</Text>
+                {note ? <Text style={styles.infoLineNote}>{note}</Text> : null}
+            </View>
+        </View>
+    );
 }
 
 export default function ProfileScreen({ navigation, route }) {
@@ -263,8 +277,19 @@ export default function ProfileScreen({ navigation, route }) {
         <SafeAreaView style={styles.safeArea}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
+            {/*
+                추억 버튼을 흐름 안으로 옮긴 뒤로 편집 모드(항목 8개)에서 내용이
+                작은 화면을 넘길 수 있어 스크롤을 둔다. 키보드는 드래그로 닫힌다
+                (ScrollView 가 탭을 먼저 받아 바깥 탭 닫기는 동작하지 않는다).
+            */}
             <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View style={styles.container}>
+            <ScrollView
+                style={styles.container}
+                contentContainerStyle={styles.contentContainer}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                showsVerticalScrollIndicator={false}
+            >
                 {/* 상단 제목 / 편집 버튼 */}
                 <ScreenHeader
                     title="프로필"
@@ -286,23 +311,38 @@ export default function ProfileScreen({ navigation, route }) {
                     }
                 />
 
-                {/* 좌측 프로필 이미지 + 우측 식물 정보 */}
-                <View style={styles.profileRow}>
-                    <View style={styles.leftArea}>
-                        <View style={styles.plantCard}>
-                            <Image
-                                source={plant?.imageUri ? { uri: plant.imageUri } : plantImages[plant?.imageKey ?? "spaghetti"]}
-                                style={styles.plantImage}
-                                resizeMode="contain"
-                            />
-                        </View>
+                {/*
+                    상단: 캐릭터 카드 + 짧은 요약(함께한 지 / 이름 / 종명)
+                    하단: 세부 항목 카드 (전체 폭)
 
+                    이전에는 세부 항목 8개를 카드 옆 좁은 열(149~189pt)에 넣어
+                    값이 계속 줄바꿈되고 두 열의 높이도 안 맞았다.
+                    항목 수가 늘어난 뒤로는 나란히 두는 배치가 맞지 않는다.
+                */}
+                <View style={styles.profileRow}>
+                    <View style={styles.plantCard}>
+                        <Image
+                            source={plant?.imageUri ? { uri: plant.imageUri } : plantImages[plant?.imageKey ?? "spaghetti"]}
+                            style={styles.plantImage}
+                            resizeMode="contain"
+                        />
+                    </View>
+
+                    {/* 이름을 맨 위에 두고 종명·함께한 일수를 아래로 — 이름이 문장 사이에 끼지 않게 */}
+                    <View style={styles.summaryArea}>
+                        <Text style={styles.summaryName} numberOfLines={1}>
+                            {name}
+                        </Text>
+                        <Text style={styles.summarySpecies} numberOfLines={2}>
+                            {detail?.species?.common_name_ko ?? detail?.common_name_ko ?? "-"}
+                        </Text>
                         <Text style={styles.daysText}>
                             {together != null ? `함께한 지 ${together}일 째` : "함께한 지 -"}
                         </Text>
                     </View>
+                </View>
 
-                    <View style={styles.infoArea}>
+                <View style={styles.infoArea}>
                         {editing && form ? (
                             <>
                                 <View style={styles.editRow}>
@@ -421,26 +461,27 @@ export default function ProfileScreen({ navigation, route }) {
                             </>
                         ) : (
                             <>
-                                <Text style={styles.infoText}>이름: {name}</Text>
-                                <Text style={styles.infoText}>
-                                    식물종: {detail?.species?.common_name_ko ?? detail?.common_name_ko ?? "-"}
-                                </Text>
-                                <Text style={styles.infoText}>상태: {statusText}</Text>
-                                <Text style={styles.infoText}>키: {heightText}</Text>
-                                <Text style={styles.infoText}>위치: {locationText}</Text>
-                                <Text style={styles.infoText}>화분 종류: {potTypeText}</Text>
-                                <Text style={styles.infoText}>화분 크기: {potSizeText}</Text>
+                                {/* 이름·식물종은 위 요약에 있으므로 여기서는 생략 */}
+                                <InfoLine label="상태" value={statusText} />
+                                <InfoLine label="키" value={heightText} />
+                                <InfoLine label="위치" value={locationText} />
+                                <InfoLine label="화분 종류" value={potTypeText} />
+                                <InfoLine label="화분 크기" value={potSizeText} />
                                 {care?.watering_interval_days ? (
-                                    <Text style={styles.infoText}>
-                                        물주기: {care.watering_interval_days}일에 한 번
-                                        {care.watering_interval_source
-                                            ? ` (${INTERVAL_SOURCE_NOTE[care.watering_interval_source]})`
-                                            : ""}
-                                    </Text>
+                                    <InfoLine
+                                        label="물주기"
+                                        value={`${care.watering_interval_days}일에 한 번`}
+                                        note={
+                                            care.watering_interval_source
+                                                ? INTERVAL_SOURCE_NOTE[
+                                                      care.watering_interval_source
+                                                  ]
+                                                : null
+                                        }
+                                    />
                                 ) : null}
                             </>
                         )}
-                    </View>
                 </View>
 
                 {/* 추억 이동 버튼 */}
@@ -513,7 +554,7 @@ export default function ProfileScreen({ navigation, route }) {
                         </View>
                     </View>
                 </Modal>
-            </View>
+            </ScrollView>
             </TouchableWithoutFeedback>
         </SafeAreaView>
     );
@@ -531,6 +572,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,
+    },
+
+    contentContainer: {
+        paddingBottom: Spacing.xl,
     },
 
     editButton: {
@@ -551,17 +596,34 @@ const styles = StyleSheet.create({
     },
 
     profileRow: {
-        marginTop: Spacing.huge,
+        marginTop: Spacing.xxl,
         flexDirection: "row",
         alignItems: "flex-start",
-        justifyContent: "space-between",
         width: "100%",
         paddingHorizontal: Spacing.xl,
+        gap: Spacing.lg,
     },
 
-    leftArea: {
-        width: CARD_WIDTH,
-        alignItems: "center",
+    summaryArea: {
+        flex: 1,
+        minWidth: 0,
+        paddingTop: Spacing.sm,
+        gap: Spacing.xs,
+    },
+
+    summaryName: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.screenTitle,
+        color: Colors.textBlack,
+        includeFontPadding: false,
+    },
+
+    summarySpecies: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        lineHeight: 24,
+        color: Colors.textGray,
+        includeFontPadding: false,
     },
 
     plantCard: {
@@ -582,25 +644,58 @@ const styles = StyleSheet.create({
     },
 
     daysText: {
-        marginTop: Spacing.lg,
+        marginTop: Spacing.xs,
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
-        color: Colors.textBlack,
+        fontSize: FontSizes.small,
+        color: Colors.textFaint,
         includeFontPadding: false,
-        textAlign: "center",
     },
 
+    // 세부 항목 카드 — 전체 폭을 쓴다 (상단 요약과 분리)
     infoArea: {
-        width: SCREEN_WIDTH * 0.46,
-        paddingTop: Spacing.sm,
-        paddingLeft: Spacing.lg,
+        marginTop: Spacing.xl,
+        marginHorizontal: Spacing.xl,
+        backgroundColor: Colors.white,
+        borderRadius: Radius.lg,
+        borderWidth: 1.5,
+        borderColor: GreenTint.soft,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.lg,
     },
 
     infoText: {
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
-        lineHeight: 30,
+        fontSize: FontSizes.body,
+        lineHeight: 26,
         color: Colors.textBlack,
+        includeFontPadding: false,
+    },
+
+    infoLine: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        marginBottom: Spacing.xs,
+    },
+
+    // 라벨 폭을 고정해 값들의 시작선을 맞춘다 ('화분 종류' 가 가장 긴 라벨)
+    infoLineLabel: {
+        width: 66,
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        lineHeight: 26,
+        color: Colors.textGray,
+        includeFontPadding: false,
+    },
+
+    infoLineValueBox: {
+        flex: 1,
+        minWidth: 0,
+    },
+
+    infoLineNote: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textFaint,
         includeFontPadding: false,
     },
 
@@ -656,9 +751,11 @@ const styles = StyleSheet.create({
         includeFontPadding: false,
     },
 
+    // 이전에는 position:absolute + top:45% 로 고정돼 있어서, 세부 항목 카드가
+    // 길어진 뒤로는 카드 위를 덮었다. 문서 흐름에 두고 카드 아래에 배치한다.
     memoryButton: {
-        position: "absolute",
-        top: SCREEN_HEIGHT * 0.45,
+        marginTop: Spacing.xxl,
+        marginBottom: Spacing.xl,
         alignSelf: "center",
         width: SCREEN_WIDTH * 0.62,
         height: 46,
