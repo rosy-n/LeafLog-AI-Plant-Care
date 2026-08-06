@@ -45,6 +45,7 @@ from .schemas import (
     SpeciesDetail,
     SpeciesListItem,
     UserRead,
+    WateringScheduleUpdate,
 )
 from .security import create_access_token, decode_access_token, hash_password, verify_password
 from .storage import presigned_get_url
@@ -671,6 +672,58 @@ def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
         started_at=plant.started_at.isoformat() if plant.started_at else None,
         created_at=plant.created_at.isoformat(),
     )
+
+
+@app.patch("/api/plants/{plant_id}/watering-schedule", response_model=CareSummary)
+def update_watering_schedule(
+    plant_id: int,
+    payload: WateringScheduleUpdate,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CareSummary:
+    """물주기 주기를 사용자가 조정하거나 권장값으로 되돌린다.
+
+    비료·분갈이는 일정으로 관리하지 않아(경과일수만 표시) 물주기 전용 엔드포인트다.
+    다음 예정일은 마지막 물준 기록(없으면 지금) + 새 주기로 다시 계산한다.
+    """
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+
+    if payload.interval_days is None:
+        interval, source = _initial_interval(plant, db)
+    else:
+        interval, source = payload.interval_days, "USER"
+
+    schedule = db.scalar(
+        select(CareSchedule).where(
+            CareSchedule.plant_id == plant_id, CareSchedule.care_type == "WATERING"
+        )
+    )
+    last_watered = db.scalar(
+        select(CareRecord.completed_at)
+        .where(CareRecord.plant_id == plant_id, CareRecord.care_type == "WATERING")
+        .order_by(CareRecord.completed_at.desc())
+        .limit(1)
+    )
+    next_due = (last_watered or datetime.now(timezone.utc)).date() + timedelta(days=interval)
+
+    if schedule is None:
+        # 일정이 없던 개체(마스터 도입 전 등록분)는 이 시점에 만들어진다
+        db.add(
+            CareSchedule(
+                plant_id=plant_id,
+                care_type="WATERING",
+                interval_days=interval,
+                interval_source=source,
+                next_due_date=next_due,
+            )
+        )
+    else:
+        schedule.interval_days = interval
+        schedule.interval_source = source
+        schedule.next_due_date = next_due
+
+    db.commit()
+    return plant_care_summary(plant_id, current_user, db)
 
 
 @app.get("/api/plants/{plant_id}/care", response_model=CareSummary)

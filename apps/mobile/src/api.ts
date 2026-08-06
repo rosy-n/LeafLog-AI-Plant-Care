@@ -309,6 +309,15 @@ export type CareSummary = {
 };
 
 // 특정 식물의 최근 물주기/분갈이 요약 (토큰 자동 첨부)
+// 물주기 주기 변경. intervalDays=null 이면 권장값(종 값 또는 앱 기본값)으로 되돌린다.
+// 비료·분갈이는 일정으로 관리하지 않아 물주기 전용이다.
+export function updateWateringSchedule(plantId: number, intervalDays: number | null) {
+  return request<CareSummary>(`/api/plants/${plantId}/watering-schedule`, {
+    method: "PATCH",
+    body: JSON.stringify({ interval_days: intervalDays }),
+  });
+}
+
 export function getPlantCare(plantId: number) {
   return request<CareSummary>(`/api/plants/${plantId}/care`);
 }

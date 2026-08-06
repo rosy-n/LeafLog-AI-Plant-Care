@@ -250,6 +250,17 @@ class CareRecordItem(BaseModel):
     note: str | None = None
 
 
+class WateringScheduleUpdate(BaseModel):
+    """물주기 주기 변경.
+
+    interval_days 를 주면 사용자 설정(USER)으로 기록한다.
+    null 이면 권장값(종 마스터 값, 없으면 앱 기본값)으로 되돌린다.
+    비료·분갈이는 일정으로 관리하지 않으므로 이 엔드포인트는 물주기 전용이다.
+    """
+
+    interval_days: int | None = Field(default=None, ge=1, le=365)
+
+
 class CareRecordCreate(BaseModel):
     care_type: str
     note: str | None = None
