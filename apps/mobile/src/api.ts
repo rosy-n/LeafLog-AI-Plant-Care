@@ -298,9 +298,11 @@ export type CareSummary = {
   days_since_fertilizing: number | null;
   last_repotted_at: string | null;
   days_since_repotting: number | null;
-  // 물주기 일정. watering_schedule_saved 가 false 면 저장된 일정이 아니라
-  // 종 권장값으로 계산한 예상치 (사용자가 조정한 값이 아님)
+  // 물주기 일정. watering_schedule_saved 가 false 면 저장된 일정이 아직 없어 계산만 한 값.
+  // watering_interval_source 는 주기의 근거 —
+  //   SPECIES(종 권장값) / DEFAULT(자료 없어 앱 기본값 7일) / USER(사용자 설정)
   watering_interval_days: number | null;
+  watering_interval_source: "SPECIES" | "DEFAULT" | "USER" | null;
   next_watering_date: string | null;
   days_until_watering: number | null;
   watering_schedule_saved: boolean;

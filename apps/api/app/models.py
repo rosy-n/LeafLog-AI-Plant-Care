@@ -176,6 +176,9 @@ class CareSchedule(Base):
     )
     care_type: Mapped[str] = mapped_column(String(30), nullable=False)
     interval_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    # 주기 출처 — SPECIES(종 권장값) / DEFAULT(자료 없어 기본값) / USER(사용자 설정).
+    # USER 는 다른 값으로 덮지 않는다.
+    interval_source: Mapped[str] = mapped_column(String(20), nullable=False, default="DEFAULT")
     next_due_date: Mapped[date] = mapped_column(Date, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
@@ -187,6 +190,10 @@ class CareSchedule(Base):
             name="ck_care_schedule_care_type",
         ),
         CheckConstraint("interval_days > 0", name="ck_care_schedule_interval_days"),
+        CheckConstraint(
+            "interval_source IN ('SPECIES', 'DEFAULT', 'USER')",
+            name="ck_care_schedule_interval_source",
+        ),
         UniqueConstraint("plant_id", "care_type", name="uq_care_schedule_plant_care"),
         UniqueConstraint(
             "schedule_id", "plant_id", "care_type", name="uq_care_schedule_id_plant_care"
