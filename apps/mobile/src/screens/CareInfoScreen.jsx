@@ -9,6 +9,7 @@ import {
     SafeAreaView,
     StatusBar,
     ActivityIndicator,
+    Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -39,6 +40,7 @@ const NO_DATA = "아직 자료가 없어요";
 // 실제로 잘리는 경우에만 버튼이 나오게 한다.
 const DESCRIPTION_COLLAPSED_LINES = 3;
 const DESCRIPTION_COLLAPSE_THRESHOLD = 100;
+
 
 // 온·습도 막대의 표시 구간 (0~30°C, 0~100%)
 const TEMP_AXIS_MAX = 30;
@@ -378,6 +380,7 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                     >
                         <Text style={styles.cardTitle}>물주기</Text>
 
+                        {/* 이 화면은 '종 정보' 를 보여준다. 개체별 물주기 주기 조정은 프로필에서 한다. */}
                         {species.watering_interval_days ? (
                             <View style={styles.infoRow}>
                                 <View style={styles.circleBlue}>
@@ -386,7 +389,7 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                                     </Text>
                                 </View>
 
-                                <View style={styles.textGroup}>
+                                <View style={[styles.textGroup, styles.flexText]}>
                                     <Text style={styles.mainInfo}>
                                         {species.watering_interval_days}일에 한 번
                                     </Text>

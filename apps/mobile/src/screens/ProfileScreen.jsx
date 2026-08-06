@@ -24,7 +24,13 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import ScreenHeader from "../components/ScreenHeader";
-import { getPlant, updatePlant, searchSpecies } from "../api";
+import {
+    getPlant,
+    updatePlant,
+    searchSpecies,
+    getPlantCare,
+    updateWateringSchedule,
+} from "../api";
 import { plantImages } from "../data/plants";
 
 // 서버 enum 코드 → 한글 표시
@@ -41,6 +47,17 @@ const STATUS_LABELS = { ALIVE: "건강함", SICK: "아픔", DEAD: "떠나보냄"
 const STATUS_ORDER = ["ALIVE", "SICK", "DEAD"];
 const LOCATION_ORDER = ["LIVING_ROOM", "BEDROOM", "BALCONY", "KITCHEN", "OFFICE"];
 
+// 물주기 주기 조절 범위 (서버도 1~365 로 검증)
+const WATERING_MIN_DAYS = 1;
+const WATERING_MAX_DAYS = 60;
+
+// 주기의 근거 — DEFAULT 는 자료가 없어 넣은 값이라 그 사실을 감추지 않는다
+const INTERVAL_SOURCE_NOTE = {
+    SPECIES: "종 정보 기준",
+    DEFAULT: "자료가 없어 기본값",
+    USER: "직접 설정",
+};
+
 // 등록일 기준 함께한 일수 (1일째부터)
 function daysTogether(iso) {
     if (!iso) return null;
@@ -52,6 +69,7 @@ function daysTogether(iso) {
 export default function ProfileScreen({ navigation, route }) {
     const plant = route?.params?.plant;
     const [detail, setDetail] = useState(null);
+    const [care, setCare] = useState(null);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState(null);
@@ -101,13 +119,14 @@ export default function ProfileScreen({ navigation, route }) {
         const id = plant?.id;
         if (!id) return;
         let mounted = true;
-        getPlant(Number(id))
-            .then((d) => {
-                if (mounted) setDetail(d);
-            })
-            .catch(() => {
-                if (mounted) setDetail(null);
-            });
+        // allSettled: 돌봄 일정 조회가 실패해도 프로필은 보여준다
+        Promise.allSettled([getPlant(Number(id)), getPlantCare(Number(id))]).then(
+            ([detailResult, careResult]) => {
+                if (!mounted) return;
+                setDetail(detailResult.status === "fulfilled" ? detailResult.value : null);
+                if (careResult.status === "fulfilled") setCare(careResult.value);
+            },
+        );
         return () => {
             mounted = false;
         };
@@ -124,6 +143,11 @@ export default function ProfileScreen({ navigation, route }) {
             // 종은 바꾸지 않으면 null 로 남겨 PATCH 에 싣지 않는다
             species_id: null,
             species_name: detail?.species?.common_name_ko ?? detail?.common_name_ko ?? null,
+            // 물주기 주기 — 저장 시 값이 바뀐 경우에만 별도 엔드포인트로 보낸다
+            watering_days: care?.watering_interval_days
+                ? String(care.watering_interval_days)
+                : "",
+            watering_reset: false,
         });
         setEditing(true);
     };
@@ -164,6 +188,28 @@ export default function ProfileScreen({ navigation, route }) {
                 ...(form.species_id ? { species_id: form.species_id } : {}),
             });
             setDetail(updated);
+
+            // 물주기 주기는 전용 엔드포인트를 쓴다 (다음 예정일 재계산이 따라오므로)
+            const days = Number(form.watering_days);
+            const changed =
+                form.watering_reset ||
+                (Number.isFinite(days) &&
+                    days >= WATERING_MIN_DAYS &&
+                    days <= WATERING_MAX_DAYS &&
+                    days !== care?.watering_interval_days);
+            if (changed) {
+                try {
+                    setCare(
+                        await updateWateringSchedule(
+                            Number(id),
+                            form.watering_reset ? null : days,
+                        ),
+                    );
+                } catch (e) {
+                    Alert.alert("물주기 저장 실패", e?.message ?? "다시 시도해주세요.");
+                }
+            }
+
             setEditing(false);
         } catch (e) {
             Alert.alert("저장 실패", e?.message ?? "다시 시도해주세요.");
@@ -305,6 +351,26 @@ export default function ProfileScreen({ navigation, route }) {
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
+                                {care ? (
+                                    <View style={styles.editRow}>
+                                        <Text style={styles.infoLabel}>물주기</Text>
+                                        <TextInput
+                                            style={styles.editInputSmall}
+                                            value={form.watering_days}
+                                            onChangeText={(v) =>
+                                                setForm((f) => ({
+                                                    ...f,
+                                                    watering_days: v.replace(/[^0-9]/g, ""),
+                                                    watering_reset: false,
+                                                }))
+                                            }
+                                            keyboardType="number-pad"
+                                            maxLength={2}
+                                        />
+                                        <Text style={styles.unit}>일에 한 번</Text>
+                                    </View>
+                                ) : null}
+
                                 <View style={styles.editRow}>
                                     <Text style={styles.infoLabel}>화분 종류</Text>
                                     <TextInput
@@ -327,6 +393,31 @@ export default function ProfileScreen({ navigation, route }) {
                                     />
                                     <Text style={styles.unit}>cm</Text>
                                 </View>
+
+                                {/* 직접 설정한 주기를 권장값으로 되돌리기 */}
+                                {care?.watering_interval_source === "USER" &&
+                                !form.watering_reset ? (
+                                    <TouchableOpacity
+                                        onPress={() =>
+                                            setForm((f) => ({
+                                                ...f,
+                                                watering_reset: true,
+                                                watering_days: "",
+                                            }))
+                                        }
+                                        activeOpacity={0.7}
+                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                    >
+                                        <Text style={styles.resetLink}>
+                                            물주기를 권장값으로 되돌리기
+                                        </Text>
+                                    </TouchableOpacity>
+                                ) : null}
+                                {form.watering_reset ? (
+                                    <Text style={styles.resetLink}>
+                                        저장하면 권장 주기로 돌아갑니다
+                                    </Text>
+                                ) : null}
                             </>
                         ) : (
                             <>
@@ -339,6 +430,14 @@ export default function ProfileScreen({ navigation, route }) {
                                 <Text style={styles.infoText}>위치: {locationText}</Text>
                                 <Text style={styles.infoText}>화분 종류: {potTypeText}</Text>
                                 <Text style={styles.infoText}>화분 크기: {potSizeText}</Text>
+                                {care?.watering_interval_days ? (
+                                    <Text style={styles.infoText}>
+                                        물주기: {care.watering_interval_days}일에 한 번
+                                        {care.watering_interval_source
+                                            ? ` (${INTERVAL_SOURCE_NOTE[care.watering_interval_source]})`
+                                            : ""}
+                                    </Text>
+                                ) : null}
                             </>
                         )}
                     </View>
@@ -573,6 +672,14 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: Colors.white,
+        includeFontPadding: false,
+    },
+
+    resetLink: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.primary,
+        marginTop: Spacing.sm,
         includeFontPadding: false,
     },
 
