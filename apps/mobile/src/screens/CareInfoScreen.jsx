@@ -50,11 +50,50 @@ function rangeStyle(min, max, axisMax) {
 }
 
 // 광원 요구도 → 사람이 읽는 문장 (원문 라벨이 있으면 그걸 우선)
-const LIGHT_LEVEL_TEXT = {
-    LOW: "약한 빛에서도 잘 자라요",
-    MEDIUM: "밝은 간접광을 좋아해요",
-    HIGH: "햇빛을 많이 필요로 해요",
+// 광도 단계 — 약한 쪽부터 강한 쪽 순서. 이모지도 같은 순서로 밝아진다.
+//
+// 농사로 원문 라벨은 "중간 광도(800~1,500 Lux),높은 광도(1,500~10,000 Lux)" 처럼
+// 코드가 콤마로 이어져 그대로 보여주면 읽기 어렵다. 한 단계로 정리해 보여준다.
+//
+// 판정 기준은 최소 광량이다 — "얼마나 어두운 곳까지 견디는가" 가 두는 자리를 정하기 때문.
+// 최대 광량은 212종 중 207종이 10,000 Lux 로 같아 구분에 쓸 수 없다.
+const LIGHT_STEPS = {
+    SHADE: { emoji: "☁️", title: "어두운 곳에서도 잘 자라요", place: "음지도 가능" },
+    HALF: { emoji: "⛅", title: "밝은 간접광이 좋아요", place: "반양지" },
+    SUN: { emoji: "☀️", title: "햇빛이 잘 드는 곳에 두세요", place: "양지" },
 };
+
+// 농사로 광도 코드 경계 (Lux) — 낮은 300~800 / 중간 800~1,500 / 높은 1,500~10,000
+const LUX_LOW_MAX = 800;
+const LUX_HIGH_MIN = 1500;
+
+// 종의 광도 정보 → { emoji, title, place, caution }. 자료가 없으면 null
+function describeLight(species) {
+    const min = species.light_min_lux;
+    const max = species.light_max_lux;
+
+    let step = null;
+    if (min == null) {
+        // Lux 가 없으면 LOW/MEDIUM/HIGH 등급만으로 판단
+        step = {
+            LOW: LIGHT_STEPS.SHADE,
+            MEDIUM: LIGHT_STEPS.HALF,
+            HIGH: LIGHT_STEPS.SUN,
+        }[species.light_level];
+    } else if (min < LUX_LOW_MAX) {
+        step = LIGHT_STEPS.SHADE;
+    } else if (min < LUX_HIGH_MIN) {
+        step = LIGHT_STEPS.HALF;
+    } else {
+        step = LIGHT_STEPS.SUN;
+    }
+
+    if (!step) return null;
+    // 강한 빛을 못 견디는 종은 따로 알려준다 (상한이 높은 광도 구간에 못 미치는 경우)
+    const caution =
+        max != null && max <= LUX_HIGH_MIN ? "강한 직사광선은 피해주세요" : null;
+    return { ...step, caution };
+}
 
 // 독성 3상태 — null 은 자료 없음
 function toxicityMark(flag) {
@@ -170,6 +209,7 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
     );
     const pests = toChips(species?.bug_info);
     const flowerColors = toChips(species?.flower_color_names);
+    const light = species ? describeLight(species) : null;
 
     if (loading) {
         return (
@@ -330,20 +370,19 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
 
                         <View style={styles.infoRow}>
                             <View style={styles.circlePeach}>
-                                <Text style={styles.sunEmoji}>🌥️</Text>
+                                <Text style={styles.sunEmoji}>{light?.emoji ?? "❓"}</Text>
                             </View>
 
-                            <View style={styles.textGroup}>
-                                <Text style={styles.mainInfo}>
-                                    {species.light_label ||
-                                        LIGHT_LEVEL_TEXT[species.light_level] ||
-                                        NO_DATA}
-                                </Text>
-                                {species.light_min_lux ? (
+                            <View style={[styles.textGroup, styles.flexText]}>
+                                <Text style={styles.mainInfo}>{light?.title ?? NO_DATA}</Text>
+                                {light && species.light_min_lux != null ? (
                                     <Text style={styles.subInfo}>
-                                        {species.light_min_lux.toLocaleString()}~
+                                        {light.place} · {species.light_min_lux.toLocaleString()}~
                                         {species.light_max_lux?.toLocaleString()} Lux
                                     </Text>
+                                ) : null}
+                                {light?.caution ? (
+                                    <Text style={styles.subInfo}>{light.caution}</Text>
                                 ) : null}
                             </View>
                         </View>
