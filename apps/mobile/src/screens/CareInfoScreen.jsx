@@ -39,13 +39,16 @@ const TEMP_AXIS_MAX = 30;
 const HUMIDITY_AXIS_MAX = 100;
 
 // 막대에서 [min, max] 구간이 차지할 left/width (%)
+//
+// 수치 라벨은 막대 안에 넣지 않는다 — 적정 온도는 21~25°C 처럼 폭이 좁은 경우가 많아
+// (0~30°C 축에서 13%) 글자가 막대 밖으로 삐져나와 구간이 잘못 그려진 것처럼 보인다.
 function rangeStyle(min, max, axisMax) {
     if (min == null && max == null) return null;
     const low = Math.max(0, Math.min(Number(min ?? max), axisMax));
     const high = Math.max(low, Math.min(Number(max ?? min), axisMax));
     const left = (low / axisMax) * 100;
-    // 폭이 0이면 눈에 안 보이므로 최소 12% 확보
-    const width = Math.max(((high - low) / axisMax) * 100, 12);
+    // 상·하한이 같은 종은 폭이 0이라 아예 안 보이므로 최소 3% 만 확보
+    const width = Math.max(((high - low) / axisMax) * 100, 3);
     return { left: `${Math.min(left, 100 - width)}%`, width: `${width}%` };
 }
 
@@ -397,13 +400,13 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
 
                         {tempRange ? (
                             <View style={styles.rangeBlock}>
+                                <Text style={styles.rangeCaption}>
+                                    적정 온도 {Number(species.temp_min_c)}~
+                                    {Number(species.temp_max_c)}°C
+                                </Text>
+
                                 <View style={styles.rangeBar}>
-                                    <View style={[styles.rangeFillPink, tempRange]}>
-                                        <Text style={styles.rangeText}>
-                                            {Number(species.temp_min_c)}~
-                                            {Number(species.temp_max_c)}°C
-                                        </Text>
-                                    </View>
+                                    <View style={[styles.rangeFillPink, tempRange]} />
                                 </View>
 
                                 <View style={styles.rangeLabelRow}>
@@ -418,13 +421,13 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
 
                         {humidityRange ? (
                             <View style={styles.rangeBlock}>
+                                <Text style={styles.rangeCaption}>
+                                    적정 습도 {Number(species.humidity_min_pct)}~
+                                    {Number(species.humidity_max_pct)}%
+                                </Text>
+
                                 <View style={styles.rangeBar}>
-                                    <View style={[styles.rangeFillBlue, humidityRange]}>
-                                        <Text style={styles.rangeText}>
-                                            {Number(species.humidity_min_pct)}~
-                                            {Number(species.humidity_max_pct)}%
-                                        </Text>
-                                    </View>
+                                    <View style={[styles.rangeFillBlue, humidityRange]} />
                                 </View>
 
                                 <View style={styles.rangeLabelRow}>
@@ -843,10 +846,12 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
 
-    rangeText: {
+    // 수치는 막대 안이 아니라 위에 적는다 (좁은 구간에서 글자가 삐져나오는 문제)
+    rangeCaption: {
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.small,
+        fontSize: FontSizes.body,
         color: Colors.textBlack,
+        marginBottom: Spacing.sm,
         includeFontPadding: false,
     },
 
