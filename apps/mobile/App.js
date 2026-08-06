@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, AppState } from "react-native";
 import { useFonts } from "expo-font";
 import { Fonts } from "./constants/fonts";
 import { Asset } from "expo-asset";
@@ -29,6 +29,9 @@ import { getPlants } from "./src/api";
 import { syncWateringReminders } from "./src/notifications";
 
 const Stack = createNativeStackNavigator();
+
+// 알림 재동기화 최소 간격 — 포그라운드 복귀가 잦아도 개체별 조회가 반복되지 않게
+const SYNC_MIN_INTERVAL_MS = 5 * 60 * 1000;
 
 // 아직 미구현인 값의 임시 표시 — 나중에 실제 기능 연결 시 교체
 const PLACEHOLDER_HEARTS = 5; // 호감도: care_record 기능 연결 전 임시 고정
@@ -159,10 +162,26 @@ export default function MainApp({ user }) {
 
     // 물주기 알림을 현재 일정에 맞춰 다시 맞춘다.
     // 다른 기기에서 물을 줬거나 주기를 바꿨으면 기기에 남은 예약이 어긋나기 때문.
+    //
+    // 앱 시작 때 한 번만 하면 며칠씩 켜둔 경우 그동안의 변경이 반영되지 않아,
+    // 포그라운드로 돌아올 때도 다시 맞춘다. 개체마다 일정을 조회하므로
+    // 최소 간격을 둬서 화면 전환마다 반복 호출되지 않게 한다.
     useEffect(() => {
-        syncWateringReminders().catch((error) =>
-            console.warn("물주기 알림 동기화 실패:", error?.message),
-        );
+        let lastSyncAt = 0;
+        const resync = () => {
+            const now = Date.now();
+            if (now - lastSyncAt < SYNC_MIN_INTERVAL_MS) return;
+            lastSyncAt = now;
+            syncWateringReminders().catch((error) =>
+                console.warn("물주기 알림 동기화 실패:", error?.message),
+            );
+        };
+
+        resync();
+        const sub = AppState.addEventListener("change", (state) => {
+            if (state === "active") resync();
+        });
+        return () => sub.remove();
     }, []);
 
     // 알림을 누르면 해당 개체 화면으로 이동
