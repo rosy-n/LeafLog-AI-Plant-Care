@@ -231,9 +231,13 @@ class CareSummary(BaseModel):
     last_repotted_at: str | None = None
     days_since_repotting: int | None = None
 
-    # 물주기 일정 (care_schedule). 일정 행이 없으면 종 권장값으로 계산한 예상치가 들어가고
-    # watering_schedule_saved 가 false 가 된다 — 사용자가 조정한 값이 아니라는 뜻
+    # 물주기 일정 (care_schedule).
+    # watering_schedule_saved=false 면 저장된 일정이 아직 없어 계산만 한 예상치라는 뜻.
+    # watering_interval_source 는 그 주기의 근거 —
+    #   SPECIES: 종 마스터 권장값 / DEFAULT: 자료가 없어 앱 기본값 / USER: 사용자 설정
+    # 화면에서 "자료 기반"과 "기본값"을 구분해 보여주기 위한 값이다.
     watering_interval_days: int | None = None
+    watering_interval_source: str | None = None
     next_watering_date: str | None = None
     days_until_watering: int | None = None
     watering_schedule_saved: bool = False

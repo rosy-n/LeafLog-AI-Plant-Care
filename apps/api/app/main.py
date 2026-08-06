@@ -66,6 +66,12 @@ app.add_middleware(
 LOCATION_NAMES = {"LIVING_ROOM", "BEDROOM", "BALCONY", "KITCHEN", "OFFICE"}
 LIGHT_CONDITIONS = {"DIRECT", "BRIGHT", "INDIRECT", "LOW"}
 CARE_TYPES = {"WATERING", "FERTILIZING", "REPOTTING"}
+
+# 종에 권장 물주기 자료가 없을 때 쓰는 기본값.
+# 농사로 값은 3·5·10일에 몰려 있고 중간값이 5일이지만, 그 203종은 실내정원용으로
+# 선별된 관엽식물이라 자주 주는 쪽으로 치우쳐 있다. 자료가 없는 종에는 과습을 피하는
+# 쪽이 안전해(초보 실패 원인 1위) 하루~이틀 여유를 둔 7일로 잡았다. 주 1회라 기억하기도 쉽다.
+DEFAULT_WATERING_INTERVAL_DAYS = 7
 PLANT_STATUSES = {"ALIVE", "SICK", "DEAD"}
 
 
@@ -125,6 +131,18 @@ def _species_interval_days(plant: Plant, db: Session) -> int | None:
     return interval if interval and interval > 0 else None
 
 
+def _initial_interval(plant: Plant, db: Session) -> tuple[int, str]:
+    """새 일정에 넣을 (주기, 출처).
+
+    종 권장값이 있으면 그대로 쓰고, 없으면 앱 기본값을 쓴다.
+    권장값이 있는 종은 전체의 1.1%(203/17,665)라 대부분 DEFAULT 로 시작한다.
+    """
+    interval = _species_interval_days(plant, db)
+    if interval:
+        return interval, "SPECIES"
+    return DEFAULT_WATERING_INTERVAL_DAYS, "DEFAULT"
+
+
 def _upsert_watering_schedule(
     plant: Plant, db: Session, last_watered: datetime | None = None
 ) -> CareSchedule | None:
@@ -150,23 +168,22 @@ def _upsert_watering_schedule(
         )
     )
 
-    interval = schedule.interval_days if schedule else _species_interval_days(plant, db)
-    if not interval:
-        return schedule
-
-    base = (last_watered or datetime.now(timezone.utc)).date()
-    next_due = base + timedelta(days=interval)
-
     if schedule is None:
+        interval, source = _initial_interval(plant, db)
         schedule = CareSchedule(
             plant_id=plant.plant_id,
             care_type="WATERING",
             interval_days=interval,
-            next_due_date=next_due,
+            interval_source=source,
+            next_due_date=(last_watered or datetime.now(timezone.utc)).date()
+            + timedelta(days=interval),
         )
         db.add(schedule)
-    else:
-        schedule.next_due_date = next_due
+        return schedule
+
+    # 이미 있는 일정은 주기·출처를 건드리지 않고 다음 예정일만 밀어준다
+    base = (last_watered or datetime.now(timezone.utc)).date()
+    schedule.next_due_date = base + timedelta(days=schedule.interval_days)
     return schedule
 
 
@@ -582,19 +599,19 @@ def update_plant(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="존재하지 않는 speciesId 입니다."
             )
-        old_interval = _species_interval_days(plant, db)
         plant.species_id = new_species.species_id
 
-        # 물주기 일정: 종이 바뀌면 권장 주기도 바뀐다. 다만 사용자가 직접 조정한 값은
-        # 덮지 않는다 — 이전 종의 권장값 그대로였을 때만(=손대지 않은 일정) 갱신한다.
+        # 물주기 일정: 종이 바뀌면 권장 주기도 바뀐다.
+        # 사용자가 직접 설정한 주기(USER)는 덮지 않는다.
         schedule = db.scalar(
             select(CareSchedule).where(
                 CareSchedule.plant_id == plant.plant_id, CareSchedule.care_type == "WATERING"
             )
         )
-        new_interval = new_species.watering_interval_days
-        if schedule is not None and new_interval and schedule.interval_days == old_interval:
-            schedule.interval_days = new_interval
+        if schedule is not None and schedule.interval_source != "USER":
+            interval, source = _initial_interval(plant, db)
+            schedule.interval_days = interval
+            schedule.interval_source = source
             last = db.scalar(
                 select(CareRecord.completed_at)
                 .where(CareRecord.plant_id == plant.plant_id, CareRecord.care_type == "WATERING")
@@ -602,7 +619,7 @@ def update_plant(
                 .limit(1)
             )
             base = (last or datetime.now(timezone.utc)).date()
-            schedule.next_due_date = base + timedelta(days=new_interval)
+            schedule.next_due_date = base + timedelta(days=interval)
 
     if "nickname" in data and data["nickname"] is not None:
         nickname = data["nickname"].strip()
@@ -687,10 +704,12 @@ def plant_care_summary(
     )
     if schedule is not None:
         interval = schedule.interval_days
+        source = schedule.interval_source
         next_due = schedule.next_due_date
         saved = True
     else:
-        interval = _species_interval_days(plant, db)
+        # 일정 행이 아직 없는 개체(마스터 도입 전 등록분) — 만들지 않고 계산만 한다
+        interval, source = _initial_interval(plant, db)
         base = (watered or plant.created_at).date() if (watered or plant.created_at) else None
         next_due = base + timedelta(days=interval) if (interval and base) else None
         saved = False
@@ -704,6 +723,7 @@ def plant_care_summary(
         last_repotted_at=repotted.isoformat() if repotted else None,
         days_since_repotting=_days_since(repotted),
         watering_interval_days=interval,
+        watering_interval_source=source,
         next_watering_date=next_due.isoformat() if next_due else None,
         days_until_watering=(next_due - today).days if next_due else None,
         watering_schedule_saved=saved,

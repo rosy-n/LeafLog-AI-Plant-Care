@@ -392,6 +392,14 @@ CREATE TABLE care_schedule (
                     CHECK (care_type IN ('WATERING', 'FERTILIZING', 'REPOTTING')),
 
     interval_days   INTEGER NOT NULL CHECK (interval_days > 0),
+    -- 이 주기가 어디서 왔는지
+    --   SPECIES: 종 마스터의 권장 주기를 복사
+    --   DEFAULT: 종에 권장 주기 자료가 없어 앱 기본값(7일)을 넣음
+    --   USER:    사용자가 직접 설정 — 다른 값으로 덮지 않는다
+    -- 종 권장값이 있는 종은 전체의 1.1%(203/17,665)뿐이라 대부분 DEFAULT 로 시작한다.
+    -- 화면에서 "자료 기반"과 "기본값"을 구분해 보여주기 위해 출처를 남긴다.
+    interval_source VARCHAR(20) NOT NULL DEFAULT 'DEFAULT'
+                    CHECK (interval_source IN ('SPECIES', 'DEFAULT', 'USER')),
     next_due_date   DATE NOT NULL,
 
     created_at      TIMESTAMP DEFAULT now(),
