@@ -206,30 +206,43 @@ export default function ProfileScreen({ navigation, route }) {
 
             // 물주기 주기는 전용 엔드포인트를 쓴다 (다음 예정일 재계산이 따라오므로)
             const days = Number(form.watering_days);
-            const changed =
+            const wateringChanged =
                 form.watering_reset ||
                 (Number.isFinite(days) &&
                     days >= WATERING_MIN_DAYS &&
                     days <= WATERING_MAX_DAYS &&
                     days !== care?.watering_interval_days);
-            if (changed) {
+
+            let nextCare = care;
+            if (wateringChanged) {
                 try {
-                    const nextCare = await updateWateringSchedule(
+                    nextCare = await updateWateringSchedule(
                         Number(id),
                         form.watering_reset ? null : days,
                     );
                     setCare(nextCare);
-                    // 주기가 바뀌면 다음 예정일도 바뀌므로 알림을 다시 예약한다
-                    scheduleWateringReminder(
-                        id,
-                        updated?.nickname ?? form.nickname.trim(),
-                        nextCare.next_watering_date,
-                    ).catch((err) =>
-                        console.warn("물주기 알림 예약 실패:", err?.message),
-                    );
                 } catch (e) {
                     Alert.alert("물주기 저장 실패", e?.message ?? "다시 시도해주세요.");
                 }
+            } else if (form.species_id) {
+                // 종을 바꾸면 서버가 주기를 새 종 값으로 갱신한다(사용자 설정이 아닐 때).
+                // 예정일이 바뀌므로 최신 일정을 다시 읽어야 한다 —
+                // 이걸 빠뜨리면 기기 예약이 옛 날짜에 그대로 남는다.
+                try {
+                    nextCare = await getPlantCare(Number(id));
+                    setCare(nextCare);
+                } catch (e) {
+                    console.warn("돌봄 일정 조회 실패:", e?.message);
+                }
+            }
+
+            // 예정일이 바뀔 수 있는 변경이었으면 알림을 다시 예약한다
+            if (wateringChanged || form.species_id) {
+                scheduleWateringReminder(
+                    id,
+                    updated?.nickname ?? form.nickname.trim(),
+                    nextCare?.next_watering_date ?? null,
+                ).catch((err) => console.warn("물주기 알림 예약 실패:", err?.message));
             }
 
             setEditing(false);

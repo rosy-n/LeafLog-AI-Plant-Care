@@ -14,7 +14,8 @@ import {
 import { Colors } from '../../constants/colors';
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
-import { createPlant } from '../../src/api';
+import { createPlant, getPlantCare } from '../../src/api';
+import { scheduleWateringReminder } from '../../src/notifications';
 
 import { styles } from './styles/info.styles';
 import type { NewPlantPayload } from '../../types/plant';
@@ -246,6 +247,20 @@ export default function InfoScreen() {
       };
 
       const created = await createPlant(payload);
+
+      // 물주기 알림 예약 — 등록이 알림의 첫 접점이다.
+      // 여기서 안 하면 앱을 다시 켤 때(전체 동기화)까지 알림이 잡히지 않는다.
+      try {
+        const care = await getPlantCare(created.id);
+        await scheduleWateringReminder(
+          created.id,
+          created.nickname,
+          care.next_watering_date,
+        );
+      } catch (e: any) {
+        // 알림 예약 실패가 등록을 막지 않게 한다
+        console.warn('물주기 알림 예약 실패:', e?.message);
+      }
 
       // 등록 직후 열리는 PlantDetail이 방금 만든 식물을 표시하도록 전달
       router.replace({
