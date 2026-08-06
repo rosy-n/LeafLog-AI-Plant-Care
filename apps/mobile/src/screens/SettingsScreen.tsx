@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
     View,
     Text,
@@ -13,6 +13,7 @@ import {
     Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
@@ -20,6 +21,7 @@ import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
+import { sendTestReminder, listScheduledReminders } from "../notifications";
 
 const FAQ_ITEMS = [
     {
@@ -125,6 +127,36 @@ export default function SettingsScreen({
     const saveName = () => {
         if (draftName.trim()) setUsername(draftName.trim());
         setIsEditingName(false);
+    };
+
+    // 예약된 물주기 알림 목록 — 알럿은 닫히면 사라져서 확인이 어려우니 화면에 둔다
+    const [reminders, setReminders] = useState<
+        { plantId: string; title: string; dueDate: string }[]
+    >([]);
+
+    const refreshReminders = useCallback(() => {
+        listScheduledReminders()
+            .then(setReminders)
+            .catch((e) => console.warn("예약 목록 조회 실패:", e?.message));
+    }, []);
+
+    // 화면에 들어올 때마다 갱신 — 물주기·주기 변경 후 돌아와서 바로 확인할 수 있게
+    useFocusEffect(refreshReminders);
+
+    const runNotificationTest = async () => {
+        try {
+            const ok = await sendTestReminder(5);
+            if (!ok) {
+                Alert.alert(
+                    "알림 권한이 없어요",
+                    "기기 설정에서 LeafLog 알림을 허용해 주세요.",
+                );
+                return;
+            }
+            refreshReminders();
+        } catch (e: any) {
+            Alert.alert("알림 테스트 실패", e?.message ?? "다시 시도해주세요.");
+        }
     };
 
     const adjustHour = (d: number) =>
@@ -307,6 +339,48 @@ export default function SettingsScreen({
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
+                                    </View>
+
+                                    {/*
+                                        알림 동작 확인용 임시 경로.
+                                        실제 물주기 알림은 예정일 09:00 에 오므로 그날까지
+                                        기다려야 확인이 된다. 권한·채널·수신·탭 이동을
+                                        한 번에 점검하려고 둔 것이고, 확인이 끝나면 지운다.
+                                    */}
+                                    <RowDivider />
+                                    <TouchableOpacity
+                                        style={styles.row}
+                                        onPress={runNotificationTest}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={styles.rowLabel}>알림 테스트 (5초 뒤)</Text>
+                                        <Ionicons
+                                            name="chevron-forward"
+                                            size={20}
+                                            color={GreenTint.strong}
+                                        />
+                                    </TouchableOpacity>
+
+                                    <RowDivider />
+                                    <View style={styles.reminderBlock}>
+                                        <Text style={styles.rowLabel}>
+                                            예약된 물주기 알림 {reminders.length}건
+                                        </Text>
+                                        {reminders.length ? (
+                                            reminders.map((item) => (
+                                                <Text
+                                                    key={item.plantId}
+                                                    style={styles.reminderItem}
+                                                >
+                                                    · {item.title} — {item.dueDate} 09:00
+                                                </Text>
+                                            ))
+                                        ) : (
+                                            <Text style={styles.reminderItem}>
+                                                예정일이 이미 지난 개체는 예약하지 않아요.
+                                                물을 주거나 주기를 늘리면 예약됩니다.
+                                            </Text>
+                                        )}
                                     </View>
                                 </>
                             )}
@@ -501,6 +575,18 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "space-between",
         paddingVertical: Spacing.lg,
+    },
+    // 예약된 알림 목록 (동작 확인용 임시 표시)
+    reminderBlock: {
+        paddingVertical: Spacing.lg,
+        gap: Spacing.xs,
+    },
+    reminderItem: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        lineHeight: 20,
+        color: Colors.textGray,
+        includeFontPadding: false,
     },
     rowLabel: {
         fontFamily: Fonts.neoDunggeunmo,
