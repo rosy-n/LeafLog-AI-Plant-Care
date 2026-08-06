@@ -14,10 +14,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
 import { getPlantCare, getPlants } from "./api";
-
-// 알림을 보낼 시각 (로컬 09:00)
-const NOTIFY_HOUR = 9;
-const NOTIFY_MINUTE = 0;
+import { loadNotificationSettings } from "./notificationSettings";
 
 const ANDROID_CHANNEL_ID = "watering";
 
@@ -54,12 +51,24 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   return asked.granted;
 }
 
-/** 예정일 09:00 시각. 이미 지났으면 null */
-function triggerDate(nextWateringDate: string): Date | null {
+/** 예정일 + 설정된 알림 시각. 이미 지났으면 null */
+function triggerDate(nextWateringDate: string, hour: number, minute: number): Date | null {
   const [year, month, day] = nextWateringDate.split("-").map(Number);
   if (!year || !month || !day) return null;
-  const when = new Date(year, month - 1, day, NOTIFY_HOUR, NOTIFY_MINUTE, 0, 0);
+  const when = new Date(year, month - 1, day, hour, minute, 0, 0);
   return when.getTime() > Date.now() ? when : null;
+}
+
+/** 알림 설정이 꺼져 있으면 예약된 물주기 알림을 전부 지운다 */
+async function cancelAllWateringReminders(): Promise<void> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    scheduled
+      .filter((item) => item.content.data?.kind === "WATERING")
+      .map((item) =>
+        Notifications.cancelScheduledNotificationAsync(item.identifier),
+      ),
+  );
 }
 
 export async function cancelWateringReminder(plantId: number | string): Promise<void> {
@@ -78,7 +87,10 @@ export async function scheduleWateringReminder(
   await cancelWateringReminder(plantId);
   if (!nextWateringDate) return false;
 
-  const when = triggerDate(nextWateringDate);
+  const settings = await loadNotificationSettings();
+  if (!settings.enabled) return false;
+
+  const when = triggerDate(nextWateringDate, settings.hour, settings.minute);
   if (!when) return false;
 
   if (!(await ensureNotificationPermission())) return false;
@@ -152,6 +164,12 @@ export async function listScheduledReminders(): Promise<
  * 떠나보낸 개체(DEAD)는 예약하지 않는다.
  */
 export async function syncWateringReminders(): Promise<number> {
+  const settings = await loadNotificationSettings();
+  if (!settings.enabled) {
+    // 설정을 끈 뒤 남아 있던 예약까지 지운다
+    await cancelAllWateringReminders();
+    return 0;
+  }
   if (!(await ensureNotificationPermission())) return 0;
   await prepareNotifications();
 

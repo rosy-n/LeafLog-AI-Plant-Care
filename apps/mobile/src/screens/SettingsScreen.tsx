@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -21,7 +21,16 @@ import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
-import { sendTestReminder, listScheduledReminders } from "../notifications";
+import {
+    sendTestReminder,
+    listScheduledReminders,
+    syncWateringReminders,
+} from "../notifications";
+import {
+    DEFAULT_NOTIFICATION_SETTINGS,
+    loadNotificationSettings,
+    saveNotificationSettings,
+} from "../notificationSettings";
 
 const FAQ_ITEMS = [
     {
@@ -108,10 +117,11 @@ export default function SettingsScreen({
     const [isEditingName, setIsEditingName] = useState(false);
     const [draftName, setDraftName] = useState(username);
 
-    // 알림
-    const [notifEnabled, setNotifEnabled] = useState(true);
-    const [notifHour, setNotifHour] = useState(8);
-    const [notifMinute, setNotifMinute] = useState(0);
+    // 알림 — 저장된 설정을 불러와 표시하고, 바꾸면 저장 + 예약을 다시 맞춘다
+    const [notifEnabled, setNotifEnabled] = useState(DEFAULT_NOTIFICATION_SETTINGS.enabled);
+    const [notifHour, setNotifHour] = useState(DEFAULT_NOTIFICATION_SETTINGS.hour);
+    const [notifMinute, setNotifMinute] = useState(DEFAULT_NOTIFICATION_SETTINGS.minute);
+    const [notifLoaded, setNotifLoaded] = useState(false);
 
     // 사운드&진동
     const [bgmVolume, setBgmVolume] = useState(7);
@@ -142,6 +152,35 @@ export default function SettingsScreen({
 
     // 화면에 들어올 때마다 갱신 — 물주기·주기 변경 후 돌아와서 바로 확인할 수 있게
     useFocusEffect(refreshReminders);
+
+    // 저장된 알림 설정 불러오기
+    useEffect(() => {
+        let mounted = true;
+        loadNotificationSettings().then((settings) => {
+            if (!mounted) return;
+            setNotifEnabled(settings.enabled);
+            setNotifHour(settings.hour);
+            setNotifMinute(settings.minute);
+            setNotifLoaded(true);
+        });
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    // 설정이 바뀌면 저장하고 예약을 새 시각으로 다시 맞춘다.
+    // 불러오기 전에는 실행하지 않는다 (기본값으로 저장해 사용자 설정을 덮어쓰지 않게)
+    useEffect(() => {
+        if (!notifLoaded) return;
+        saveNotificationSettings({
+            enabled: notifEnabled,
+            hour: notifHour,
+            minute: notifMinute,
+        })
+            .then(() => syncWateringReminders())
+            .then(refreshReminders)
+            .catch((e) => console.warn("알림 설정 저장 실패:", e?.message));
+    }, [notifLoaded, notifEnabled, notifHour, notifMinute, refreshReminders]);
 
     const runNotificationTest = async () => {
         try {
@@ -372,7 +411,7 @@ export default function SettingsScreen({
                                                     key={item.plantId}
                                                     style={styles.reminderItem}
                                                 >
-                                                    · {item.title} — {item.dueDate} 09:00
+                                                    · {item.title} — {item.dueDate} {String(notifHour).padStart(2, "0")}:{String(notifMinute).padStart(2, "0")}
                                                 </Text>
                                             ))
                                         ) : (
