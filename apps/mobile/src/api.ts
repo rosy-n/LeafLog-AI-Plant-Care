@@ -273,6 +273,8 @@ export function getPlant(plantId: number) {
 }
 
 export type PlantUpdate = {
+  // 종을 다시 고르는 경우 (인식이 어긋났거나 마스터 도입 전에 등록한 개체)
+  species_id?: number;
   nickname?: string;
   status?: string;
   location_name?: string | null;

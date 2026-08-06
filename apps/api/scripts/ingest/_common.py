@@ -3,10 +3,12 @@
 모든 ingest 스크립트는 apps/api 를 sys.path 에 넣고 app.* 을 임포트한다.
 실행: cd apps/api && ./.venv/Scripts/python.exe -m scripts.ingest.<모듈명>
 """
+import csv
 import re
 import sys
 import unicodedata
 from contextlib import contextmanager
+from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -41,6 +43,48 @@ _NOISE = re.compile(r"\b(sp|spp|aff|cf|ex|hort|nom\.?\s*illeg|sensu)\.?\b", re.I
 
 
 _CULTIVAR_RE = re.compile(r"['‘’\"]([^'‘’\"]+)['‘’\"]")
+
+# 학명 별칭 — 소스별 오타·동의어를 정명 쪽으로 모아 매칭시킨다.
+# data/scientific-name-aliases.csv 에 근거와 함께 기록하고, 확인된 항목만 넣는다.
+ALIAS_CSV = DATA_DIR / "scientific-name-aliases.csv"
+
+
+@lru_cache(maxsize=1)
+def _name_aliases() -> dict[str, str]:
+    if not ALIAS_CSV.exists():
+        return {}
+    table: dict[str, str] = {}
+    with ALIAS_CSV.open("r", encoding="utf-8", newline="") as fp:
+        for row in csv.DictReader(fp):
+            src = (row.get("from_norm") or "").strip().lower()
+            dst = (row.get("to_norm") or "").strip().lower()
+            if src and dst:
+                table[src] = dst
+    return table
+
+
+def apply_name_alias(norm: str) -> str:
+    """이미 정규화된 학명에 별칭만 다시 적용. 별칭이 없으면 원본 그대로."""
+    return _apply_alias(norm) if norm else norm
+
+
+def _apply_alias(norm: str) -> str:
+    """정규화 학명에 별칭을 적용. 앞쪽 토큰의 최장 일치를 치환한다.
+
+    별칭 키가 속명 한 단어면 속명 치환으로 동작한다.
+      'nephrolepsis cordifolia' → 'nephrolepis cordifolia'
+    두 단어면 종까지 포함해 치환하고 뒤의 품종 표기는 그대로 남긴다.
+      "fittonia verschaffelti 'white star'" → "fittonia verschaffeltii 'white star'"
+    """
+    table = _name_aliases()
+    if not table:
+        return norm
+    tokens = norm.split()
+    for size in range(len(tokens), 0, -1):
+        replacement = table.get(" ".join(tokens[:size]))
+        if replacement:
+            return " ".join([replacement, *tokens[size:]]).strip()
+    return norm
 
 
 def normalize_scientific_name(raw: str | None) -> str | None:
@@ -95,7 +139,9 @@ def normalize_scientific_name(raw: str | None) -> str | None:
     norm = " ".join(parts)
     if cultivar:
         norm = f"{norm} '{cultivar.lower()}'"
-    return norm
+    # 소스별 오타·동의어를 정명 쪽으로 모아 준다 (양방향으로 효과가 있다 —
+    # 소스 학명도, 우리 종의 학명도 같은 함수를 통과하므로)
+    return _apply_alias(norm)
 
 
 def species_level_norm(norm: str | None) -> str | None:
