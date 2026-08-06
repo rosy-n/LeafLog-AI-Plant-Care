@@ -34,6 +34,12 @@ const CARE_SECTIONS = [
 
 const NO_DATA = "아직 자료가 없어요";
 
+// 특징(설명) 접기 — 접었을 때 보여줄 줄 수와, '더 보기' 를 붙일 글자 수 기준.
+// 카드 폭에서 한 줄이 대략 22~25자라 3줄이면 70자 안팎이고, 그보다 넉넉히 잡아
+// 실제로 잘리는 경우에만 버튼이 나오게 한다.
+const DESCRIPTION_COLLAPSED_LINES = 3;
+const DESCRIPTION_COLLAPSE_THRESHOLD = 100;
+
 // 온·습도 막대의 표시 구간 (0~30°C, 0~100%)
 const TEMP_AXIS_MAX = 30;
 const HUMIDITY_AXIS_MAX = 100;
@@ -114,6 +120,14 @@ function toChips(raw) {
         .filter(Boolean);
 }
 
+// 두는 곳 — 농사로 원문은 장소마다 실내깊이 설명이 붙어 한 줄에 최대 114자가 된다.
+//   '실내 어두운 곳 (실내깊이 500 이상cm),거실 내측 (실내깊이 300~500cm),거실 창측 (…)'
+// 깊이 수치는 장소 이름과 사실상 1:1 대응이라 빼고 장소만 칩으로 보여준다.
+function toPlacementChips(raw) {
+    if (!raw) return [];
+    return toChips(raw.replace(/\([^)]*\)/g, ""));
+}
+
 export default function CareInfoScreen({ navigation, route }) {
     const plantParam = route?.params?.plant;
     const plantId = plantParam?.id;
@@ -166,6 +180,7 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
     const tabPositions = useRef({});
     const activeKeyRef = useRef("plantInfo");
     const [activeKey, setActiveKey] = useState("plantInfo");
+    const [descExpanded, setDescExpanded] = useState(false);
 
     const scrollToSection = (key) => {
         setActiveKey(key);
@@ -212,7 +227,12 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
     );
     const pests = toChips(species?.bug_info);
     const flowerColors = toChips(species?.flower_color_names);
+    const placements = toPlacementChips(species?.placement);
     const light = species ? describeLight(species) : null;
+    // 접힘 상태에서 실제로 잘릴 때만 '더 보기' 를 붙인다.
+    // 농사로 설명은 짧은 한 문장부터 1,000자 넘는 속 전체 소개까지 편차가 크다.
+    const isLongDescription =
+        (species?.description?.length ?? 0) > DESCRIPTION_COLLAPSE_THRESHOLD;
 
     if (loading) {
         return (
@@ -328,9 +348,27 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                         {species.size_raw ? (
                             <Text style={styles.cardText}>크기: {species.size_raw}</Text>
                         ) : null}
-                        <Text style={styles.cardText}>
+                        <Text
+                            style={styles.cardText}
+                            numberOfLines={
+                                isLongDescription && !descExpanded
+                                    ? DESCRIPTION_COLLAPSED_LINES
+                                    : undefined
+                            }
+                        >
                             특징: {species.description || NO_DATA}
                         </Text>
+                        {isLongDescription ? (
+                            <TouchableOpacity
+                                onPress={() => setDescExpanded((v) => !v)}
+                                activeOpacity={0.7}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                                <Text style={styles.moreLink}>
+                                    {descExpanded ? "접기" : "더 보기"}
+                                </Text>
+                            </TouchableOpacity>
+                        ) : null}
                     </View>
 
                     {/* 물주기 */}
@@ -492,12 +530,16 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                             </View>
                         ) : null}
 
-                        {species.placement ? (
-                            <View style={styles.bulletRow}>
-                                <View style={styles.circleYellow} />
-                                <Text style={[styles.mainInfo, styles.flexText]}>
-                                    두는 곳: {species.placement}
-                                </Text>
+                        {placements.length > 0 ? (
+                            <View style={styles.placementBlock}>
+                                <Text style={styles.subLabel}>두는 곳</Text>
+                                <View style={styles.chipContainer}>
+                                    {placements.map((place) => (
+                                        <View key={place} style={styles.chip}>
+                                            <Text style={styles.chipText}>{place}</Text>
+                                        </View>
+                                    ))}
+                                </View>
                             </View>
                         ) : null}
                     </View>
@@ -968,6 +1010,26 @@ const styles = StyleSheet.create({
 
     toxicityNote: {
         marginTop: Spacing.lg,
+    },
+
+    placementBlock: {
+        marginTop: Spacing.sm,
+    },
+
+    subLabel: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        marginBottom: Spacing.md,
+        includeFontPadding: false,
+    },
+
+    moreLink: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.primary,
+        marginTop: Spacing.sm,
+        includeFontPadding: false,
     },
 
     sourceText: {
