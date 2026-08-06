@@ -26,6 +26,7 @@ import PixelOutlineText from "../components/PixelOutlineText";
 import PixelButton from "../components/PixelButton";
 import PixelSpeechBubble from "../components/PixelSpeechBubble";
 import { getPlantCare, createCareRecord } from "../api";
+import { scheduleWateringReminder } from "../notifications";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
@@ -202,6 +203,10 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                 const care = await getPlantCare(Number(id));
                 setWateringDays(care.days_since_watering);
                 setNutrientDays(care.days_since_fertilizing);
+                // 물을 주면 다음 예정일이 밀리므로 알림도 다시 예약한다
+                scheduleWateringReminder(id, plantName, care.next_watering_date).catch(
+                    (err) => console.warn("물주기 알림 예약 실패:", err?.message),
+                );
             } catch (e) {
                 console.warn("물주기 기록 실패:", e?.message);
             }

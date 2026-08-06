@@ -31,6 +31,7 @@ import {
     getPlantCare,
     updateWateringSchedule,
 } from "../api";
+import { scheduleWateringReminder, cancelWateringReminder } from "../notifications";
 import { plantImages } from "../data/plants";
 
 // 서버 enum 코드 → 한글 표시
@@ -213,11 +214,18 @@ export default function ProfileScreen({ navigation, route }) {
                     days !== care?.watering_interval_days);
             if (changed) {
                 try {
-                    setCare(
-                        await updateWateringSchedule(
-                            Number(id),
-                            form.watering_reset ? null : days,
-                        ),
+                    const nextCare = await updateWateringSchedule(
+                        Number(id),
+                        form.watering_reset ? null : days,
+                    );
+                    setCare(nextCare);
+                    // 주기가 바뀌면 다음 예정일도 바뀌므로 알림을 다시 예약한다
+                    scheduleWateringReminder(
+                        id,
+                        updated?.nickname ?? form.nickname.trim(),
+                        nextCare.next_watering_date,
+                    ).catch((err) =>
+                        console.warn("물주기 알림 예약 실패:", err?.message),
                     );
                 } catch (e) {
                     Alert.alert("물주기 저장 실패", e?.message ?? "다시 시도해주세요.");
@@ -254,6 +262,10 @@ export default function ProfileScreen({ navigation, route }) {
                             if (id) {
                                 const updated = await updatePlant(Number(id), { status: "DEAD" });
                                 setDetail(updated);
+                                // 떠나보낸 개체에 물주기 알림이 오면 안 된다
+                                cancelWateringReminder(id).catch((err) =>
+                                    console.warn("물주기 알림 취소 실패:", err?.message),
+                                );
                             }
                             navigation.navigate("MemorialPlant", { plant });
                         } catch (e) {

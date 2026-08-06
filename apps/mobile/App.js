@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { useFonts } from "expo-font";
 import { Fonts } from "./constants/fonts";
 import { Asset } from "expo-asset";
 import { NavigationContainer } from "@react-navigation/native";
+import * as Notifications from "expo-notifications";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import HomeScreen from "./src/screens/HomeScreen";
@@ -25,6 +26,7 @@ import CalendarScreen from "./src/screens/CalendarScreen";
 import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
 import AddPlantNavigator from "./src/screens/AddPlantNavigator";
 import { getPlants } from "./src/api";
+import { syncWateringReminders } from "./src/notifications";
 
 const Stack = createNativeStackNavigator();
 
@@ -128,6 +130,13 @@ export default function MainApp({ user }) {
         },
     ]);
 
+    // 알림 탭 처리에 필요 — 리스너는 한 번만 등록하므로 최신 값을 ref 로 참조한다
+    const navigationRef = useRef(null);
+    const plantsRef = useRef(plants);
+    useEffect(() => {
+        plantsRef.current = plants;
+    }, [plants]);
+
     const [fontsLoaded] = useFonts({
         [Fonts.neoDunggeunmo]: require("./assets/fonts/NeoDunggeunmoPro-Regular.ttf"),
         [Fonts.nanumSquareNeo.light]: require("./assets/fonts/NanumSquareNeo-aLt.ttf"),
@@ -147,6 +156,25 @@ export default function MainApp({ user }) {
     useEffect(() => {
         loadPlants();
     }, [loadPlants]);
+
+    // 물주기 알림을 현재 일정에 맞춰 다시 맞춘다.
+    // 다른 기기에서 물을 줬거나 주기를 바꿨으면 기기에 남은 예약이 어긋나기 때문.
+    useEffect(() => {
+        syncWateringReminders().catch((error) =>
+            console.warn("물주기 알림 동기화 실패:", error?.message),
+        );
+    }, []);
+
+    // 알림을 누르면 해당 개체 화면으로 이동
+    useEffect(() => {
+        const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+            const plantId = response.notification.request.content.data?.plantId;
+            if (!plantId) return;
+            const target = plantsRef.current.find((p) => p.id === String(plantId));
+            if (target) navigationRef.current?.navigate("PlantDetail", { plant: target });
+        });
+        return () => sub.remove();
+    }, []);
 
     useEffect(() => {
         let mounted = true;
@@ -185,7 +213,7 @@ export default function MainApp({ user }) {
     }
 
     return (
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
             <Stack.Navigator
                 id="MainStack"
                 initialRouteName="Home"
