@@ -572,6 +572,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                             color={Colors.primary}
                                             onPress={() => choosePersona(option.slug)}
                                             style={styles.personaButton}
+                                            contentStyle={styles.personaButtonContent}
                                         />
                                     ))}
                                 </View>
@@ -919,6 +920,11 @@ const styles = StyleSheet.create({
     personaButton: {
         flexBasis: "47%",
         marginBottom: Spacing.sm,
+    },
+    // "장난꾸러기형"처럼 긴 라벨이 좁은 47% 칸에서 "형"만 다음 줄로 밀리는 걸 막기 위해
+    // 기본 PixelButton 좌우 패딩(Spacing.xl)보다 줄임
+    personaButtonContent: {
+        paddingHorizontal: Spacing.sm,
     },
 
     // 개체별탭 햄버거 버튼 디자인
