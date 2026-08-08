@@ -29,6 +29,8 @@ type PixelButtonProps = {
   size?: "md" | "lg";
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** 내용 영역 패딩 재정의 — 라벨이 길어 좁은 그리드 칸에 안 들어갈 때 사용 */
+  contentStyle?: StyleProp<ViewStyle>;
 };
 
 /**
@@ -116,6 +118,7 @@ export default function PixelButton({
   size = "md",
   disabled = false,
   style,
+  contentStyle,
 }: PixelButtonProps) {
   const large = size === "lg";
   return (
@@ -124,7 +127,7 @@ export default function PixelButton({
       color={color}
       disabled={disabled}
       style={style}
-      contentStyle={large && styles.contentLarge}
+      contentStyle={[large && styles.contentLarge, contentStyle]}
     >
       <PixelOutlineText style={[styles.label, large && styles.labelLarge]}>
         {label}
