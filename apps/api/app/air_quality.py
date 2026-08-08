@@ -27,7 +27,7 @@ class AirQualityFetchError(RuntimeError):
 @dataclass(frozen=True)
 class AirQualityRecord:
     measured_at: str  # dataTime 원문 그대로, 예: "2024-01-01 15:00"
-    khai_grade: int
+    khai_grade: int | None
     khai_value: float | None
     pm10_value: float | None
     pm25_value: float | None
@@ -38,7 +38,7 @@ def latlon_to_tm(lat: float, lon: float) -> tuple[float, float]:
     return tm_x, tm_y
 
 
-def classify_air_quality(khai_grade: int) -> str:
+def classify_air_quality(khai_grade: int | None) -> str:
     return {1: "좋음", 2: "보통", 3: "나쁨", 4: "매우나쁨"}.get(khai_grade, "정보없음")
 
 
@@ -142,20 +142,27 @@ def fetch_realtime_measurements(station_name: str) -> list[AirQualityRecord]:
 
     records: list[AirQualityRecord] = []
     for item in items:
+        pm10_value = _to_float(item.get("pm10Value"))
+        pm25_value = _to_float(item.get("pm25Value"))
+        if pm10_value is None and pm25_value is None:
+            continue  # 미세먼지 값 자체가 결측이면 평균에도 못 쓰니 건너뜀
+
+        # khaiGrade(통합대기환경지수)는 가장 최근 시간대일수록 아직 산출 전이라
+        # "-"/None일 수 있다 — 그래도 pm10/pm25는 이미 나와 있을 수 있으므로,
+        # 등급이 없다고 레코드 전체(=이 시간대의 미세먼지 값)를 버리지 않는다.
         khai_grade_raw = item.get("khaiGrade")
-        if khai_grade_raw in (None, "-", ""):
-            continue
         try:
-            khai_grade = int(khai_grade_raw)
+            khai_grade = int(khai_grade_raw) if khai_grade_raw not in (None, "-", "") else None
         except (TypeError, ValueError):
-            continue
+            khai_grade = None
+
         records.append(
             AirQualityRecord(
                 measured_at=item.get("dataTime", ""),
                 khai_grade=khai_grade,
                 khai_value=_to_float(item.get("khaiValue")),
-                pm10_value=_to_float(item.get("pm10Value")),
-                pm25_value=_to_float(item.get("pm25Value")),
+                pm10_value=pm10_value,
+                pm25_value=pm25_value,
             )
         )
 

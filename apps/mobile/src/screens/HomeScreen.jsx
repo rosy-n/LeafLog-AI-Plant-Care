@@ -64,8 +64,14 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
         };
     }, []);
 
-    const weatherIconSource = WEATHER_ICONS[environment?.weather_status] ?? WEATHER_ICONS["흐림"];
-    const airQualityColor = AIR_QUALITY_COLORS[environment?.air_quality_status] ?? GreenTint.medium;
+    // environment가 아직 없으면(로딩 중이거나 위치 미설정 등으로 실패) 기본 아이콘을
+    // 보여주지 않는다 — "흐림"이 실제 날씨처럼 오해될 수 있어서, 값이 있을 때만 표시.
+    const weatherIconSource = environment
+        ? WEATHER_ICONS[environment.weather_status] ?? WEATHER_ICONS["흐림"]
+        : null;
+    const airQualityColor = environment
+        ? AIR_QUALITY_COLORS[environment.air_quality_status] ?? GreenTint.medium
+        : null;
 
     const openMenu = () => {
         setMenuVisible(true);
@@ -114,15 +120,17 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                 {/* 상단 왼쪽: 날씨, 미세먼지 — 탭하면 데이터 화면으로 이동 */}
                 <View style={styles.topLeftArea}>
                     <GlassButton size={60} onPress={() => navigation.navigate("SensorData")}>
-                        <Image
-                            source={weatherIconSource}
-                            style={styles.weatherIcon}
-                            resizeMode="contain"
-                        />
+                        {weatherIconSource && (
+                            <Image
+                                source={weatherIconSource}
+                                style={styles.weatherIcon}
+                                resizeMode="contain"
+                            />
+                        )}
                     </GlassButton>
 
                     <GlassButton size={60} onPress={() => navigation.navigate("SensorData")}>
-                        <AirIcon color={airQualityColor} />
+                        {airQualityColor && <AirIcon color={airQualityColor} />}
                     </GlassButton>
                 </View>
 
