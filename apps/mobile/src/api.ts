@@ -201,6 +201,10 @@ export type PlantDetail = {
   persona: string | null;
   started_at: string | null;
   created_at: string;
+  temp_min_c: number | null;
+  temp_max_c: number | null;
+  humidity_min_pct: number | null;
+  humidity_max_pct: number | null;
 };
 
 // 특정 식물의 상세 정보 (토큰 자동 첨부)

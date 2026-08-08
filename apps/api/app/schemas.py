@@ -129,6 +129,11 @@ class PlantDetail(BaseModel):
     persona: str | None = None
     started_at: str | None = None
     created_at: str
+    # 종별 적정 범위 (plant_species, 농사로 코드 매핑) — 센서데이터탭 총평 판정에 사용
+    temp_min_c: float | None = None
+    temp_max_c: float | None = None
+    humidity_min_pct: float | None = None
+    humidity_max_pct: float | None = None
 
 
 class PlantUpdate(BaseModel):

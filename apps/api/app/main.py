@@ -529,6 +529,10 @@ def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
         persona=plant.persona,
         started_at=plant.started_at.isoformat() if plant.started_at else None,
         created_at=plant.created_at.isoformat(),
+        temp_min_c=float(species.temp_min_c) if species and species.temp_min_c is not None else None,
+        temp_max_c=float(species.temp_max_c) if species and species.temp_max_c is not None else None,
+        humidity_min_pct=float(species.humidity_min_pct) if species and species.humidity_min_pct is not None else None,
+        humidity_max_pct=float(species.humidity_max_pct) if species and species.humidity_max_pct is not None else None,
     )
 
 
