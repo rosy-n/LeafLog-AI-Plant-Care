@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import air_quality, environment, persona_chat, region_data
+from . import air_quality, asos, environment, persona_chat, region_data, weather
 from .config import settings
 from .database import Base, engine, get_db
 from .image_preprocessing import (
@@ -720,14 +720,8 @@ def get_current_environment_route(
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> CurrentEnvironmentResponse:
-    setting = db.scalar(select(UserSetting).where(UserSetting.user_id == current_user.user_id))
-    if setting is None or setting.default_location is None:
-        # 모바일은 이 400을 보고 위치 설정 화면으로 유도한다.
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="위치가 설정되지 않았어요.")
-
-    region = region_data.find_region(setting.default_location)
-    if region is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="저장된 위치를 찾을 수 없어요.")
+    # 모바일은 위치 미설정(400)을 보고 위치 설정 화면으로 유도한다.
+    region = _region_for_current_user(current_user, db)
 
     # record_snapshot이 첫 row를 넣기 전에 먼저 확인해야 "첫 조회"를 정확히 판단할 수 있다.
     is_first_visit = not environment.has_any_snapshot(db, current_user.user_id)
@@ -759,33 +753,94 @@ def get_current_environment_route(
     )
 
 
+def _region_for_current_user(current_user: AppUser, db: Session) -> region_data.Region:
+    setting = db.scalar(select(UserSetting).where(UserSetting.user_id == current_user.user_id))
+    if setting is None or setting.default_location is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="위치가 설정되지 않았어요.")
+    region = region_data.find_region(setting.default_location)
+    if region is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="저장된 위치를 찾을 수 없어요.")
+    return region
+
+
 @app.get("/api/environment/history", response_model=EnvironmentHistoryResponse)
 def get_environment_history(
-    days: int = Query(default=7, ge=1, le=30),
+    period: str = Query(default="day", pattern="^(day|week|month)$"),
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> EnvironmentHistoryResponse:
-    since = datetime.now(timezone.utc) - timedelta(days=days)
-    rows = environment.query_history(db, current_user.user_id, since)
+    if period == "day":
+        # "오늘"은 우리 DB에 쌓아둔 값이 아니라, 그때그때 기상청 초단기실황을 정시마다
+        # 조회해서 즉석에서 재구성한다 — weather.py의 캐시 덕분에 같은 지역·시간대를
+        # 여러 사용자가 봐도 실제 기상청 호출은 한 번만 일어난다.
+        region = _region_for_current_user(current_user, db)
+        try:
+            observations = weather.fetch_today_hourly_series(region.kma_nx, region.kma_ny)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+        weather_points = [
+            WeatherHistoryPoint(
+                observed_at=observation.observed_at.isoformat(),
+                temperature_c=observation.temperature_c,
+                humidity_pct=observation.humidity_pct,
+                weather_status=None,
+            )
+            for observation in observations
+        ]
+
+        # 대기질은 실패해도 기온/습도 그래프까지 막으면 안 된다 — 조용히 빈 목록으로.
+        air_quality_points: list[AirQualityHistoryPoint] = []
+        try:
+            station_name = air_quality.nearest_station(region.lat, region.lng)
+            for record in air_quality.fetch_realtime_measurements(station_name):
+                air_quality_points.append(
+                    AirQualityHistoryPoint(
+                        observed_at=record.measured_at,
+                        pm10=record.pm10_value,
+                        pm25=record.pm25_value,
+                        air_quality_status=air_quality.classify_air_quality(record.khai_grade),
+                    )
+                )
+        except RuntimeError:
+            pass
+
+        return EnvironmentHistoryResponse(weather_points=weather_points, air_quality_points=air_quality_points)
+
+    # 주/월도 우리 DB 누적치가 아니라, ASOS 일자료(하루 평균)를 그 자리에서 라이브
+    # 조회한다 — 사용자가 그동안 앱을 몇 번 열었는지와 무관하게 항상 완전한 그래프.
+    # ASOS는 전일(D-1)까지만 제공하므로 endDt는 어제로 고정한다.
+    region = _region_for_current_user(current_user, db)
+    stn_id = asos.nearest_station_id(region.lat, region.lng)
+    days = 7 if period == "week" else 30
+    end = date.today() - timedelta(days=1)
+    start = end - timedelta(days=days - 1)
+
+    try:
+        observations = asos.fetch_daily_series(stn_id, start, end)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
     weather_points = [
         WeatherHistoryPoint(
-            observed_at=row.observed_at.isoformat(),
-            temperature_c=float(row.temperature_c) if row.temperature_c is not None else None,
-            humidity_pct=float(row.humidity_pct) if row.humidity_pct is not None else None,
-            weather_status=row.weather_status,
+            observed_at=observation.date.isoformat(),
+            temperature_c=observation.avg_temperature_c,
+            humidity_pct=observation.avg_humidity_pct,
+            weather_status=None,
         )
-        for row in rows
-        if row.temperature_c is not None
+        for observation in observations
+        if observation.avg_temperature_c is not None
     ]
-    air_quality_points = [
+    air_quality_points: list[AirQualityHistoryPoint] = [
         AirQualityHistoryPoint(
             observed_at=row.observed_at.isoformat(),
             pm10=float(row.pm10) if row.pm10 is not None else None,
             pm25=float(row.pm25) if row.pm25 is not None else None,
             air_quality_status=row.air_quality_status,
         )
-        for row in rows
+        for row in environment.query_history(
+            db, current_user.user_id, datetime.now(timezone.utc) - timedelta(days=days)
+        )
         if row.pm10 is not None or row.pm25 is not None or row.air_quality_status is not None
     ]
 

@@ -396,7 +396,7 @@ export type EnvironmentHistoryResponse = {
   air_quality_points: AirQualityHistoryPoint[];
 };
 
-// 최근 N일 날씨/대기질 기록 (데이터 화면 그래프용)
-export function getEnvironmentHistory(days = 7) {
-  return request<EnvironmentHistoryResponse>(`/api/environment/history?days=${days}`);
+// 센서데이터탭 그래프용 — "day"는 그때그때 기상청 실황을 재구성, "week"/"month"는 누적 기록
+export function getEnvironmentHistory(period: "day" | "week" | "month" = "day") {
+  return request<EnvironmentHistoryResponse>(`/api/environment/history?period=${period}`);
 }

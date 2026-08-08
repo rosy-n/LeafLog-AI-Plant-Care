@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import air_quality, region_data, weather
+from .air_quality import AirQualityFetchError
 from .models import WeatherLog
 
 SNAPSHOT_MIN_INTERVAL = timedelta(minutes=55)
@@ -27,15 +28,22 @@ class CurrentEnvironment:
 
 
 def get_current_environment(region: region_data.Region) -> CurrentEnvironment:
+    # 날씨(기온/습도)는 핵심 데이터라 실패 시 그대로 예외를 던져 502로 알린다.
     forecast = weather.fetch_ultra_short_forecast(region.kma_nx, region.kma_ny)
     weather_status = weather.classify_weather(forecast.sky, forecast.pty, forecast.temperature_c)
 
-    station_name = air_quality.nearest_station(region.lat, region.lng)
-    records = air_quality.fetch_realtime_measurements(station_name)
-    latest = records[0] if records else None
-    air_quality_status = (
-        air_quality.classify_air_quality(latest.khai_grade) if latest else "정보없음"
-    )
+    # 대기질은 날씨와 별도의 외부 API라 여기서만 실패해도 날씨 정보까지 죽이면 안 된다 —
+    # "정보없음"으로 우아하게 낮춰서 홈 화면/총평이 계속 보이게 한다.
+    air_quality_status = "정보없음"
+    latest: air_quality.AirQualityRecord | None = None
+    try:
+        station_name = air_quality.nearest_station(region.lat, region.lng)
+        records = air_quality.fetch_realtime_measurements(station_name)
+        latest = records[0] if records else None
+        if latest is not None:
+            air_quality_status = air_quality.classify_air_quality(latest.khai_grade)
+    except AirQualityFetchError:
+        pass
 
     return CurrentEnvironment(
         weather_status=weather_status,

@@ -1,8 +1,9 @@
-"""기상청 초단기예보(getUltraSrtFcst) 클라이언트."""
+"""기상청 초단기예보(getUltraSrtFcst)·초단기실황(getUltraSrtNcst) 클라이언트."""
 
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -11,8 +12,12 @@ import requests
 from .config import settings
 
 BASE_URL = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtFcst"
+NCST_URL = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
 REQUEST_TIMEOUT_SECONDS = 5
 CACHE_TTL_SECONDS = 15 * 60
+# 이번 시각(아직 진행 중이라 값이 더 갱신될 수 있는 시간)만 짧게 재확인하고,
+# 이미 끝난 과거 시각은 값이 절대 안 바뀌므로 사실상 영구 캐시한다.
+NCST_CURRENT_HOUR_TTL_SECONDS = 5 * 60
 
 
 class WeatherFetchError(RuntimeError):
@@ -123,3 +128,116 @@ def fetch_ultra_short_forecast(nx: int, ny: int) -> KmaForecast:
     forecast = KmaForecast(sky=sky, pty=pty, temperature_c=temperature_c, humidity_pct=humidity_pct)
     _cache[cache_key] = (time.monotonic(), forecast)
     return forecast
+
+
+@dataclass(frozen=True)
+class HourlyObservation:
+    observed_at: datetime  # 정시(로컬시간) 기준
+    temperature_c: float
+    humidity_pct: float
+
+
+def _fetch_ultra_short_observation(
+    nx: int, ny: int, base_date: str, base_time: str
+) -> HourlyObservation | None:
+    """지정한 정시(예: "0600")에 실제 관측된 기온/습도를 조회한다 — 예보가 아니라 실측값.
+
+    아직 발표 전(미래 시각을 요청했거나 결측)이면 None을 반환한다."""
+    try:
+        response = requests.get(
+            NCST_URL,
+            params={
+                "serviceKey": settings.kma_api_key,
+                "numOfRows": 10,
+                "pageNo": 1,
+                "dataType": "JSON",
+                "base_date": base_date,
+                "base_time": base_time,
+                "nx": nx,
+                "ny": ny,
+            },
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise WeatherFetchError(f"기상청 실황 조회에 실패했어: {exc}") from exc
+
+    try:
+        payload = response.json()
+        header = payload["response"]["header"]
+        if header["resultCode"] == "03":  # NODATA_ERROR — 아직 관측/발표되지 않은 시각
+            return None
+        if header["resultCode"] != "00":
+            raise WeatherFetchError(f"기상청 API 오류: {header.get('resultMsg')}")
+        items = payload["response"]["body"]["items"]["item"]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise WeatherFetchError(f"기상청 실황 응답 형식이 예상과 달라: {response.text[:500]}") from exc
+
+    values = {item["category"]: item["obsrValue"] for item in items}
+    try:
+        temperature_c = float(values["T1H"])
+        humidity_pct = float(values["REH"])
+    except (KeyError, ValueError):
+        return None
+
+    observed_at = datetime.strptime(base_date + base_time, "%Y%m%d%H%M")
+    return HourlyObservation(
+        observed_at=observed_at, temperature_c=temperature_c, humidity_pct=humidity_pct
+    )
+
+
+# (nx, ny, base_date, base_time) -> (조회 시각, 관측값 또는 None, 다시 안 바뀔 확정값인지)
+_ncst_cache: dict[tuple[int, int, str, str], tuple[float, HourlyObservation | None, bool]] = {}
+
+
+def _fetch_hourly_observation_cached(
+    nx: int, ny: int, base_date: str, base_time: str, *, is_final: bool
+) -> HourlyObservation | None:
+    key = (nx, ny, base_date, base_time)
+    cached = _ncst_cache.get(key)
+    if cached is not None:
+        cached_at, observation, cached_is_final = cached
+        if cached_is_final or time.monotonic() - cached_at <= NCST_CURRENT_HOUR_TTL_SECONDS:
+            return observation
+
+    observation = _fetch_ultra_short_observation(nx, ny, base_date, base_time)
+    _ncst_cache[key] = (time.monotonic(), observation, is_final)
+    return observation
+
+
+def fetch_today_hourly_series(nx: int, ny: int) -> list[HourlyObservation]:
+    """오늘 0시부터 지금까지, 정시마다 실제 관측된 기온/습도를 모아 반환한다.
+
+    이미 끝난 시각은 캐시에서 그대로 재사용해 기상청을 다시 부르지 않고(값이 절대
+    안 바뀌므로), 아직 진행 중인 이번 시각만 짧은 TTL로 재확인한다. 여러 사용자가
+    같은 지역을 같은 시간대에 조회해도 이 캐시를 공유하므로, 실제로 기상청을 부르는
+    건 그 지역에서 그 시각을 "처음" 조회하는 요청 하나뿐이다.
+    """
+    now = datetime.now()
+    # 초단기실황은 매시 10분 이후에 제공된다 — 아직 발표 안 된 이번 시각은 건너뛴다.
+    latest_available_hour = now.replace(minute=0, second=0, microsecond=0)
+    if now.minute < 10:
+        latest_available_hour -= timedelta(hours=1)
+
+    hours: list[datetime] = []
+    cursor = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    while cursor <= latest_available_hour:
+        hours.append(cursor)
+        cursor += timedelta(hours=1)
+
+    def _fetch(hour: datetime) -> HourlyObservation | None:
+        base_date = hour.strftime("%Y%m%d")
+        base_time = hour.strftime("%H00")
+        is_final = hour < latest_available_hour
+        try:
+            return _fetch_hourly_observation_cached(nx, ny, base_date, base_time, is_final=is_final)
+        except WeatherFetchError:
+            return None  # 한 시간대 조회 실패로 하루 전체 그래프를 못 그리게 하지 않는다.
+
+    if not hours:
+        return []
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(_fetch, hours))
+
+    return [observation for observation in results if observation is not None]
