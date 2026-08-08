@@ -11,12 +11,12 @@ import {
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Line, Polyline, Circle, Text as SvgText } from "react-native-svg";
 
 import PlantImage from "../components/PlantImage";
-import { getCurrentEnvironment, getEnvironmentHistory } from "../api";
+import { getEnvironmentHistory, getPlant, getUserSettings } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint, Gauge, GaugeTint, Glass } from "../../constants/colors";
@@ -28,20 +28,45 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PERIOD_KEYS = ["일", "주", "월"];
 const PERIOD_DAYS = { "일": 1, "주": 7, "월": 30 };
 
-// 날씨/대기질 상태 → 총평 카드에 쓸 이모지·문구 (환경 오케스트레이션의 분류 문자열과 정확히 일치해야 함)
-const WEATHER_COMMENTS = {
-    "맑음": { emoji: "☀️", text: "맑아요", color: Gauge.gold, bg: GaugeTint.goldFaint, border: GaugeTint.goldSoft },
-    "흐림": { emoji: "☁️", text: "흐려요", color: Gauge.coolText, bg: GaugeTint.coolFaint, border: GaugeTint.coolSoft },
-    "비": { emoji: "🌧️", text: "비가 와요", color: Gauge.coolDeep, bg: GaugeTint.coolFaint, border: GaugeTint.coolSoft },
-    "눈": { emoji: "❄️", text: "눈이 와요", color: Gauge.coolDeep, bg: GaugeTint.coolFaint, border: GaugeTint.coolSoft },
+// 총평 카드에 쓸 판정 태그 — 기온/습도가 이 식물종의 적정 범위(species.temp_min_c 등)를
+// 벗어나는 방향에 따라 하나만 골라 보여준다. classifyComfort() 참고.
+const COMFORT_TAGS = {
+    cold: { emoji: "🥶", text: "추워요", color: Gauge.coolDeep, bg: GaugeTint.coolFaint, border: GaugeTint.coolSoft },
+    warm: { emoji: "🥰", text: "따뜻해요", color: Gauge.hot, bg: GaugeTint.hotFaint, border: GaugeTint.hotSoft },
+    dry: { emoji: "🍂", text: "건조해요", color: Gauge.warmDeep, bg: GaugeTint.hotFaint, border: GaugeTint.hotSoft },
+    humid: { emoji: "😊", text: "촉촉해요", color: Gauge.coolText, bg: GaugeTint.coolFaint, border: GaugeTint.coolSoft },
+    comfortable: { emoji: "😄", text: "쾌적해요", color: Gauge.gold, bg: GaugeTint.goldFaint, border: GaugeTint.goldSoft },
 };
 
-const AIR_QUALITY_COMMENTS = {
-    "좋음": { emoji: "😄", text: "공기 좋아요", color: GreenTint.deep, bg: GreenTint.faint, border: GreenTint.soft },
-    "보통": { emoji: "🙂", text: "공기 보통이에요", color: Gauge.gold, bg: GaugeTint.goldFaint, border: GaugeTint.goldSoft },
-    "나쁨": { emoji: "😷", text: "공기가 나빠요", color: Gauge.warmDeep, bg: GaugeTint.hotFaint, border: GaugeTint.hotSoft },
-    "매우나쁨": { emoji: "😫", text: "공기가 매우 나빠요", color: Gauge.hot, bg: GaugeTint.hotFaint, border: GaugeTint.hotSoft },
-};
+// 기온을 먼저 보고, 범위 안이면 그다음 습도를 본다 — 식물 입장에서 더 즉각적인
+// 영향을 주는 지표(기온)를 우선한다. 종 정보가 없거나(min/max 미설정) 실측치가
+// 없으면 null을 반환해 "정보 없음"으로 표시한다.
+function classifyComfort(avgTemp, avgHumidity, plantDetail) {
+    if (avgTemp == null && avgHumidity == null) return null;
+    const tempMin = plantDetail?.temp_min_c;
+    const tempMax = plantDetail?.temp_max_c;
+    const humidityMin = plantDetail?.humidity_min_pct;
+    const humidityMax = plantDetail?.humidity_max_pct;
+
+    if (avgTemp != null) {
+        if (tempMin != null && avgTemp < tempMin) return COMFORT_TAGS.cold;
+        if (tempMax != null && avgTemp > tempMax) return COMFORT_TAGS.warm;
+    }
+    if (avgHumidity != null) {
+        if (humidityMin != null && avgHumidity < humidityMin) return COMFORT_TAGS.dry;
+        if (humidityMax != null && avgHumidity > humidityMax) return COMFORT_TAGS.humid;
+    }
+    return COMFORT_TAGS.comfortable;
+}
+
+// 스탯 카드 아래 "적정/낮음/높음" 배지 — 종 적정 범위 정보가 없으면 null(배지 숨김)
+function rateValue(value, min, max) {
+    if (value == null) return null;
+    if (min == null && max == null) return null;
+    if (min != null && value < min) return "낮음";
+    if (max != null && value > max) return "높음";
+    return "적정";
+}
 
 // ─── Chart ──────────────────────────────────────────────────────────────────
 
@@ -141,12 +166,18 @@ function LineChart({ tempData, humidityData, timestamps, periodKey }) {
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
-function StatCard({ icon, label, value }) {
+function StatCard({ icon, label, value, rating }) {
     return (
         <View style={styles.statCard}>
             <View style={styles.statIconWrap}>{icon}</View>
             <Text style={styles.statLabel}>{label}</Text>
             <Text style={styles.statValue}>{value}</Text>
+            {rating && (
+                <View style={styles.ratingBadge}>
+                    <Ionicons name="checkmark-circle" size={12} color={GreenTint.deep} />
+                    <Text style={styles.ratingText}>{rating}</Text>
+                </View>
+            )}
         </View>
     );
 }
@@ -166,25 +197,34 @@ export default function SensorDataScreen({ navigation, route }) {
     const plant = route?.params?.plant;
     const [period, setPeriod] = useState("일");
     const [history, setHistory] = useState(null);
-    const [current, setCurrent] = useState(null);
+    const [plantDetail, setPlantDetail] = useState(null);
+    const [locationName, setLocationName] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // 종별 적정 범위(temp_min_c 등)는 기간이 바뀌어도 그대로라 period와 무관하게 한 번만 불러온다.
+    useEffect(() => {
+        if (!plant?.id) return;
+        getPlant(plant.id)
+            .then(setPlantDetail)
+            .catch(() => {});
+    }, [plant?.id]);
+
+    useEffect(() => {
+        getUserSettings()
+            .then((result) => setLocationName(result.default_location))
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         let cancelled = false;
         setIsLoading(true);
         setError(null);
 
-        Promise.all([
-            getEnvironmentHistory(PERIOD_DAYS[period]),
-            // 오늘의 총평은 현재 스냅샷 기준 — 위치 미설정(400) 등으로 실패해도
-            // 히스토리 차트 자체는 계속 보여준다.
-            getCurrentEnvironment().catch(() => null),
-        ])
-            .then(([historyResult, currentResult]) => {
+        getEnvironmentHistory(PERIOD_DAYS[period])
+            .then((historyResult) => {
                 if (cancelled) return;
                 setHistory(historyResult);
-                setCurrent(currentResult);
             })
             .catch((err) => {
                 if (cancelled) return;
@@ -200,22 +240,24 @@ export default function SensorDataScreen({ navigation, route }) {
     }, [period]);
 
     const weatherPoints = history?.weather_points ?? [];
-    const airQualityPoints = history?.air_quality_points ?? [];
 
+    // 아두이노 토양습도 센서가 연결된 식물이라면 weather_points에 soil_humidity_pct가
+    // 실려올 예정 — 아직 없으므로 지금은 기온/습도 2개 선만 그린다.
     const tempData = weatherPoints.map((p) => p.temperature_c ?? 0);
     const humidityData = weatherPoints.map((p) => p.humidity_pct ?? 0);
     const timestamps = weatherPoints.map((p) => p.observed_at);
 
-    const avgTemp = avg(tempData);
-    const avgHumidity = avg(humidityData);
-    const avgPm10 = avg(airQualityPoints.map((p) => p.pm10).filter((v) => v != null));
-    const avgPm25 = avg(airQualityPoints.map((p) => p.pm25).filter((v) => v != null));
+    const avgTempStr = avg(tempData);
+    const avgHumidityStr = avg(humidityData);
+    const avgTemp = avgTempStr !== null ? Number(avgTempStr) : null;
+    const avgHumidity = avgHumidityStr !== null ? Number(avgHumidityStr) : null;
 
-    const summaryTitle = period === "일" ? "오늘의 총평" : period === "주" ? "이번 주 총평" : "이번 달 총평";
+    const summaryTitle = period === "일" ? `${plant?.name ?? "식물"}의 하루 총평` : period === "주" ? `${plant?.name ?? "식물"}의 주 총평` : `${plant?.name ?? "식물"}의 월 총평`;
     const avgLabel = period === "일" ? "오늘 평균" : period === "주" ? "이번 주 평균" : "이번 달 평균";
 
-    const weatherComment = current ? WEATHER_COMMENTS[current.weather_status] : null;
-    const airQualityComment = current ? AIR_QUALITY_COMMENTS[current.air_quality_status] : null;
+    const comfortTag = classifyComfort(avgTemp, avgHumidity, plantDetail);
+    const tempRating = rateValue(avgTemp, plantDetail?.temp_min_c, plantDetail?.temp_max_c);
+    const humidityRating = rateValue(avgHumidity, plantDetail?.humidity_min_pct, plantDetail?.humidity_max_pct);
 
     return (
         <View style={styles.root}>
@@ -245,8 +287,8 @@ export default function SensorDataScreen({ navigation, route }) {
                         ))}
                     </View>
 
-                    {current?.location_name && (
-                        <Text style={styles.locationLabel}>{current.location_name} 기준</Text>
+                    {locationName && (
+                        <Text style={styles.locationLabel}>{locationName} 기준</Text>
                     )}
 
                     {/* Chart Card */}
@@ -309,20 +351,21 @@ export default function SensorDataScreen({ navigation, route }) {
                                     <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={48} height={48} />
                                     <Text style={styles.cardTitle}>{summaryTitle}</Text>
                                 </View>
-                                {weatherComment || airQualityComment ? (
+                                {comfortTag ? (
                                     <View style={styles.conditionRow}>
-                                        {[weatherComment, airQualityComment].filter(Boolean).map((c, i) => (
-                                            <View
-                                                key={i}
-                                                style={[styles.conditionBox, { backgroundColor: c.bg, borderColor: c.border }]}
-                                            >
-                                                <Text style={styles.conditionBoxEmoji}>{c.emoji}</Text>
-                                                <Text style={[styles.conditionBoxText, { color: c.color }]}>{c.text}</Text>
-                                            </View>
-                                        ))}
+                                        <View
+                                            style={[styles.conditionBox, { backgroundColor: comfortTag.bg, borderColor: comfortTag.border }]}
+                                        >
+                                            <Text style={styles.conditionBoxEmoji}>{comfortTag.emoji}</Text>
+                                            <Text style={[styles.conditionBoxText, { color: comfortTag.color }]}>{comfortTag.text}</Text>
+                                        </View>
                                     </View>
                                 ) : (
-                                    <Text style={styles.emptyText}>위치를 설정하면 오늘의 날씨를 볼 수 있어요.</Text>
+                                    <Text style={styles.emptyText}>
+                                        {plant?.id
+                                            ? "아직 데이터가 부족해서 판정할 수 없어요."
+                                            : "식물 상세에서 들어오면 총평을 볼 수 있어요."}
+                                    </Text>
                                 )}
                             </LinearGradient>
                         </BlurView>
@@ -343,23 +386,13 @@ export default function SensorDataScreen({ navigation, route }) {
                                             icon={<Ionicons name="thermometer" size={26} color={Gauge.warm} />}
                                             label="평균 기온"
                                             value={avgTemp !== null ? `${avgTemp}°C` : "-"}
+                                            rating={tempRating}
                                         />
                                         <StatCard
                                             icon={<Ionicons name="water" size={26} color={Gauge.cool} />}
                                             label="평균 습도"
                                             value={avgHumidity !== null ? `${avgHumidity}%` : "-"}
-                                        />
-                                    </View>
-                                    <View style={styles.statsRow}>
-                                        <StatCard
-                                            icon={<Ionicons name="cloud-outline" size={26} color={GreenTint.medium} />}
-                                            label="미세먼지(PM10)"
-                                            value={avgPm10 !== null ? `${avgPm10} μg/m³` : "-"}
-                                        />
-                                        <StatCard
-                                            icon={<MaterialCommunityIcons name="weather-hazy" size={26} color={GreenTint.medium} />}
-                                            label="초미세먼지(PM2.5)"
-                                            value={avgPm25 !== null ? `${avgPm25} μg/m³` : "-"}
+                                            rating={humidityRating}
                                         />
                                     </View>
                                 </View>
@@ -562,5 +595,22 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.subtitle,
         color: Colors.primary,
+    },
+    ratingBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: Spacing.xs,
+        marginTop: Spacing.xs,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xs,
+        backgroundColor: GreenTint.faint,
+        borderRadius: Radius.pill,
+        borderWidth: 1,
+        borderColor: GreenTint.line,
+    },
+    ratingText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.deep,
     },
 });
