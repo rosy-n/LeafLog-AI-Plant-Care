@@ -117,16 +117,6 @@ def backfill_air_quality_history(
     db.commit()
 
 
-def query_history(db: Session, user_id: int, since: datetime) -> list[WeatherLog]:
-    return list(
-        db.scalars(
-            select(WeatherLog)
-            .where(WeatherLog.user_id == user_id, WeatherLog.observed_at >= since)
-            .order_by(WeatherLog.observed_at.asc())
-        )
-    )
-
-
 def _as_utc(value: datetime) -> datetime:
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 

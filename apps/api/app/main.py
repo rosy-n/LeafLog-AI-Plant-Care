@@ -831,17 +831,21 @@ def get_environment_history(
         for observation in observations
         if observation.avg_temperature_c is not None
     ]
-    air_quality_points: list[AirQualityHistoryPoint] = [
-        AirQualityHistoryPoint(
-            observed_at=row.observed_at.isoformat(),
-            pm10=float(row.pm10) if row.pm10 is not None else None,
-            pm25=float(row.pm25) if row.pm25 is not None else None,
-            air_quality_status=row.air_quality_status,
-        )
-        for row in environment.query_history(
-            db, current_user.user_id, datetime.now(timezone.utc) - timedelta(days=days)
-        )
-        if row.pm10 is not None or row.pm25 is not None or row.air_quality_status is not None
-    ]
+    # 대기질도 DB 누적이 아니라 에어코리아를 라이브로 조회한다 — 날씨(ASOS)와 같은 이유.
+    # 날씨 그래프까지 막지 않도록 실패 시 조용히 빈 목록으로 낮춘다.
+    air_quality_points: list[AirQualityHistoryPoint] = []
+    try:
+        station_name = air_quality.nearest_station(region.lat, region.lng)
+        for observation in air_quality.fetch_daily_series(station_name, start, end):
+            air_quality_points.append(
+                AirQualityHistoryPoint(
+                    observed_at=observation.date.isoformat(),
+                    pm10=observation.avg_pm10,
+                    pm25=observation.avg_pm25,
+                    air_quality_status=None,
+                )
+            )
+    except RuntimeError:
+        pass
 
     return EnvironmentHistoryResponse(weather_points=weather_points, air_quality_points=air_quality_points)
