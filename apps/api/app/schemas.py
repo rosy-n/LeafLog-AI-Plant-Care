@@ -138,6 +138,8 @@ class PlantDetail(BaseModel):
 
 class PlantUpdate(BaseModel):
     # 프로필 편집 — 넘어온 필드만 부분 수정
+    # 종을 다시 고르는 경우 (인식이 어긋났거나 마스터 도입 전에 등록한 개체)
+    species_id: int | None = None
     nickname: str | None = None
     status: str | None = None
     location_name: str | None = None
@@ -156,12 +158,34 @@ class CareSummary(BaseModel):
     last_repotted_at: str | None = None
     days_since_repotting: int | None = None
 
+    # 물주기 일정 (care_schedule).
+    # watering_schedule_saved=false 면 저장된 일정이 아직 없어 계산만 한 예상치라는 뜻.
+    # watering_interval_source 는 그 주기의 근거 —
+    #   SPECIES: 종 마스터 권장값 / DEFAULT: 자료가 없어 앱 기본값 / USER: 사용자 설정
+    # 화면에서 "자료 기반"과 "기본값"을 구분해 보여주기 위한 값이다.
+    watering_interval_days: int | None = None
+    watering_interval_source: str | None = None
+    next_watering_date: str | None = None
+    days_until_watering: int | None = None
+    watering_schedule_saved: bool = False
+
 
 class CareRecordItem(BaseModel):
     id: int
     care_type: str
     completed_at: str
     note: str | None = None
+
+
+class WateringScheduleUpdate(BaseModel):
+    """물주기 주기 변경.
+
+    interval_days 를 주면 사용자 설정(USER)으로 기록한다.
+    null 이면 권장값(종 마스터 값, 없으면 앱 기본값)으로 되돌린다.
+    비료·분갈이는 일정으로 관리하지 않으므로 이 엔드포인트는 물주기 전용이다.
+    """
+
+    interval_days: int | None = Field(default=None, ge=1, le=365)
 
 
 class CareRecordCreate(BaseModel):
@@ -203,6 +227,12 @@ class PlantListItem(BaseModel):
     is_favorite: bool = False
     status: str = "ALIVE"
     character_image_url: str | None = None
+
+    # 물주기 일정 요약 — 알림 목록·배지·기기 알림 재예약이 개체마다 상세를 조회하지 않도록
+    # 목록에 함께 싣는다 (N+1 방지). 일정 행이 없으면 계산값이 들어간다.
+    watering_interval_days: int | None = None
+    next_watering_date: str | None = None
+    days_until_watering: int | None = None
     persona: str | None = None
     created_at: str
 

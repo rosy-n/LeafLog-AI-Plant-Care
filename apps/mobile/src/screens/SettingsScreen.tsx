@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -13,6 +13,7 @@ import {
     Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
@@ -20,6 +21,16 @@ import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
+import {
+    sendTestReminder,
+    listScheduledReminders,
+    syncWateringReminders,
+} from "../notifications";
+import {
+    DEFAULT_NOTIFICATION_SETTINGS,
+    loadNotificationSettings,
+    saveNotificationSettings,
+} from "../notificationSettings";
 
 const FAQ_ITEMS = [
     {
@@ -106,10 +117,11 @@ export default function SettingsScreen({
     const [isEditingName, setIsEditingName] = useState(false);
     const [draftName, setDraftName] = useState(username);
 
-    // 알림
-    const [notifEnabled, setNotifEnabled] = useState(true);
-    const [notifHour, setNotifHour] = useState(8);
-    const [notifMinute, setNotifMinute] = useState(0);
+    // 알림 — 저장된 설정을 불러와 표시하고, 바꾸면 저장 + 예약을 다시 맞춘다
+    const [notifEnabled, setNotifEnabled] = useState(DEFAULT_NOTIFICATION_SETTINGS.enabled);
+    const [notifHour, setNotifHour] = useState(DEFAULT_NOTIFICATION_SETTINGS.hour);
+    const [notifMinute, setNotifMinute] = useState(DEFAULT_NOTIFICATION_SETTINGS.minute);
+    const [notifLoaded, setNotifLoaded] = useState(false);
 
     // 사운드&진동
     const [bgmVolume, setBgmVolume] = useState(7);
@@ -125,6 +137,65 @@ export default function SettingsScreen({
     const saveName = () => {
         if (draftName.trim()) setUsername(draftName.trim());
         setIsEditingName(false);
+    };
+
+    // 예약된 물주기 알림 목록 — 알럿은 닫히면 사라져서 확인이 어려우니 화면에 둔다
+    const [reminders, setReminders] = useState<
+        { plantId: string; title: string; dueDate: string }[]
+    >([]);
+
+    const refreshReminders = useCallback(() => {
+        listScheduledReminders()
+            .then(setReminders)
+            .catch((e) => console.warn("예약 목록 조회 실패:", e?.message));
+    }, []);
+
+    // 화면에 들어올 때마다 갱신 — 물주기·주기 변경 후 돌아와서 바로 확인할 수 있게
+    useFocusEffect(refreshReminders);
+
+    // 저장된 알림 설정 불러오기
+    useEffect(() => {
+        let mounted = true;
+        loadNotificationSettings().then((settings) => {
+            if (!mounted) return;
+            setNotifEnabled(settings.enabled);
+            setNotifHour(settings.hour);
+            setNotifMinute(settings.minute);
+            setNotifLoaded(true);
+        });
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    // 설정이 바뀌면 저장하고 예약을 새 시각으로 다시 맞춘다.
+    // 불러오기 전에는 실행하지 않는다 (기본값으로 저장해 사용자 설정을 덮어쓰지 않게)
+    useEffect(() => {
+        if (!notifLoaded) return;
+        saveNotificationSettings({
+            enabled: notifEnabled,
+            hour: notifHour,
+            minute: notifMinute,
+        })
+            .then(() => syncWateringReminders())
+            .then(refreshReminders)
+            .catch((e) => console.warn("알림 설정 저장 실패:", e?.message));
+    }, [notifLoaded, notifEnabled, notifHour, notifMinute, refreshReminders]);
+
+    const runNotificationTest = async () => {
+        try {
+            const ok = await sendTestReminder(5);
+            if (!ok) {
+                Alert.alert(
+                    "알림 권한이 없어요",
+                    "기기 설정에서 LeafLog 알림을 허용해 주세요.",
+                );
+                return;
+            }
+            refreshReminders();
+        } catch (e: any) {
+            Alert.alert("알림 테스트 실패", e?.message ?? "다시 시도해주세요.");
+        }
     };
 
     const adjustHour = (d: number) =>
@@ -307,6 +378,48 @@ export default function SettingsScreen({
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
+                                    </View>
+
+                                    {/*
+                                        알림 동작 확인용 임시 경로.
+                                        실제 물주기 알림은 예정일 09:00 에 오므로 그날까지
+                                        기다려야 확인이 된다. 권한·채널·수신·탭 이동을
+                                        한 번에 점검하려고 둔 것이고, 확인이 끝나면 지운다.
+                                    */}
+                                    <RowDivider />
+                                    <TouchableOpacity
+                                        style={styles.row}
+                                        onPress={runNotificationTest}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={styles.rowLabel}>알림 테스트 (5초 뒤)</Text>
+                                        <Ionicons
+                                            name="chevron-forward"
+                                            size={20}
+                                            color={GreenTint.strong}
+                                        />
+                                    </TouchableOpacity>
+
+                                    <RowDivider />
+                                    <View style={styles.reminderBlock}>
+                                        <Text style={styles.rowLabel}>
+                                            예약된 물주기 알림 {reminders.length}건
+                                        </Text>
+                                        {reminders.length ? (
+                                            reminders.map((item) => (
+                                                <Text
+                                                    key={item.plantId}
+                                                    style={styles.reminderItem}
+                                                >
+                                                    · {item.title} — {item.dueDate} {String(notifHour).padStart(2, "0")}:{String(notifMinute).padStart(2, "0")}
+                                                </Text>
+                                            ))
+                                        ) : (
+                                            <Text style={styles.reminderItem}>
+                                                예정일이 이미 지난 개체는 예약하지 않아요.
+                                                물을 주거나 주기를 늘리면 예약됩니다.
+                                            </Text>
+                                        )}
                                     </View>
                                 </>
                             )}
@@ -501,6 +614,18 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "space-between",
         paddingVertical: Spacing.lg,
+    },
+    // 예약된 알림 목록 (동작 확인용 임시 표시)
+    reminderBlock: {
+        paddingVertical: Spacing.lg,
+        gap: Spacing.xs,
+    },
+    reminderItem: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        lineHeight: 20,
+        color: Colors.textGray,
+        includeFontPadding: false,
     },
     rowLabel: {
         fontFamily: Fonts.neoDunggeunmo,

@@ -10,57 +10,59 @@ import {
 import { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
-import { getPlantDetail, getPlantImages } from '../../services/nongsaro';
-import type { NongsaroPlantDetail } from '../../types/plant';
+import { getSpecies, type SpeciesDetail } from '../../src/api';
 import { styles } from './styles/plant-detail.styles';
 
 export default function PlantDetailScreen() {
   const router = useRouter();
-  const { cntntsNo, cntntsSj } = useLocalSearchParams<{
-    cntntsNo: string;
-    cntntsSj: string;
+  const { speciesId, commonNameKo, scientificName } = useLocalSearchParams<{
+    speciesId: string;
+    commonNameKo: string;
+    scientificName?: string;
   }>();
 
-  const [detail, setDetail] = useState<NongsaroPlantDetail | null>(null);
-  const [images, setImages] = useState<{ url: string; thumbUrl: string }[]>([]);
+  const [detail, setDetail] = useState<SpeciesDetail | null>(null);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      try {
-        // allSettled: 상세 정보가 없는 식물도 기본 정보(이름)로 계속 진행
-        const [detResult, imgsResult] = await Promise.allSettled([
-          getPlantDetail(cntntsNo),
-          getPlantImages(cntntsNo),
-        ]);
+    if (!speciesId) {
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
 
-        if (detResult.status === 'fulfilled') {
-          setDetail(detResult.value);
+    getSpecies(Number(speciesId))
+      .then((species) => {
+        if (!cancelled) setDetail(species);
+      })
+      .catch((e: any) => {
+        // 상세를 못 읽어도 검색 단계에서 받은 이름으로 계속 진행할 수 있게 한다
+        if (!cancelled) {
+          Alert.alert('알림', e.message ?? '식물 정보를 불러오지 못했어요.');
         }
-        // 상세 정보 없음 → detail=null 유지, UI는 cntntsSj(검색어) 표시
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
 
-        if (imgsResult.status === 'fulfilled') {
-          setImages(imgsResult.value);
-        }
-        // 이미지 없음 → 빈 슬롯으로 표시
-      } catch (e: any) {
-        Alert.alert('오류', e.message ?? '식물 정보를 불러오는 중 문제가 발생했어요.');
-        router.back();
-      } finally {
-        setIsLoading(false);
-      }
-    })();
-  }, [cntntsNo]);
+    return () => {
+      cancelled = true;
+    };
+  }, [speciesId]);
+
+  // 종 마스터는 대표 이미지 1장(농사로 썸네일)만 가진다. 없으면 빈 슬롯.
+  const images = detail?.image_url ? [detail.image_url] : [];
 
   const handleConfirm = () => {
     router.push({
       pathname: '/add-plant/character',
       params: {
-        cntntsNo,
-        commonNameKo: detail?.commonNameKo ?? cntntsSj ?? '',
-        scientificName: detail?.scientificName ?? '',
-        plantDetail: JSON.stringify(detail),
+        speciesId: speciesId ?? '',
+        commonNameKo: detail?.common_name_ko ?? commonNameKo ?? '',
+        scientificName: detail?.scientific_name ?? scientificName ?? '',
+        // 뒤 단계(info)의 헤더 이미지로 쓰인다
+        imageUrl: detail?.image_url ?? '',
         source: 'search',
       },
     });
@@ -75,7 +77,7 @@ export default function PlantDetailScreen() {
     );
   }
 
-  const currentImage = images[photoIndex]?.url ?? null;
+  const currentImage = images[photoIndex] ?? null;
   const totalPhotos = images.length;
 
   return (
@@ -118,9 +120,11 @@ export default function PlantDetailScreen() {
       )}
 
       {/* Plant info */}
-      <Text style={styles.plantName}>{detail?.commonNameKo ?? cntntsSj}</Text>
-      {detail?.scientificName ? (
-        <Text style={styles.scientificName}>{detail.scientificName}</Text>
+      <Text style={styles.plantName}>{detail?.common_name_ko ?? commonNameKo}</Text>
+      {detail?.scientific_name ?? scientificName ? (
+        <Text style={styles.scientificName}>
+          {detail?.scientific_name ?? scientificName}
+        </Text>
       ) : null}
 
       <View style={styles.spacer} />

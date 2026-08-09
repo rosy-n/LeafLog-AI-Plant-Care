@@ -4,6 +4,7 @@ import { useFonts } from "expo-font";
 import { Fonts } from "./constants/fonts";
 import { Asset } from "expo-asset";
 import { NavigationContainer } from "@react-navigation/native";
+import * as Notifications from "expo-notifications";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import HomeScreen from "./src/screens/HomeScreen";
@@ -25,8 +26,13 @@ import CalendarScreen from "./src/screens/CalendarScreen";
 import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
 import AddPlantNavigator from "./src/screens/AddPlantNavigator";
 import { getPlants } from "./src/api";
+import { syncWateringReminders } from "./src/notifications";
+import { buildCareNotices } from "./src/careNotices";
 
 const Stack = createNativeStackNavigator();
+
+// 알림 재동기화 최소 간격 — 포그라운드 복귀가 잦아도 개체별 조회가 반복되지 않게
+const SYNC_MIN_INTERVAL_MS = 5 * 60 * 1000;
 
 // 아직 미구현인 값의 임시 표시 — 나중에 실제 기능 연결 시 교체
 const PLACEHOLDER_HEARTS = 5; // 호감도: care_record 기능 연결 전 임시 고정
@@ -46,6 +52,10 @@ function toGardenPlant(plant) {
         commonNameKo: plant.common_name_ko,
         persona: plant.persona,
         createdAt: plant.created_at,
+        // 돌봄 알림 목록·배지 계산용 (목록 응답에 함께 실려 온다)
+        wateringIntervalDays: plant.watering_interval_days,
+        nextWateringDate: plant.next_watering_date,
+        daysUntilWatering: plant.days_until_watering,
     };
 }
 
@@ -90,44 +100,15 @@ export default function MainApp({ user }) {
     const [coins, setCoins] = useState(450);
     const [purchasedBgs, setPurchasedBgs] = useState([]);
     const [appliedBg, setAppliedBg] = useState("home-bg");
-    const [notifications, setNotifications] = useState([
-        {
-            id: "1",
-            plantKey: "spaghetti",
-            title: "스파게티 물 주는 날",
-            speech: "너무 목 말라요..💧",
-            time: "오전 9:00",
-            read: false,
-            isToday: true,
-        },
-        {
-            id: "2",
-            plantKey: "rubber",
-            title: "미세먼지 좋음",
-            speech: "신선한 바람을 쐬고 싶어요 🌿",
-            time: "오전 8:30",
-            read: false,
-            isToday: true,
-        },
-        {
-            id: "3",
-            plantKey: "sansevieria",
-            title: "산세베리아 분갈이 시기",
-            speech: "슬슬 새 집이 필요해요!",
-            time: "어제",
-            read: true,
-            isToday: false,
-        },
-        {
-            id: "4",
-            plantKey: "pachira",
-            title: "파키라 건강 이상",
-            speech: "잎이 노랗게 변하고 있어요 🍂",
-            time: "2일 전",
-            read: true,
-            isToday: false,
-        },
-    ]);
+    // 돌봄 알림 목록 — 더미 배열 대신 개체 일정에서 계산한다
+    const notices = useMemo(() => buildCareNotices(plants), [plants]);
+
+    // 알림 탭 처리에 필요 — 리스너는 한 번만 등록하므로 최신 값을 ref 로 참조한다
+    const navigationRef = useRef(null);
+    const plantsRef = useRef(plants);
+    useEffect(() => {
+        plantsRef.current = plants;
+    }, [plants]);
 
     const [fontsLoaded] = useFonts({
         [Fonts.neoDunggeunmo]: require("./assets/fonts/NeoDunggeunmoPro-Regular.ttf"),
@@ -148,6 +129,41 @@ export default function MainApp({ user }) {
     useEffect(() => {
         loadPlants();
     }, [loadPlants]);
+
+    // 물주기 알림을 현재 일정에 맞춰 다시 맞춘다.
+    // 다른 기기에서 물을 줬거나 주기를 바꿨으면 기기에 남은 예약이 어긋나기 때문.
+    //
+    // 앱 시작 때 한 번만 하면 며칠씩 켜둔 경우 그동안의 변경이 반영되지 않아,
+    // 포그라운드로 돌아올 때도 다시 맞춘다. 개체마다 일정을 조회하므로
+    // 최소 간격을 둬서 화면 전환마다 반복 호출되지 않게 한다.
+    useEffect(() => {
+        let lastSyncAt = 0;
+        const resync = () => {
+            const now = Date.now();
+            if (now - lastSyncAt < SYNC_MIN_INTERVAL_MS) return;
+            lastSyncAt = now;
+            syncWateringReminders().catch((error) =>
+                console.warn("물주기 알림 동기화 실패:", error?.message),
+            );
+        };
+
+        resync();
+        const sub = AppState.addEventListener("change", (state) => {
+            if (state === "active") resync();
+        });
+        return () => sub.remove();
+    }, []);
+
+    // 알림을 누르면 해당 개체 화면으로 이동
+    useEffect(() => {
+        const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+            const plantId = response.notification.request.content.data?.plantId;
+            if (!plantId) return;
+            const target = plantsRef.current.find((p) => p.id === String(plantId));
+            if (target) navigationRef.current?.navigate("PlantDetail", { plant: target });
+        });
+        return () => sub.remove();
+    }, []);
 
     useEffect(() => {
         let mounted = true;
@@ -186,7 +202,7 @@ export default function MainApp({ user }) {
     }
 
     return (
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
             <Stack.Navigator
                 id="MainStack"
                 initialRouteName="Home"
@@ -200,7 +216,8 @@ export default function MainApp({ user }) {
                         <HomeScreen
                             {...props}
                             appliedBg={appliedBg}
-                            hasUnread={notifications.some((n) => !n.read)}
+                            hasUnread={notices.some((n) => n.urgent)}
+                            urgentCount={notices.filter((n) => n.urgent).length}
                         />
                     )}
                 </Stack.Screen>
@@ -318,8 +335,8 @@ export default function MainApp({ user }) {
                     {(props) => (
                         <NotificationsScreen
                             {...props}
-                            notifications={notifications}
-                            setNotifications={setNotifications}
+                            notices={notices}
+                            plants={plants}
                         />
                     )}
                 </Stack.Screen>

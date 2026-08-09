@@ -1,10 +1,9 @@
-import React, { useEffect } from "react";
+import React from "react";
 import {
     View,
     Text,
     StyleSheet,
     ScrollView,
-    Image,
     TouchableOpacity,
     StatusBar,
 } from "react-native";
@@ -13,61 +12,68 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
+import PlantImage from "../components/PlantImage";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 
-const PLANT_IMAGES: Record<string, any> = {
-    spaghetti: require("../../assets/plants/spaghetti.png"),
-    rubber: require("../../assets/plants/rubber.png"),
-    sansevieria: require("../../assets/plants/sansevieria.png"),
-    pachira: require("../../assets/plants/pachira.png"),
-    myeongrani: require("../../assets/plants/myeongrani.png"),
-};
-
-export type AppNotification = {
+export type CareNotice = {
     id: string;
-    plantKey: string;
+    plantId: string;
     title: string;
     speech: string;
-    time: string;
-    read: boolean;
-    isToday: boolean;
+    when: string;
+    /** 지금 할 일 (예정일이 지났거나 오늘) */
+    urgent: boolean;
+    imageUri: string | null;
+    imageKey?: string;
 };
 
+/**
+ * 돌봄 알림 목록.
+ *
+ * 기기에 도착한 알림 이력을 저장하지 않고 서버 일정에서 계산한 목록을 보여준다.
+ * 사용자가 알고 싶은 건 "무엇을 해야 하는지"이고 그건 지금 일정만으로 답할 수 있다.
+ * 그래서 읽음 표시가 없다 — 할 일이 없어지면 목록에서 사라진다.
+ */
 export default function NotificationsScreen({
     navigation,
-    notifications,
-    setNotifications,
+    notices,
+    plants,
 }: {
     navigation: any;
-    notifications: AppNotification[];
-    setNotifications: (n: AppNotification[]) => void;
+    notices: CareNotice[];
+    plants: any[];
 }) {
-    useEffect(() => {
-        setNotifications(notifications.map((n) => ({ ...n, read: true })));
-    }, []);
+    const openPlant = (plantId: string) => {
+        const target = plants?.find((p) => p.id === plantId);
+        if (target) navigation.navigate("PlantDetail", { plant: target });
+    };
 
-    const todayItems = notifications.filter((n) => n.isToday);
-    const pastItems = notifications.filter((n) => !n.isToday);
+    const urgentItems = notices.filter((n) => n.urgent);
+    const upcomingItems = notices.filter((n) => !n.urgent);
 
-    const renderCard = (item: AppNotification) => (
-        <View
+    const renderCard = (item: CareNotice) => (
+        <TouchableOpacity
             key={item.id}
-            style={[styles.card, !item.read && styles.cardUnread]}
+            style={[styles.card, item.urgent && styles.cardUnread]}
+            onPress={() => openPlant(item.plantId)}
+            activeOpacity={0.8}
         >
-            {!item.read && <View style={styles.unreadBar} />}
-            <Image
-                source={PLANT_IMAGES[item.plantKey]}
-                style={styles.plantImage}
-                resizeMode="contain"
+            {item.urgent && <View style={styles.unreadBar} />}
+            <PlantImage
+                uri={item.imageUri ?? undefined}
+                imageKey={item.imageKey}
+                width={56}
+                height={56}
+                style={undefined}
             />
             <View style={styles.cardBody}>
                 <Text style={styles.title}>{item.title}</Text>
                 <Text style={styles.speech}>{`“${item.speech}”`}</Text>
-                <Text style={styles.time}>{item.time}</Text>
+                <Text style={styles.time}>{item.when}</Text>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 
     return (
@@ -80,32 +86,32 @@ export default function NotificationsScreen({
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                 >
-                    {todayItems.length > 0 && (
+                    {urgentItems.length > 0 && (
                         <View style={styles.section}>
-                            <Text style={styles.sectionLabel}>오늘</Text>
-                            {todayItems.map(renderCard)}
+                            <Text style={styles.sectionLabel}>지금 할 일</Text>
+                            {urgentItems.map(renderCard)}
                         </View>
                     )}
 
-                    {pastItems.length > 0 && (
+                    {upcomingItems.length > 0 && (
                         <View style={styles.section}>
                             <View style={styles.sectionDividerRow}>
                                 <View style={styles.dividerLine} />
-                                <Text style={styles.sectionLabel}>지난 알림</Text>
+                                <Text style={styles.sectionLabel}>예정</Text>
                                 <View style={styles.dividerLine} />
                             </View>
-                            {pastItems.map(renderCard)}
+                            {upcomingItems.map(renderCard)}
                         </View>
                     )}
 
-                    {todayItems.length === 0 && pastItems.length === 0 && (
+                    {urgentItems.length === 0 && upcomingItems.length === 0 && (
                         <View style={styles.emptyArea}>
                             <Ionicons
                                 name="notifications-off-outline"
                                 size={40}
                                 color={GreenTint.soft}
                             />
-                            <Text style={styles.emptyText}>알림이 없어요</Text>
+                            <Text style={styles.emptyText}>돌봐야 할 식물이 없어요</Text>
                         </View>
                     )}
                 </ScrollView>
@@ -176,11 +182,6 @@ const styles = StyleSheet.create({
         backgroundColor: GreenTint.medium,
         borderTopLeftRadius: Radius.lg,
         borderBottomLeftRadius: Radius.lg,
-    },
-    plantImage: {
-        width: 72,
-        height: 72,
-        marginLeft: Spacing.sm,
     },
     cardBody: {
         flex: 1,
