@@ -14,10 +14,11 @@ import {
 import { Colors } from '../../constants/colors';
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
-import { createPlant } from '../../src/api';
+import { createPlant, getPlantCare } from '../../src/api';
+import { scheduleWateringReminder } from '../../src/notifications';
 
 import { styles } from './styles/info.styles';
-import type { NewPlantPayload, NongsaroPlantDetail } from '../../types/plant';
+import type { NewPlantPayload } from '../../types/plant';
 const PLACEHOLDER_CHARACTER = require('../../assets/dot-character-placeholder.png');
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -152,18 +153,16 @@ function DatePairPicker({
 export default function InfoScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
+    speciesId?: string;
     cntntsNo?: string;
     scientificName?: string;
     commonNameKo?: string;
     nickname?: string;
     characterImageUrl?: string;
     capturedPhotoUri?: string;
-    plantDetail?: string;
+    // 종 마스터의 대표 이미지 (plant-detail 단계에서 전달)
+    imageUrl?: string;
   }>();
-
-  const plantDetail: NongsaroPlantDetail | null = params.plantDetail
-    ? JSON.parse(params.plantDetail)
-    : null;
 
   // Form state
   const [location, setLocation] = useState<string | null>(null);
@@ -228,6 +227,9 @@ export default function InfoScreen() {
     setIsSubmitting(true);
     try {
       const payload: NewPlantPayload = {
+        // 종 마스터에서 고른 종이면 id 를 그대로 넘긴다.
+        // 없으면(카메라 인식 결과가 마스터에 없는 경우) 서버가 학명/국명으로 종을 만든다.
+        speciesId:         params.speciesId ? Number(params.speciesId) : null,
         cntntsNo:          params.cntntsNo ?? '',
         scientificName:    params.scientificName ?? null,
         commonNameKo:      params.commonNameKo ?? '',
@@ -246,6 +248,23 @@ export default function InfoScreen() {
 
       const created = await createPlant(payload);
 
+      // 물주기 알림 예약 — 등록이 알림의 첫 접점이다.
+      // 여기서 안 하면 앱을 다시 켤 때(전체 동기화)까지 알림이 잡히지 않는다.
+      try {
+        const care = await getPlantCare(created.id);
+        await scheduleWateringReminder(
+          created.id,
+          created.nickname,
+          care.next_watering_date,
+        );
+      } catch (e: any) {
+        // 알림 예약 실패가 등록을 막지 않게 한다
+        console.warn('물주기 알림 예약 실패:', e?.message);
+      }
+
+      // 등록 직후 열리는 PlantDetail이 방금 만든 식물을 표시하도록 전달
+      router.replace({
+        pathname: '/',
       // 페르소나(성격)는 plant_id가 있어야 저장 가능 → 식물 생성 후 다음 단계에서 선택
       router.push({
         pathname: '/add-plant/persona',
@@ -262,15 +281,8 @@ export default function InfoScreen() {
     }
   };
 
-  // Plant header image: use PlantNet reference or 농사로 thumb
-  // params.plantDetail이 "null"(문자열)일 수 있으므로 parse 후 null 체크 필수
-  const headerImageUri = (() => {
-    if (params.plantDetail) {
-      const d: NongsaroPlantDetail | null = JSON.parse(params.plantDetail);
-      if (d && d.imageUrls?.[0]?.thumb) return d.imageUrls[0].thumb;
-    }
-    return null;
-  })();
+  // Plant header image: 종 마스터의 대표 이미지 → 없으면 사용자가 찍은 사진 → 없으면 placeholder
+  const headerImageUri = params.imageUrl || null;
 
   return (
     <KeyboardAvoidingView
@@ -295,9 +307,9 @@ export default function InfoScreen() {
             <Text style={styles.plantHeaderName} numberOfLines={1}>
               {params.nickname || params.commonNameKo || '내 식물'}
             </Text>
-            {plantDetail?.scientificName ? (
+            {params.scientificName ? (
               <Text style={styles.plantHeaderScientific} numberOfLines={1}>
-                {plantDetail.scientificName}
+                {params.scientificName}
               </Text>
             ) : null}
           </View>

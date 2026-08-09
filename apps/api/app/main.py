@@ -1,11 +1,11 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -20,6 +20,15 @@ from .image_preprocessing import (
     remove_background_for_sprite,
 )
 from .models import AppUser, CareRecord, CareSchedule, MediaAsset, Plant, PlantSpecies, UserSetting
+from .models import (
+    AppUser,
+    CareRecord,
+    CareSchedule,
+    MediaAsset,
+    Plant,
+    PlantSpecies,
+    SpeciesSourceLink,
+)
 from .schemas import (
     AvailabilityResponse,
     AirQualityHistoryPoint,
@@ -41,10 +50,13 @@ from .schemas import (
     PlantUpdate,
     PlantRead,
     SignupRequest,
+    SpeciesDetail,
+    SpeciesListItem,
     UserRead,
     UserSettingRead,
     UserSettingUpdate,
     WeatherHistoryPoint,
+    WateringScheduleUpdate,
 )
 from .security import create_access_token, decode_access_token, hash_password, verify_password
 from .storage import presigned_get_url
@@ -66,6 +78,12 @@ app.add_middleware(
 LOCATION_NAMES = {"LIVING_ROOM", "BEDROOM", "BALCONY", "KITCHEN", "OFFICE"}
 LIGHT_CONDITIONS = {"DIRECT", "BRIGHT", "INDIRECT", "LOW"}
 CARE_TYPES = {"WATERING", "FERTILIZING", "REPOTTING"}
+
+# 종에 권장 물주기 자료가 없을 때 쓰는 기본값.
+# 농사로 값은 3·5·10일에 몰려 있고 중간값이 5일이지만, 그 203종은 실내정원용으로
+# 선별된 관엽식물이라 자주 주는 쪽으로 치우쳐 있다. 자료가 없는 종에는 과습을 피하는
+# 쪽이 안전해(초보 실패 원인 1위) 하루~이틀 여유를 둔 7일로 잡았다. 주 1회라 기억하기도 쉽다.
+DEFAULT_WATERING_INTERVAL_DAYS = 7
 PLANT_STATUSES = {"ALIVE", "SICK", "DEAD"}
 
 
@@ -114,6 +132,71 @@ def _days_since(moment: datetime | None) -> int | None:
     # 저장·조회 모두 naive UTC 기준 — 캘린더 일수 차이로 "며칠 전" 계산
     aware = moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
     return max(0, (datetime.now(timezone.utc).date() - aware.date()).days)
+
+
+def _species_interval_days(plant: Plant, db: Session) -> int | None:
+    """종 마스터의 권장 물주기. 개체 일정을 처음 만들 때의 기본값으로만 쓴다."""
+    if not plant.species_id:
+        return None
+    species = db.get(PlantSpecies, plant.species_id)
+    interval = species.watering_interval_days if species else None
+    return interval if interval and interval > 0 else None
+
+
+def _initial_interval(plant: Plant, db: Session) -> tuple[int, str]:
+    """새 일정에 넣을 (주기, 출처).
+
+    종 권장값이 있으면 그대로 쓰고, 없으면 앱 기본값을 쓴다.
+    권장값이 있는 종은 전체의 1.1%(203/17,665)라 대부분 DEFAULT 로 시작한다.
+    """
+    interval = _species_interval_days(plant, db)
+    if interval:
+        return interval, "SPECIES"
+    return DEFAULT_WATERING_INTERVAL_DAYS, "DEFAULT"
+
+
+def _upsert_watering_schedule(
+    plant: Plant, db: Session, last_watered: datetime | None = None
+) -> CareSchedule | None:
+    """물주기 일정을 만들거나 다음 예정일을 밀어준다.
+
+    interval_days 는 종 값을 '복사'해 둔다. 참조가 아니라 복사인 이유:
+      - 사용자가 개체별로 주기를 조정할 수 있어야 한다
+      - 마스터 재적재로 사용자의 일정이 멋대로 바뀌면 안 된다
+    이미 일정이 있으면 interval_days 는 건드리지 않고 next_due_date 만 갱신한다.
+
+    care_schedule 은 WATERING 만 만든다. 비료·분갈이는 일정으로 관리하지 않고,
+    비료는 마지막 기록 경과일수(days_since_fertilizing)만 보여주고
+    분갈이는 분갈이탭에서 사용자가 기록을 확인하는 방식이다.
+    (4개 소스에 권장 주기가 없어 임의 값으로 알림을 보내게 되는 문제도 있다)
+
+    care_schedule 의 CHECK 은 세 유형을 다 허용하지만 의도적으로 좁히지 않았다 —
+    나중에 '영양제 2주마다 알림' 같은 요구가 생기면 스키마를 다시 넓히는 비용이 더 크다.
+    즉 "만들 수는 있지만 코드가 만들지 않는" 상태가 의도된 것이다.
+    """
+    schedule = db.scalar(
+        select(CareSchedule).where(
+            CareSchedule.plant_id == plant.plant_id, CareSchedule.care_type == "WATERING"
+        )
+    )
+
+    if schedule is None:
+        interval, source = _initial_interval(plant, db)
+        schedule = CareSchedule(
+            plant_id=plant.plant_id,
+            care_type="WATERING",
+            interval_days=interval,
+            interval_source=source,
+            next_due_date=(last_watered or datetime.now(timezone.utc)).date()
+            + timedelta(days=interval),
+        )
+        db.add(schedule)
+        return schedule
+
+    # 이미 있는 일정은 주기·출처를 건드리지 않고 다음 예정일만 밀어준다
+    base = (last_watered or datetime.now(timezone.utc)).date()
+    schedule.next_due_date = base + timedelta(days=schedule.interval_days)
+    return schedule
 
 
 def _owned_plant_or_404(plant_id: int, current_user: "AppUser", db: Session) -> Plant:
@@ -328,15 +411,112 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
     return AuthResponse(access_token=create_access_token(str(user.user_id)), user=UserRead.model_validate(user))
 
 
+@app.get("/api/species", response_model=list[SpeciesListItem])
+def search_species(
+    q: str = Query(..., min_length=1, max_length=100, description="국명/영문명/학명 부분검색"),
+    limit: int = Query(20, ge=1, le=50),
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[SpeciesListItem]:
+    """종 마스터 검색 — 등록 1단계에서 외부 API 대신 이 엔드포인트를 사용한다.
+
+    ilike 부분검색이라 PostgreSQL/SQLite 양쪽에서 동작한다.
+    PG 에서는 pg_trgm GIN 인덱스(idx_plant_species_name_*_trgm)가 사용된다.
+    """
+    keyword = q.strip()
+    if not keyword:
+        return []
+
+    pattern = f"%{keyword}%"
+    # 접두 일치를 부분 일치보다 앞에
+    prefix_rank = case((PlantSpecies.common_name_ko.ilike(f"{keyword}%"), 0), else_=1)
+    # 돌봄 정보(농진청 실내정원용 식물)가 있는 종을 앞에 —
+    # 산림청 표준식물종정보에는 야생 식물이 대량으로 들어와 있어 그것만으로는 목록이 산만해진다
+    care_rank = case((PlantSpecies.watering_interval_days.is_(None), 1), else_=0)
+
+    rows = db.scalars(
+        select(PlantSpecies)
+        .where(
+            or_(
+                PlantSpecies.common_name_ko.ilike(pattern),
+                PlantSpecies.common_name_en.ilike(pattern),
+                PlantSpecies.scientific_name.ilike(pattern),
+            )
+        )
+        .order_by(
+            prefix_rank,
+            care_rank,
+            func.length(PlantSpecies.common_name_ko),
+            PlantSpecies.species_id,
+        )
+        .limit(limit)
+    ).all()
+
+    return [SpeciesListItem.model_validate(row) for row in rows]
+
+
+def _to_species_detail(species: PlantSpecies, db: Session) -> SpeciesDetail:
+    """plant_species 한 행 → SpeciesDetail. 종 상세와 개체 상세가 같이 쓴다."""
+    detail = SpeciesDetail.model_validate(species)
+
+    # 카드별 원문은 metadata 에 들어 있다 (merge 의 from_rda 참고)
+    extra = species.extra_metadata or {}
+    for field in (
+        "water_cycle_label",
+        "light_label",
+        "fertilizer_info",
+        "soil_info",
+        "special_manage_info",
+        "placement",
+        "propagation",
+        "growth_rate",
+        "flower_color_names",
+    ):
+        value = extra.get(field)
+        if value:
+            setattr(detail, field, value)
+
+    # 출처 표기용 — 연결이 없으면 사용자 등록 유래 종이라 빈 목록
+    detail.sources = list(
+        db.scalars(
+            select(SpeciesSourceLink.source_code)
+            .where(SpeciesSourceLink.species_id == species.species_id)
+            .order_by(SpeciesSourceLink.source_code)
+        ).all()
+    )
+    return detail
+
+
+@app.get("/api/species/{species_id}", response_model=SpeciesDetail)
+def get_species(
+    species_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SpeciesDetail:
+    """종 상세 — 4개 소스를 배치에서 병합해 둔 결과를 한 행 조회로 반환."""
+    species = db.get(PlantSpecies, species_id)
+    if species is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="종을 찾을 수 없습니다.")
+    return _to_species_detail(species, db)
+
+
 @app.post("/api/plants", response_model=PlantRead, status_code=status.HTTP_201_CREATED)
 def create_plant(
     payload: PlantCreate,
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PlantRead:
-    # 1. 종(plant_species) get-or-create — 학명 우선, 없으면 국명으로 매칭
+    # 1. 종(plant_species) 결정
+    #    speciesId 가 오면 마스터 행을 그대로 사용 (GET /api/species 검색 결과)
+    #    없으면 학명/국명 get-or-create — PlantNet 이 인식했지만 마스터에 없는 종용 fallback
     species: PlantSpecies | None = None
-    if payload.scientificName:
+    if payload.speciesId is not None:
+        species = db.get(PlantSpecies, payload.speciesId)
+        if species is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="존재하지 않는 speciesId 입니다."
+            )
+    if species is None and payload.scientificName:
         species = db.scalar(
             select(PlantSpecies).where(PlantSpecies.scientific_name == payload.scientificName)
         )
@@ -399,6 +579,10 @@ def create_plant(
     if repotted_at:
         db.add(CareRecord(plant_id=plant.plant_id, care_type="REPOTTING", completed_at=repotted_at))
 
+    # 5. 물주기 일정 — 종의 권장 주기를 개체 일정으로 복사.
+    #    마지막 물준 날을 알면 그 날 기준, 모르면 등록일 기준으로 다음 예정일을 잡는다.
+    _upsert_watering_schedule(plant, db, last_watered=watered_at)
+
     db.commit()
     db.refresh(plant)
 
@@ -437,6 +621,54 @@ def list_plants(
         for pid, object_key, file_url in char_rows:
             char_map.setdefault(pid, presigned_get_url(object_key) or file_url)
 
+    # 물주기 일정 — 개체마다 조회하지 않고 두 번의 쿼리로 모은다
+    schedule_map: dict[int, CareSchedule] = {}
+    last_watered_map: dict[int, datetime] = {}
+    if plant_ids:
+        for schedule in db.scalars(
+            select(CareSchedule).where(
+                CareSchedule.plant_id.in_(plant_ids), CareSchedule.care_type == "WATERING"
+            )
+        ).all():
+            schedule_map[schedule.plant_id] = schedule
+        for pid, completed_at in db.execute(
+            select(CareRecord.plant_id, func.max(CareRecord.completed_at))
+            .where(CareRecord.plant_id.in_(plant_ids), CareRecord.care_type == "WATERING")
+            .group_by(CareRecord.plant_id)
+        ).all():
+            last_watered_map[pid] = completed_at
+
+    today = datetime.now(timezone.utc).date()
+
+    def watering_summary(plant: Plant) -> tuple[int | None, date | None]:
+        """(주기, 다음 예정일). 일정 행이 없으면 계산만 하고 저장하지 않는다."""
+        schedule = schedule_map.get(plant.plant_id)
+        if schedule is not None:
+            return schedule.interval_days, schedule.next_due_date
+        interval, _ = _initial_interval(plant, db)
+        base = last_watered_map.get(plant.plant_id) or plant.created_at
+        if not interval or base is None:
+            return interval, None
+        return interval, base.date() + timedelta(days=interval)
+
+    items: list[PlantListItem] = []
+    for plant, common_name_ko in rows:
+        interval, next_due = watering_summary(plant)
+        items.append(
+            PlantListItem(
+                id=plant.plant_id,
+                nickname=plant.nickname,
+                common_name_ko=common_name_ko,
+                location_name=plant.location_name,
+                light_condition=plant.light_condition,
+                is_favorite=plant.is_favorite,
+                status=plant.status,
+                character_image_url=char_map.get(plant.plant_id),
+                created_at=plant.created_at.isoformat(),
+                watering_interval_days=interval,
+                next_watering_date=next_due.isoformat() if next_due else None,
+                days_until_watering=(next_due - today).days if next_due else None,
+            )
     return [
         PlantListItem(
             id=plant.plant_id,
@@ -450,8 +682,7 @@ def list_plants(
             persona=plant.persona,
             created_at=plant.created_at.isoformat(),
         )
-        for plant, common_name_ko in rows
-    ]
+    return items
 
 
 @app.get("/api/plants/{plant_id}", response_model=PlantDetail)
@@ -476,6 +707,34 @@ def update_plant(
 ) -> PlantDetail:
     plant = _owned_plant_or_404(plant_id, current_user, db)
     data = payload.model_dump(exclude_unset=True)
+
+    if "species_id" in data and data["species_id"] is not None:
+        new_species = db.get(PlantSpecies, data["species_id"])
+        if new_species is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="존재하지 않는 speciesId 입니다."
+            )
+        plant.species_id = new_species.species_id
+
+        # 물주기 일정: 종이 바뀌면 권장 주기도 바뀐다.
+        # 사용자가 직접 설정한 주기(USER)는 덮지 않는다.
+        schedule = db.scalar(
+            select(CareSchedule).where(
+                CareSchedule.plant_id == plant.plant_id, CareSchedule.care_type == "WATERING"
+            )
+        )
+        if schedule is not None and schedule.interval_source != "USER":
+            interval, source = _initial_interval(plant, db)
+            schedule.interval_days = interval
+            schedule.interval_source = source
+            last = db.scalar(
+                select(CareRecord.completed_at)
+                .where(CareRecord.plant_id == plant.plant_id, CareRecord.care_type == "WATERING")
+                .order_by(CareRecord.completed_at.desc())
+                .limit(1)
+            )
+            base = (last or datetime.now(timezone.utc)).date()
+            schedule.next_due_date = base + timedelta(days=interval)
 
     if "nickname" in data and data["nickname"] is not None:
         nickname = data["nickname"].strip()
@@ -517,6 +776,8 @@ def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
         nickname=plant.nickname,
         common_name_ko=species.common_name_ko if species else None,
         scientific_name=species.scientific_name if species else None,
+        # 돌보기 정보 화면용 — 종이 없으면 None
+        species=_to_species_detail(species, db) if species else None,
         status=plant.status,
         location_name=plant.location_name,
         light_condition=plant.light_condition,
@@ -534,6 +795,58 @@ def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
         humidity_min_pct=float(species.humidity_min_pct) if species and species.humidity_min_pct is not None else None,
         humidity_max_pct=float(species.humidity_max_pct) if species and species.humidity_max_pct is not None else None,
     )
+
+
+@app.patch("/api/plants/{plant_id}/watering-schedule", response_model=CareSummary)
+def update_watering_schedule(
+    plant_id: int,
+    payload: WateringScheduleUpdate,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CareSummary:
+    """물주기 주기를 사용자가 조정하거나 권장값으로 되돌린다.
+
+    비료·분갈이는 일정으로 관리하지 않아(경과일수만 표시) 물주기 전용 엔드포인트다.
+    다음 예정일은 마지막 물준 기록(없으면 지금) + 새 주기로 다시 계산한다.
+    """
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+
+    if payload.interval_days is None:
+        interval, source = _initial_interval(plant, db)
+    else:
+        interval, source = payload.interval_days, "USER"
+
+    schedule = db.scalar(
+        select(CareSchedule).where(
+            CareSchedule.plant_id == plant_id, CareSchedule.care_type == "WATERING"
+        )
+    )
+    last_watered = db.scalar(
+        select(CareRecord.completed_at)
+        .where(CareRecord.plant_id == plant_id, CareRecord.care_type == "WATERING")
+        .order_by(CareRecord.completed_at.desc())
+        .limit(1)
+    )
+    next_due = (last_watered or datetime.now(timezone.utc)).date() + timedelta(days=interval)
+
+    if schedule is None:
+        # 일정이 없던 개체(마스터 도입 전 등록분)는 이 시점에 만들어진다
+        db.add(
+            CareSchedule(
+                plant_id=plant_id,
+                care_type="WATERING",
+                interval_days=interval,
+                interval_source=source,
+                next_due_date=next_due,
+            )
+        )
+    else:
+        schedule.interval_days = interval
+        schedule.interval_source = source
+        schedule.next_due_date = next_due
+
+    db.commit()
+    return plant_care_summary(plant_id, current_user, db)
 
 
 @app.get("/api/plants/{plant_id}/care", response_model=CareSummary)
@@ -557,6 +870,27 @@ def plant_care_summary(
     watered = latest("WATERING")
     fertilized = latest("FERTILIZING")
     repotted = latest("REPOTTING")
+
+    # 물주기 일정 — 저장된 일정이 있으면 그 값, 없으면 종 권장값으로 계산한 예상치.
+    # 예상치는 저장하지 않는다 (조회가 사용자 데이터를 만들면 안 된다)
+    schedule = db.scalar(
+        select(CareSchedule).where(
+            CareSchedule.plant_id == plant_id, CareSchedule.care_type == "WATERING"
+        )
+    )
+    if schedule is not None:
+        interval = schedule.interval_days
+        source = schedule.interval_source
+        next_due = schedule.next_due_date
+        saved = True
+    else:
+        # 일정 행이 아직 없는 개체(마스터 도입 전 등록분) — 만들지 않고 계산만 한다
+        interval, source = _initial_interval(plant, db)
+        base = (watered or plant.created_at).date() if (watered or plant.created_at) else None
+        next_due = base + timedelta(days=interval) if (interval and base) else None
+        saved = False
+
+    today = datetime.now(timezone.utc).date()
     return CareSummary(
         last_watered_at=watered.isoformat() if watered else None,
         days_since_watering=_days_since(watered),
@@ -564,6 +898,11 @@ def plant_care_summary(
         days_since_fertilizing=_days_since(fertilized),
         last_repotted_at=repotted.isoformat() if repotted else None,
         days_since_repotting=_days_since(repotted),
+        watering_interval_days=interval,
+        watering_interval_source=source,
+        next_watering_date=next_due.isoformat() if next_due else None,
+        days_until_watering=(next_due - today).days if next_due else None,
+        watering_schedule_saved=saved,
     )
 
 
@@ -601,7 +940,7 @@ def create_care_record(
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> CareRecordItem:
-    _owned_plant_or_404(plant_id, current_user, db)
+    plant = _owned_plant_or_404(plant_id, current_user, db)
     if payload.care_type not in CARE_TYPES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="지원하지 않는 관리 유형입니다.")
 
@@ -613,6 +952,12 @@ def create_care_record(
         completed_at=completed,
     )
     db.add(record)
+
+    # 물을 줬으면 다음 예정일을 밀어준다. 일정이 없던 개체(마스터 도입 전 등록분)는
+    # 이 시점에 종 권장값으로 만들어진다.
+    if payload.care_type == "WATERING":
+        _upsert_watering_schedule(plant, db, last_watered=completed)
+
     db.commit()
     db.refresh(record)
     return CareRecordItem(
