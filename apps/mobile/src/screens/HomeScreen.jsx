@@ -26,7 +26,12 @@ const HOME_MENU_ITEMS = [
     { label: "스토어", icon: "storefront-outline", screen: "Store" },
 ];
 
-export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnread = false }) {
+export default function HomeScreen({
+    navigation,
+    appliedBg = "home-bg",
+    hasUnread = false,
+    urgentCount = 0,
+}) {
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
 
@@ -108,6 +113,22 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                             {hasUnread && <View style={styles.redDot} />}
                         </View>
                     </GlassButton>
+
+                    {/*
+                        밀린 물주기 요약 — 정원까지 들어가지 않아도 보이게.
+                        빨간 점만으로는 몇 개가 밀렸는지 알 수 없다.
+                    */}
+                    {urgentCount > 0 ? (
+                        <TouchableOpacity
+                            style={styles.careSummary}
+                            onPress={() => navigation.navigate("Notifications")}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.careSummaryText}>
+                                물 줄 식물 {urgentCount}개
+                            </Text>
+                        </TouchableOpacity>
+                    ) : null}
                 </View>
 
                 {/* 식물 5개 */}
@@ -341,6 +362,24 @@ const styles = StyleSheet.create({
         top: 72,
         right: 20,
         zIndex: 50,
+    },
+
+    // 밀린 물주기 요약 (알림 버튼 아래)
+    careSummary: {
+        marginTop: Spacing.sm,
+        alignSelf: "flex-end",
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        borderRadius: Radius.pill,
+        backgroundColor: Glass.frost72,
+        borderWidth: 1,
+        borderColor: Glass.frost45,
+    },
+    careSummaryText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textBlack,
+        includeFontPadding: false,
     },
     notificationIcon: {
         width: 44,

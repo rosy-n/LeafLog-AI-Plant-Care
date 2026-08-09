@@ -31,6 +31,10 @@ export type PlantListItem = {
   status: string;
   character_image_url: string | null;
   created_at: string;
+  // 물주기 일정 요약 — 알림 목록·배지·알림 재예약이 개체마다 조회하지 않도록 함께 온다
+  watering_interval_days: number | null;
+  next_watering_date: string | null;
+  days_until_watering: number | null;
 };
 
 // 로그인/회원가입 후 받은 액세스 토큰을 앱 전역에서 공유 (메모리 보관)

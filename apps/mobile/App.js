@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, ActivityIndicator, AppState } from "react-native";
 import { useFonts } from "expo-font";
 import { Fonts } from "./constants/fonts";
@@ -27,6 +27,7 @@ import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
 import AddPlantNavigator from "./src/screens/AddPlantNavigator";
 import { getPlants } from "./src/api";
 import { syncWateringReminders } from "./src/notifications";
+import { buildCareNotices } from "./src/careNotices";
 
 const Stack = createNativeStackNavigator();
 
@@ -50,6 +51,10 @@ function toGardenPlant(plant) {
         memorial: plant.status === "DEAD",
         commonNameKo: plant.common_name_ko,
         createdAt: plant.created_at,
+        // 돌봄 알림 목록·배지 계산용 (목록 응답에 함께 실려 온다)
+        wateringIntervalDays: plant.watering_interval_days,
+        nextWateringDate: plant.next_watering_date,
+        daysUntilWatering: plant.days_until_watering,
     };
 }
 
@@ -94,44 +99,8 @@ export default function MainApp({ user }) {
     const [coins, setCoins] = useState(450);
     const [purchasedBgs, setPurchasedBgs] = useState([]);
     const [appliedBg, setAppliedBg] = useState("home-bg");
-    const [notifications, setNotifications] = useState([
-        {
-            id: "1",
-            plantKey: "spaghetti",
-            title: "스파게티 물 주는 날",
-            speech: "너무 목 말라요..💧",
-            time: "오전 9:00",
-            read: false,
-            isToday: true,
-        },
-        {
-            id: "2",
-            plantKey: "rubber",
-            title: "미세먼지 좋음",
-            speech: "신선한 바람을 쐬고 싶어요 🌿",
-            time: "오전 8:30",
-            read: false,
-            isToday: true,
-        },
-        {
-            id: "3",
-            plantKey: "sansevieria",
-            title: "산세베리아 분갈이 시기",
-            speech: "슬슬 새 집이 필요해요!",
-            time: "어제",
-            read: true,
-            isToday: false,
-        },
-        {
-            id: "4",
-            plantKey: "pachira",
-            title: "파키라 건강 이상",
-            speech: "잎이 노랗게 변하고 있어요 🍂",
-            time: "2일 전",
-            read: true,
-            isToday: false,
-        },
-    ]);
+    // 돌봄 알림 목록 — 더미 배열 대신 개체 일정에서 계산한다
+    const notices = useMemo(() => buildCareNotices(plants), [plants]);
 
     // 알림 탭 처리에 필요 — 리스너는 한 번만 등록하므로 최신 값을 ref 로 참조한다
     const navigationRef = useRef(null);
@@ -246,7 +215,8 @@ export default function MainApp({ user }) {
                         <HomeScreen
                             {...props}
                             appliedBg={appliedBg}
-                            hasUnread={notifications.some((n) => !n.read)}
+                            hasUnread={notices.some((n) => n.urgent)}
+                            urgentCount={notices.filter((n) => n.urgent).length}
                         />
                     )}
                 </Stack.Screen>
@@ -364,8 +334,8 @@ export default function MainApp({ user }) {
                     {(props) => (
                         <NotificationsScreen
                             {...props}
-                            notifications={notifications}
-                            setNotifications={setNotifications}
+                            notices={notices}
+                            plants={plants}
                         />
                     )}
                 </Stack.Screen>

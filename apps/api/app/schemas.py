@@ -277,4 +277,10 @@ class PlantListItem(BaseModel):
     is_favorite: bool = False
     status: str = "ALIVE"
     character_image_url: str | None = None
+
+    # 물주기 일정 요약 — 알림 목록·배지·기기 알림 재예약이 개체마다 상세를 조회하지 않도록
+    # 목록에 함께 싣는다 (N+1 방지). 일정 행이 없으면 계산값이 들어간다.
+    watering_interval_days: int | None = None
+    next_watering_date: str | None = None
+    days_until_watering: int | None = None
     created_at: str
