@@ -13,7 +13,7 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
-import { getPlantCare, getPlants } from "./api";
+import { getPlants } from "./api";
 import { loadNotificationSettings } from "./notificationSettings";
 
 const ANDROID_CHANNEL_ID = "watering";
@@ -173,6 +173,7 @@ export async function syncWateringReminders(): Promise<number> {
   if (!(await ensureNotificationPermission())) return 0;
   await prepareNotifications();
 
+  // 목록 응답에 예정일이 함께 오므로 개체별 조회가 필요 없다 (호출 1회)
   const plants = await getPlants();
   let scheduled = 0;
 
@@ -182,11 +183,10 @@ export async function syncWateringReminders(): Promise<number> {
       continue;
     }
     try {
-      const care = await getPlantCare(plant.id);
       const ok = await scheduleWateringReminder(
         plant.id,
         plant.nickname,
-        care.next_watering_date,
+        plant.next_watering_date,
       );
       if (ok) scheduled += 1;
     } catch {

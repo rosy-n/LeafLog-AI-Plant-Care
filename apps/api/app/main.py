@@ -555,20 +555,56 @@ def list_plants(
         for pid, object_key, file_url in char_rows:
             char_map.setdefault(pid, presigned_get_url(object_key) or file_url)
 
-    return [
-        PlantListItem(
-            id=plant.plant_id,
-            nickname=plant.nickname,
-            common_name_ko=common_name_ko,
-            location_name=plant.location_name,
-            light_condition=plant.light_condition,
-            is_favorite=plant.is_favorite,
-            status=plant.status,
-            character_image_url=char_map.get(plant.plant_id),
-            created_at=plant.created_at.isoformat(),
+    # 물주기 일정 — 개체마다 조회하지 않고 두 번의 쿼리로 모은다
+    schedule_map: dict[int, CareSchedule] = {}
+    last_watered_map: dict[int, datetime] = {}
+    if plant_ids:
+        for schedule in db.scalars(
+            select(CareSchedule).where(
+                CareSchedule.plant_id.in_(plant_ids), CareSchedule.care_type == "WATERING"
+            )
+        ).all():
+            schedule_map[schedule.plant_id] = schedule
+        for pid, completed_at in db.execute(
+            select(CareRecord.plant_id, func.max(CareRecord.completed_at))
+            .where(CareRecord.plant_id.in_(plant_ids), CareRecord.care_type == "WATERING")
+            .group_by(CareRecord.plant_id)
+        ).all():
+            last_watered_map[pid] = completed_at
+
+    today = datetime.now(timezone.utc).date()
+
+    def watering_summary(plant: Plant) -> tuple[int | None, date | None]:
+        """(주기, 다음 예정일). 일정 행이 없으면 계산만 하고 저장하지 않는다."""
+        schedule = schedule_map.get(plant.plant_id)
+        if schedule is not None:
+            return schedule.interval_days, schedule.next_due_date
+        interval, _ = _initial_interval(plant, db)
+        base = last_watered_map.get(plant.plant_id) or plant.created_at
+        if not interval or base is None:
+            return interval, None
+        return interval, base.date() + timedelta(days=interval)
+
+    items: list[PlantListItem] = []
+    for plant, common_name_ko in rows:
+        interval, next_due = watering_summary(plant)
+        items.append(
+            PlantListItem(
+                id=plant.plant_id,
+                nickname=plant.nickname,
+                common_name_ko=common_name_ko,
+                location_name=plant.location_name,
+                light_condition=plant.light_condition,
+                is_favorite=plant.is_favorite,
+                status=plant.status,
+                character_image_url=char_map.get(plant.plant_id),
+                created_at=plant.created_at.isoformat(),
+                watering_interval_days=interval,
+                next_watering_date=next_due.isoformat() if next_due else None,
+                days_until_watering=(next_due - today).days if next_due else None,
+            )
         )
-        for plant, common_name_ko in rows
-    ]
+    return items
 
 
 @app.get("/api/plants/{plant_id}", response_model=PlantDetail)
