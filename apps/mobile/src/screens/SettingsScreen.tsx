@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
     View,
     Text,
@@ -13,6 +13,7 @@ import {
     Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
@@ -20,6 +21,7 @@ import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
+import { getUserSettings } from "../api";
 
 const FAQ_ITEMS = [
     {
@@ -105,6 +107,22 @@ export default function SettingsScreen({
     // 어카운트
     const [isEditingName, setIsEditingName] = useState(false);
     const [draftName, setDraftName] = useState(username);
+
+    // 위치 — 위치 변경 화면에서 돌아올 때마다 최신값으로 갱신
+    const [homeLocation, setHomeLocation] = useState<string | null>(null);
+    useFocusEffect(
+        useCallback(() => {
+            let cancelled = false;
+            getUserSettings()
+                .then((result) => {
+                    if (!cancelled) setHomeLocation(result.default_location);
+                })
+                .catch(() => {});
+            return () => {
+                cancelled = true;
+            };
+        }, [])
+    );
 
     // 알림
     const [notifEnabled, setNotifEnabled] = useState(true);
@@ -244,6 +262,30 @@ export default function SettingsScreen({
                             >
                                 <Text style={styles.deleteLabel}>계정 삭제</Text>
                                 <Ionicons name="chevron-forward" size={18} color={Colors.remove} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* ── 위치 ──────────────────────────── */}
+                        <View style={styles.card}>
+                            <SectionLabel icon="home-outline" label="위치" />
+                            <RowDivider />
+
+                            <View style={styles.row}>
+                                <Text style={styles.rowLabel}>우리 집</Text>
+                                <Text style={styles.nameValue} numberOfLines={1}>
+                                    {homeLocation ?? "설정 안 됨"}
+                                </Text>
+                            </View>
+
+                            <RowDivider />
+
+                            <TouchableOpacity
+                                style={styles.row}
+                                onPress={() => navigation.navigate("LocationSetting")}
+                                activeOpacity={0.75}
+                            >
+                                <Text style={styles.rowLabel}>위치 변경하기</Text>
+                                <Ionicons name="chevron-forward" size={18} color={GreenTint.line} />
                             </TouchableOpacity>
                         </View>
 

@@ -843,6 +843,9 @@ function LocationSetupScreen({
         <Text style={styles.nickCopy}>
           내 동네 날씨와 대기질을{"\n"}홈 화면에서 바로 확인할 수 있어요!
         </Text>
+        <Text style={styles.homeNotice}>
+          집에서 설정해주세요.{"\n"}다른 곳에서 설정하면 그 위치가 우리 집으로 저장돼요.
+        </Text>
         <View style={styles.nickForm}>
           <FormMessage message={error} pixel />
           <PixelButton
@@ -1371,6 +1374,14 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.bodyLarge,
     lineHeight: 23,
+  },
+  homeNotice: {
+    marginTop: Spacing.md,
+    color: Colors.danger,
+    textAlign: "center",
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.body,
+    lineHeight: 19,
   },
   nickForm: {
     marginTop: Spacing.huge,
