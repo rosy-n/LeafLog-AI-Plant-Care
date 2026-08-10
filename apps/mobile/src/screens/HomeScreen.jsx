@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Accent, Gauge, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { getCurrentEnvironment } from "../api";
 
@@ -23,11 +23,11 @@ const WEATHER_ICONS = {
     "눈": require("../../assets/icons/snow_icon.png"),
 };
 
-const AIR_QUALITY_COLORS = {
-    "좋음": GreenTint.medium,
-    "보통": GreenTint.medium,
-    "나쁨": Gauge.warm,
-    "매우나쁨": Gauge.hot,
+const AIR_QUALITY_ICONS = {
+    "좋음": require("../../assets/icons/air_good_icon.png"),
+    "보통": require("../../assets/icons/air_moderate_icon.png"),
+    "나쁨": require("../../assets/icons/air_bad_icon.png"),
+    "매우나쁨": require("../../assets/icons/air_veryBad_icon.png"),
 };
 
 const BG_IMAGES = {
@@ -69,8 +69,8 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
     const weatherIconSource = environment
         ? WEATHER_ICONS[environment.weather_status] ?? WEATHER_ICONS["흐림"]
         : null;
-    const airQualityColor = environment
-        ? AIR_QUALITY_COLORS[environment.air_quality_status] ?? GreenTint.medium
+    const airQualityIconSource = environment
+        ? AIR_QUALITY_ICONS[environment.air_quality_status] ?? AIR_QUALITY_ICONS["보통"]
         : null;
 
     const openMenu = () => {
@@ -130,7 +130,13 @@ export default function HomeScreen({ navigation, appliedBg = "home-bg", hasUnrea
                     </GlassButton>
 
                     <GlassButton size={60} onPress={() => navigation.navigate("SensorData")}>
-                        {airQualityColor && <AirIcon color={airQualityColor} />}
+                        {airQualityIconSource && (
+                            <Image
+                                source={airQualityIconSource}
+                                style={styles.weatherIcon}
+                                resizeMode="contain"
+                            />
+                        )}
                     </GlassButton>
                 </View>
 
@@ -346,16 +352,6 @@ function GlassButton({ children, size = 62, onPress }) {
     );
 }
 
-function AirIcon({ color = GreenTint.medium }) {
-    return (
-        <View style={[styles.airCircle, { borderColor: color }]}>
-            <View style={[styles.airEyeLeft, { backgroundColor: color }]} />
-            <View style={[styles.airEyeRight, { backgroundColor: color }]} />
-            <View style={[styles.airMouth, { borderColor: color }]} />
-        </View>
-    );
-}
-
 const styles = StyleSheet.create({
     root: {
         flex: 1,
@@ -556,42 +552,6 @@ const styles = StyleSheet.create({
         height: 40,
     },
 
-    airCircle: {
-        width: 43,
-        height: 43,
-        borderRadius: Radius.pill,
-        borderWidth: 5,
-        borderColor: GreenTint.medium,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    airEyeLeft: {
-        position: "absolute",
-        top: 12,
-        left: 11,
-        width: 5,
-        height: 5,
-        borderRadius: Radius.xs,
-        backgroundColor: GreenTint.medium,
-    },
-    airEyeRight: {
-        position: "absolute",
-        top: 12,
-        right: 11,
-        width: 5,
-        height: 5,
-        borderRadius: Radius.xs,
-        backgroundColor: GreenTint.medium,
-    },
-    airMouth: {
-        position: "absolute",
-        bottom: 10,
-        width: 18,
-        height: 9,
-        borderBottomWidth: 4,
-        borderColor: GreenTint.medium,
-        borderRadius: Radius.md,
-    },
 
     allText: {
         fontFamily: Fonts.neoDunggeunmo,

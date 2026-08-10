@@ -19,6 +19,7 @@ import SensorDataScreen from "./src/screens/SensorDataScreen";
 import RepottingScreen from "./src/screens/RepottingScreen";
 import NutrientScreen from "./src/screens/NutrientScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
+import LocationSettingScreen from "./src/screens/LocationSettingScreen";
 import StoreScreen from "./src/screens/StoreScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
@@ -298,6 +299,11 @@ export default function MainApp({ user }) {
                         />
                     )}
                 </Stack.Screen>
+                <Stack.Screen
+                    name="LocationSetting"
+                    component={LocationSettingScreen}
+                    options={{ headerShown: false }}
+                />
                 <Stack.Screen
                     name="PlantDecorate"
                     options={{ headerShown: false }}
