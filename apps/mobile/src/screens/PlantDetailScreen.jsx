@@ -30,6 +30,7 @@ import { getPlantCare, createCareRecord, updatePlant, getPersonas, personaChat }
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
+import { getPersonaGreeting } from "../../constants/persona-greetings";
 
 const MENU_ITEMS = [
     { label: "프로필", screen: "Profile" },
@@ -84,6 +85,9 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     const [persona, setPersona] = useState(plant?.persona ?? null);
     const [personaOptions, setPersonaOptions] = useState([]);
     const [personaPickerVisible, setPersonaPickerVisible] = useState(false);
+
+    // 개체 탭에 들어오는 순간 페르소나 기본대사 중 하나를 뽑아 고정 — 탭에 머무는 동안은 바뀌지 않는다
+    const [idleGreeting] = useState(() => getPersonaGreeting(persona));
 
     // 서버는 대화 기록을 저장하지 않는다 — 클라이언트가 최근 5턴(최대 10개 메시지)만 매번 실어 보낸다
     const chatHistoryRef = useRef([]);
@@ -223,12 +227,14 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
         setTimeout(() => setIsWatering(false), 1200);
     };
 
-    // 실제 대화 시작 — 로컬 기록 초기화 + 인사말(서버 호출 없이 고정 문구)로 시작
-    const startChatSession = () => {
+    // 실제 대화 시작 — 로컬 기록 초기화 + 인사말(서버 호출 없이, 페르소나 기본대사 중 랜덤)로 시작
+    // personaSlug를 받는 이유: choosePersona()에서 setPersona() 직후 호출하면 persona state가
+    // 아직 갱신되지 않은 값(stale closure)이라 방금 고른 slug를 직접 넘겨받아야 한다
+    const startChatSession = (personaSlug = persona) => {
         chatHistoryRef.current = [];
         setChatInput("");
         setUserBubble("");
-        setChatReply(`안녕! 나 ${plantName}야. 오늘도 만나서 반가워 🌿 뭐든 편하게 말 걸어줘!`);
+        setChatReply(getPersonaGreeting(personaSlug));
         setChatMode(true);
     };
 
@@ -256,7 +262,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
             await updatePlant(Number(id), { persona: slug });
             setPersona(slug);
             setPersonaPickerVisible(false);
-            startChatSession();
+            startChatSession(slug);
         } catch (e) {
             console.warn("페르소나 저장 실패:", e?.message);
         }
@@ -315,7 +321,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                             textStyle={styles.speechText}
                             tailOffset={125}
                         >
-                            안녕! 좋은 아침이야
+                            {idleGreeting}
                         </PixelSpeechBubble>
                     )}
 
@@ -684,7 +690,7 @@ const styles = StyleSheet.create({
     },
     speechText: {
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.subtitle,
+        fontSize: FontSizes.bodyLarge,
         color: Colors.textBlack,
     },
 
