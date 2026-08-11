@@ -46,6 +46,10 @@ class Settings:
     # (디코딩된 서비스키를 그대로 넣는다 — requests가 쿼리스트링 인코딩을 알아서 처리)
     kma_api_key: str = os.getenv("KMA_API_KEY", "")
     airkorea_api_key: str = os.getenv("AIRKOREA_API_KEY", "")
+    # 병해충 상담 Visual RAG (ai/diagnosis/) — 로컬 Docker 기본값. RunPod 등 원격 전환 시 URL/API 키로 교체
+    qdrant_url: str = os.getenv("QDRANT_URL", "http://localhost:6333")
+    qdrant_api_key: str = os.getenv("QDRANT_API_KEY", "")
+    qdrant_collection: str = os.getenv("QDRANT_COLLECTION", "leaflog-diagnosis")
 
 
 settings = Settings()

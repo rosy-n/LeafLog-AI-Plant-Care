@@ -2,14 +2,14 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import air_quality, asos, environment, persona_chat, region_data, weather
+from . import air_quality, asos, diagnosis, environment, persona_chat, region_data, weather
 from .config import settings
 from .database import Base, engine, get_db
 from .image_preprocessing import (
@@ -38,6 +38,7 @@ from .schemas import (
     CareRecordItem,
     CareSummary,
     CurrentEnvironmentResponse,
+    DiagnosisResponse,
     EnvironmentHistoryResponse,
     LoginRequest,
     PersonaChatRequest,
@@ -258,6 +259,18 @@ def _persona_weather_air_quality(
     return persona_chat.WeatherAirQuality(
         weather_status=current.weather_status,
         air_quality_status=current.air_quality_status,
+    )
+
+
+def _diagnosis_species_care(species: PlantSpecies) -> diagnosis.SpeciesCareInfo:
+    return diagnosis.SpeciesCareInfo(
+        common_name_ko=species.common_name_ko,
+        light_level=species.light_level,
+        temp_min_c=float(species.temp_min_c) if species.temp_min_c is not None else None,
+        temp_max_c=float(species.temp_max_c) if species.temp_max_c is not None else None,
+        humidity_min_pct=float(species.humidity_min_pct) if species.humidity_min_pct is not None else None,
+        humidity_max_pct=float(species.humidity_max_pct) if species.humidity_max_pct is not None else None,
+        watering_interval_days=species.watering_interval_days,
     )
 
 
@@ -1013,6 +1026,47 @@ def persona_chat_reply(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
     return PersonaChatResponse(reply=reply, persona=plant.persona)
+
+
+@app.post("/api/diagnosis", response_model=DiagnosisResponse)
+async def diagnose_plant_photo(
+    file: UploadFile = File(...),
+    species: str | None = Form(default=None),
+    symptom_text: str | None = Form(default=None),
+    plant_id: int | None = Form(default=None),
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DiagnosisResponse:
+    image_bytes = await _read_image_upload(file)
+
+    # plant_id는 특정 개체 화면(PlantDetail 등)에서 상담을 시작했을 때만 온다 —
+    # 등록된 종의 표준 관리 기준(광량/온도/습도/물주기)과 실제 물주기 일정을 진단 근거로 곁들인다.
+    plant_care_context: str | None = None
+    if plant_id is not None:
+        plant = _owned_plant_or_404(plant_id, current_user, db)
+        plant_species = db.get(PlantSpecies, plant.species_id) if plant.species_id else None
+        if plant_species is not None:
+            plant_care_context = diagnosis.build_plant_care_context(
+                _diagnosis_species_care(plant_species),
+                _persona_watering_schedule(plant_id, db),
+                plant_name=plant.nickname,
+                reference_date=persona_chat.today_in_korea(),
+            )
+
+    weather_air_quality = _persona_weather_air_quality(current_user, db)
+
+    try:
+        diagnosis_text = diagnosis.diagnose(
+            image_bytes,
+            plant_species=species,
+            symptom_text=symptom_text,
+            plant_care_context=plant_care_context,
+            weather_air_quality=weather_air_quality,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+    return DiagnosisResponse(diagnosis=diagnosis_text)
 
 
 @app.get("/auth/me", response_model=UserRead)

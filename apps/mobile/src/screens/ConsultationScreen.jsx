@@ -14,15 +14,60 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import Markdown from "react-native-markdown-display";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
+import { diagnosePlantPhoto } from "../api";
+
+// LLM 답변(마크다운)을 도트 폰트 톤에 맞춰 렌더링 — 굵게/하이라이트는 폰트 굵기 대신
+// primary 색상으로 표현한다 (NeoDunggeunmoPro가 bold 웨이트를 따로 갖고 있지 않음).
+const markdownStyles = {
+    body: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        lineHeight: 21,
+        color: Colors.textBlack,
+    },
+    heading1: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.subtitle,
+        color: Colors.primary,
+        marginTop: Spacing.sm,
+        marginBottom: Spacing.xs,
+    },
+    heading2: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        color: Colors.primary,
+        marginTop: Spacing.sm,
+        marginBottom: Spacing.xs,
+    },
+    strong: {
+        color: Colors.primary,
+    },
+    paragraph: {
+        marginTop: 0,
+        marginBottom: Spacing.sm,
+    },
+    bullet_list_icon: {
+        color: Colors.primary,
+    },
+    list_item: {
+        marginBottom: Spacing.xxs,
+    },
+    hr: {
+        backgroundColor: GreenTint.mist,
+        height: 1,
+        marginVertical: Spacing.sm,
+    },
+};
 
 export default function ConsultationScreen({ navigation, route }) {
-    const { consultation } = route.params;
+    const { consultation, plant } = route.params;
 
     const messagesByConsultation = {
         1: [
@@ -92,7 +137,10 @@ export default function ConsultationScreen({ navigation, route }) {
     const [message, setMessage] = useState("");
     const [newMessages, setNewMessages] = useState([]);
     const [pendingImage, setPendingImage] = useState(null);
+    const [isSending, setIsSending] = useState(false);
     const scrollViewRef = useRef(null);
+    // 진단은 매 요청마다 이미지가 필요하다 — 후속 질문에 새 사진이 없으면 직전에 보낸 사진을 재사용한다.
+    const lastImageRef = useRef(null);
 
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -110,9 +158,9 @@ export default function ConsultationScreen({ navigation, route }) {
         }
     };
 
-    const sendMessage = () => {
+    const sendMessage = async () => {
         const trimmed = message.trim();
-        if (!trimmed && !pendingImage) return;
+        if ((!trimmed && !pendingImage) || isSending) return;
 
         const userMessage = {
             id: Date.now(),
@@ -121,23 +169,47 @@ export default function ConsultationScreen({ navigation, route }) {
             images: pendingImage ? [pendingImage] : [],
         };
 
+        if (pendingImage) {
+            lastImageRef.current = pendingImage;
+        }
+
         setNewMessages((prev) => [...prev, userMessage]);
         setMessage("");
         setPendingImage(null);
 
-        // TODO: LLM API 호출로 교체
-        setTimeout(() => {
-            const aiMessage = {
-                id: Date.now() + 1,
-                role: "assistant",
-                text: "아직 AI 상담 연결 전이에요. 추후 LLM 답변이 이 위치에 표시됩니다.",
-                images: [],
-            };
-            setNewMessages((prev) => [...prev, aiMessage]);
-        }, 500);
+        if (!lastImageRef.current) {
+            setNewMessages((prev) => [
+                ...prev,
+                {
+                    id: Date.now() + 1,
+                    role: "assistant",
+                    text: "식물 사진을 먼저 첨부해 주세요. 사진이 있어야 정확한 상담이 가능해요.",
+                    images: [],
+                },
+            ]);
+            return;
+        }
+
+        const loadingId = Date.now() + 1;
+        setIsSending(true);
+        setNewMessages((prev) => [...prev, { id: loadingId, role: "assistant", text: "···", images: [] }]);
+
+        try {
+            const result = await diagnosePlantPhoto({ uri: lastImageRef.current }, trimmed || undefined, plant?.id);
+            setNewMessages((prev) =>
+                prev.map((item) => (item.id === loadingId ? { ...item, text: result.diagnosis } : item))
+            );
+        } catch (error) {
+            const errorText = error instanceof Error ? error.message : "상담 답변을 받아오지 못했어요.";
+            setNewMessages((prev) =>
+                prev.map((item) => (item.id === loadingId ? { ...item, text: errorText } : item))
+            );
+        } finally {
+            setIsSending(false);
+        }
     };
 
-    const canSend = !!(message.trim() || pendingImage);
+    const canSend = !!(message.trim() || pendingImage) && !isSending;
 
     const renderBubble = (item) =>
         item.role === "assistant" ? (
@@ -146,7 +218,7 @@ export default function ConsultationScreen({ navigation, route }) {
                     <Text style={styles.assistantAvatarIcon}>🌿</Text>
                 </View>
                 <View style={styles.assistantContent}>
-                    <Text style={styles.assistantText}>{item.text}</Text>
+                    <Markdown style={markdownStyles}>{item.text}</Markdown>
                 </View>
             </View>
         ) : (
@@ -335,13 +407,6 @@ const styles = StyleSheet.create({
     assistantContent: {
         flex: 1,
         paddingTop: Spacing.xxs,
-    },
-
-    assistantText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        lineHeight: 21,
-        color: Colors.textBlack,
     },
 
     userRow: {
