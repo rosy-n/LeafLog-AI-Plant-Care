@@ -262,9 +262,6 @@ export default function InfoScreen() {
         console.warn('물주기 알림 예약 실패:', e?.message);
       }
 
-      // 등록 직후 열리는 PlantDetail이 방금 만든 식물을 표시하도록 전달
-      router.replace({
-        pathname: '/',
       // 페르소나(성격)는 plant_id가 있어야 저장 가능 → 식물 생성 후 다음 단계에서 선택
       router.push({
         pathname: '/add-plant/persona',
