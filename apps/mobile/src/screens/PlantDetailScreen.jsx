@@ -471,7 +471,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                     <View style={styles.rightButtons}>
                         <LiquidGlassButton
                             size={54}
-                            onPress={() => navigation.navigate("ConsultationHistory")}
+                            onPress={() => navigation.navigate("ConsultationHistory", { plant })}
                         >
                             <Image
                                 source={require("../../assets/icons/counsel_icon.png")}

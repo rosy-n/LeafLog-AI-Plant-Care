@@ -256,7 +256,7 @@ export default function MemorialPlantScreen({ navigation, route, appliedItem }) 
                     <View style={styles.rightButtons}>
                         <LiquidGlassButton
                             size={54}
-                            onPress={() => navigation.navigate("ConsultationHistory")}
+                            onPress={() => navigation.navigate("ConsultationHistory", { plant })}
                         >
                             <Ionicons
                                 name="chatbubble-ellipses-outline"

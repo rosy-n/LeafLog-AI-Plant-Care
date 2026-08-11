@@ -292,6 +292,10 @@ class PersonaChatResponse(BaseModel):
     persona: str
 
 
+class DiagnosisResponse(BaseModel):
+    diagnosis: str
+
+
 class PersonaOption(BaseModel):
     # 모바일 페르소나 선택 UI용 — slug는 plant.persona/PersonaChatResponse.persona와 동일한 값
     slug: str

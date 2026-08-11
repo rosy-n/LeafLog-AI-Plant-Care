@@ -16,3 +16,7 @@ rembg==2.0.67
 onnxruntime==1.22.0
 # 종 마스터 적재 전용 — 국가생물종지식정보시스템 다운로드 파일이 레거시 .xls(BIFF8)
 xlrd==2.0.2
+# 병해충 상담 Visual RAG (ai/diagnosis/) — CLIP 임베딩 + Qdrant 검색
+torch==2.13.0
+transformers==5.15.0
+qdrant-client==1.19.0

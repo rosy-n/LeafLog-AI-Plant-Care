@@ -6,6 +6,7 @@ pandas
 openpyxl
 pillow
 python-dotenv
+requests
 tqdm
 umap-learn
 scikit-learn

@@ -411,6 +411,20 @@ export function removeGeneratedImageBackground(
   );
 }
 
+export type DiagnosisResult = {
+  diagnosis: string;
+};
+
+// 병해충/증상 상담 — CLIP 검색 + Qwen 생성이 한 번에 돌기 때문에 수초~수십초 걸릴 수 있다.
+// symptomText는 사용자가 직접 입력한 증상 설명(선택) — 이미지는 항상 필요하다.
+// plantId가 있으면(개체 상세에서 진입한 경우) 서버가 그 개체의 종 관리 기준·물주기 일정을 답변에 참고한다.
+export function diagnosePlantPhoto(image: UploadableImage, symptomText?: string, plantId?: number) {
+  const formData = createImageFormData(image);
+  if (symptomText) formData.append("symptom_text", symptomText);
+  if (plantId != null) formData.append("plant_id", String(plantId));
+  return requestForm<DiagnosisResult>("/api/diagnosis", formData);
+}
+
 export type PersonaOption = {
   slug: string;
   label: string;

@@ -17,7 +17,8 @@ import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
-export default function ConsultationHistoryScreen({ navigation }) {
+export default function ConsultationHistoryScreen({ navigation, route }) {
+    const plant = route?.params?.plant;
     const [searchQuery, setSearchQuery] = useState("");
 
     const [consultations, setConsultations] = useState([
@@ -60,7 +61,7 @@ export default function ConsultationHistoryScreen({ navigation }) {
         );
 
     const goToConsultation = (item) => {
-        navigation.navigate("Consultation", { consultation: item });
+        navigation.navigate("Consultation", { consultation: item, plant });
     };
 
     return (
@@ -124,7 +125,7 @@ export default function ConsultationHistoryScreen({ navigation }) {
                 <TouchableOpacity
                     style={styles.chatButton}
                     activeOpacity={0.85}
-                    onPress={() => navigation.navigate("ConsultationStart")}
+                    onPress={() => navigation.navigate("ConsultationStart", { plant })}
                 >
                     <Ionicons name="chatbox-outline" size={32} color={Colors.primary} />
                 </TouchableOpacity>
