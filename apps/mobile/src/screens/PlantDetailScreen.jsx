@@ -78,6 +78,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     const [chatReply, setChatReply] = useState("");   // 캐릭터의 현재 대답
     const [chatInput, setChatInput] = useState("");
     const [isSending, setIsSending] = useState(false);
+    const [userBubble, setUserBubble] = useState(""); // 내가 방금 보낸 말 (대사창 위에 살짝 겹쳐 표시)
 
     // 페르소나(성격) — plant.persona가 아직 없으면(add-plant 단계에 선택 UI가 없어 null) 첫 대화 시도 시 선택 모달을 띄운다
     const [persona, setPersona] = useState(plant?.persona ?? null);
@@ -226,6 +227,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     const startChatSession = () => {
         chatHistoryRef.current = [];
         setChatInput("");
+        setUserBubble("");
         setChatReply(`안녕! 나 ${plantName}야. 오늘도 만나서 반가워 🌿 뭐든 편하게 말 걸어줘!`);
         setChatMode(true);
     };
@@ -243,6 +245,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     const closeChat = () => {
         setChatMode(false);
         setChatInput("");
+        setUserBubble("");
     };
 
     // 페르소나 선택 — 식물에 저장한 뒤 바로 대화 시작
@@ -259,13 +262,14 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
         }
     };
 
-    // 사용자 입력 전송 — 실제 persona-chat API 호출 (사용자 입력은 화면에 표시 안 함, 응답만 갱신)
+    // 사용자 입력 전송 — 실제 persona-chat API 호출 (내 말은 대사창 위에 작은 말풍선으로 겹쳐 보여준다)
     const sendChat = async () => {
         const trimmed = chatInput.trim();
         const id = plant?.id;
         if (!trimmed || isSending || !id) return;
 
         setChatInput("");
+        setUserBubble(trimmed);
         setIsSending(true);
         const historyBeforeSend = chatHistoryRef.current;
 
@@ -512,10 +516,21 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                 )}
                             </View>
 
+                            {/* 내가 방금 보낸 말 — 대사창 위쪽에 살짝 겹쳐서(옛 NPC 게임의 대사 스택 느낌) */}
+                            {!!userBubble && (
+                                <View style={styles.userBubbleWrap}>
+                                    <View style={styles.userBubble}>
+                                        <Text style={styles.userBubbleText} numberOfLines={2}>
+                                            {userBubble}
+                                        </Text>
+                                    </View>
+                                </View>
+                            )}
+
                             {/* 식물 대화창 — 첫 줄에 식물 이름(메인 초록·고정), 그 아래 대사만 갱신 */}
                             <View style={styles.chatReplyBubble}>
                                 <Text style={styles.chatPlantName}>{plantName}</Text>
-                                <Text style={styles.chatReplyText}>{chatReply}</Text>
+                                <Text style={styles.chatReplyText}>{isSending ? "···" : chatReply}</Text>
                             </View>
 
                             {/* 입력 영역 (입력창) */}
@@ -780,6 +795,26 @@ const styles = StyleSheet.create({
     chatCharacterImage: {
         width: 190,
         height: 190,
+    },
+
+    // 내 말풍선 — 대사창 위, 오른쪽 정렬. 아래로 겹쳐서(peeking) 이전 대사창 뒤에 살짝 걸린 느낌을 낸다
+    userBubbleWrap: {
+        marginHorizontal: 20,
+        alignItems: "flex-end",
+    },
+    userBubble: {
+        maxWidth: "78%",
+        backgroundColor: Colors.primary,
+        borderWidth: 3,
+        borderColor: Colors.textBlack,
+        paddingVertical: Spacing.xs,
+        paddingHorizontal: Spacing.sm,
+        marginBottom: -6, // 아래 chatReplyBubble(테두리 4px)에 살짝 걸치도록
+    },
+    userBubbleText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.white,
     },
 
     // 식물 대화창 — 캐릭터 아래, 입력창 바로 위
