@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -664,23 +664,12 @@ def list_plants(
                 is_favorite=plant.is_favorite,
                 status=plant.status,
                 character_image_url=char_map.get(plant.plant_id),
+                persona=plant.persona,
                 created_at=plant.created_at.isoformat(),
                 watering_interval_days=interval,
                 next_watering_date=next_due.isoformat() if next_due else None,
                 days_until_watering=(next_due - today).days if next_due else None,
             )
-    return [
-        PlantListItem(
-            id=plant.plant_id,
-            nickname=plant.nickname,
-            common_name_ko=common_name_ko,
-            location_name=plant.location_name,
-            light_condition=plant.light_condition,
-            is_favorite=plant.is_favorite,
-            status=plant.status,
-            character_image_url=char_map.get(plant.plant_id),
-            persona=plant.persona,
-            created_at=plant.created_at.isoformat(),
         )
     return items
 

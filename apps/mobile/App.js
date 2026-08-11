@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { View, ActivityIndicator } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { View, ActivityIndicator, AppState } from "react-native";
 import { useFonts } from "expo-font";
 import { Fonts } from "./constants/fonts";
 import { Asset } from "expo-asset";

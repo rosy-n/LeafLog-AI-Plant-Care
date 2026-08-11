@@ -78,8 +78,86 @@ class BackgroundRemovalResponse(BaseModel):
     transparent_png_base64: str
 
 
+class SpeciesListItem(BaseModel):
+    # 종 검색 결과 — 등록 1단계 목록에 필요한 최소 필드
+    species_id: int
+    common_name_ko: str
+    common_name_en: str | None = None
+    scientific_name: str | None = None
+    family_name: str | None = None
+    image_url: str | None = None
+    difficulty: str = "UNKNOWN"
+
+    model_config = {"from_attributes": True}
+
+
+class SpeciesDetail(BaseModel):
+    # 종 상세 — 4개 소스를 병합한 돌봄 정보. 값이 없으면 None(=자료 없음)
+    species_id: int
+    common_name_ko: str
+    common_name_en: str | None = None
+    scientific_name: str | None = None
+    family_name: str | None = None
+    genus_name: str | None = None
+    category: str | None = None
+    description: str | None = None
+
+    # 자생지 / 원산지 / 분포 (NATURE_KNA)
+    origin: str | None = None
+    origin_country: str | None = None
+    distribution: str | None = None
+
+    # 돌봄 조건 (RDA_INDOOR)
+    difficulty: str = "UNKNOWN"
+    light_level: str = "UNKNOWN"
+    light_min_lux: int | None = None
+    light_max_lux: int | None = None
+    temp_min_c: float | None = None
+    temp_max_c: float | None = None
+    temp_min_winter_c: float | None = None
+    humidity_min_pct: float | None = None
+    humidity_max_pct: float | None = None
+    watering_interval_days: int | None = None
+
+    # 크기 / 개화기 / 결실기 (KFS_STD)
+    size_raw: str | None = None
+    height_min_cm: int | None = None
+    height_max_cm: int | None = None
+    flowering_period: str | None = None
+    fruiting_period: str | None = None
+
+    # 반려동물 안전 여부 (ASPCA). None = 자료 없음
+    is_toxic: bool = False
+    toxic_to_dogs: bool | None = None
+    toxic_to_cats: bool | None = None
+    toxic_to_horses: bool | None = None
+    toxicity_info: str | None = None
+
+    bug_info: str | None = None
+    care_tips: str | None = None
+    image_url: str | None = None
+
+    # 돌보기 정보 화면이 카드별로 나눠 쓰는 원문 (plant_species.metadata 에서 꺼낸 값)
+    water_cycle_label: str | None = None
+    light_label: str | None = None
+    fertilizer_info: str | None = None
+    soil_info: str | None = None
+    special_manage_info: str | None = None
+    placement: str | None = None
+    propagation: str | None = None
+    growth_rate: str | None = None
+    flower_color_names: str | None = None
+
+    # 이 종의 값이 어느 소스에서 왔는지 — 화면 출처 표기용
+    sources: list[str] = []
+
+    model_config = {"from_attributes": True}
+
+
 class PlantCreate(BaseModel):
     # 종 정보 (plant_species로 매핑)
+    # speciesId 가 오면 그 종을 그대로 사용, 없으면 학명/국명으로 get-or-create (마스터 미수록 종)
+    speciesId: int | None = None
     cntntsNo: str | None = None
     scientificName: str | None = None
     commonNameKo: str
@@ -117,6 +195,9 @@ class PlantDetail(BaseModel):
     nickname: str
     common_name_ko: str | None = None
     scientific_name: str | None = None
+    # 종 마스터의 돌봄 정보 — 돌보기 정보 화면이 이걸 읽는다.
+    # 종이 연결되지 않은 개체이거나 마스터에 값이 없으면 None
+    species: SpeciesDetail | None = None
     status: str = "ALIVE"
     location_name: str | None = None
     light_condition: str | None = None
