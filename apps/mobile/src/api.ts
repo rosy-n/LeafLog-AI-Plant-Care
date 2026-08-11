@@ -34,6 +34,10 @@ export type PlantListItem = {
   character_image_url: string | null;
   persona: string | null;
   created_at: string;
+  // 물주기 일정 요약 — 알림 목록·배지·알림 재예약이 개체마다 조회하지 않도록 함께 온다
+  watering_interval_days: number | null;
+  next_watering_date: string | null;
+  days_until_watering: number | null;
 };
 
 // 로그인/회원가입 후 받은 액세스 토큰을 앱 전역에서 공유 (메모리 보관)
@@ -171,6 +175,82 @@ export function signup(payload: {
   });
 }
 
+// ---------------------------------------------------------------------------
+// 종 마스터 (plant_species) — 등록 1단계 검색은 외부 API 대신 이 엔드포인트를 사용
+// ---------------------------------------------------------------------------
+
+export type SpeciesListItem = {
+  species_id: number;
+  common_name_ko: string;
+  common_name_en: string | null;
+  scientific_name: string | null;
+  family_name: string | null;
+  image_url: string | null;
+  difficulty: string;
+};
+
+export type SpeciesDetail = {
+  species_id: number;
+  common_name_ko: string;
+  common_name_en: string | null;
+  scientific_name: string | null;
+  family_name: string | null;
+  genus_name: string | null;
+  category: string | null;
+  description: string | null;
+  origin: string | null;
+  origin_country: string | null;
+  distribution: string | null;
+  difficulty: string;
+  light_level: string;
+  light_min_lux: number | null;
+  light_max_lux: number | null;
+  temp_min_c: number | null;
+  temp_max_c: number | null;
+  temp_min_winter_c: number | null;
+  humidity_min_pct: number | null;
+  humidity_max_pct: number | null;
+  watering_interval_days: number | null;
+  size_raw: string | null;
+  height_min_cm: number | null;
+  height_max_cm: number | null;
+  flowering_period: string | null;
+  fruiting_period: string | null;
+  is_toxic: boolean;
+  // null = 해당 동물 자료 없음
+  toxic_to_dogs: boolean | null;
+  toxic_to_cats: boolean | null;
+  toxic_to_horses: boolean | null;
+  toxicity_info: string | null;
+  bug_info: string | null;
+  care_tips: string | null;
+  image_url: string | null;
+  // 돌보기 정보 화면이 카드별로 쓰는 원문 (농사로 원문, 없으면 null)
+  water_cycle_label: string | null;
+  light_label: string | null;
+  fertilizer_info: string | null;
+  soil_info: string | null;
+  special_manage_info: string | null;
+  placement: string | null;
+  propagation: string | null;
+  growth_rate: string | null;
+  flower_color_names: string | null;
+  // 출처 표기용 — KFS_STD / RDA_INDOOR / ASPCA / NATURE_KNA
+  sources: string[];
+};
+
+// 국명·영문명·학명 부분검색 (토큰 자동 첨부)
+export function searchSpecies(keyword: string, limit = 20) {
+  return request<SpeciesListItem[]>(
+    `/api/species?q=${encodeURIComponent(keyword)}&limit=${limit}`,
+  );
+}
+
+// 종 상세 — 4개 소스를 병합해 둔 돌봄 정보
+export function getSpecies(speciesId: number) {
+  return request<SpeciesDetail>(`/api/species/${speciesId}`);
+}
+
 // 로그인 토큰 필요 (setAuthToken으로 저장된 값이 자동 첨부됨)
 export function createPlant(payload: NewPlantPayload) {
   return request<PlantResponse>("/api/plants", {
@@ -189,6 +269,9 @@ export type PlantDetail = {
   nickname: string;
   common_name_ko: string | null;
   scientific_name: string | null;
+  // 종 마스터의 돌봄 정보 — 돌보기 정보 화면이 읽는다.
+  // 종이 연결되지 않았거나 마스터에 값이 없으면 null
+  species: SpeciesDetail | null;
   status: string;
   location_name: string | null;
   light_condition: string | null;
@@ -213,6 +296,8 @@ export function getPlant(plantId: number) {
 }
 
 export type PlantUpdate = {
+  // 종을 다시 고르는 경우 (인식이 어긋났거나 마스터 도입 전에 등록한 개체)
+  species_id?: number;
   nickname?: string;
   status?: string;
   location_name?: string | null;
@@ -237,9 +322,26 @@ export type CareSummary = {
   days_since_fertilizing: number | null;
   last_repotted_at: string | null;
   days_since_repotting: number | null;
+  // 물주기 일정. watering_schedule_saved 가 false 면 저장된 일정이 아직 없어 계산만 한 값.
+  // watering_interval_source 는 주기의 근거 —
+  //   SPECIES(종 권장값) / DEFAULT(자료 없어 앱 기본값 7일) / USER(사용자 설정)
+  watering_interval_days: number | null;
+  watering_interval_source: "SPECIES" | "DEFAULT" | "USER" | null;
+  next_watering_date: string | null;
+  days_until_watering: number | null;
+  watering_schedule_saved: boolean;
 };
 
 // 특정 식물의 최근 물주기/분갈이 요약 (토큰 자동 첨부)
+// 물주기 주기 변경. intervalDays=null 이면 권장값(종 값 또는 앱 기본값)으로 되돌린다.
+// 비료·분갈이는 일정으로 관리하지 않아 물주기 전용이다.
+export function updateWateringSchedule(plantId: number, intervalDays: number | null) {
+  return request<CareSummary>(`/api/plants/${plantId}/watering-schedule`, {
+    method: "PATCH",
+    body: JSON.stringify({ interval_days: intervalDays }),
+  });
+}
+
 export function getPlantCare(plantId: number) {
   return request<CareSummary>(`/api/plants/${plantId}/care`);
 }

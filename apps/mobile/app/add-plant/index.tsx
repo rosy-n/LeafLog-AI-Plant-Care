@@ -15,8 +15,9 @@ import { useRef, useState } from 'react';
 import { useRouter } from '../../src/hooks/useAddPlantRouter';
 import * as ImagePicker from 'expo-image-picker';
 
-import { searchPlants } from '../../services/nongsaro';
-import type { NongsaroPlant } from '../../types/plant';
+// 종 검색은 농사로 API 대신 우리 종 마스터(plant_species)를 쓴다.
+// 농사로는 217종뿐이라 산림청·국가생물종지식정보시스템에만 있는 종을 고를 수 없었다.
+import { searchSpecies, type SpeciesListItem } from '../../src/api';
 import { styles } from './styles/index.styles';
 
 // 'initial': 카메라 + 검색 모두 보임
@@ -28,7 +29,7 @@ export default function AddPlantIndexScreen() {
 
   const [mode, setMode] = useState<Mode>('initial');
   const [searchText, setSearchText] = useState('');
-  const [searchResults, setSearchResults] = useState<NongsaroPlant[]>([]);
+  const [searchResults, setSearchResults] = useState<SpeciesListItem[]>([]);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
 
@@ -94,7 +95,7 @@ export default function AddPlantIndexScreen() {
     debounceRef.current = setTimeout(async () => {
       setIsSearchLoading(true);
       try {
-        setSearchResults(await searchPlants(text));
+        setSearchResults(await searchSpecies(text));
       } catch (e: any) {
         Alert.alert('오류', e.message ?? '식물 검색 중 문제가 발생했어요.');
       } finally {
@@ -103,13 +104,17 @@ export default function AddPlantIndexScreen() {
     }, 500);
   };
 
-  const handleSearchSelect = (plant: NongsaroPlant) => {
-    setSearchText(plant.cntntsSj);
+  const handleSearchSelect = (species: SpeciesListItem) => {
+    setSearchText(species.common_name_ko);
     setSearchResults([]);
     setIsDetailLoading(true);
     router.push({
       pathname: '/add-plant/plant-detail',
-      params: { cntntsNo: plant.cntntsNo, cntntsSj: plant.cntntsSj },
+      params: {
+        speciesId: String(species.species_id),
+        commonNameKo: species.common_name_ko,
+        scientificName: species.scientific_name ?? '',
+      },
     });
     setTimeout(() => setIsDetailLoading(false), 300);
   };
@@ -182,19 +187,19 @@ export default function AddPlantIndexScreen() {
         {showDropdown && (
           <View style={styles.dropdown}>
             {searchResults.map((item, i) => (
-              <View key={item.cntntsNo}>
+              <View key={item.species_id}>
                 {i > 0 && <View style={styles.dropdownSeparator} />}
                 <TouchableOpacity
                   style={styles.dropdownItem}
                   onPress={() => handleSearchSelect(item)}
                 >
-                  {item.rtnThumbFileUrl ? (
-                    <Image source={{ uri: item.rtnThumbFileUrl }} style={styles.dropdownThumb} />
+                  {item.image_url ? (
+                    <Image source={{ uri: item.image_url }} style={styles.dropdownThumb} />
                   ) : (
                     <View style={styles.dropdownThumb} />
                   )}
                   <Text style={styles.dropdownText} numberOfLines={1}>
-                    {item.cntntsSj}
+                    {item.common_name_ko}
                   </Text>
                 </TouchableOpacity>
               </View>
