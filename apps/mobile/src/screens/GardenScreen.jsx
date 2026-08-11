@@ -284,6 +284,21 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
                                 onPress={() => navigation.replace("PlantDetail", { plant: item })}
                             >
                                 <PlantImage uri={item.imageUri} imageKey={item.imageKey} width={118} height={118} />
+
+                                {/*
+                                    물 줄 때가 지난 개체 표시 — 알림을 놓쳤을 때의 안전망.
+                                    추모정원(떠나보낸 개체)에는 붙이지 않는다.
+                                */}
+                                {!item.memorial && item.daysUntilWatering != null
+                                && item.daysUntilWatering <= 0 ? (
+                                    <View style={styles.wateringBadge}>
+                                        <Text style={styles.wateringBadgeText}>
+                                            {item.daysUntilWatering === 0
+                                                ? "물 주는 날"
+                                                : `${-item.daysUntilWatering}일 지남`}
+                                        </Text>
+                                    </View>
+                                ) : null}
                             </TouchableOpacity>
 
                             <View style={styles.nameRow}>
@@ -496,6 +511,22 @@ const styles = StyleSheet.create({
         width: "33.333%",
         alignItems: "center",
         marginBottom: Spacing.section,
+    },
+    // 물 줄 때가 지난 개체 배지 — 캐릭터 이미지 우상단
+    wateringBadge: {
+        position: "absolute",
+        top: 0,
+        right: 0,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 2,
+        borderRadius: Radius.pill,
+        backgroundColor: Accent.airBlue,
+    },
+    wateringBadgeText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textBlack,
+        includeFontPadding: false,
     },
     nameRow: {
         marginTop: -3,

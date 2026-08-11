@@ -36,11 +36,32 @@ apps/mobile/
 ├── constants/
 │   ├── colors.ts
 │   ├── fonts.ts
-│   └── nongsaro-codes.ts      # 농사로 API 코드 매핑 (수정 금지)
+│   ├── nongsaro-codes.json    # 농사로 코드 표 — 앱/백엔드 공용 단일 정의
+│   └── nongsaro-codes.ts      # 위 JSON에 타입만 붙인 re-export
 └── services/
     ├── plantnet.ts            # PlantNet API 호출
     └── nongsaro.ts            # 농사로 API 호출
 ```
+
+## 종 마스터 적재 (apps/api/scripts/ingest/)
+
+`plant_species`는 외부 4개 소스를 **배치에서 병합해 미리 채워두는 마스터 테이블**이다.
+런타임(`GET /api/species`)은 이 테이블 한 행만 읽고 외부 API를 호출하지 않는다.
+
+```
+apps/api/scripts/ingest/
+├── nongsaro_codes.py   # 앱과 공용인 nongsaro-codes.json 로더
+├── _common.py          # 학명 정규화, ingest_run, upsert
+├── kfs_file.py         # 산림청 CSV      → src_kfs_species    (크기/개화기/결실기)
+├── rda_indoor.py       # 농사로 OpenAPI  → src_rda_indoor     (광원/물주기/온습도/난이도)
+├── aspca_snapshot.py   # ASPCA 스크래핑  → data/aspca-toxic-plants.csv (1회 실행)
+├── aspca.py            # 위 CSV          → src_aspca_toxicity (반려동물 독성)
+├── nature_kna.py       # nature.go.kr 파일 3종 → src_nature_taxon (국명·영문명·학명·과)
+├── merge.py            # src_* → plant_species 병합
+└── run_all.py          # 위 전체를 순서대로
+```
+
+필드 충돌 우선순위와 소스별 담당 필드는 `docs/database-schema.sql`의 "2-3" 섹션 주석이 기준.
 
 ## Design Tokens
 - 색상/폰트는 `constants/colors.ts`, `constants/fonts.ts` 만 사용
@@ -56,7 +77,9 @@ apps/mobile/
 - 컴포넌트는 함수형 + TypeScript 타입 필수
 - API 키는 `.env`에만, 코드에 하드코딩 금지
 - `services/` 밖에서 직접 fetch 호출 금지 — 반드시 service 함수 경유
-- 농사로 코드 파싱은 `constants/nongsaro-codes.ts`의 함수/맵만 사용
+- 농사로 코드 표는 `constants/nongsaro-codes.json` 에만 정의 — 앱은
+  `constants/nongsaro-codes.ts`, 백엔드는 `scripts/ingest/nongsaro_codes.py` 경유로만 접근.
+  코드 값을 TS/Python 어느 쪽에도 다시 적지 말 것 (표가 어긋난다)
 - HTML 렌더링 코드(`render_html`, `webbrowser` 등)는 웹 테스트용 — 앱에 절대 이식 금지
 
 ## Currently Implementing: 개체 추가탭 (add-plant/)

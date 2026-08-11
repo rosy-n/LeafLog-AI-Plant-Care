@@ -11,7 +11,9 @@ import {
 import { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
-import { searchPlants, getPlantDetail } from '../../services/nongsaro';
+// PlantNet 이 준 학명으로 우리 종 마스터를 찾는다 (검색이 학명도 대상으로 함).
+// 농사로 217종 대신 17,000여 종을 대조하므로 매칭률이 훨씬 높다.
+import { searchSpecies } from '../../src/api';
 import type { PlantNetResult } from '../../types/plant';
 import { common } from './styles/common.styles';
 import { styles } from './styles/plant-results.styles';
@@ -39,32 +41,26 @@ export default function PlantResultsScreen() {
   const handleSelect = async (item: PlantNetResult, index: number) => {
     setLoadingIndex(index);
     try {
-      const plants = await searchPlants(item.scientificName);
-      if (plants.length > 0) {
-        const detail = await getPlantDetail(plants[0].cntntsNo);
-        router.push({
-          pathname: '/add-plant/character',
-          params: {
-            cntntsNo: plants[0].cntntsNo,
-            commonNameKo: detail.commonNameKo,
-            scientificName: item.scientificName,
-            plantDetail: JSON.stringify(detail),
-            plantNetResult: JSON.stringify(item),
-            source: 'camera',
-          },
-        });
-      } else {
-        router.push({
-          pathname: '/add-plant/character',
-          params: {
-            cntntsNo: '',
-            commonNameKo: item.commonNames[0] ?? item.scientificName,
-            scientificName: item.scientificName,
-            plantNetResult: JSON.stringify(item),
-            source: 'camera',
-          },
-        });
-      }
+      const matches = await searchSpecies(item.scientificName, 5);
+      // 학명이 정확히 일치하는 종을 우선, 없으면 첫 결과 (속 단위 부분일치)
+      const exact = matches.find(
+        (s) =>
+          s.scientific_name?.toLowerCase().startsWith(item.scientificName.toLowerCase()),
+      );
+      const matched = exact ?? matches[0];
+
+      router.push({
+        pathname: '/add-plant/character',
+        params: {
+          // 마스터에 없으면 speciesId 없이 진행 — 서버가 학명/국명으로 종을 만든다
+          speciesId: matched ? String(matched.species_id) : '',
+          commonNameKo:
+            matched?.common_name_ko ?? item.commonNames[0] ?? item.scientificName,
+          scientificName: item.scientificName,
+          plantNetResult: JSON.stringify(item),
+          source: 'camera',
+        },
+      });
     } catch (e: any) {
       Alert.alert('오류', e.message ?? '식물 정보를 불러오는 중 문제가 발생했어요.');
     } finally {

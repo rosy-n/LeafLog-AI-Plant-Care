@@ -2,28 +2,29 @@
  * 농촌진흥청 농사로 OpenAPI - 실내정원용 식물 서비스
  * 코드 매핑 테이블
  *
+ * ※ 코드 표 자체는 ./nongsaro-codes.json 에만 정의한다.
+ *   백엔드 적재 스크립트(apps/api/scripts/ingest/nongsaro_codes.py)가 같은 JSON 을 읽으므로,
+ *   표를 고칠 때는 JSON 만 수정하면 앱·백엔드 양쪽에 반영된다.
+ *   이 파일은 JSON 에 타입을 붙여 다시 내보내는 역할만 한다.
+ *
  * plant_species 테이블 컬럼에 대응하는 코드만 정리
  * 출처: 농사로 OpenAPI 매뉴얼 (실내정원용 식물 서비스)
  */
+
+import codes from './nongsaro-codes.json';
+
+type Range = { min: number; max: number };
 
 // ─────────────────────────────────────────────
 // difficulty  ←  managelevelCode
 // plant_species.difficulty: 'EASY' | 'MEDIUM' | 'HARD' | 'UNKNOWN'
 // ─────────────────────────────────────────────
-export const MANAGE_LEVEL_CODE = {
-    '089001': 'EASY',   // 초보자
-    '089002': 'MEDIUM', // 경험자
-    '089003': 'HARD',   // 전문가
-} as const;
+export const MANAGE_LEVEL_CODE: Record<string, string> = codes.MANAGE_LEVEL_CODE;
 
-export type Difficulty = typeof MANAGE_LEVEL_CODE[keyof typeof MANAGE_LEVEL_CODE];
+export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 
 // 라벨 (UI 표시용)
-export const MANAGE_LEVEL_LABEL: Record<string, string> = {
-    '089001': '초보자',
-    '089002': '경험자',
-    '089003': '전문가',
-};
+export const MANAGE_LEVEL_LABEL: Record<string, string> = codes.MANAGE_LEVEL_LABEL;
 
 
 // ─────────────────────────────────────────────
@@ -35,78 +36,36 @@ export const MANAGE_LEVEL_LABEL: Record<string, string> = {
 //    055003 = 높은 광도 → HIGH
 //    INDIRECT(반음지) 구분은 API에 없으므로 055001 을 LOW·INDIRECT 대표값으로 처리
 // ─────────────────────────────────────────────
-export const LIGHT_CODE = {
-    '055001': '낮은 광도 (300~800 Lux)',
-    '055002': '중간 광도 (800~1,500 Lux)',
-    '055003': '높은 광도 (1,500~10,000 Lux)',
-} as const;
+export const LIGHT_CODE: Record<string, string> = codes.LIGHT_CODE;
 
-export const LIGHT_LEVEL_MAP: Record<string, string> = {
-    '055001': 'LOW',
-    '055002': 'MEDIUM',
-    '055003': 'HIGH',
-};
+export const LIGHT_LEVEL_MAP: Record<string, string> = codes.LIGHT_LEVEL_MAP;
 
 // Lux 범위 매핑
-export const LIGHT_LUX_RANGE: Record<string, { min: number; max: number }> = {
-    '055001': { min: 300, max: 800 },
-    '055002': { min: 800, max: 1500 },
-    '055003': { min: 1500, max: 10000 },
-};
+export const LIGHT_LUX_RANGE: Record<string, Range> = codes.LIGHT_LUX_RANGE;
 
 
 // ─────────────────────────────────────────────
-// temp_min_c  ←  winterLwetTpCode   (겨울 최저 온도)
-// temp_max_c  ←  grwhTpCode         (생육 온도 상한 추정)
+// temp_min_winter_c  ←  winterLwetTpCode  (겨울 최저 온도)
+// temp_min_c / temp_max_c  ←  grwhTpCode  (생육 적정 온도)
 // ─────────────────────────────────────────────
 
-// 겨울 최저 온도 → temp_min_c 에 저장
-export const WINTER_LOW_TEMP_CODE: Record<string, number | null> = {
-    '057001': null, // 0℃ 이하 (정확한 값 불명)  → null 처리 권장
-    '057002': 5,
-    '057003': 7,
-    '057004': 10,
-    '057005': 13,   // 13℃ 이상 (최솟값 기준)
-};
+// 겨울 최저 온도 → temp_min_winter_c 에 저장 (057001 은 정확한 값 불명이라 null)
+export const WINTER_LOW_TEMP_CODE: Record<string, number | null> = codes.WINTER_LOW_TEMP_CODE;
 
-export const WINTER_LOW_TEMP_LABEL: Record<string, string> = {
-    '057001': '0℃ 이하',
-    '057002': '5℃',
-    '057003': '7℃',
-    '057004': '10℃',
-    '057005': '13℃ 이상',
-};
+export const WINTER_LOW_TEMP_LABEL: Record<string, string> = codes.WINTER_LOW_TEMP_LABEL;
 
 // 생육 온도 → temp_min_c / temp_max_c 범위로 분리
-export const GROWTH_TEMP_CODE: Record<string, { min: number; max: number }> = {
-    '082001': { min: 10, max: 15 },
-    '082002': { min: 16, max: 20 },
-    '082003': { min: 21, max: 25 },
-    '082004': { min: 26, max: 30 },
-};
+export const GROWTH_TEMP_CODE: Record<string, Range> = codes.GROWTH_TEMP_CODE;
 
-export const GROWTH_TEMP_LABEL: Record<string, string> = {
-    '082001': '10~15℃',
-    '082002': '16~20℃',
-    '082003': '21~25℃',
-    '082004': '26~30℃',
-};
+export const GROWTH_TEMP_LABEL: Record<string, string> = codes.GROWTH_TEMP_LABEL;
 
 
 // ─────────────────────────────────────────────
 // humidity_min_pct, humidity_max_pct  ←  hdCode
 // ─────────────────────────────────────────────
-export const HUMIDITY_CODE: Record<string, { min: number; max: number }> = {
-    '083001': { min: 0, max: 39 }, // 40% 미만
-    '083002': { min: 40, max: 70 }, // 40~70%
-    '083003': { min: 70, max: 100 }, // 70% 이상
-};
+export const HUMIDITY_CODE: Record<string, Range> = codes.HUMIDITY_CODE;
 
-export const HUMIDITY_LABEL: Record<string, string> = {
-    '083001': '40% 미만',
-    '083002': '40~70%',
-    '083003': '70% 이상',
-};
+export const HUMIDITY_LABEL: Record<string, string> = codes.HUMIDITY_LABEL;
 
 
 // ─────────────────────────────────────────────
@@ -116,20 +75,10 @@ export const HUMIDITY_LABEL: Record<string, string> = {
 //    아래 interval_days 는 LeafLog 팀이 정의한 "대표 일수" 추정값
 //    실제 UX에서는 label 을 그대로 노출하는 것도 고려 가능
 // ─────────────────────────────────────────────
-export const WATER_CYCLE_CODE = {
-    '053001': '항상 흙을 촉촉하게 유지 (물에 잠김)',
-    '053002': '흙을 촉촉하게 유지 (잠기지 않도록 주의)',
-    '053003': '표면이 말랐을 때 충분히 관수',
-    '053004': '흙 대부분 말랐을 때 충분히 관수',
-} as const;
+export const WATER_CYCLE_CODE: Record<string, string> = codes.WATER_CYCLE_CODE;
 
 // 대표 물주기 일수 (추정값 — 팀 협의 후 조정 권장)
-export const WATER_CYCLE_INTERVAL_DAYS: Record<string, number> = {
-    '053001': 1,  // 매일
-    '053002': 3,  // 2~3일
-    '053003': 5,  // 4~6일
-    '053004': 10, // 7~14일
-};
+export const WATER_CYCLE_INTERVAL_DAYS: Record<string, number> = codes.WATER_CYCLE_INTERVAL_DAYS;
 
 
 // ─────────────────────────────────────────────
@@ -138,6 +87,7 @@ export const WATER_CYCLE_INTERVAL_DAYS: Record<string, number> = {
 // ※ API 는 독성 정보를 코드가 아닌 자유 텍스트로 내려줌
 //    → toxctyInfo 값이 비어있으면 is_toxic = false
 //    → 값이 있으면 is_toxic = true, 내용을 toxicity_info 에 저장
+//    ※ 반려동물별(개/고양이/말) 구분은 ASPCA 소스에서 채운다
 // ─────────────────────────────────────────────
 // (코드 매핑 없음 — 파싱 로직으로 처리)
 
@@ -145,127 +95,62 @@ export const WATER_CYCLE_INTERVAL_DAYS: Record<string, number> = {
 // ─────────────────────────────────────────────
 // bugInfo  ←  dlthtsCode (병충해 코드, 콤마 구분)
 // ─────────────────────────────────────────────
-export const PEST_CODE: Record<string, string> = {
-    '088001': '진딧물',
-    '088002': '응애',
-    '088003': '깍지벌레',
-    '088004': '총채벌레',
-    '088005': '온실가루이',
-};
+export const PEST_CODE: Record<string, string> = codes.PEST_CODE;
 
 
 // ─────────────────────────────────────────────
 // category  ←  clCode (분류 코드, 콤마 구분)
 // ─────────────────────────────────────────────
-export const CATEGORY_CODE: Record<string, string> = {
-    '072001': '잎보기식물',
-    '072002': '잎·꽃보기식물',
-    '072003': '꽃보기식물',
-    '072004': '열매보기식물',
-    '072005': '선인장·다육식물',
-};
+export const CATEGORY_CODE: Record<string, string> = codes.CATEGORY_CODE;
 
 
 // ─────────────────────────────────────────────
 // 생육형태  ←  grwhstleCode  (plant_species 직접 저장 컬럼은 없지만
 //              metadata JSONB 또는 description 보조 정보로 활용)
 // ─────────────────────────────────────────────
-export const GROWTH_STYLE_CODE: Record<string, string> = {
-    '054001': '직립형',
-    '054002': '관목형',
-    '054003': '덩굴성',
-    '054004': '풀모양',
-    '054005': '로제트형',
-    '054006': '다육형',
-};
+export const GROWTH_STYLE_CODE: Record<string, string> = codes.GROWTH_STYLE_CODE;
 
 
 // ─────────────────────────────────────────────
 // 냄새  ←  smellCode  (metadata JSONB 활용)
 // ─────────────────────────────────────────────
-export const SMELL_CODE: Record<string, string> = {
-    '079001': '강함',
-    '079002': '중간',
-    '079003': '약함',
-    '079004': '거의 없음',
-};
+export const SMELL_CODE: Record<string, string> = codes.SMELL_CODE;
 
 
 // ─────────────────────────────────────────────
 // 생장속도  ←  grwtveCode  (metadata JSONB 활용)
 // ─────────────────────────────────────────────
-export const GROWTH_RATE_CODE: Record<string, string> = {
-    '090001': '빠름',
-    '090002': '보통',
-    '090003': '느림',
-};
+export const GROWTH_RATE_CODE: Record<string, string> = codes.GROWTH_RATE_CODE;
 
 
 // ─────────────────────────────────────────────
 // 배치 장소  ←  postngplaceCode  (metadata JSONB 활용)
 // ─────────────────────────────────────────────
-export const PLACEMENT_CODE: Record<string, string> = {
-    '064001': '실내 어두운 곳 (실내깊이 500cm 이상)',
-    '064002': '거실 내측 (실내깊이 300~500cm)',
-    '064003': '거실 창측 (실내깊이 150~300cm)',
-    '064004': '발코니 내측 (실내깊이 50~150cm)',
-    '064005': '발코니 창측 (실내깊이 0~50cm)',
-    '064006': '습한 곳',
-    '064007': '넓은 곳',
-    '064008': '좁은 곳',
-};
+export const PLACEMENT_CODE: Record<string, string> = codes.PLACEMENT_CODE;
 
 
 // ─────────────────────────────────────────────
 // 번식방법  ←  prpgtmthCode  (metadata JSONB 활용)
 // ─────────────────────────────────────────────
-export const PROPAGATION_CODE: Record<string, string> = {
-    '060001': '파종',
-    '060002': '삽목',
-    '060003': '분주',
-    '060004': '접목',
-    '060005': '취목',
-    '060006': '기타',
-};
+export const PROPAGATION_CODE: Record<string, string> = codes.PROPAGATION_CODE;
 
 
 // ─────────────────────────────────────────────
 // 관리요구도  ←  managedemanddoCode  (difficulty 보조 또는 metadata)
 // ─────────────────────────────────────────────
-export const MANAGE_DEMAND_CODE: Record<string, string> = {
-    '058001': '낮음 (잘 견딤)',
-    '058002': '보통 (약간 잘 견딤)',
-    '058003': '필요함',
-    '058004': '특별 관리 요구',
-    '058005': '기타',
-};
+export const MANAGE_DEMAND_CODE: Record<string, string> = codes.MANAGE_DEMAND_CODE;
 
 
 // ─────────────────────────────────────────────
 // 꽃 피는 계절  ←  ignSeasonCode  (콤마 구분, 복수 선택 가능)
 // ─────────────────────────────────────────────
-export const FLOWERING_SEASON_CODE: Record<string, string> = {
-    '073001': '봄',
-    '073002': '여름',
-    '073003': '가을',
-    '073004': '겨울',
-};
+export const FLOWERING_SEASON_CODE: Record<string, string> = codes.FLOWERING_SEASON_CODE;
 
 
 // ─────────────────────────────────────────────
 // 꽃색  ←  flclrCode  (콤마 구분, 복수 선택 가능)
 // ─────────────────────────────────────────────
-export const FLOWER_COLOR_CODE: Record<string, string> = {
-    '071001': '파랑색',
-    '071002': '보라색',
-    '071003': '분홍색',
-    '071004': '빨강색',
-    '071005': '오렌지색',
-    '071006': '노랑색',
-    '071007': '흰색',
-    '071008': '혼합색',
-    '071009': '기타',
-};
+export const FLOWER_COLOR_CODE: Record<string, string> = codes.FLOWER_COLOR_CODE;
 
 
 // ─────────────────────────────────────────────
@@ -281,5 +166,5 @@ export function parseCodes(
         .split(',')
         .map((c) => c.trim())
         .filter((c) => c in codeMap)
-        .map((c) => codeMap[c]);
+        .map((c) => codeMap[c] as string);
 }
