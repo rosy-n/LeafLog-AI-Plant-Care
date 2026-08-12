@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, ActivityIndicator, AppState } from "react-native";
+import { View, ActivityIndicator, AppState, Image } from "react-native";
 import { useFonts } from "expo-font";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Fonts } from "./constants/fonts";
-import { Asset } from "expo-asset";
 import { NavigationContainer } from "@react-navigation/native";
 import * as Notifications from "expo-notifications";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -28,6 +28,7 @@ import AddPlantNavigator from "./src/screens/AddPlantNavigator";
 import { getPlants } from "./src/api";
 import { syncWateringReminders } from "./src/notifications";
 import { buildCareNotices } from "./src/careNotices";
+import { preloadBundledImages } from "./src/data/assets";
 
 const Stack = createNativeStackNavigator();
 
@@ -60,38 +61,7 @@ function toGardenPlant(plant) {
     };
 }
 
-const imageAssets = [
-    require("./assets/images/home_clear_bg.png"),
-    require("./assets/images/store_bg1.png"),
-    require("./assets/images/store_bg2.png"),
-    require("./assets/images/detail-bg.png"),
-
-    require("./assets/plants/spaghetti.png"),
-    require("./assets/plants/rubber.png"),
-    require("./assets/plants/sansevieria.png"),
-    require("./assets/plants/pachira.png"),
-    require("./assets/plants/myeongrani.png"),
-    require("./assets/plants/test.png"),
-
-    require("./assets/items/level1_item.png"),
-    require("./assets/items/level1_plants.png"),
-    require("./assets/items/level2_item.png"),
-    require("./assets/items/level2_plants.png"),
-    require("./assets/items/level3_item.png"),
-    require("./assets/items/level3_plants.png"),
-    require("./assets/items/level4_item.png"),
-    require("./assets/items/level4_plants.png"),
-    require("./assets/items/level5_item.png"),
-    require("./assets/items/level5_plants.png"),
-];
-
-async function preloadImages() {
-    const cacheImages = imageAssets.map((image) => {
-        return Asset.fromModule(image).downloadAsync();
-    });
-
-    await Promise.all(cacheImages);
-}
+// 번들 이미지 목록과 preload 는 src/data/assets.js 가 단일 출처 (아이콘까지 포함)
 
 // onLogout — 인증 상태는 App.tsx 가 들고 있어서 여기서는 콜백을 받아 설정 화면까지 내려준다
 export default function MainApp({ user, onLogout }) {
@@ -118,12 +88,26 @@ export default function MainApp({ user, onLogout }) {
         [Fonts.nanumSquareNeo.bold]: require("./assets/fonts/NanumSquareNeo-cBd.ttf"),
         [Fonts.nanumSquareNeo.extraBold]: require("./assets/fonts/NanumSquareNeo-dEb.ttf"),
         [Fonts.nanumSquareNeo.heavy]: require("./assets/fonts/NanumSquareNeo-eHv.ttf"),
+        // Ionicons/MaterialCommunityIcons 는 폰트로 그려진다 — 미리 안 올리면
+        // 17개 화면의 벡터 아이콘이 첫 진입 때 빈 칸으로 있다가 뒤늦게 나타난다
+        ...Ionicons.font,
+        ...MaterialCommunityIcons.font,
     });
 
     // DB에서 현재 사용자의 식물 목록 로드 (정원 진입 시 갱신도 이 함수 재사용)
     const loadPlants = useCallback(() => {
         getPlants()
-            .then((rows) => setPlants(rows.map(toGardenPlant)))
+            .then((rows) => {
+                const mapped = rows.map(toGardenPlant);
+                setPlants(mapped);
+                // 캐릭터 이미지는 번들이 아니라 S3 URL이라 preload 대상이 아니다 —
+                // 목록을 받은 즉시 미리 받아둬서 정원/개체탭에서 늦게 뜨지 않게 한다
+                mapped.forEach((plant) => {
+                    if (plant.imageUri) {
+                        Image.prefetch(plant.imageUri).catch(() => {});
+                    }
+                });
+            })
             .catch((error) => console.warn("식물 목록 로드 실패:", error?.message));
     }, []);
 
@@ -169,7 +153,7 @@ export default function MainApp({ user, onLogout }) {
     useEffect(() => {
         let mounted = true;
 
-        preloadImages()
+        preloadBundledImages()
             .then(() => {
                 if (mounted) {
                     setImagesLoaded(true);
