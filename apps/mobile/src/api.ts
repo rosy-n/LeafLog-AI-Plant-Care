@@ -367,7 +367,8 @@ export type AffinityStatus = {
   level: number;
   max_score: number;
   max_hearts: number;
-  points_per_heart: number;
+  // 단계별 누적 기준 점수 (Lv1~Lv5). 단계가 올라갈수록 간격이 넓어진다
+  level_thresholds: number[];
   // 다음 단계에 필요한 총점. 만점이면 null
   next_level_score: number | null;
   level_progress_pct: number;

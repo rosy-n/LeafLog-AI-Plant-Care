@@ -273,7 +273,8 @@ class AffinityStatus(BaseModel):
     level: int
     max_score: int
     max_hearts: int
-    points_per_heart: int
+    # 단계별 누적 기준 점수 (Lv1~Lv5). 단계가 올라갈수록 간격이 넓어진다
+    level_thresholds: list[int]
     # 다음 단계에 필요한 총점. 만점이면 null
     next_level_score: int | None = None
     # 현재 단계 → 다음 단계 진행률 (0~100). 만점이면 100
