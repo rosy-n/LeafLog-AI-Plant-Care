@@ -47,6 +47,20 @@ class SignupRequest(BaseModel):
         return nickname
 
 
+class UserUpdate(BaseModel):
+    """내 프로필 수정 — 지금은 닉네임만. 규칙은 회원가입과 같아야 한다."""
+
+    nickname: str = Field(min_length=2, max_length=10)
+
+    @field_validator("nickname")
+    @classmethod
+    def validate_nickname(cls, value: str) -> str:
+        nickname = value.strip()
+        if not NICKNAME_PATTERN.match(nickname):
+            raise ValueError("닉네임은 2~10자, 한글/영문/숫자만 사용할 수 있습니다.")
+        return nickname
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str

@@ -422,6 +422,17 @@ export function checkEmail(email: string) {
   );
 }
 
+export type CurrentUser = AuthResponse["user"];
+
+// 내 프로필 수정 (설정 화면의 이름 변경).
+// 닉네임 규칙은 회원가입과 같아서(2~10자, 한글/영문/숫자) 어기면 서버가 400을 준다.
+export function updateMe(body: { nickname: string }) {
+  return request<CurrentUser>("/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
 export function preprocessPlantImage(
   image: UploadableImage,
   canvasSize = 1024,
