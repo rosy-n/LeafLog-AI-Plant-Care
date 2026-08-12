@@ -40,7 +40,7 @@ import {
     petPlant,
 } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Glass, Paper } from "../../constants/colors";
+import { Colors, GreenTint, Glass, Paper, Pink } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { getPersonaGreeting } from "../../constants/persona-greetings";
 
@@ -309,7 +309,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                 easing: Easing.out(Easing.quad),
                 useNativeDriver: true,
             }),
-            Animated.delay(750),
+            Animated.delay(1000),   // 읽을 시간을 주고 사라진다
             Animated.timing(gainAnim, {
                 toValue: 2,
                 duration: 420,
@@ -520,8 +520,10 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                         <View style={styles.heartsArea}>
                             <HeartsRow count={affinity?.hearts ?? 0} size={25} />
 
+                            {/* 물주기·문지르기로 오른 애정도 — 테두리 없이 핑크 글씨만 */}
                             {affinityGain > 0 && (
                                 <Animated.Text
+                                    pointerEvents="none"
                                     style={[
                                         styles.affinityGainText,
                                         {
@@ -540,7 +542,7 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                         },
                                     ]}
                                 >
-                                    애정도 +{affinityGain}
+                                    +{affinityGain}
                                 </Animated.Text>
                             )}
                         </View>
@@ -967,14 +969,14 @@ const styles = StyleSheet.create({
         alignItems: "flex-end",
         zIndex: 10,
     },
-    // 돌봄으로 얻은 애정도 — 하트 아래에서 잠깐 떠오른다
+    // 돌봄·문지르기로 얻은 애정도 — 하트 아래에서 핑크 글씨만 잠깐 떠오른다
     affinityGainText: {
         marginTop: Spacing.xxs,
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.white,
+        fontSize: FontSizes.title,
+        lineHeight: 28,
+        color: Pink.rose,
         includeFontPadding: false,
-        ...pixelShadow,
     },
 
     speechBubble: {
