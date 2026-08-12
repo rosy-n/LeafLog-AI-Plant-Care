@@ -94,7 +94,8 @@ async function preloadImages() {
     await Promise.all(cacheImages);
 }
 
-export default function MainApp({ user }) {
+// onLogout — 인증 상태는 App.tsx 가 들고 있어서 여기서는 콜백을 받아 설정 화면까지 내려준다
+export default function MainApp({ user, onLogout }) {
     const [plants, setPlants] = useState([]);
     const [appliedItem, setAppliedItem] = useState(null);
     const [username, setUsername] = useState(user?.nickname ?? "식물집사");
@@ -314,6 +315,7 @@ export default function MainApp({ user }) {
                             {...props}
                             username={username}
                             setUsername={setUsername}
+                            onLogout={onLogout}
                         />
                     )}
                 </Stack.Screen>

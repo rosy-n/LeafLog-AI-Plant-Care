@@ -57,6 +57,7 @@ from .schemas import (
     UserRead,
     UserSettingRead,
     UserSettingUpdate,
+    UserUpdate,
     WeatherHistoryPoint,
     WateringScheduleUpdate,
 )
@@ -1049,6 +1050,19 @@ def persona_chat_reply(
 
 @app.get("/auth/me", response_model=UserRead)
 def me(current_user: AppUser = Depends(get_current_user)) -> UserRead:
+    return UserRead.model_validate(current_user)
+
+
+@app.patch("/auth/me", response_model=UserRead)
+def update_me(
+    payload: UserUpdate,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserRead:
+    """내 프로필 수정 — 설정 화면의 이름 변경. 닉네임 규칙은 회원가입과 동일."""
+    current_user.nickname = payload.nickname
+    db.commit()
+    db.refresh(current_user)
     return UserRead.model_validate(current_user)
 
 
