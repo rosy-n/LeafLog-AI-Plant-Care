@@ -198,6 +198,11 @@ CREATE TABLE plant (
     -- DDL: apps/api/scripts/add-affinity-column.sql
     affinity_score      INTEGER NOT NULL DEFAULT 0 CHECK (affinity_score >= 0),
 
+    -- 캐릭터를 문질러 애정도를 받은 마지막 날짜(한국 기준). 하루 1회 제한 판정용으로,
+    -- 문지르기는 돌봄이 아니라서 care_record 를 남기지 않는다.
+    -- DDL: apps/api/scripts/add-petting-column.sql
+    last_petted_on      DATE,
+
     created_at          TIMESTAMP DEFAULT now(),
     updated_at          TIMESTAMP DEFAULT now()
 );

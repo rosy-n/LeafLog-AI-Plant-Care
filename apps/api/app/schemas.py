@@ -295,6 +295,16 @@ class AffinityStatus(BaseModel):
     level_progress_pct: int
 
 
+class AffinityAward(BaseModel):
+    """애정도만 오르는 상호작용(문지르기)의 응답.
+
+    affinity_awarded 가 0이면 오늘 이미 받았거나 만점이라는 뜻이다.
+    """
+
+    affinity_awarded: int
+    affinity: AffinityStatus
+
+
 class CareRecordCreated(CareRecordItem):
     """기록 저장 응답 — 이 기록으로 얻은 애정도를 함께 알려준다.
 
