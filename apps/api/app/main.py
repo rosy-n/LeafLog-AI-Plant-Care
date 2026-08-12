@@ -574,12 +574,18 @@ def create_plant(
         ))
 
     # 4. 최초 물주기/분갈이 기록 → care_record (넘어온 날짜만)
+    initial_care: list[str] = []
     watered_at = _parse_dt(payload.lastWateredAt)
     if watered_at:
         db.add(CareRecord(plant_id=plant.plant_id, care_type="WATERING", completed_at=watered_at))
+        initial_care.append("WATERING")
     repotted_at = _parse_dt(payload.lastRepottedAt)
     if repotted_at:
         db.add(CareRecord(plant_id=plant.plant_id, care_type="REPOTTING", completed_at=repotted_at))
+        initial_care.append("REPOTTING")
+
+    # 등록할 때 적은 최초 돌봄도 애정도로 인정 (기록이 곧 상호작용이라 기준을 맞춘다)
+    plant.affinity_score = affinity.initial_score(initial_care)
 
     # 5. 물주기 일정 — 종의 권장 주기를 개체 일정으로 복사.
     #    마지막 물준 날을 알면 그 날 기준, 모르면 등록일 기준으로 다음 예정일을 잡는다.
@@ -640,9 +646,6 @@ def list_plants(
         ).all():
             last_watered_map[pid] = completed_at
 
-    # 애정도 — 목록의 하트/호감도순 정렬용. 한 번의 쿼리로 개체별 점수를 모은다
-    affinity_scores = affinity.scores_for_plants(db, plant_ids)
-
     today = datetime.now(timezone.utc).date()
 
     def watering_summary(plant: Plant) -> tuple[int | None, date | None]:
@@ -659,7 +662,8 @@ def list_plants(
     items: list[PlantListItem] = []
     for plant, common_name_ko in rows:
         interval, next_due = watering_summary(plant)
-        score = affinity_scores.get(plant.plant_id, 0)
+        # 애정도 — 목록의 하트/호감도순 정렬용 (plant 컬럼이라 추가 쿼리가 없다)
+        score = plant.affinity_score or 0
         items.append(
             PlantListItem(
                 id=plant.plant_id,
@@ -942,11 +946,12 @@ def create_care_record(
     if payload.care_type not in CARE_TYPES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="지원하지 않는 관리 유형입니다.")
 
-    # 애정도는 기록에서 계산하므로 저장 전/후 점수 차이가 이번에 얻은 점수다.
-    # 같은 날 같은 종류를 이미 기록했거나 만점이면 차이가 0이 된다.
-    score_before = affinity.score_for_plant(db, plant_id)
-
     completed = _parse_dt(payload.completed_at) or datetime.now(timezone.utc).replace(tzinfo=None)
+
+    # 애정도 적립 — 이번 기록을 같은 날 중복 판정에서 제외하려면 db.add 전에 호출해야 한다.
+    # 그날 같은 종류를 이미 기록했거나 만점이면 0점.
+    awarded = affinity.award_for_care(db, plant, payload.care_type, completed)
+
     record = CareRecord(
         plant_id=plant_id,
         care_type=payload.care_type,
@@ -963,14 +968,13 @@ def create_care_record(
     db.commit()
     db.refresh(record)
 
-    score_after = affinity.score_for_plant(db, plant_id)
     return CareRecordCreated(
         id=record.care_record_id,
         care_type=record.care_type,
         completed_at=record.completed_at.isoformat(),
         note=record.note,
-        affinity_awarded=score_after - score_before,
-        affinity=affinity.status_for_score(score_after),
+        affinity_awarded=awarded,
+        affinity=affinity.status_for_plant(plant),
     )
 
 
@@ -980,9 +984,9 @@ def get_plant_affinity(
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AffinityStatus:
-    """개체의 애정도 현황 — 돌봄 기록(care_record)에서 계산한다. app/affinity.py 참조."""
-    _owned_plant_or_404(plant_id, current_user, db)
-    return affinity.status_for_plant(db, plant_id)
+    """개체의 애정도 현황 — plant.affinity_score 를 단계로 환산한다. app/affinity.py 참조."""
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+    return affinity.status_for_plant(plant)
 
 
 @app.delete("/api/plants/{plant_id}/care-records/{record_id}", status_code=status.HTTP_204_NO_CONTENT)

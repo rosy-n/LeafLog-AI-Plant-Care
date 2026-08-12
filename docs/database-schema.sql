@@ -181,6 +181,23 @@ CREATE TABLE plant (
     started_at          DATE,
     dead_at             TIMESTAMP,
 
+    -- 캐릭터 성격 — plant_character 를 만들지 않아 개체에 직접 둔다.
+    -- 값은 app/persona_chat.py 의 페르소나 프롬프트 파일 키와 일치해야 한다
+    -- (아래 plant_character.persona_type 의 이름과는 다름: DREAMY→DREAMER 등).
+    -- DDL: apps/api/scripts/add-persona-column.sql
+    persona             VARCHAR(30)
+                        CHECK (persona IN (
+                            'SUNSHINE', 'CHIC', 'RELAXED', 'TIMID',
+                            'SAGE', 'PLAYFUL', 'DILIGENT', 'DREAMER'
+                        )),
+
+    -- 애정도(호감도) 점수 — 돌봄 상호작용(물주기/영양제/분갈이)마다 누적.
+    -- 하트 수·꾸미기 아이템 해금 단계는 저장하지 않고 이 숫자에서 계산한다
+    -- (점수표와 환산 규칙은 apps/api/app/affinity.py 가 단일 출처).
+    -- plant_character.affinity_score 대신 여기에 둔다.
+    -- DDL: apps/api/scripts/add-affinity-column.sql
+    affinity_score      INTEGER NOT NULL DEFAULT 0 CHECK (affinity_score >= 0),
+
     created_at          TIMESTAMP DEFAULT now(),
     updated_at          TIMESTAMP DEFAULT now()
 );
@@ -518,6 +535,12 @@ CREATE TABLE chat_message (
 
 -- =========================================================
 -- AI 식물 캐릭터
+--
+-- 미구현 — 이 테이블은 아직 만들지 않았다.
+-- persona_type → plant.persona, affinity_score → plant.affinity_score 로 옮겨
+-- 개체 테이블에서 쓰고 있고, character_image_asset_id 는 media_asset
+-- (asset_type='CHARACTER_IMAGE')이, speaking_style 은 app/persona_chat.py 의
+-- 페르소나 프롬프트 파일이 대신한다. personality / emotion_state 는 아직 미사용.
 -- =========================================================
 CREATE TABLE plant_character (
     character_id              BIGSERIAL PRIMARY KEY,
