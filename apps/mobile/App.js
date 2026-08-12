@@ -21,7 +21,6 @@ import RepottingScreen from "./src/screens/RepottingScreen";
 import NutrientScreen from "./src/screens/NutrientScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import LocationSettingScreen from "./src/screens/LocationSettingScreen";
-import StoreScreen from "./src/screens/StoreScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
 import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
@@ -100,8 +99,7 @@ export default function MainApp({ user, onLogout }) {
     const [appliedItem, setAppliedItem] = useState(null);
     const [username, setUsername] = useState(user?.nickname ?? "식물집사");
     const [imagesLoaded, setImagesLoaded] = useState(false);
-    const [coins, setCoins] = useState(450);
-    const [purchasedBgs, setPurchasedBgs] = useState([]);
+    // 홈 배경 — 애정도 단계로 해금되며 식물 꾸미기 탭에서 고른다 (코인/스토어 없음)
     const [appliedBg, setAppliedBg] = useState("home-bg");
     // 돌봄 알림 목록 — 더미 배열 대신 개체 일정에서 계산한다
     const notices = useMemo(() => buildCareNotices(plants), [plants]);
@@ -333,6 +331,8 @@ export default function MainApp({ user, onLogout }) {
                             {...props}
                             appliedItem={appliedItem}
                             setAppliedItem={setAppliedItem}
+                            appliedBg={appliedBg}
+                            setAppliedBg={setAppliedBg}
                         />
                     )}
                 </Stack.Screen>
@@ -367,23 +367,6 @@ export default function MainApp({ user, onLogout }) {
                 >
                     {(props) => (
                         <MemorialPlantScreen {...props} appliedItem={appliedItem} />
-                    )}
-                </Stack.Screen>
-
-                <Stack.Screen
-                    name="Store"
-                    options={{ headerShown: false }}
-                >
-                    {(props) => (
-                        <StoreScreen
-                            {...props}
-                            coins={coins}
-                            setCoins={setCoins}
-                            purchasedBgs={purchasedBgs}
-                            setPurchasedBgs={setPurchasedBgs}
-                            appliedBg={appliedBg}
-                            setAppliedBg={setAppliedBg}
-                        />
                     )}
                 </Stack.Screen>
 
