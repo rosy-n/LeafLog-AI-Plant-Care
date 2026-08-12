@@ -55,6 +55,20 @@ The code normalizes this to SQLAlchemy's `postgresql+psycopg://` driver internal
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -f apps/api/scripts/db-setup.sql
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -f apps/api/scripts/add-care-tables.sql
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -f apps/api/scripts/add-species-source-tables.sql
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -f apps/api/scripts/add-care-schedule-source.sql
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -f apps/api/scripts/add-persona-column.sql
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -f apps/api/scripts/add-affinity-column.sql
+```
+
+**psql 은 기본이 localhost 다.** `.env` 의 `DATABASE_URL` 이 다른 호스트를 가리키면
+`-h <호스트>` 를 반드시 붙여야 한다 — 안 붙이면 로컬 사본만 바뀌고 앱이 쓰는 DB는 그대로다.
+
+`add-affinity-column.sql` 뒤에는 기존 돌봄 기록으로 애정도 초기값을 채운다
+(생략하면 이전 기록이 0점으로 시작한다):
+
+```powershell
+cd apps/api; .\.venv\Scripts\python.exe scripts\backfill-affinity.py --dry-run   # 계산만
+cd apps/api; .\.venv\Scripts\python.exe scripts\backfill-affinity.py             # 저장
 ```
 
 `add-species-source-tables.sql` 은 `CREATE EXTENSION pg_trgm` 을 포함해 슈퍼유저가 필요하다.

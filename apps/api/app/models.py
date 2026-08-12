@@ -151,6 +151,10 @@ class Plant(Base):
     # persona-chat 캐릭터 성격 — 선택 전에는 NULL (persona_chat.PERSONA_SLUG_TO_FILE 키와 일치)
     persona: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
+    # 애정도 — 돌봄 상호작용(물주기/영양제/분갈이)마다 점수를 더해 쌓는다.
+    # 하트/단계 환산은 app/affinity.py 가 이 숫자를 나눠서 계산한다 (상한 = affinity.MAX_SCORE).
+    affinity_score: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
@@ -171,6 +175,7 @@ class Plant(Base):
             "persona IN ('SUNSHINE', 'CHIC', 'RELAXED', 'TIMID', 'SAGE', 'PLAYFUL', 'DILIGENT', 'DREAMER')",
             name="ck_plant_persona",
         ),
+        CheckConstraint("affinity_score >= 0", name="ck_plant_affinity_score"),
     )
 
 
