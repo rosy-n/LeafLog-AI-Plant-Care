@@ -15,8 +15,7 @@ import { Colors } from '../../constants/colors';
 
 import { common } from './styles/common.styles';
 import { styles, BUBBLE_WIDTH } from './styles/persona.styles';
-
-const PLACEHOLDER_CHARACTER = require('../../assets/dot-character-placeholder.png');
+import { getCharacterImageSource } from '../../constants/character-candidates';
 
 // 페르소나별 말풍선 대사 — slug는 서버 persona_chat.PERSONA_SLUG_TO_FILE과 일치해야 한다.
 // 대사 자체는 서버에 필드가 없어 앱에서만 관리하는 UI 카피.
@@ -37,7 +36,11 @@ export default function PersonaScreen() {
     plantId?: string;
     nickname?: string;
     createdAt?: string;
+    characterId?: string;
   }>();
+
+  // 2단계에서 고른 후보를 이어서 보여준다 (없으면 기본 placeholder)
+  const characterSource = getCharacterImageSource(params.characterId);
 
   const [personaOptions, setPersonaOptions] = useState<PersonaOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -112,7 +115,7 @@ export default function PersonaScreen() {
         </PixelSpeechBubble>
 
         <Image
-          source={PLACEHOLDER_CHARACTER}
+          source={characterSource}
           style={styles.characterImage}
           resizeMode="contain"
         />

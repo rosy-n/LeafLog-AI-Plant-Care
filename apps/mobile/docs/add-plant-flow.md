@@ -40,8 +40,12 @@
 - [ ] "캐릭터 만들기" → 사진을 API 엔드포인트로 전송하는 로직까지만 구현
   - 백엔드 엔드포인트: `POST /api/character/generate` (multipart/form-data)
   - 응답이 올 때까지 로딩 UI (진행률 25% → 55% → 100% 애니메이션)
-- [ ] 응답 수신 후 캐릭터 이미지 표시 (현재는 mock 이미지 사용)
-- [ ] "다시 만들기 / 확인" 버튼
+- [ ] 응답 수신 후 **후보 캐릭터 3종 표시** → 사용자가 그중 하나를 직접 선택
+  - 후보 카드 3장 한 줄 배치, 탭 → 선택 표시(녹색 보더 + 체크 배지) + 상단에 크게 미리보기
+  - 선택 전에는 "확인" 버튼 비활성 (하나는 반드시 골라야 다음 단계로)
+  - 후보 목록은 `constants/character-candidates.ts` (현재는 로컬 샘플 이미지 3종)
+  - 선택 결과는 `characterId` 로 이후 화면(name/info/persona)까지 전달 → 같은 캐릭터를 계속 보여준다
+- [ ] "다시 만들기 / 확인" 버튼 ("다시 만들기" 시 선택 상태도 초기화)
 
 ### 추후 구현 (스코프 밖)
 
@@ -86,8 +90,9 @@ index (종 선택)
   └─ plantSpecies: { cntntsNo, scientificName, commonNameKo, ... }
   └─ plantNetResult: { score, imageUrl, ... } | null
 
-character (캐릭터 생성)
-  └─ characterImageUrl: string
+character (캐릭터 생성 — 후보 3종 중 선택)
+  └─ characterId: string          // 고른 후보 id (candidate-1 | candidate-2 | candidate-3)
+  └─ characterImageUrl: string    // 서버 연동 후 채워짐 (현재는 '')
   └─ capturedPhotoUri: string
 
 name (이름)
