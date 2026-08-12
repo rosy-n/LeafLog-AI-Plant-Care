@@ -63,6 +63,32 @@ const ITEMS = [
     },
 ];
 
+/*
+    홈 배경 — 아이템과 같은 규칙으로 애정도 단계에 따라 해금된다.
+    (코인/스토어를 없애고 이 화면으로 합쳤다. key 는 HomeScreen 의 BG_IMAGES 키와 일치)
+    아이템 해금 사이사이에 배경이 열리도록 2·4단계에 배치했다.
+*/
+const BACKGROUNDS = [
+    {
+        key: "home-bg",
+        label: "들판",
+        requiredLevel: 0, // 기본 제공
+        preview: require("../../assets/images/home_clear_bg.png"),
+    },
+    {
+        key: "store_bg1",
+        label: "창가",
+        requiredLevel: 2,
+        preview: require("../../assets/images/store_bg1.png"),
+    },
+    {
+        key: "store_bg2",
+        label: "마룻바닥",
+        requiredLevel: 4,
+        preview: require("../../assets/images/store_bg2.png"),
+    },
+];
+
 // 등록일 기준 함께한 일수
 function daysSince(iso) {
     if (!iso) return 0;
@@ -71,7 +97,14 @@ function daysSince(iso) {
     return Math.max(0, Math.floor((Date.now() - created) / 86400000));
 }
 
-export default function PlantDecorateScreen({ navigation, route, appliedItem, setAppliedItem }) {
+export default function PlantDecorateScreen({
+    navigation,
+    route,
+    appliedItem,
+    setAppliedItem,
+    appliedBg = "home-bg",
+    setAppliedBg,
+}) {
     const plant = route?.params?.plant;
 
     // 애정도 — 정원 목록에서 넘어온 값으로 먼저 그리고 서버 값으로 갱신한다.
@@ -110,6 +143,12 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
         setAppliedItem(next);
     };
 
+    // 배경은 홈 화면 전체에 적용된다 — 해제 개념이 없어 다시 눌러도 유지한다
+    const handleBackgroundPress = (background) => {
+        if (background.requiredLevel > affinityLevel) return;
+        setAppliedBg?.(background.key);
+    };
+
     return (
         <View style={styles.root}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
@@ -117,6 +156,12 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
 
                 {/* Header */}
                 <ScreenHeader title="식물 꾸미기" onBack={() => navigation.goBack()} />
+
+                {/* 아이템 + 배경 두 섹션이 들어가 화면을 넘길 수 있어 스크롤로 감싼다 */}
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollContent}
+                >
 
                 {/* Affinity Card */}
                 <View style={styles.affinityCardWrap}>
@@ -352,6 +397,111 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                     </BlurView>
                 </View>
 
+                {/* Background Selection Section — 아이템과 같은 애정도 단계 기준으로 해금 */}
+                <View style={[styles.itemSection, styles.bgSection]}>
+                    <BlurView intensity={22} tint="light" style={styles.itemSectionBlur}>
+                        <LinearGradient
+                            colors={[Glass.frost72, Glass.mist]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 0, y: 1 }}
+                            style={styles.itemSectionGradient}
+                        >
+                            <Text style={styles.itemSectionTitle}>홈 배경</Text>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.itemScroll}
+                            >
+                                {BACKGROUNDS.map((background) => {
+                                    const isUnlocked = background.requiredLevel <= affinityLevel;
+                                    const isApplied = appliedBg === background.key;
+
+                                    return (
+                                        <TouchableOpacity
+                                            key={background.key}
+                                            activeOpacity={isUnlocked ? 0.78 : 1}
+                                            onPress={() => handleBackgroundPress(background)}
+                                            style={styles.bgCardWrap}
+                                        >
+                                            <View
+                                                style={[
+                                                    styles.bgCard,
+                                                    isApplied && styles.itemCardSelected,
+                                                    !isUnlocked && styles.itemCardLocked,
+                                                ]}
+                                            >
+                                                <Image
+                                                    source={background.preview}
+                                                    style={[
+                                                        styles.bgPreview,
+                                                        !isUnlocked && styles.itemImageLocked,
+                                                    ]}
+                                                    resizeMode="cover"
+                                                />
+
+                                                {!isUnlocked && (
+                                                    <View style={styles.lockOverlay}>
+                                                        <Ionicons
+                                                            name="lock-closed"
+                                                            size={20}
+                                                            color={Glass.frost92}
+                                                        />
+                                                    </View>
+                                                )}
+
+                                                {isApplied && (
+                                                    <View style={styles.selectedCheck}>
+                                                        <Ionicons
+                                                            name="checkmark"
+                                                            size={13}
+                                                            color={Colors.white}
+                                                        />
+                                                    </View>
+                                                )}
+                                            </View>
+
+                                            <View
+                                                style={[
+                                                    styles.levelBadge,
+                                                    isUnlocked
+                                                        ? styles.levelBadgeUnlocked
+                                                        : styles.levelBadgeLocked,
+                                                ]}
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.levelBadgeText,
+                                                        isUnlocked && styles.levelBadgeTextUnlocked,
+                                                    ]}
+                                                >
+                                                    {background.requiredLevel === 0
+                                                        ? "기본"
+                                                        : `Lv.${background.requiredLevel}`}
+                                                </Text>
+                                            </View>
+
+                                            {isUnlocked ? (
+                                                <Text style={styles.itemLabel} numberOfLines={1}>
+                                                    {background.label}
+                                                </Text>
+                                            ) : (
+                                                <Text
+                                                    style={[styles.itemLabel, styles.itemLabelLocked]}
+                                                    numberOfLines={1}
+                                                >
+                                                    하트 {background.requiredLevel}개
+                                                </Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                        </LinearGradient>
+                    </BlurView>
+                </View>
+
+                </ScrollView>
+
                 {selectedItem && (
                     <TouchableOpacity
                         style={styles.removeButton}
@@ -376,6 +526,10 @@ const styles = StyleSheet.create({
     },
     safe: {
         flex: 1,
+    },
+    // 아래 "아이템 해제" 플로팅 버튼에 마지막 섹션이 가리지 않도록 여유를 둔다
+    scrollContent: {
+        paddingBottom: 110,
     },
 
     // Header
@@ -658,6 +812,33 @@ const styles = StyleSheet.create({
     },
     itemLabelLocked: {
         color: Colors.textGray,
+    },
+
+    // 홈 배경 카드 — 세로 화면 비율이라 아이템 카드보다 길다
+    bgSection: {
+        marginTop: Spacing.lg,
+    },
+    bgCardWrap: {
+        alignItems: "center",
+        width: 84,
+        gap: Spacing.sm,
+    },
+    bgCard: {
+        width: 84,
+        height: 132,
+        borderRadius: Radius.xl,
+        overflow: "hidden",
+        shadowColor: GreenTint.deep,
+        shadowOpacity: 0.16,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 4,
+        borderWidth: 1.5,
+        borderColor: Glass.frost60,
+    },
+    bgPreview: {
+        width: "100%",
+        height: "100%",
     },
 
     removeButton: {

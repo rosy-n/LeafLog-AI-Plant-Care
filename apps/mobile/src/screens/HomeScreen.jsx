@@ -39,7 +39,6 @@ const BG_IMAGES = {
 
 const HOME_MENU_ITEMS = [
     { label: "설정", icon: "settings-outline", screen: "Settings" },
-    { label: "스토어", icon: "storefront-outline", screen: "Store" },
 ];
 
 /*
