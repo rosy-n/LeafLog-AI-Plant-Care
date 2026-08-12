@@ -35,9 +35,6 @@ const Stack = createNativeStackNavigator();
 // 알림 재동기화 최소 간격 — 포그라운드 복귀가 잦아도 개체별 조회가 반복되지 않게
 const SYNC_MIN_INTERVAL_MS = 5 * 60 * 1000;
 
-// 아직 미구현인 값의 임시 표시 — 나중에 실제 기능 연결 시 교체
-const PLACEHOLDER_HEARTS = 5; // 호감도: care_record 기능 연결 전 임시 고정
-
 // DB 식물 → 정원 UI 형태로 변환
 function toGardenPlant(plant) {
     return {
@@ -48,7 +45,11 @@ function toGardenPlant(plant) {
         // (FLUX 미구현 fallback. "3호"는 URL 없을 때 test 번들 이미지로 표시 — 테스트용)
         imageUri: plant.character_image_url ?? null,
         imageKey: plant.nickname === "3호" ? "test" : undefined,
-        hearts: PLACEHOLDER_HEARTS,
+        // 애정도 — 서버가 돌봄 기록(물주기/영양제/분갈이)에서 계산해 목록에 함께 보낸다.
+        // hearts 는 0~5(0.5 단위), affinityLevel = 꽉 찬 하트 수 = 꾸미기 아이템 해금 단계
+        hearts: plant.affinity_hearts ?? 0,
+        affinityScore: plant.affinity_score ?? 0,
+        affinityLevel: plant.affinity_level ?? 0,
         memorial: plant.status === "DEAD",
         commonNameKo: plant.common_name_ko,
         persona: plant.persona,

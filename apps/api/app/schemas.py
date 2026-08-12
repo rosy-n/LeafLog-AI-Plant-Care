@@ -258,6 +258,39 @@ class CareRecordItem(BaseModel):
     note: str | None = None
 
 
+class AffinityStatus(BaseModel):
+    """애정도 현황 — 점수 규칙은 app/affinity.py 가 단일 출처다.
+
+    앱이 점수표를 다시 정의하지 않도록 화면에 필요한 값(하트 수, 해금 단계,
+    다음 단계까지의 기준)을 모두 담아 내려준다.
+    """
+
+    # 돌봄 상호작용으로 쌓인 점수 (max_score 에서 멈춘다)
+    score: int
+    # 0~5, 0.5 단위 — 하트 아이콘(빈/반/가득)으로 그릴 값
+    hearts: float
+    # 꽉 찬 하트 수 = 해금된 꾸미기 아이템 단계 (0~5)
+    level: int
+    max_score: int
+    max_hearts: int
+    points_per_heart: int
+    # 다음 단계에 필요한 총점. 만점이면 null
+    next_level_score: int | None = None
+    # 현재 단계 → 다음 단계 진행률 (0~100). 만점이면 100
+    level_progress_pct: int
+
+
+class CareRecordCreated(CareRecordItem):
+    """기록 저장 응답 — 이 기록으로 얻은 애정도를 함께 알려준다.
+
+    affinity_awarded 가 0이면 이미 그날 같은 종류를 기록했거나 만점이라
+    점수가 오르지 않았다는 뜻이다.
+    """
+
+    affinity_awarded: int
+    affinity: AffinityStatus
+
+
 class WateringScheduleUpdate(BaseModel):
     """물주기 주기 변경.
 
@@ -299,7 +332,7 @@ class PersonaOption(BaseModel):
 
 
 class PlantListItem(BaseModel):
-    # 정원 목록에 필요한 최소 필드 — 미구현(캐릭터 이미지/호감도)은 앱에서 placeholder 처리
+    # 정원 목록에 필요한 최소 필드 — 미구현(캐릭터 이미지)은 앱에서 placeholder 처리
     id: int
     nickname: str
     common_name_ko: str | None = None
@@ -314,6 +347,13 @@ class PlantListItem(BaseModel):
     watering_interval_days: int | None = None
     next_watering_date: str | None = None
     days_until_watering: int | None = None
+
+    # 애정도 — 정원 목록의 하트/호감도순 정렬용 (개체마다 조회하지 않도록 함께 싣는다).
+    # 계산 규칙은 app/affinity.py 참조.
+    affinity_score: int = 0
+    affinity_hearts: float = 0
+    affinity_level: int = 0
+
     persona: str | None = None
     created_at: str
 

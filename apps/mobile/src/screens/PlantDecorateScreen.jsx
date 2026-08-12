@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -14,10 +14,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
+import HeartsRow from "../components/HeartsRow";
 import { Colors, GreenTint, Leaf, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { plantImages } from "../data/plants";
+import { getPlantAffinity } from "../api";
 
+/*
+    꾸미기 아이템 — requiredLevel 은 "꽉 찬 하트 수"다.
+    돌봄(물주기/영양제/분갈이)으로 애정도가 쌓여 하트가 한 칸 채워질 때마다
+    다음 아이템이 해금된다. 점수→하트 환산은 서버(app/affinity.py)가 정한다.
+*/
 const ITEMS = [
     {
         id: 1,
@@ -56,30 +63,43 @@ const ITEMS = [
     },
 ];
 
-const NEXT_THRESHOLD = [50, 100, 200, 500, 1000];
-
-function getAffinityLevel(score) {
-    if (score >= 1000) return 5;
-    if (score >= 500) return 4;
-    if (score >= 200) return 3;
-    if (score >= 100) return 2;
-    if (score >= 50) return 1;
-    return 0;
-}
-
-function getLevelProgressPercent(score, level) {
-    const thresholds = [0, 50, 100, 200, 500, 1000];
-    const current = thresholds[level];
-    const next = thresholds[Math.min(level + 1, 5)];
-    if (level >= 5) return 100;
-    return Math.min(((score - current) / (next - current)) * 100, 100);
+// 등록일 기준 함께한 일수
+function daysSince(iso) {
+    if (!iso) return 0;
+    const created = new Date(iso).getTime();
+    if (Number.isNaN(created)) return 0;
+    return Math.max(0, Math.floor((Date.now() - created) / 86400000));
 }
 
 export default function PlantDecorateScreen({ navigation, route, appliedItem, setAppliedItem }) {
     const plant = route?.params?.plant;
-    const affinityScore = 725;
-    const affinityLevel = getAffinityLevel(affinityScore);
-    const progressPercent = getLevelProgressPercent(affinityScore, affinityLevel);
+
+    // 애정도 — 정원 목록에서 넘어온 값으로 먼저 그리고 서버 값으로 갱신한다.
+    // 점수/하트/해금 단계와 다음 단계 기준은 모두 서버가 계산해서 내려준다.
+    const [affinity, setAffinity] = useState(() => ({
+        score: plant?.affinityScore ?? 0,
+        hearts: plant?.hearts ?? 0,
+        level: plant?.affinityLevel ?? 0,
+        next_level_score: null,
+        level_progress_pct: 0,
+    }));
+
+    useEffect(() => {
+        const id = plant?.id;
+        if (!id) return;
+        let active = true;
+        getPlantAffinity(Number(id))
+            .then((status) => {
+                if (active) setAffinity(status);
+            })
+            .catch((e) => console.warn("애정도 조회 실패:", e?.message));
+        return () => {
+            active = false;
+        };
+    }, [plant?.id]);
+
+    const affinityLevel = affinity.level ?? 0;
+    const progressPercent = affinity.level_progress_pct ?? 0;
 
     const [selectedItem, setSelectedItem] = useState(appliedItem ?? null);
 
@@ -111,11 +131,16 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                             end={{ x: 1, y: 1 }}
                             style={styles.affinityGradient}
                         >
+                            {/* 하트 — 돌봄으로 쌓인 애정도를 개체탭과 같은 아이콘으로 */}
+                            <View style={styles.affinityHeartsRow}>
+                                <HeartsRow count={affinity.hearts ?? 0} size={24} />
+                            </View>
+
                             <View style={styles.affinityRow}>
                                 <View style={styles.affinityBlock}>
-                                    <Text style={styles.affinityLabel}>호감도</Text>
+                                    <Text style={styles.affinityLabel}>애정도</Text>
                                     <Text style={styles.affinityScore}>
-                                        {affinityScore}
+                                        {affinity.score ?? 0}
                                         <Text style={styles.affinityUnit}>점</Text>
                                     </Text>
                                 </View>
@@ -123,7 +148,7 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                                 <View style={styles.affinityDivider} />
 
                                 <View style={styles.affinityBlock}>
-                                    <Text style={styles.affinityLabel}>레벨</Text>
+                                    <Text style={styles.affinityLabel}>단계</Text>
                                     <Text style={styles.affinityLevelText}>
                                         {affinityLevel > 0 ? `Lv.${affinityLevel}` : "Lv.-"}
                                     </Text>
@@ -133,12 +158,14 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
 
                                 <View style={[styles.affinityBlock, { flex: 1.6 }]}>
                                     <View style={styles.progressRow}>
-                                        <Text style={styles.affinityLabel}>다음 레벨</Text>
-                                        {affinityLevel < 5 && (
+                                        <Text style={styles.affinityLabel}>
+                                            {affinity.next_level_score ? "다음 단계" : "최고 단계"}
+                                        </Text>
+                                        {affinity.next_level_score ? (
                                             <Text style={styles.nextThresholdText}>
-                                                {NEXT_THRESHOLD[affinityLevel]}점
+                                                {affinity.next_level_score}점
                                             </Text>
-                                        )}
+                                        ) : null}
                                     </View>
                                     <View style={styles.progressBg}>
                                         <LinearGradient
@@ -176,8 +203,8 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                     </View>
 
                     <View style={styles.plantLabelGroup}>
-                        <Text style={styles.plantName}>스파게티</Text>
-                        <Text style={styles.plantDay}>D+45</Text>
+                        <Text style={styles.plantName}>{plant?.name ?? "내 식물"}</Text>
+                        <Text style={styles.plantDay}>D+{daysSince(plant?.createdAt)}</Text>
                     </View>
 
                     {selectedItem ? (
@@ -304,9 +331,17 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                                                 </Text>
                                             </View>
 
-                                            {isUnlocked && (
+                                            {/* 잠긴 아이템은 해금 조건(하트 수)을 대신 보여준다 */}
+                                            {isUnlocked ? (
                                                 <Text style={styles.itemLabel} numberOfLines={1}>
                                                     {item.label}
+                                                </Text>
+                                            ) : (
+                                                <Text
+                                                    style={[styles.itemLabel, styles.itemLabelLocked]}
+                                                    numberOfLines={1}
+                                                >
+                                                    하트 {item.requiredLevel}개
                                                 </Text>
                                             )}
                                         </TouchableOpacity>
@@ -368,6 +403,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.xl,
         paddingVertical: Spacing.lg,
         borderRadius: Radius.xl,
+    },
+    affinityHeartsRow: {
+        alignItems: "center",
+        marginBottom: Spacing.md,
     },
     affinityRow: {
         flexDirection: "row",
@@ -616,6 +655,9 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.caption,
         color: Colors.primary,
         textAlign: "center",
+    },
+    itemLabelLocked: {
+        color: Colors.textGray,
     },
 
     removeButton: {

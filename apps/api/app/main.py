@@ -9,7 +9,7 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import air_quality, asos, environment, persona_chat, region_data, weather
+from . import affinity, air_quality, asos, environment, persona_chat, region_data, weather
 from .config import settings
 from .database import Base, engine, get_db
 from .image_preprocessing import (
@@ -30,11 +30,13 @@ from .models import (
     SpeciesSourceLink,
 )
 from .schemas import (
+    AffinityStatus,
     AvailabilityResponse,
     AirQualityHistoryPoint,
     AuthResponse,
     BackgroundRemovalResponse,
     CareRecordCreate,
+    CareRecordCreated,
     CareRecordItem,
     CareSummary,
     CurrentEnvironmentResponse,
@@ -638,6 +640,9 @@ def list_plants(
         ).all():
             last_watered_map[pid] = completed_at
 
+    # 애정도 — 목록의 하트/호감도순 정렬용. 한 번의 쿼리로 개체별 점수를 모은다
+    affinity_scores = affinity.scores_for_plants(db, plant_ids)
+
     today = datetime.now(timezone.utc).date()
 
     def watering_summary(plant: Plant) -> tuple[int | None, date | None]:
@@ -654,6 +659,7 @@ def list_plants(
     items: list[PlantListItem] = []
     for plant, common_name_ko in rows:
         interval, next_due = watering_summary(plant)
+        score = affinity_scores.get(plant.plant_id, 0)
         items.append(
             PlantListItem(
                 id=plant.plant_id,
@@ -669,6 +675,9 @@ def list_plants(
                 watering_interval_days=interval,
                 next_watering_date=next_due.isoformat() if next_due else None,
                 days_until_watering=(next_due - today).days if next_due else None,
+                affinity_score=score,
+                affinity_hearts=affinity.hearts_for_score(score),
+                affinity_level=affinity.level_for_score(score),
             )
         )
     return items
@@ -922,16 +931,20 @@ def list_care_records(
     ]
 
 
-@app.post("/api/plants/{plant_id}/care-records", response_model=CareRecordItem, status_code=status.HTTP_201_CREATED)
+@app.post("/api/plants/{plant_id}/care-records", response_model=CareRecordCreated, status_code=status.HTTP_201_CREATED)
 def create_care_record(
     plant_id: int,
     payload: CareRecordCreate,
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> CareRecordItem:
+) -> CareRecordCreated:
     plant = _owned_plant_or_404(plant_id, current_user, db)
     if payload.care_type not in CARE_TYPES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="지원하지 않는 관리 유형입니다.")
+
+    # 애정도는 기록에서 계산하므로 저장 전/후 점수 차이가 이번에 얻은 점수다.
+    # 같은 날 같은 종류를 이미 기록했거나 만점이면 차이가 0이 된다.
+    score_before = affinity.score_for_plant(db, plant_id)
 
     completed = _parse_dt(payload.completed_at) or datetime.now(timezone.utc).replace(tzinfo=None)
     record = CareRecord(
@@ -949,12 +962,27 @@ def create_care_record(
 
     db.commit()
     db.refresh(record)
-    return CareRecordItem(
+
+    score_after = affinity.score_for_plant(db, plant_id)
+    return CareRecordCreated(
         id=record.care_record_id,
         care_type=record.care_type,
         completed_at=record.completed_at.isoformat(),
         note=record.note,
+        affinity_awarded=score_after - score_before,
+        affinity=affinity.status_for_score(score_after),
     )
+
+
+@app.get("/api/plants/{plant_id}/affinity", response_model=AffinityStatus)
+def get_plant_affinity(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AffinityStatus:
+    """개체의 애정도 현황 — 돌봄 기록(care_record)에서 계산한다. app/affinity.py 참조."""
+    _owned_plant_or_404(plant_id, current_user, db)
+    return affinity.status_for_plant(db, plant_id)
 
 
 @app.delete("/api/plants/{plant_id}/care-records/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
