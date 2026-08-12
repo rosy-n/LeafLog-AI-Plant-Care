@@ -30,26 +30,63 @@ CARE_POINTS: dict[str, int] = {
     "REPOTTING": 30,
 }
 
-# 하트 1칸 = 60점, 반 칸 = 30점, 5칸이 만점.
-# 물주기 주 1회 + 영양제 월 1회 정도의 실제 돌봄 주기로 5~6개월에 만점이 되는 속도.
-POINTS_PER_HEART = 60
-MAX_HEARTS = 5
-MAX_SCORE = POINTS_PER_HEART * MAX_HEARTS
+# 단계(=꽉 찬 하트 수)별 누적 기준 점수. 단계가 올라갈수록 다음 단계까지의
+# 간격이 넓어져서 뒤로 갈수록 오래 걸린다:
+#
+#   단계   누적 기준   이 단계에 필요한 점수   목표 기간   기준 돌봄으로 실제 도달
+#   Lv1        25점            25점             2주            14일
+#   Lv2        60점            35점             1개월          30일
+#   Lv3       180점           120점             3개월          90일
+#   Lv4       400점           220점             6개월         189일
+#   Lv5       800점           400점             1년           365일
+#
+# 기준 돌봄 = 물주기 7일마다(앱 기본 주기) + 영양제 월 1회 + 분갈이 연 1회 → 월 약 61점.
+# 기준보다 부지런하면 더 빨리, 자주 빠뜨리면 더 늦게 올라간다.
+LEVEL_THRESHOLDS: tuple[int, ...] = (25, 60, 180, 400, 800)
+
+MAX_HEARTS = len(LEVEL_THRESHOLDS)
+MAX_SCORE = LEVEL_THRESHOLDS[-1]
 
 
 # ---------------------------------------------------------------------------
 # 점수 → 단계 (저장된 숫자를 나누기만 한다)
 # ---------------------------------------------------------------------------
 
-def hearts_for_score(score: int) -> float:
-    """0~5, 0.5 단위 — 하트 아이콘이 빈/반/가득 3종뿐이라 반 칸까지만 쪼갠다."""
-    half_steps = min(MAX_HEARTS * 2, max(0, score) // (POINTS_PER_HEART // 2))
-    return half_steps / 2
-
-
 def level_for_score(score: int) -> int:
     """꽉 찬 하트 수(0~5). 꾸미기 아이템 해금 단계와 같은 값이다."""
-    return min(MAX_HEARTS, max(0, score) // POINTS_PER_HEART)
+    return sum(1 for threshold in LEVEL_THRESHOLDS if max(0, score) >= threshold)
+
+
+def _level_band(score: int) -> tuple[int, int, int]:
+    """(단계, 이 단계 시작 점수, 다음 단계 기준 점수). 만점이면 다음 기준은 시작 점수와 같다."""
+    level = level_for_score(score)
+    start = LEVEL_THRESHOLDS[level - 1] if level > 0 else 0
+    nxt = LEVEL_THRESHOLDS[level] if level < MAX_HEARTS else start
+    return level, start, nxt
+
+
+def level_progress_pct(score: int) -> int:
+    """현재 단계에서 다음 단계까지의 진행률(0~100). 만점이면 100.
+
+    올림하지 않는다 — 다음 단계에 1점 모자란 상태가 100%로 보이면 안 된다.
+    """
+    capped = min(MAX_SCORE, max(0, score))
+    level, start, nxt = _level_band(capped)
+    if level >= MAX_HEARTS:
+        return 100
+    return int((capped - start) / (nxt - start) * 100)
+
+
+def hearts_for_score(score: int) -> float:
+    """0~5, 0.5 단위 — 하트 아이콘이 빈/반/가득 3종뿐이라 반 칸까지만 쪼갠다.
+
+    단계 간격이 균일하지 않으므로 반 칸은 "고정 점수"가 아니라
+    "현재 단계에서 다음 단계까지 절반 이상 왔음"을 뜻한다.
+    """
+    level = level_for_score(score)
+    if level >= MAX_HEARTS:
+        return float(MAX_HEARTS)
+    return level + (0.5 if level_progress_pct(score) >= 50 else 0)
 
 
 def status_for_score(score: int) -> AffinityStatus:
@@ -62,11 +99,9 @@ def status_for_score(score: int) -> AffinityStatus:
         level=level,
         max_score=MAX_SCORE,
         max_hearts=MAX_HEARTS,
-        points_per_heart=POINTS_PER_HEART,
-        next_level_score=None if at_max else (level + 1) * POINTS_PER_HEART,
-        level_progress_pct=100 if at_max else round(
-            (capped - level * POINTS_PER_HEART) / POINTS_PER_HEART * 100
-        ),
+        level_thresholds=list(LEVEL_THRESHOLDS),
+        next_level_score=None if at_max else LEVEL_THRESHOLDS[level],
+        level_progress_pct=level_progress_pct(capped),
     )
 
 
