@@ -381,9 +381,22 @@ export type CareRecordCreated = CareRecordItem & {
   affinity: AffinityStatus;
 };
 
-// 개체의 애정도 현황 (돌봄 기록 기반)
+// 개체의 애정도 현황
 export function getPlantAffinity(plantId: number) {
   return request<AffinityStatus>(`/api/plants/${plantId}/affinity`);
+}
+
+export type AffinityAward = {
+  affinity_awarded: number;
+  affinity: AffinityStatus;
+};
+
+// 캐릭터 문지르기 — 하루 한 번 소량의 애정도를 받는다.
+// 이미 오늘 받았거나 만점이면 affinity_awarded 가 0으로 온다 (에러가 아니다).
+export function petPlant(plantId: number) {
+  return request<AffinityAward>(`/api/plants/${plantId}/pet`, {
+    method: "POST",
+  });
 }
 
 // 특정 식물의 관리 기록 목록 (care_type: WATERING | FERTILIZING | REPOTTING)

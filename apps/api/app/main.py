@@ -30,6 +30,7 @@ from .models import (
     SpeciesSourceLink,
 )
 from .schemas import (
+    AffinityAward,
     AffinityStatus,
     AvailabilityResponse,
     AirQualityHistoryPoint,
@@ -988,6 +989,28 @@ def get_plant_affinity(
     """개체의 애정도 현황 — plant.affinity_score 를 단계로 환산한다. app/affinity.py 참조."""
     plant = _owned_plant_or_404(plant_id, current_user, db)
     return affinity.status_for_plant(plant)
+
+
+@app.post("/api/plants/{plant_id}/pet", response_model=AffinityAward)
+def pet_plant(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AffinityAward:
+    """캐릭터 문지르기 — 하루 한 번 소량의 애정도를 준다.
+
+    돌봄이 아니라 애정 표현이라 care_record 는 남기지 않는다.
+    이미 오늘 받았거나 만점이면 affinity_awarded 가 0으로 온다.
+    """
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+    awarded = affinity.award_for_petting(plant)
+    if awarded:
+        db.commit()
+        db.refresh(plant)
+    return AffinityAward(
+        affinity_awarded=awarded,
+        affinity=affinity.status_for_plant(plant),
+    )
 
 
 @app.delete("/api/plants/{plant_id}/care-records/{record_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -155,6 +155,10 @@ class Plant(Base):
     # 하트/단계 환산은 app/affinity.py 가 이 숫자를 나눠서 계산한다 (상한 = affinity.MAX_SCORE).
     affinity_score: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
 
+    # 캐릭터를 문질러 애정도를 받은 마지막 날짜(한국 기준) — 하루 1회 제한 판정용.
+    # 문지르기는 돌봄 기록이 아니라서 care_record 를 남기지 않는다.
+    last_petted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 

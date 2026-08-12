@@ -12,6 +12,7 @@ import {
     Animated,
     Easing,
     Modal,
+    PanResponder,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { BlurView } from "expo-blur";
@@ -36,6 +37,7 @@ import {
     getPersonas,
     personaChat,
     getPlantAffinity,
+    petPlant,
 } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper } from "../../constants/colors";
@@ -60,6 +62,21 @@ function daysSince(iso) {
 }
 
 let dropIdCounter = 0;
+let heartIdCounter = 0;
+
+const PLANT_SIZE = 230;        // 개체탭 캐릭터 크기 (= 문지를 수 있는 영역)
+const RUB_HEART_ICON = require("../../assets/icons/fullheart_icon.png");
+
+/*
+    캐릭터 문지르기 연출.
+    손가락을 움직인 만큼만 하트가 나오게 해서(가만히 누르고 있으면 안 나온다)
+    "문지르는" 동작으로 느껴지게 한다.
+*/
+const RUB_HEART_INTERVAL_MS = 130;  // 하트가 연달아 나오는 최소 간격
+const RUB_MOVE_THRESHOLD = 14;      // 이만큼(px) 움직여야 다음 하트
+const RUB_HEART_FLOAT_MS = 1100;    // 하트가 떠올라 사라지기까지
+const RUB_HEART_RISE = 80;          // 떠오르는 높이(px)
+const RUB_HEART_SIZE = 26;
 
 /*
     물주기 연출 타이밍 — 진동을 물방울이 나타나는 리듬에 맞추려면
@@ -146,6 +163,76 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
 
     // 물주기 도중 화면을 벗어나면 예약된 진동을 취소한다 (안 하면 뒤늦게 울린다)
     useEffect(() => clearDropHaptics, []);
+
+    // ── 캐릭터 문지르기 ──────────────────────────────
+    // 손가락을 따라 하트가 뜨고 그때마다 가볍게 진동한다. 애정도는 하루 한 번만 오른다.
+    const [rubHearts, setRubHearts] = useState([]);
+    const lastRubAt = useRef(0);
+    const lastRubPos = useRef({ x: 0, y: 0 });
+    // 하루 1회 판정은 서버가 하므로, 화면에 머무는 동안 요청은 한 번만 보낸다
+    const petRequested = useRef(false);
+
+    const spawnRubHeart = (x, y) => {
+        lastRubAt.current = Date.now();
+        lastRubPos.current = { x, y };
+
+        const id = ++heartIdCounter;
+        const animValue = new Animated.Value(0);
+        const drift = (Math.random() - 0.5) * 44;   // 떠오르면서 좌우로 흩어진다
+        const scale = 0.75 + Math.random() * 0.45;
+
+        setRubHearts((prev) => [...prev, { id, animValue, x, y, drift, scale }]);
+        Animated.timing(animValue, {
+            toValue: 1,
+            duration: RUB_HEART_FLOAT_MS,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+        }).start(() => {
+            setRubHearts((prev) => prev.filter((heart) => heart.id !== id));
+        });
+
+        // 문지르는 느낌이라 물주기(Light)보다 부드러운 임팩트를 쓴다
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch((e) =>
+            console.warn("진동 실패:", e?.message),
+        );
+    };
+
+    // 문지르기 보상 — 서버가 하루 1회만 준다 (이미 받았으면 0점으로 응답)
+    const requestPetReward = async () => {
+        const id = plant?.id;
+        if (!id || petRequested.current) return;
+        petRequested.current = true;
+        try {
+            const result = await petPlant(Number(id));
+            setAffinity(result.affinity);
+            showAffinityGain(result.affinity_awarded);
+        } catch (e) {
+            console.warn("문지르기 애정도 실패:", e?.message);
+            petRequested.current = false; // 통신 실패면 다음 문지르기에서 다시 시도
+        }
+    };
+
+    const rubResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponder: () => true,
+            onPanResponderGrant: (event) => {
+                const { locationX, locationY } = event.nativeEvent;
+                spawnRubHeart(locationX, locationY);
+                requestPetReward();
+            },
+            onPanResponderMove: (event) => {
+                const { locationX, locationY } = event.nativeEvent;
+                if (Date.now() - lastRubAt.current < RUB_HEART_INTERVAL_MS) return;
+                const moved = Math.hypot(
+                    locationX - lastRubPos.current.x,
+                    locationY - lastRubPos.current.y,
+                );
+                if (moved < RUB_MOVE_THRESHOLD) return;
+                spawnRubHeart(locationX, locationY);
+            },
+        }),
+    ).current;
 
     // 캐릭터 대화 모드 — 이 화면 위에서 말풍선/입력만 표시 (기록은 남기지 않음)
     const [chatMode, setChatMode] = useState(false);
@@ -471,15 +558,72 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
 
                     {!chatMode && (
                         <View style={styles.mainPlantArea}>
-                            {appliedItem ? (
-                                <Image
-                                    source={appliedItem.plantImage}
-                                    style={{ width: 230, height: 230 }}
-                                    resizeMode="contain"
-                                />
-                            ) : (
-                                <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={230} height={230} />
-                            )}
+                            {/* 캐릭터 — 문지르면 하트가 뜨고 진동한다 (하루 한 번 애정도도 오른다) */}
+                            <View
+                                style={styles.plantTouchArea}
+                                {...rubResponder.panHandlers}
+                            >
+                                {appliedItem ? (
+                                    <Image
+                                        source={appliedItem.plantImage}
+                                        style={styles.plantImage}
+                                        resizeMode="contain"
+                                    />
+                                ) : (
+                                    <PlantImage
+                                        uri={plant?.imageUri}
+                                        imageKey={plant?.imageKey ?? "spaghetti"}
+                                        width={PLANT_SIZE}
+                                        height={PLANT_SIZE}
+                                    />
+                                )}
+
+                                {/* 손가락이 지나간 자리에서 떠오르는 하트 */}
+                                <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+                                    {rubHearts.map((heart) => (
+                                        <Animated.Image
+                                            key={heart.id}
+                                            source={RUB_HEART_ICON}
+                                            resizeMode="contain"
+                                            style={[
+                                                styles.rubHeart,
+                                                {
+                                                    left: heart.x - RUB_HEART_SIZE / 2,
+                                                    top: heart.y - RUB_HEART_SIZE / 2,
+                                                    opacity: heart.animValue.interpolate({
+                                                        inputRange: [0, 0.15, 1],
+                                                        outputRange: [0, 1, 0],
+                                                    }),
+                                                    transform: [
+                                                        {
+                                                            translateY: heart.animValue.interpolate({
+                                                                inputRange: [0, 1],
+                                                                outputRange: [0, -RUB_HEART_RISE],
+                                                            }),
+                                                        },
+                                                        {
+                                                            translateX: heart.animValue.interpolate({
+                                                                inputRange: [0, 1],
+                                                                outputRange: [0, heart.drift],
+                                                            }),
+                                                        },
+                                                        {
+                                                            scale: heart.animValue.interpolate({
+                                                                inputRange: [0, 0.3, 1],
+                                                                outputRange: [
+                                                                    0.4,
+                                                                    heart.scale,
+                                                                    heart.scale * 0.85,
+                                                                ],
+                                                            }),
+                                                        },
+                                                    ],
+                                                },
+                                            ]}
+                                        />
+                                    ))}
+                                </View>
+                            </View>
 
                             <View style={styles.plantLabelGroup}>
                                 <PixelOutlineText style={styles.plantName} strokeWidth={2}>
@@ -868,6 +1012,22 @@ const styles = StyleSheet.create({
         right: 0,
         alignItems: "center",
         zIndex: 5,
+    },
+    // 문지를 수 있는 영역 = 캐릭터 크기. 하트는 이 안의 손가락 좌표에 붙는다
+    plantTouchArea: {
+        width: PLANT_SIZE,
+        height: PLANT_SIZE,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    plantImage: {
+        width: PLANT_SIZE,
+        height: PLANT_SIZE,
+    },
+    rubHeart: {
+        position: "absolute",
+        width: RUB_HEART_SIZE,
+        height: RUB_HEART_SIZE,
     },
 
     // 물주기 물방울 시작점 (식물 상단 부근, 아래로 낙하)

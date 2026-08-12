@@ -30,6 +30,10 @@ CARE_POINTS: dict[str, int] = {
     "REPOTTING": 30,
 }
 
+# 캐릭터를 문질러 얻는 점수 — 하루 1회, 돌봄보다 훨씬 작게.
+# 매일 문지르면 월 60점이 더 쌓여 만점(800점) 도달이 약 12개월 → 약 7개월로 빨라진다.
+PETTING_POINTS = 2
+
 # 단계(=꽉 찬 하트 수)별 누적 기준 점수. 단계가 올라갈수록 다음 단계까지의
 # 간격이 넓어져서 뒤로 갈수록 오래 걸린다:
 #
@@ -123,6 +127,10 @@ def _korea_day(completed_at: datetime) -> date:
     return aware.astimezone(KOREA_TIMEZONE).date()
 
 
+def today_in_korea() -> date:
+    return datetime.now(timezone.utc).astimezone(KOREA_TIMEZONE).date()
+
+
 def initial_score(care_types: Iterable[str]) -> int:
     """개체 등록 시 함께 남기는 최초 기록(마지막 물준 날/분갈이한 날)의 점수."""
     return min(MAX_SCORE, sum(CARE_POINTS.get(care_type, 0) for care_type in care_types))
@@ -159,4 +167,21 @@ def award_for_care(
 
     awarded = min(points, MAX_SCORE - current)
     plant.affinity_score = current + awarded
+    return awarded
+
+
+def award_for_petting(plant: Plant) -> int:
+    """캐릭터를 문질렀을 때의 애정도 — 하루에 한 번만(한국 날짜 기준) 준다.
+
+    이미 오늘 받았거나 만점이면 0. 돌봄과 달리 기록(care_record)은 남기지 않고
+    plant.last_petted_on 으로만 하루 1회를 판정한다.
+    """
+    today = today_in_korea()
+    current = plant.affinity_score or 0
+    if plant.last_petted_on == today or current >= MAX_SCORE:
+        return 0
+
+    awarded = min(PETTING_POINTS, MAX_SCORE - current)
+    plant.affinity_score = current + awarded
+    plant.last_petted_on = today
     return awarded
