@@ -117,8 +117,9 @@ export default function MemorialPlantScreen({ navigation, route, appliedItem }) 
                 style={styles.background}
             >
                 <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+                    {/* 함께한 동안 쌓인 애정도 — 떠난 개체라 더 이상 오르지 않는다 */}
                     <View style={styles.heartsArea}>
-                        <HeartsRow count={5} size={25} />
+                        <HeartsRow count={plant?.hearts ?? 0} size={25} />
                     </View>
 
                     <View style={styles.speechBubble}>

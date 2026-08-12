@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ImageBackground,
     Image,
@@ -10,6 +10,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     Animated,
+    Easing,
     Modal,
 } from "react-native";
 import { BlurView } from "expo-blur";
@@ -17,6 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 
 import ResourceCounter from "../components/ResourceCounter";
 import HeartsRow from "../components/HeartsRow";
@@ -26,7 +28,14 @@ import PixelOutlineText from "../components/PixelOutlineText";
 import PixelButton from "../components/PixelButton";
 import PixelSpeechBubble from "../components/PixelSpeechBubble";
 import { scheduleWateringReminder } from "../notifications";
-import { getPlantCare, createCareRecord, updatePlant, getPersonas, personaChat } from "../api";
+import {
+    getPlantCare,
+    createCareRecord,
+    updatePlant,
+    getPersonas,
+    personaChat,
+    getPlantAffinity,
+} from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
@@ -64,6 +73,21 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
 
     // 영양제 준 후 지난 일수 → 좌측 상단 ResourceCounter(✚ D+N)에 표시
     const [nutrientDays, setNutrientDays] = useState(null);
+
+    // 애정도 — 정원 목록에서 넘어온 값으로 먼저 그리고, 화면에 들어올 때 서버 값으로 갱신.
+    // 물주기/영양제/분갈이 기록에서 서버가 계산한다 (app/affinity.py)
+    const [affinity, setAffinity] = useState(() =>
+        plant?.hearts != null
+            ? {
+                  score: plant.affinityScore ?? 0,
+                  hearts: plant.hearts,
+                  level: plant.affinityLevel ?? 0,
+              }
+            : null
+    );
+    // 방금 얻은 애정도 점수 — 하트 아래에 "+10" 으로 잠깐 떠오른다
+    const [affinityGain, setAffinityGain] = useState(0);
+    const gainAnim = useRef(new Animated.Value(0)).current;
 
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -119,6 +143,47 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
             mounted = false;
         };
     }, [plant?.id]);
+
+    // 영양제·분갈이 화면에서 기록을 남기고 돌아와도 하트가 맞도록 포커스마다 다시 읽는다
+    useFocusEffect(
+        useCallback(() => {
+            const id = plant?.id;
+            if (!id) return;
+            let active = true;
+            getPlantAffinity(Number(id))
+                .then((status) => {
+                    if (active) setAffinity(status);
+                })
+                .catch((e) => console.warn("애정도 조회 실패:", e?.message));
+            return () => {
+                active = false;
+            };
+        }, [plant?.id])
+    );
+
+    // 얻은 점수를 하트 밑에 띄웠다가 사라지게 (0 = 오늘 이미 채웠거나 만점 → 표시 안 함)
+    const showAffinityGain = (awarded) => {
+        if (!awarded || awarded <= 0) return;
+        setAffinityGain(awarded);
+        gainAnim.setValue(0);
+        Animated.sequence([
+            Animated.timing(gainAnim, {
+                toValue: 1,
+                duration: 360,
+                easing: Easing.out(Easing.quad),
+                useNativeDriver: true,
+            }),
+            Animated.delay(750),
+            Animated.timing(gainAnim, {
+                toValue: 2,
+                duration: 420,
+                easing: Easing.in(Easing.quad),
+                useNativeDriver: true,
+            }),
+        ]).start(({ finished }) => {
+            if (finished) setAffinityGain(0);
+        });
+    };
 
     const menuAnimations = useRef(
         MENU_ITEMS.map(() => new Animated.Value(0))
@@ -211,7 +276,10 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
         const id = plant?.id;
         if (id) {
             try {
-                await createCareRecord(Number(id), { care_type: "WATERING" });
+                // 저장 응답에 이번에 얻은 애정도와 갱신된 하트 수가 함께 온다
+                const saved = await createCareRecord(Number(id), { care_type: "WATERING" });
+                setAffinity(saved.affinity);
+                showAffinityGain(saved.affinity_awarded);
                 const care = await getPlantCare(Number(id));
                 setWateringDays(care.days_since_watering);
                 setNutrientDays(care.days_since_fertilizing);
@@ -311,7 +379,31 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
 
                     {!chatMode && (
                         <View style={styles.heartsArea}>
-                            <HeartsRow count={5} size={25} />
+                            <HeartsRow count={affinity?.hearts ?? 0} size={25} />
+
+                            {affinityGain > 0 && (
+                                <Animated.Text
+                                    style={[
+                                        styles.affinityGainText,
+                                        {
+                                            opacity: gainAnim.interpolate({
+                                                inputRange: [0, 1, 2],
+                                                outputRange: [0, 1, 0],
+                                            }),
+                                            transform: [
+                                                {
+                                                    translateY: gainAnim.interpolate({
+                                                        inputRange: [0, 1, 2],
+                                                        outputRange: [8, -4, -22],
+                                                    }),
+                                                },
+                                            ],
+                                        },
+                                    ]}
+                                >
+                                    애정도 +{affinityGain}
+                                </Animated.Text>
+                            )}
                         </View>
                     )}
 
@@ -676,7 +768,17 @@ const styles = StyleSheet.create({
         position: "absolute",
         top: 80,
         right: 24,
+        alignItems: "flex-end",
         zIndex: 10,
+    },
+    // 돌봄으로 얻은 애정도 — 하트 아래에서 잠깐 떠오른다
+    affinityGainText: {
+        marginTop: Spacing.xxs,
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.white,
+        includeFontPadding: false,
+        ...pixelShadow,
     },
 
     speechBubble: {

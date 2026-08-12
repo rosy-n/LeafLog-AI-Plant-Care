@@ -38,6 +38,10 @@ export type PlantListItem = {
   watering_interval_days: number | null;
   next_watering_date: string | null;
   days_until_watering: number | null;
+  // 애정도 — 정원 목록 하트/호감도순 정렬용 (돌봄 기록에서 서버가 계산)
+  affinity_score: number;
+  affinity_hearts: number;
+  affinity_level: number;
 };
 
 // 로그인/회원가입 후 받은 액세스 토큰을 앱 전역에서 공유 (메모리 보관)
@@ -353,6 +357,34 @@ export type CareRecordItem = {
   note: string | null;
 };
 
+// 애정도 현황 — 점수 규칙(상호작용별 점수, 하트 환산)은 서버(app/affinity.py)가 단일 출처.
+// 앱은 이 응답을 그대로 표시하고 점수표를 다시 정의하지 않는다.
+export type AffinityStatus = {
+  score: number;
+  // 0~5, 0.5 단위 — HeartsRow가 빈/반/가득 하트로 그린다
+  hearts: number;
+  // 꽉 찬 하트 수 = 해금된 꾸미기 아이템 단계 (0~5)
+  level: number;
+  max_score: number;
+  max_hearts: number;
+  points_per_heart: number;
+  // 다음 단계에 필요한 총점. 만점이면 null
+  next_level_score: number | null;
+  level_progress_pct: number;
+};
+
+// 돌봄 기록 저장 응답 — 이 기록으로 얻은 애정도가 함께 온다.
+// affinity_awarded === 0 이면 그날 같은 종류를 이미 기록했거나 만점이라 점수가 오르지 않은 것.
+export type CareRecordCreated = CareRecordItem & {
+  affinity_awarded: number;
+  affinity: AffinityStatus;
+};
+
+// 개체의 애정도 현황 (돌봄 기록 기반)
+export function getPlantAffinity(plantId: number) {
+  return request<AffinityStatus>(`/api/plants/${plantId}/affinity`);
+}
+
 // 특정 식물의 관리 기록 목록 (care_type: WATERING | FERTILIZING | REPOTTING)
 export function getCareRecords(plantId: number, careType: string) {
   return request<CareRecordItem[]>(
@@ -364,7 +396,7 @@ export function createCareRecord(
   plantId: number,
   body: { care_type: string; note?: string | null; completed_at?: string },
 ) {
-  return request<CareRecordItem>(`/api/plants/${plantId}/care-records`, {
+  return request<CareRecordCreated>(`/api/plants/${plantId}/care-records`, {
     method: "POST",
     body: JSON.stringify(body),
   });
