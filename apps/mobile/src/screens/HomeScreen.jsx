@@ -100,14 +100,23 @@ const FIELD_PLANTS = [
     },
 ];
 
-// 한 번의 "통통" — 살짝 떠올라 앞으로 나아가고, 착지할 때 눌린다.
-const HOP_RISE_MS = 190;
-const HOP_FALL_MS = 170;
-const HOP_LAND_MS = 110;   // 착지 눌림 = 다음 점프까지의 짧은 쉼도 겸한다
-const HOP_HEIGHT = 16;     // 점프 높이(px)
-const HOP_DISTANCE = 24;   // 한 번 뛸 때 나아가는 거리(px)
-const REST_MIN_MS = 450;   // 목표 지점 도착 후 쉬는 시간
-const REST_MAX_MS = 1500;
+/*
+    한 번의 "통통" — 살짝 떠올라 앞으로 나아가고, 착지할 때 눌린다.
+    5마리가 동시에 움직이면 쉽게 산만해져서, 한 번의 점프를 느리게 하고
+    점프 사이·목표 도착 후에 충분히 쉬게 잡았다. 대부분의 순간에는
+    한두 마리만 움직이고 나머지는 제자리에서 숨만 쉬는 상태가 된다.
+*/
+const HOP_RISE_MS = 300;   // 점프 상승
+const HOP_FALL_MS = 260;   // 점프 하강
+const HOP_LAND_MS = 200;   // 착지 눌림이 풀리는 시간
+const HOP_HEIGHT = 12;     // 점프 높이(px)
+const HOP_DISTANCE = 16;   // 한 번 뛸 때 나아가는 거리(px)
+const HOP_GAP_MIN_MS = 320;  // 연속 점프 사이의 쉼
+const HOP_GAP_MAX_MS = 900;
+const REST_MIN_MS = 2200;  // 목표 지점 도착 후 쉬는 시간
+const REST_MAX_MS = 5200;
+// 한 번에 멀리 가지 않는다 — 들판을 횡단하듯 오래 뛰는 대신 근처를 어슬렁거린다
+const TRIP_RANGE = 110;
 
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
@@ -453,10 +462,11 @@ function WanderingPlant({ source, width, height, field, startFx, startFy, startD
         const target = { x: spot.x, y: spot.y };
         let arrived = true; // 시작하자마자 첫 목표를 뽑는다
 
+        // 다음 목표는 지금 자리 근처에서 뽑는다 (들판을 가로지르지 않게)
         const pickTarget = () => {
             const bounds = boundsRef.current;
-            target.x = randomBetween(0, bounds.maxX);
-            target.y = randomBetween(0, bounds.maxY);
+            target.x = clamp(spot.x + randomBetween(-TRIP_RANGE, TRIP_RANGE), 0, bounds.maxX);
+            target.y = clamp(spot.y + randomBetween(-TRIP_RANGE, TRIP_RANGE), 0, bounds.maxY);
             arrived = false;
         };
 
@@ -511,13 +521,13 @@ function WanderingPlant({ source, width, height, field, startFx, startFy, startD
                 ]),
                 Animated.sequence([
                     Animated.timing(squash, {
-                        toValue: 1.06,
+                        toValue: 1.04,
                         duration: HOP_RISE_MS,
                         easing: Easing.out(Easing.quad),
                         useNativeDriver: true,
                     }),
                     Animated.timing(squash, {
-                        toValue: 0.94,
+                        toValue: 0.96,
                         duration: HOP_FALL_MS,
                         easing: Easing.in(Easing.quad),
                         useNativeDriver: true,
@@ -540,12 +550,13 @@ function WanderingPlant({ source, width, height, field, startFx, startFy, startD
                     depthRef.current = nextY;
                     setDepth(Math.round(nextY));
                 }
-                hop();
+                // 다음 점프까지 한 박자 쉰다 — 연달아 뛰면 종종거리는 느낌이 난다
+                timer = setTimeout(hop, randomBetween(HOP_GAP_MIN_MS, HOP_GAP_MAX_MS));
             });
         };
 
-        // 5개가 한 박자로 움직이지 않게 시작 시점을 흩뿌린다
-        timer = setTimeout(hop, startDelay + randomBetween(0, 400));
+        // 5개가 한 박자로 움직이지 않게 시작 시점을 넓게 흩뿌린다
+        timer = setTimeout(hop, startDelay + randomBetween(0, 1600));
 
         return () => {
             cancelled = true;
@@ -559,13 +570,13 @@ function WanderingPlant({ source, width, height, field, startFx, startFy, startD
             Animated.sequence([
                 Animated.timing(breath, {
                     toValue: 1,
-                    duration: 1100,
+                    duration: 1700,
                     easing: Easing.inOut(Easing.quad),
                     useNativeDriver: true,
                 }),
                 Animated.timing(breath, {
                     toValue: 0,
-                    duration: 1100,
+                    duration: 1700,
                     easing: Easing.inOut(Easing.quad),
                     useNativeDriver: true,
                 }),
