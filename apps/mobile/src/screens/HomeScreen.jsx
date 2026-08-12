@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     ImageBackground,
     View,
@@ -7,6 +7,7 @@ import {
     Image,
     TouchableOpacity,
     Animated,
+    Easing,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -41,6 +42,76 @@ const HOME_MENU_ITEMS = [
     { label: "스토어", icon: "storefront-outline", screen: "Store" },
 ];
 
+/*
+    배경마다 바닥(잔디/마룻바닥)이 시작하는 높이가 달라서 돌아다닐 영역도 따로 잡는다 —
+    식물이 벽이나 하늘에 떠 있는 것처럼 보이지 않게 하기 위해.
+*/
+const FIELD_BOUNDS = {
+    "home-bg": { top: "37%", bottom: "8%" },
+    store_bg1: { top: "44%", bottom: "8%" },
+    store_bg2: { top: "36%", bottom: "8%" },
+};
+
+/*
+    들판을 돌아다니는 식물 5개.
+    startFx / startFy 는 들판 영역 안에서의 첫 위치(가로/세로 비율) —
+    이후에는 무작위 목표 지점을 뽑아 스스로 이동한다.
+*/
+const FIELD_PLANTS = [
+    {
+        key: "rubber",
+        source: require("../../assets/plants/rubber.png"),
+        width: 150,
+        height: 150,
+        startFx: 0.04,
+        startFy: 0.06,
+    },
+    {
+        key: "sansevieria",
+        source: require("../../assets/plants/sansevieria.png"),
+        width: 145,
+        height: 165,
+        startFx: 0.36,
+        startFy: 0,
+    },
+    {
+        key: "spaghetti",
+        source: require("../../assets/plants/spaghetti.png"),
+        width: 160,
+        height: 160,
+        startFx: 0.7,
+        startFy: 0.06,
+    },
+    {
+        key: "pachira",
+        source: require("../../assets/plants/pachira.png"),
+        width: 175,
+        height: 175,
+        startFx: 0.14,
+        startFy: 0.55,
+    },
+    {
+        key: "myeongrani",
+        source: require("../../assets/plants/myeongrani.png"),
+        width: 180,
+        height: 180,
+        startFx: 0.55,
+        startFy: 0.5,
+    },
+];
+
+// 한 번의 "통통" — 살짝 떠올라 앞으로 나아가고, 착지할 때 눌린다.
+const HOP_RISE_MS = 190;
+const HOP_FALL_MS = 170;
+const HOP_LAND_MS = 110;   // 착지 눌림 = 다음 점프까지의 짧은 쉼도 겸한다
+const HOP_HEIGHT = 16;     // 점프 높이(px)
+const HOP_DISTANCE = 24;   // 한 번 뛸 때 나아가는 거리(px)
+const REST_MIN_MS = 450;   // 목표 지점 도착 후 쉬는 시간
+const REST_MAX_MS = 1500;
+
+const randomBetween = (min, max) => min + Math.random() * (max - min);
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
 export default function HomeScreen({
     navigation,
     appliedBg = "home-bg",
@@ -50,6 +121,7 @@ export default function HomeScreen({
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [environment, setEnvironment] = useState(null);
+    const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 });
 
     const menuAnimations = useRef(
         HOME_MENU_ITEMS.map(() => new Animated.Value(0))
@@ -178,36 +250,41 @@ export default function HomeScreen({
                     ) : null}
                 </View>
 
-                {/* 식물 5개 */}
-                <Image
-                    source={require("../../assets/plants/rubber.png")}
-                    style={styles.rubberPlant}
-                    resizeMode="contain"
-                />
-
-                <Image
-                    source={require("../../assets/plants/sansevieria.png")}
-                    style={styles.sansevieriaPlant}
-                    resizeMode="contain"
-                />
-
-                <Image
-                    source={require("../../assets/plants/spaghetti.png")}
-                    style={styles.spaghettiPlant}
-                    resizeMode="contain"
-                />
-
-                <Image
-                    source={require("../../assets/plants/pachira.png")}
-                    style={styles.pachiraPlant}
-                    resizeMode="contain"
-                />
-
-                <Image
-                    source={require("../../assets/plants/myeongrani.png")}
-                    style={styles.myeongraniPlant}
-                    resizeMode="contain"
-                />
+                {/*
+                    식물 5개 — 초록 들판 영역 안에서만 통통 뛰어다닌다.
+                    영역 크기를 알아야 이동 범위를 정할 수 있어서 onLayout 이후에 렌더한다.
+                    pointerEvents="none": 메뉴 열림 상태에서 들판을 탭하면 메뉴가 닫히도록
+                    터치를 아래 오버레이로 통과시킨다.
+                */}
+                <View
+                    style={[
+                        styles.field,
+                        FIELD_BOUNDS[appliedBg] ?? FIELD_BOUNDS["home-bg"],
+                    ]}
+                    pointerEvents="none"
+                    onLayout={(event) => {
+                        const { width, height } = event.nativeEvent.layout;
+                        setFieldSize((prev) =>
+                            prev.width === width && prev.height === height
+                                ? prev
+                                : { width, height }
+                        );
+                    }}
+                >
+                    {fieldSize.width > 0 &&
+                        FIELD_PLANTS.map((plant, index) => (
+                            <WanderingPlant
+                                key={plant.key}
+                                source={plant.source}
+                                width={plant.width}
+                                height={plant.height}
+                                startFx={plant.startFx}
+                                startFy={plant.startFy}
+                                field={fieldSize}
+                                startDelay={index * 260}
+                            />
+                        ))}
+                </View>
 
                 {/* 햄버거 메뉴 팝업 */}
                 {menuVisible && (
@@ -330,6 +407,205 @@ export default function HomeScreen({
     );
 }
 
+/*
+    들판 안을 스스로 돌아다니는 식물 한 개체.
+
+    걷기(등속 이동)가 아니라 "짧은 점프의 반복"으로 이동한다 —
+    한 번의 점프마다 목표 지점 방향으로 HOP_DISTANCE 만큼만 나아가고,
+    도착하면 잠깐 쉬었다가 새 목표 지점을 뽑는다.
+    모든 애니메이션은 네이티브 드라이버로 돌린다.
+*/
+function WanderingPlant({ source, width, height, field, startFx, startFy, startDelay }) {
+    // 이미지가 들판 밖으로 새지 않도록 크기만큼 뺀 이동 가능 범위
+    const maxX = Math.max(0, field.width - width);
+    const maxY = Math.max(0, field.height - height);
+
+    // 화면 회전 등으로 들판 크기가 바뀌어도 목표 지점이 범위를 벗어나지 않게 최신 값을 참조한다
+    const boundsRef = useRef({ maxX, maxY });
+    boundsRef.current = { maxX, maxY };
+
+    const startRef = useRef(null);
+    if (startRef.current === null) {
+        startRef.current = {
+            x: clamp(startFx * field.width, 0, maxX),
+            y: clamp(startFy * field.height, 0, maxY),
+        };
+    }
+
+    const position = useRef(new Animated.ValueXY(startRef.current)).current;
+    const lift = useRef(new Animated.Value(0)).current;    // 0=땅, 1=점프 정점
+    const squash = useRef(new Animated.Value(1)).current;  // 도트 캐릭터 특유의 눌림/늘어남
+    const facing = useRef(new Animated.Value(1)).current;  // 1=오른쪽, -1=왼쪽(좌우 반전)
+    const breath = useRef(new Animated.Value(0)).current;  // 서 있을 때의 미세한 숨쉬기
+
+    // 현재 좌표는 JS에서 따로 들고 있는다 — Animated.Value 내부값을 읽지 않기 위해
+    const spot = useRef({ ...startRef.current }).current;
+
+    // 아래쪽(=앞) 개체가 위에 그려지도록 y로 그리는 순서를 정한다
+    const [depth, setDepth] = useState(Math.round(startRef.current.y));
+    const depthRef = useRef(startRef.current.y);
+
+    useEffect(() => {
+        let cancelled = false;
+        let timer = null;
+        let running = null;
+        let facingValue = 1;
+        const target = { x: spot.x, y: spot.y };
+        let arrived = true; // 시작하자마자 첫 목표를 뽑는다
+
+        const pickTarget = () => {
+            const bounds = boundsRef.current;
+            target.x = randomBetween(0, bounds.maxX);
+            target.y = randomBetween(0, bounds.maxY);
+            arrived = false;
+        };
+
+        const hop = () => {
+            if (cancelled) return;
+            if (arrived) pickTarget();
+
+            const dx = target.x - spot.x;
+            const dy = target.y - spot.y;
+            const distance = Math.hypot(dx, dy);
+
+            // 목표 도착 — 잠깐 쉬고 다시 출발
+            if (distance < 2) {
+                arrived = true;
+                timer = setTimeout(hop, randomBetween(REST_MIN_MS, REST_MAX_MS));
+                return;
+            }
+
+            const step = Math.min(HOP_DISTANCE, distance);
+            const nextX = spot.x + (dx / distance) * step;
+            const nextY = spot.y + (dy / distance) * step;
+
+            // 가는 방향을 보게 좌우 반전 (미세한 x 변화로는 뒤집지 않는다)
+            if (Math.abs(dx) > 2) {
+                const nextFacing = dx < 0 ? -1 : 1;
+                if (nextFacing !== facingValue) {
+                    facingValue = nextFacing;
+                    facing.setValue(nextFacing);
+                }
+            }
+
+            running = Animated.parallel([
+                Animated.timing(position, {
+                    toValue: { x: nextX, y: nextY },
+                    duration: HOP_RISE_MS + HOP_FALL_MS,
+                    easing: Easing.linear,
+                    useNativeDriver: true,
+                }),
+                Animated.sequence([
+                    Animated.timing(lift, {
+                        toValue: 1,
+                        duration: HOP_RISE_MS,
+                        easing: Easing.out(Easing.quad),
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(lift, {
+                        toValue: 0,
+                        duration: HOP_FALL_MS,
+                        easing: Easing.in(Easing.quad),
+                        useNativeDriver: true,
+                    }),
+                ]),
+                Animated.sequence([
+                    Animated.timing(squash, {
+                        toValue: 1.06,
+                        duration: HOP_RISE_MS,
+                        easing: Easing.out(Easing.quad),
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(squash, {
+                        toValue: 0.94,
+                        duration: HOP_FALL_MS,
+                        easing: Easing.in(Easing.quad),
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(squash, {
+                        toValue: 1,
+                        duration: HOP_LAND_MS,
+                        easing: Easing.out(Easing.quad),
+                        useNativeDriver: true,
+                    }),
+                ]),
+            ]);
+
+            running.start(({ finished }) => {
+                if (cancelled || !finished) return;
+                spot.x = nextX;
+                spot.y = nextY;
+                // 그리는 순서는 눈에 보일 만큼 움직였을 때만 갱신한다(불필요한 리렌더 방지)
+                if (Math.abs(nextY - depthRef.current) > 8) {
+                    depthRef.current = nextY;
+                    setDepth(Math.round(nextY));
+                }
+                hop();
+            });
+        };
+
+        // 5개가 한 박자로 움직이지 않게 시작 시점을 흩뿌린다
+        timer = setTimeout(hop, startDelay + randomBetween(0, 400));
+
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+            if (running) running.stop();
+        };
+    }, []);
+
+    useEffect(() => {
+        const loop = Animated.loop(
+            Animated.sequence([
+                Animated.timing(breath, {
+                    toValue: 1,
+                    duration: 1100,
+                    easing: Easing.inOut(Easing.quad),
+                    useNativeDriver: true,
+                }),
+                Animated.timing(breath, {
+                    toValue: 0,
+                    duration: 1100,
+                    easing: Easing.inOut(Easing.quad),
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+        loop.start();
+        return () => loop.stop();
+    }, []);
+
+    // transform 노드는 한 번만 만든다 — depth 변경으로 리렌더될 때 애니메이션이 끊기지 않게
+    const transform = useMemo(
+        () => [
+            ...position.getTranslateTransform(),
+            {
+                translateY: lift.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -HOP_HEIGHT],
+                }),
+            },
+            { scaleX: facing },
+            { scaleY: squash },
+            {
+                scaleY: breath.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 1.02],
+                }),
+            },
+        ],
+        []
+    );
+
+    return (
+        <Animated.Image
+            source={source}
+            resizeMode="contain"
+            style={[styles.fieldPlant, { width, height, zIndex: depth, transform }]}
+        />
+    );
+}
+
 function GlassButton({ children, size = 62, onPress }) {
     return (
         <TouchableOpacity
@@ -432,45 +708,17 @@ const styles = StyleSheet.create({
         backgroundColor: Accent.alert,
     },
 
-    rubberPlant: {
+    // 식물이 돌아다닐 수 있는 영역 — 위/아래 경계는 배경별로 FIELD_BOUNDS 에서 얹는다
+    field: {
         position: "absolute",
-        width: 150,
-        height: 150,
-        left: "9%",
-        top: "39%",
+        left: 8,
+        right: 8,
         zIndex: 20,
     },
-    sansevieriaPlant: {
+    fieldPlant: {
         position: "absolute",
-        width: 145,
-        height: 165,
-        left: "39%",
-        top: "36%",
-        zIndex: 20,
-    },
-    spaghettiPlant: {
-        position: "absolute",
-        width: 160,
-        height: 160,
-        right: "7%",
-        top: "39%",
-        zIndex: 20,
-    },
-    pachiraPlant: {
-        position: "absolute",
-        width: 175,
-        height: 175,
-        left: "19%",
-        top: "63%",
-        zIndex: 20,
-    },
-    myeongraniPlant: {
-        position: "absolute",
-        width: 180,
-        height: 180,
-        right: "20%",
-        top: "61%",
-        zIndex: 20,
+        left: 0,
+        top: 0,
     },
 
     menuArea: {
