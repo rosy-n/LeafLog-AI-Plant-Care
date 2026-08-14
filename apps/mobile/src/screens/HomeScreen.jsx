@@ -17,7 +17,7 @@ import { Colors, GreenTint, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { getCurrentEnvironment } from "../api";
 // 홈 배경은 고정이다 — 꾸미기로 바뀌는 배경은 개체탭(PlantDetailScreen) 것이다
-import { BACKGROUND_IMAGES, DEFAULT_BACKGROUND_KEY } from "../data/decor";
+import { BACKGROUND_IMAGES, HOME_BACKGROUND_KEY } from "../data/decor";
 
 const WEATHER_ICONS = {
     "맑음": require("../../assets/icons/sunny_icon.png"),
@@ -195,7 +195,7 @@ export default function HomeScreen({
     return (
         <View style={styles.root}>
             <ImageBackground
-                source={BACKGROUND_IMAGES[DEFAULT_BACKGROUND_KEY]}
+                source={BACKGROUND_IMAGES[HOME_BACKGROUND_KEY]}
                 resizeMode="cover"
                 style={styles.background}
             >
@@ -264,7 +264,7 @@ export default function HomeScreen({
                 <View
                     style={[
                         styles.field,
-                        FIELD_BOUNDS[DEFAULT_BACKGROUND_KEY],
+                        FIELD_BOUNDS[HOME_BACKGROUND_KEY],
                     ]}
                     pointerEvents="none"
                     onLayout={(event) => {

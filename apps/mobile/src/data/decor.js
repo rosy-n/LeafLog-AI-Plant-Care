@@ -35,15 +35,20 @@ export const ACCESSORY_IMAGES = {
     },
 };
 
-// 홈 배경 — 꾸미기 카드의 미리보기와 홈 화면 배경이 같은 이미지다
+// 개체탭 배경 — 꾸미기 카드의 미리보기와 개체탭 배경이 같은 이미지다
 export const BACKGROUND_IMAGES = {
+    "detail-bg": require("../../assets/images/detail-bg.png"),
     "home-bg": require("../../assets/images/home-bg.png"),
     store_bg1: require("../../assets/images/store_bg1.png"),
     store_bg2: require("../../assets/images/store_bg2.png"),
 };
 
-// 배경을 고르기 전의 기본값 (서버 main.py 의 DEFAULT_BACKGROUND_ITEM_KEY 와 같아야 한다)
-export const DEFAULT_BACKGROUND_KEY = "home-bg";
+// 개체가 배경을 고르지 않았을 때의 기본값
+// (서버 main.py 의 DEFAULT_BACKGROUND_ITEM_KEY 와 같아야 한다)
+export const DEFAULT_BACKGROUND_KEY = "detail-bg";
+
+// 홈 화면 배경은 고정이다 — 꾸미기로 바뀌지 않는다
+export const HOME_BACKGROUND_KEY = "home-bg";
 
 /*
     아래 *Bundle 함수는 번들 사본만 돌려준다 — DecorImage 가 원격 이미지를 받는 동안
