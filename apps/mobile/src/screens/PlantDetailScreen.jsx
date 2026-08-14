@@ -39,7 +39,8 @@ import {
     getPlantAffinity,
     petPlant,
 } from "../api";
-import { accessoryPlantImage } from "../data/decor";
+import { accessorySpriteBundle } from "../data/decor";
+import DecorImage from "../components/DecorImage";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper, Pink } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
@@ -102,7 +103,10 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
     const plant = route?.params?.plant;
     // 착용 중인 액세서리 — route 로 받은 식물 스냅샷이 아니라 App.js 의 맵에서 찾는다
     // (꾸미기 탭에서 바꾸고 돌아왔을 때 옛 값이 남지 않게).
-    const decorImage = accessoryPlantImage(decorations?.[String(plant?.id)]);
+    const decoration = decorations?.[String(plant?.id)] ?? null;
+    const decorRemote = decoration?.spriteUrl ? { uri: decoration.spriteUrl } : null;
+    const decorBundle = accessorySpriteBundle(decoration?.key);
+    const hasDecor = Boolean(decorRemote || decorBundle);
     const plantName = plant?.name ?? "스파게티";
     const togetherDays = daysSince(plant?.createdAt);
 
@@ -569,11 +573,11 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                                 style={styles.plantTouchArea}
                                 {...rubResponder.panHandlers}
                             >
-                                {decorImage ? (
-                                    <Image
-                                        source={decorImage}
+                                {hasDecor ? (
+                                    <DecorImage
+                                        remote={decorRemote}
+                                        fallback={decorBundle}
                                         style={styles.plantImage}
-                                        resizeMode="contain"
                                     />
                                 ) : (
                                     <PlantImage
@@ -800,11 +804,11 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                         >
                             {/* 캐릭터 — 가운데, 상단 영역 (남는 공간을 채우며 중앙 정렬) */}
                             <View style={styles.chatCharacterArea}>
-                                {decorImage ? (
-                                    <Image
-                                        source={decorImage}
+                                {hasDecor ? (
+                                    <DecorImage
+                                        remote={decorRemote}
+                                        fallback={decorBundle}
                                         style={styles.chatCharacterImage}
-                                        resizeMode="contain"
                                     />
                                 ) : (
                                     <PlantImage

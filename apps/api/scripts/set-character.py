@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.database import SessionLocal
 from app.models import MediaAsset, Plant
+from app.storage import bucket_from_url
 
 
 def main() -> None:
@@ -44,6 +45,8 @@ def main() -> None:
             plant_id=plant_id,
             object_key=object_key,
             file_url=url,
+            # 자산마다 버킷이 다를 수 있어 함께 남긴다 (S3_PRESIGN=true 일 때 서명 대상)
+            bucket_name=bucket_from_url(url),
             asset_type="CHARACTER_IMAGE",
             checksum=checksum or None,
         )

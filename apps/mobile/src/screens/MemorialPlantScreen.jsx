@@ -1,7 +1,6 @@
 import React, { useRef, useState } from "react";
 import {
     ImageBackground,
-    Image,
     View,
     Text,
     StyleSheet,
@@ -14,7 +13,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { accessoryPlantImage } from "../data/decor";
+import { accessorySpriteBundle } from "../data/decor";
+import DecorImage from "../components/DecorImage";
 import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
@@ -37,7 +37,9 @@ let heartIdCounter = 0;
 export default function MemorialPlantScreen({ navigation, route, decorations }) {
     const plant = route?.params?.plant;
     // 착용 중인 액세서리 — App.js 의 맵에서 찾는다 (PlantDetailScreen 과 같은 방식)
-    const decorImage = accessoryPlantImage(decorations?.[String(plant?.id)]);
+    const decoration = decorations?.[String(plant?.id)] ?? null;
+    const decorRemote = decoration?.spriteUrl ? { uri: decoration.spriteUrl } : null;
+    const decorBundle = accessorySpriteBundle(decoration?.key);
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [graveModalVisible, setGraveModalVisible] = useState(false);
@@ -133,11 +135,11 @@ export default function MemorialPlantScreen({ navigation, route, decorations }) 
 
                     {/* Plant — same structure as PlantDetailScreen, no overlay */}
                     <View style={styles.mainPlantArea}>
-                        {decorImage ? (
-                            <Image
-                                source={decorImage}
+                        {decorRemote || decorBundle ? (
+                            <DecorImage
+                                remote={decorRemote}
+                                fallback={decorBundle}
                                 style={{ width: 230, height: 230 }}
-                                resizeMode="contain"
                             />
                         ) : (
                             <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={230} height={230} />

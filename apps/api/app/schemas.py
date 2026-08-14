@@ -379,23 +379,29 @@ class PlantListItem(BaseModel):
     affinity_hearts: float = 0
     affinity_level: int = 0
 
-    # 착용 중인 꾸미기 액세서리의 item_key — 개체마다 따로 조회하지 않도록 함께 싣는다.
-    # 앱은 이 키로 번들 이미지(src/data/decor.js)를 찾는다. 없으면 착용 안 함.
+    # 착용 중인 꾸미기 액세서리 — 개체마다 따로 조회하지 않도록 함께 싣는다.
+    # 없으면 착용 안 한 것. sprite_url 이 null 이면 앱이 item_key 로 번들 이미지를 쓴다.
     decoration_item_key: str | None = None
+    decoration_sprite_url: str | None = None
 
     persona: str | None = None
     created_at: str
 
 
 class ItemRead(BaseModel):
-    # 꾸미기 아이템 마스터. 이미지는 앱 번들이라 여기엔 키만 담는다.
+    # 꾸미기 아이템 마스터
     id: int
+    # S3 이미지가 없거나 URL 발급이 안 될 때 앱이 번들 이미지를 찾는 키
     item_key: str
     item_name: str
     # 'ACCESSORY'(개체 착용) | 'BACKGROUND'(홈 배경)
     item_type: str
     # 해금에 필요한 꽉 찬 하트 수 (0 = 기본 제공). 환산 규칙은 app/affinity.py.
     required_level: int
+    # 목록 카드 이미지 (액세서리 아이콘 / 배경 미리보기). 미등록이면 null → 앱이 번들로 그린다
+    image_url: str | None = None
+    # 그 액세서리를 착용한 캐릭터 이미지. 배경은 항상 null
+    sprite_url: str | None = None
 
 
 class PlantDecorationUpdate(BaseModel):
@@ -406,14 +412,18 @@ class PlantDecorationUpdate(BaseModel):
 class PlantDecorationRead(BaseModel):
     item_id: int | None = None
     item_key: str | None = None
+    # 착용한 캐릭터 이미지 URL — 앱이 즉시 다시 그릴 수 있게 함께 준다
+    sprite_url: str | None = None
 
 
 class UserSettingRead(BaseModel):
     # default_location은 region_data.Region.name과 정확히 일치("서울특별시 마포구" 형태)
     default_location: str | None = None
-    # 홈 배경 — 고르지 않았으면 기본 배경 키('home-bg')가 들어간다
+    # 홈 배경 — 고르지 않았으면 기본 배경 키('home-bg')가 들어간다.
+    # image_url 이 null 이면 앱이 key 로 번들 이미지를 쓴다.
     home_background_item_id: int | None = None
     home_background_item_key: str | None = None
+    home_background_image_url: str | None = None
 
 
 class HomeBackgroundUpdate(BaseModel):
