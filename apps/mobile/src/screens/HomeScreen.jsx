@@ -16,6 +16,8 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { getCurrentEnvironment } from "../api";
+// 홈 배경은 고정이다 — 꾸미기로 바뀌는 배경은 개체탭(PlantDetailScreen) 것이다
+import { BACKGROUND_IMAGES, HOME_BACKGROUND_KEY } from "../data/decor";
 
 const WEATHER_ICONS = {
     "맑음": require("../../assets/icons/sunny_icon.png"),
@@ -31,11 +33,7 @@ const AIR_QUALITY_ICONS = {
     "매우나쁨": require("../../assets/icons/air_veryBad_icon.png"),
 };
 
-const BG_IMAGES = {
-    "home-bg": require("../../assets/images/home_clear_bg.png"),
-    "store_bg1": require("../../assets/images/store_bg1.png"),
-    "store_bg2": require("../../assets/images/store_bg2.png"),
-};
+// 배경 이미지는 src/data/decor.js 가 단일 출처 (아래 FIELD_BOUNDS 의 키와 같다)
 
 const HOME_MENU_ITEMS = [
     { label: "설정", icon: "settings-outline", screen: "Settings" },
@@ -122,7 +120,6 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 export default function HomeScreen({
     navigation,
-    appliedBg = "home-bg",
     hasUnread = false,
     urgentCount = 0,
 }) {
@@ -198,7 +195,7 @@ export default function HomeScreen({
     return (
         <View style={styles.root}>
             <ImageBackground
-                source={BG_IMAGES[appliedBg] ?? BG_IMAGES["home-bg"]}
+                source={BACKGROUND_IMAGES[HOME_BACKGROUND_KEY]}
                 resizeMode="cover"
                 style={styles.background}
             >
@@ -267,7 +264,7 @@ export default function HomeScreen({
                 <View
                     style={[
                         styles.field,
-                        FIELD_BOUNDS[appliedBg] ?? FIELD_BOUNDS["home-bg"],
+                        FIELD_BOUNDS[HOME_BACKGROUND_KEY],
                     ]}
                     pointerEvents="none"
                     onLayout={(event) => {

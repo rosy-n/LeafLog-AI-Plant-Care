@@ -411,8 +411,58 @@ class PlantListItem(BaseModel):
     affinity_hearts: float = 0
     affinity_level: int = 0
 
+    # 개체에 적용된 꾸미기 — 개체마다 따로 조회하지 않도록 함께 싣는다.
+    # *_url 이 null 이면 앱이 item_key 로 번들 이미지를 쓴다.
+    # decoration_* 는 착용 액세서리(없으면 null), background_* 는 개체탭 배경
+    # (고르지 않았으면 기본 배경 키).
+    decoration_item_key: str | None = None
+    decoration_sprite_url: str | None = None
+    background_item_key: str | None = None
+    background_image_url: str | None = None
+
     persona: str | None = None
     created_at: str
+
+
+class ItemRead(BaseModel):
+    # 꾸미기 아이템 마스터
+    id: int
+    # S3 이미지가 없거나 URL 발급이 안 될 때 앱이 번들 이미지를 찾는 키
+    item_key: str
+    item_name: str
+    # 'ACCESSORY'(개체 착용) | 'BACKGROUND'(홈 배경)
+    item_type: str
+    # 해금에 필요한 꽉 찬 하트 수 (0 = 기본 제공). 환산 규칙은 app/affinity.py.
+    required_level: int
+    # 목록 카드 이미지 (액세서리 아이콘 / 배경 미리보기). 미등록이면 null → 앱이 번들로 그린다
+    image_url: str | None = None
+    # 그 액세서리를 착용한 캐릭터 이미지. 배경은 항상 null
+    sprite_url: str | None = None
+
+
+class PlantDecorationUpdate(BaseModel):
+    # 착용할 아이템. null 이면 벗는다.
+    item_id: int | None = None
+
+
+class PlantDecorationRead(BaseModel):
+    item_id: int | None = None
+    item_key: str | None = None
+    # 착용한 캐릭터 이미지 URL — 앱이 즉시 다시 그릴 수 있게 함께 준다
+    sprite_url: str | None = None
+
+
+class PlantBackgroundUpdate(BaseModel):
+    # 이 개체의 개체탭 배경. null 이면 기본 배경으로 되돌린다.
+    item_id: int | None = None
+
+
+class PlantBackgroundRead(BaseModel):
+    item_id: int | None = None
+    # 고르지 않았으면 기본 배경 키('home-bg')가 들어간다
+    item_key: str | None = None
+    # null 이면 앱이 item_key 로 번들 이미지를 쓴다
+    image_url: str | None = None
 
 
 class UserSettingRead(BaseModel):

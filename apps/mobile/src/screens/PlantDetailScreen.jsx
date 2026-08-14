@@ -39,6 +39,8 @@ import {
     getPlantAffinity,
     petPlant,
 } from "../api";
+import { accessorySpriteBundle, backgroundSource } from "../data/decor";
+import DecorImage from "../components/DecorImage";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper, Pink } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
@@ -97,8 +99,17 @@ const DROP_FALL_MS = 1100;     // 낙하 애니메이션 길이
 // 캐릭터가 아직 말투 규칙을 못 지켰을 때(서버 502 등) 대화창에 그대로 보여줄 안전 문구
 const CHAT_FALLBACK_REPLY = "음... 지금은 대답하기 어려워. 잠시 후 다시 말해줄래?";
 
-export default function PlantDetailScreen({ navigation, route, appliedItem }) {
+export default function PlantDetailScreen({ navigation, route, decorations }) {
     const plant = route?.params?.plant;
+    // 착용 중인 액세서리 — route 로 받은 식물 스냅샷이 아니라 App.js 의 맵에서 찾는다
+    // (꾸미기 탭에서 바꾸고 돌아왔을 때 옛 값이 남지 않게).
+    const decoration = decorations?.[String(plant?.id)] ?? null;
+    const accessory = decoration?.accessory ?? null;
+    const decorRemote = accessory?.spriteUrl ? { uri: accessory.spriteUrl } : null;
+    const decorBundle = accessorySpriteBundle(accessory?.key);
+    const hasDecor = Boolean(decorRemote || decorBundle);
+    // 개체탭 배경도 개체마다 다르다 — 고르지 않았으면 기본 배경
+    const background = decoration?.background ?? null;
     const plantName = plant?.name ?? "스파게티";
     const togetherDays = daysSince(plant?.createdAt);
 
@@ -505,7 +516,8 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
     return (
         <View style={styles.root}>
             <ImageBackground
-                source={require("../../assets/images/detail-bg.png")}
+                // 이 개체에 적용된 배경 (꾸미기 탭에서 고른다. 해금·저장은 서버가 관리)
+                source={backgroundSource(background)}
                 resizeMode="cover"
                 style={styles.background}
             >
@@ -565,11 +577,11 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                                 style={styles.plantTouchArea}
                                 {...rubResponder.panHandlers}
                             >
-                                {appliedItem ? (
-                                    <Image
-                                        source={appliedItem.plantImage}
+                                {hasDecor ? (
+                                    <DecorImage
+                                        remote={decorRemote}
+                                        fallback={decorBundle}
                                         style={styles.plantImage}
-                                        resizeMode="contain"
                                     />
                                 ) : (
                                     <PlantImage
@@ -796,11 +808,11 @@ export default function PlantDetailScreen({ navigation, route, appliedItem }) {
                         >
                             {/* 캐릭터 — 가운데, 상단 영역 (남는 공간을 채우며 중앙 정렬) */}
                             <View style={styles.chatCharacterArea}>
-                                {appliedItem ? (
-                                    <Image
-                                        source={appliedItem.plantImage}
+                                {hasDecor ? (
+                                    <DecorImage
+                                        remote={decorRemote}
+                                        fallback={decorBundle}
                                         style={styles.chatCharacterImage}
-                                        resizeMode="contain"
                                     />
                                 ) : (
                                     <PlantImage
