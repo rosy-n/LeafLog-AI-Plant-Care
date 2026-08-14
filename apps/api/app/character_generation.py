@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import logging
 import secrets
 import shutil
 import subprocess
@@ -17,7 +18,11 @@ from typing import Literal
 import requests
 
 from .config import settings
-from .image_preprocessing import preprocess_plant_photo, remove_background_for_sprite
+from .image_preprocessing import (
+    preprocess_plant_photo,
+    release_background_removal_sessions,
+    remove_background_for_sprite,
+)
 
 CharacterJobStatus = Literal[
     "queued",
@@ -45,6 +50,8 @@ NEGATIVE_PROMPT = (
     "extra limbs, bad quality, background, stripe, high resolution, colorful outline, "
     "small detail, small dot, no face"
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -118,7 +125,7 @@ class CharacterGenerationManager:
         with self._lock:
             image_bytes = self._inputs.pop(job_id)
 
-        gpu_started = False
+        sdxl_active = False
         try:
             self._update(
                 job_id,
@@ -131,6 +138,7 @@ class CharacterGenerationManager:
                 canvas_size=settings.character_canvas_size,
                 quality_mode=settings.character_preprocess_quality,
             )
+            release_background_removal_sessions()
 
             self._update(
                 job_id,
@@ -138,13 +146,15 @@ class CharacterGenerationManager:
                 progress=20,
                 message="이미지 생성 모델을 준비하고 있어요.",
             )
-            _switch_gpu_mode("sdxl")
-            gpu_started = True
-            _wait_for_forge()
+            if not settings.character_mock_generation:
+                _switch_gpu_mode("sdxl")
+                sdxl_active = True
+                _wait_for_forge()
 
             job_dir = settings.character_output_dir / job_id
             job_dir.mkdir(parents=True, exist_ok=True)
             base_seed = secrets.randbelow(2_000_000_000)
+            generated_images: list[tuple[int, int, bytes]] = []
 
             for index in range(1, 4):
                 seed = base_seed + index - 1
@@ -164,11 +174,18 @@ class CharacterGenerationManager:
                         input_png_base64=preprocessed.sdxl_input_png_base64,
                         seed=seed,
                     )
+                generated_images.append((index, seed, generated_bytes))
 
+            if sdxl_active:
+                _switch_gpu_mode("ollama")
+                sdxl_active = False
+
+            for index, seed, generated_bytes in generated_images:
+                progress = 79 + (index - 1) * 6
                 self._update(
                     job_id,
                     status="postprocessing",
-                    progress=progress + 15,
+                    progress=progress,
                     message=f"도트 캐릭터 {index}/3의 배경을 정리하고 있어요.",
                 )
                 cutout = remove_background_for_sprite(
@@ -189,6 +206,7 @@ class CharacterGenerationManager:
                         seed=seed,
                     ),
                 )
+            release_background_removal_sessions()
 
             self._update(
                 job_id,
@@ -198,6 +216,7 @@ class CharacterGenerationManager:
                 message="도트 캐릭터 3명이 준비됐어요.",
             )
         except Exception as exc:
+            logger.exception("Character generation job %s failed", job_id)
             self._update(
                 job_id,
                 status="failed",
@@ -205,7 +224,8 @@ class CharacterGenerationManager:
                 error=_public_error_message(exc),
             )
         finally:
-            if gpu_started and settings.character_restore_ollama:
+            release_background_removal_sessions()
+            if sdxl_active and settings.character_restore_ollama:
                 try:
                     _switch_gpu_mode("ollama")
                 except Exception:
@@ -261,13 +281,23 @@ def _wait_for_forge() -> None:
     if settings.character_mock_generation:
         return
     deadline = time.monotonic() + settings.character_forge_startup_timeout_seconds
-    url = f"{settings.forge_api_url.rstrip('/')}/sdapi/v1/options"
+    base_url = settings.forge_api_url.rstrip("/")
+    options_url = f"{base_url}/sdapi/v1/options"
+    scripts_url = f"{base_url}/sdapi/v1/script-info"
     while time.monotonic() < deadline:
         try:
-            response = requests.get(url, timeout=5)
-            if response.ok:
+            options_response = requests.get(options_url, timeout=5)
+            scripts_response = requests.get(scripts_url, timeout=5)
+            scripts = scripts_response.json() if scripts_response.ok else []
+            controlnet_ready = any(
+                str(script.get("name", "")).lower() == "controlnet"
+                and script.get("is_img2img") is True
+                and bool(script.get("args"))
+                for script in scripts
+            )
+            if options_response.ok and controlnet_ready:
                 return
-        except requests.RequestException:
+        except (requests.RequestException, ValueError):
             pass
         time.sleep(2)
     raise CharacterGenerationError("학교 GPU의 Forge 서버가 준비되지 않았습니다.")

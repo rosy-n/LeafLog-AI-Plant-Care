@@ -131,8 +131,8 @@ export default function CharacterScreen() {
     try {
       let job = await startCharacterGeneration({
         uri: photoUri,
-        name: 'plant-photo.jpg',
-        type: 'image/jpeg',
+        name: 'plant-photo',
+        type: 'application/octet-stream',
       });
 
       while (generationRunRef.current === runId) {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import gc
 import os
 from dataclasses import dataclass
 from functools import lru_cache
@@ -9,6 +10,7 @@ from typing import Any, Literal
 
 import cv2
 import numpy as np
+import pillow_avif  # Registers AVIF support with Pillow.
 from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 
 QualityMode = Literal["fast", "quality"]
@@ -55,6 +57,12 @@ def _background_removal_session(model_name: str) -> Any:
         ) from exc
 
     return new_session(model_name)
+
+
+def release_background_removal_sessions() -> None:
+    """Release ONNX segmentation sessions before another large model is loaded."""
+    _background_removal_session.cache_clear()
+    gc.collect()
 
 
 def preprocess_plant_photo(
