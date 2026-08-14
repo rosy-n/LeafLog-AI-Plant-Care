@@ -160,6 +160,7 @@ export default function InfoScreen() {
     nickname?: string;
     characterId?: string;
     characterImageUrl?: string;
+    characterChecksum?: string;
     capturedPhotoUri?: string;
     // 종 마스터의 대표 이미지 (plant-detail 단계에서 전달)
     imageUrl?: string;
@@ -236,6 +237,7 @@ export default function InfoScreen() {
         commonNameKo:      params.commonNameKo ?? '',
         nickname:          params.nickname ?? '',
         characterImageUrl: params.characterImageUrl ?? '',
+        characterChecksum: params.characterChecksum ?? '',
         capturedPhotoUri:  params.capturedPhotoUri ?? '',
         location:          LOCATION_CODES[location!] ?? '',
         lightLevel:        LIGHT_CODE_BY_LABEL[lightLevel!] ?? '',
@@ -271,6 +273,7 @@ export default function InfoScreen() {
           nickname: created.nickname,
           createdAt: created.created_at,
           characterId: params.characterId ?? '',
+          characterImageUrl: params.characterImageUrl ?? '',
         },
       });
     } catch (e: any) {

@@ -72,6 +72,31 @@ export type UploadableImage = {
   type?: string;
 };
 
+export type CharacterGenerationCandidate = {
+  id: string;
+  image_url: string;
+  checksum: string;
+  seed: number;
+};
+
+export type CharacterGenerationJob = {
+  id: string;
+  status:
+    | "queued"
+    | "preprocessing"
+    | "starting_gpu"
+    | "generating"
+    | "postprocessing"
+    | "completed"
+    | "failed";
+  progress: number;
+  message: string;
+  current_candidate: number;
+  candidate_count: number;
+  candidates: CharacterGenerationCandidate[];
+  error: string | null;
+};
+
 // EXPO_PUBLIC_API_BASE_URL이 명시돼 있으면 그 값을 우선 사용(터널 모드 등).
 // 없으면 Expo Go가 이미 연결된 Metro 번들러의 호스트 IP를 그대로 재사용해서
 // Wi-Fi가 바뀌어도 .env를 매번 고치지 않아도 되게 한다.
@@ -465,6 +490,19 @@ export function removeGeneratedImageBackground(
   return requestForm<BackgroundRemovalResponse>(
     `/images/remove-background?canvas_size=${canvasSize}&quality_mode=${qualityMode}`,
     createImageFormData(image),
+  );
+}
+
+export function startCharacterGeneration(image: UploadableImage) {
+  return requestForm<CharacterGenerationJob>(
+    "/api/character-generations",
+    createImageFormData(image),
+  );
+}
+
+export function getCharacterGeneration(jobId: string) {
+  return request<CharacterGenerationJob>(
+    `/api/character-generations/${encodeURIComponent(jobId)}`,
   );
 }
 

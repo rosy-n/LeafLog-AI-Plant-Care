@@ -17,6 +17,7 @@ export type CharacterCandidate = {
   source: ImageSourcePropType;
   /** 서버가 준 이미지 URL. 미연동 상태에서는 빈 문자열 */
   imageUrl: string;
+  checksum?: string;
 };
 
 export const CHARACTER_CANDIDATES: CharacterCandidate[] = [

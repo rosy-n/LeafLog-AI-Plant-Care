@@ -86,6 +86,7 @@ export interface NewPlantPayload {
   commonNameKo: string;
   nickname: string;
   characterImageUrl: string;
+  characterChecksum?: string;
   capturedPhotoUri: string;
   location: string;
   lightLevel: string;
