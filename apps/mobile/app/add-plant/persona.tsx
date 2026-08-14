@@ -37,10 +37,13 @@ export default function PersonaScreen() {
     nickname?: string;
     createdAt?: string;
     characterId?: string;
+    characterImageUrl?: string;
   }>();
 
   // 2단계에서 고른 후보를 이어서 보여준다 (없으면 기본 placeholder)
-  const characterSource = getCharacterImageSource(params.characterId);
+  const characterSource = params.characterImageUrl
+    ? { uri: params.characterImageUrl }
+    : getCharacterImageSource(params.characterId);
 
   const [personaOptions, setPersonaOptions] = useState<PersonaOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);

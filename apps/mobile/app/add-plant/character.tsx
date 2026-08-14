@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,7 +15,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { common } from './styles/common.styles';
 import { styles } from './styles/character.styles';
 import { Colors } from '../../constants/colors';
-import { CHARACTER_CANDIDATES, getCharacterCandidate } from '../../constants/character-candidates';
+import { CHARACTER_CANDIDATES } from '../../constants/character-candidates';
+import type { CharacterCandidate } from '../../constants/character-candidates';
+import { getCharacterGeneration, startCharacterGeneration } from '../../src/api';
 
 type ScreenState = 'intro' | 'guide' | 'preview' | 'generating' | 'result';
 
@@ -53,15 +55,25 @@ export default function CharacterScreen() {
   const [screenState, setScreenState] = useState<ScreenState>('intro');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [phase, setPhase] = useState<1 | 2>(1);
+  const [generationMessage, setGenerationMessage] = useState('식물 특징을 파악하는 중...');
+  const [candidates, setCandidates] = useState<CharacterCandidate[]>(CHARACTER_CANDIDATES);
   // 후보 3종 중 사용자가 직접 고른 캐릭터. 고르기 전에는 null → 확인 버튼 비활성.
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const generationRunRef = useRef(0);
 
-  const selectedCandidate = getCharacterCandidate(selectedCandidateId);
+  const selectedCandidate =
+    candidates.find((candidate) => candidate.id === selectedCandidateId) ?? null;
+
+  useEffect(() => () => {
+    generationRunRef.current += 1;
+  }, []);
 
   const handleRetry = () => {
+    generationRunRef.current += 1;
     setPhotoUri(null);
     setSelectedCandidateId(null);
+    setCandidates([]);
     setScreenState('guide');
   };
 
@@ -75,7 +87,9 @@ export default function CharacterScreen() {
     }
     const picked = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.9 });
     if (picked.canceled) return;
-    setPhotoUri(picked.assets[0].uri);
+    const uri = picked.assets[0]?.uri;
+    if (!uri) return;
+    setPhotoUri(uri);
     setScreenState('preview');
   };
 
@@ -87,7 +101,9 @@ export default function CharacterScreen() {
     }
     const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.9 });
     if (picked.canceled) return;
-    setPhotoUri(picked.assets[0].uri);
+    const uri = picked.assets[0]?.uri;
+    if (!uri) return;
+    setPhotoUri(uri);
     setScreenState('preview');
   };
 
@@ -102,22 +118,61 @@ export default function CharacterScreen() {
   // ── generation ────────────────────────────────────────────────────────────
 
   const handleGenerate = async () => {
+    if (!photoUri) return;
+    const runId = generationRunRef.current + 1;
+    generationRunRef.current = runId;
     progressAnim.setValue(0);
     setPhase(1);
+    setGenerationMessage('식물 특징을 파악하는 중...');
     setSelectedCandidateId(null);
+    setCandidates([]);
     setScreenState('generating');
 
-    Animated.timing(progressAnim, { toValue: 0.5, duration: 1200, useNativeDriver: false }).start();
-    await new Promise<void>((r) => setTimeout(r, 1400));
+    try {
+      let job = await startCharacterGeneration({
+        uri: photoUri,
+        name: 'plant-photo.jpg',
+        type: 'image/jpeg',
+      });
 
-    setPhase(2);
-    await new Promise<void>((r) => {
-      Animated.timing(progressAnim, { toValue: 1, duration: 1000, useNativeDriver: false })
-        .start(() => r());
-    });
-    await new Promise<void>((r) => setTimeout(r, 300));
+      while (generationRunRef.current === runId) {
+        const progress = Math.max(0, Math.min(100, job.progress)) / 100;
+        Animated.timing(progressAnim, {
+          toValue: progress,
+          duration: 300,
+          useNativeDriver: false,
+        }).start();
+        setPhase(job.status === 'queued' || job.status === 'preprocessing' ? 1 : 2);
+        setGenerationMessage(job.message);
 
-    setScreenState('result');
+        if (job.status === 'failed') {
+          throw new Error(job.error || '캐릭터 생성에 실패했어요.');
+        }
+        if (job.status === 'completed') {
+          const generatedCandidates: CharacterCandidate[] = job.candidates.map((candidate, index) => ({
+            id: candidate.id,
+            label: `${index + 1}번`,
+            source: { uri: candidate.image_url },
+            imageUrl: candidate.image_url,
+            checksum: candidate.checksum,
+          }));
+          if (generatedCandidates.length !== 3) {
+            throw new Error('생성된 캐릭터 3개를 모두 불러오지 못했어요.');
+          }
+          setCandidates(generatedCandidates);
+          progressAnim.setValue(1);
+          setScreenState('result');
+          return;
+        }
+
+        await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+        job = await getCharacterGeneration(job.id);
+      }
+    } catch (error: any) {
+      if (generationRunRef.current !== runId) return;
+      Alert.alert('생성 실패', error?.message ?? '잠시 후 다시 시도해주세요.');
+      setScreenState('preview');
+    }
   };
 
   const handleNext = () => {
@@ -129,6 +184,7 @@ export default function CharacterScreen() {
         // characterId: 어느 후보를 골랐는지 (이후 화면에서 같은 캐릭터를 보여주기 위함)
         characterId: selectedCandidate.id,
         characterImageUrl: selectedCandidate.imageUrl,
+        characterChecksum: selectedCandidate.checksum ?? '',
         capturedPhotoUri: photoUri ?? '',
       },
     });
@@ -265,7 +321,7 @@ export default function CharacterScreen() {
           <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
         </View>
         <Text style={styles.progressLabel}>
-          {phase === 1 ? '식물 특징을 파악하는 중...' : '도트 이미지를 그리는 중...'}
+          {generationMessage}
         </Text>
       </View>
     );
@@ -299,7 +355,7 @@ export default function CharacterScreen() {
         </View>
 
         <View style={styles.candidateRow}>
-          {CHARACTER_CANDIDATES.map((candidate) => {
+          {candidates.map((candidate) => {
             const isSelected = candidate.id === selectedCandidateId;
             return (
               <TouchableOpacity

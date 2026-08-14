@@ -20,9 +20,11 @@ const MAX_LENGTH = 8;
 
 export default function NameScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ characterId?: string }>();
+  const params = useLocalSearchParams<{ characterId?: string; characterImageUrl?: string }>();
   // 2단계에서 고른 후보를 그대로 보여준다 (없으면 기본 placeholder)
-  const characterSource = getCharacterImageSource(params.characterId);
+  const characterSource = params.characterImageUrl
+    ? { uri: params.characterImageUrl }
+    : getCharacterImageSource(params.characterId);
   const [nickname, setNickname] = useState('');
   const scrollRef = useRef<ScrollView>(null);
   const [kbHeight, setKbHeight] = useState(0);
