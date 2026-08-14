@@ -49,12 +49,9 @@ CREATE TABLE user_setting (
     -- null이면 날씨 알림 비활성
     default_location      VARCHAR(255),
 
-    -- 현재 홈 화면에 적용 중인 배경 아이템 (item_type = 'BACKGROUND').
-    -- 배경은 홈 전체에 적용되는데 애정도는 개체별이라, 해금 판정은
-    -- "유저의 개체 중 하나라도 item.required_level 이상"으로 본다.
-    -- NULL 이면 기본 배경('home-bg')
-        home_background_item_id BIGINT
-            REFERENCES item(item_id) ON DELETE SET NULL,
+    -- (제거됨) home_background_item_id — 배경은 홈이 아니라 개체탭에 적용되고
+    -- 액세서리와 똑같이 개체별로 해금되므로 plant_decoration 으로 옮겼다.
+    -- 홈 배경은 고정이다. DDL: apps/api/scripts/drop-user-setting-home-background.sql
 
     created_at            TIMESTAMP    DEFAULT now(),
     updated_at            TIMESTAMP    DEFAULT now()
@@ -594,8 +591,8 @@ CREATE TABLE plant_character (
 -- =========================================================
 -- 코인/스토어를 없애고 애정도 해금으로 바꾸면서 설계를 줄였다. 원래 있던
 -- user_background(배경 보유)와 plant_accessory_unlock(개체별 해금 상태)은 만들지 않는다:
---   - "보유"는 코인 구매와 함께 사라졌다. 배경은 유저당 하나 고르는 것뿐이라
---     user_setting.home_background_item_id 컬럼으로 충분하다.
+--   - "보유"는 코인 구매와 함께 사라졌다. 액세서리도 배경도 개체마다 하나씩
+--     고르는 것뿐이라 plant_decoration 한 테이블이면 된다.
 --   - 해금은 저장하지 않고 계산한다 — app/affinity.py 의
 --     level_for_score(plant.affinity_score) >= item.required_level.
 --     해금을 행으로 스냅샷하면 LEVEL_THRESHOLDS 를 조정했을 때 옛 해금 행이 남아
@@ -635,14 +632,15 @@ CREATE TABLE item (
     updated_at       TIMESTAMP DEFAULT now()
 );
 
--- 개체가 지금 착용 중인 액세서리 (해금 검증은 서버 코드가 한다)
--- 현재 UI는 슬롯이 하나뿐이라 position_key 는 'HEAD' 만 쓰지만,
--- 슬롯이 늘어도 스키마는 그대로 쓸 수 있다.
+-- 개체에 지금 적용된 꾸미기 (해금 검증은 서버 코드가 한다).
+-- 액세서리와 배경 모두 개체 단위라 한 테이블에 담고 position_key 로 나눈다.
 CREATE TABLE plant_decoration (
     decoration_id    BIGSERIAL PRIMARY KEY,
     plant_id         BIGINT NOT NULL REFERENCES plant(plant_id) ON DELETE CASCADE,
     item_id          BIGINT NOT NULL REFERENCES item(item_id) ON DELETE CASCADE,
-    -- 이 식물의 HEAD 위치에는 리본을 장착
+    -- 'HEAD'       이 식물의 머리 위치에 장착한 액세서리 (리본 등)
+    -- 'BACKGROUND' 이 식물의 개체탭 배경 (홈 배경은 고정이라 여기 없다)
+    -- UNIQUE (plant_id, position_key) 가 슬롯당 하나를 보장한다
     position_key     VARCHAR(50) NOT NULL,
     applied_at       TIMESTAMP DEFAULT now(),
 

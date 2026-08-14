@@ -42,10 +42,12 @@ export type PlantListItem = {
   affinity_score: number;
   affinity_hearts: number;
   affinity_level: number;
-  // 착용 중인 꾸미기 액세서리. 없으면 null.
-  // sprite_url 이 null 이면 item_key 로 번들 이미지(src/data/decor.js)를 쓴다
+  // 개체에 적용된 꾸미기. *_url 이 null 이면 item_key 로 번들 이미지(src/data/decor.js)를 쓴다.
+  // decoration_* 는 착용 액세서리(없으면 null), background_* 는 개체탭 배경(기본 배경 키)
   decoration_item_key: string | null;
   decoration_sprite_url: string | null;
+  background_item_key: string | null;
+  background_image_url: string | null;
 };
 
 // 로그인/회원가입 후 받은 액세스 토큰을 앱 전역에서 공유 (메모리 보관)
@@ -423,12 +425,32 @@ export function getItems(itemType?: "ACCESSORY" | "BACKGROUND") {
   return request<Item[]>(`/api/items${query}`);
 }
 
-// 개체가 착용 중인 액세서리. 착용 안 했으면 두 필드 모두 null.
+// 개체가 착용 중인 액세서리. 착용 안 했으면 필드가 모두 null.
 export type PlantDecoration = {
   item_id: number | null;
   item_key: string | null;
   sprite_url: string | null;
 };
+
+// 개체탭 배경 — 액세서리와 같이 개체마다 적용되고 그 개체의 애정도로 해금된다.
+// 고르지 않았으면 item_id 는 null 이고 item_key 는 기본 배경("home-bg")이 온다.
+export type PlantBackground = {
+  item_id: number | null;
+  item_key: string | null;
+  image_url: string | null;
+};
+
+export function getPlantBackground(plantId: number) {
+  return request<PlantBackground>(`/api/plants/${plantId}/background`);
+}
+
+// 배경 변경(itemId) 또는 기본으로 되돌리기(null). 해금 검증은 서버가 하고 못 미치면 403.
+export function setPlantBackground(plantId: number, itemId: number | null) {
+  return request<PlantBackground>(`/api/plants/${plantId}/background`, {
+    method: "PUT",
+    body: JSON.stringify({ item_id: itemId }),
+  });
+}
 
 export function getPlantDecoration(plantId: number) {
   return request<PlantDecoration>(`/api/plants/${plantId}/decoration`);
@@ -548,21 +570,7 @@ export function personaChat(
 export type UserSettingResponse = {
   // region_data.Region.name과 정확히 일치하는 "서울특별시 마포구" 형태, 미설정이면 null
   default_location: string | null;
-  // 홈 배경 — 고르지 않았으면 id 는 null 이고 key 는 기본 배경("home-bg")이 온다.
-  // image_url 이 null 이면 key 로 번들 이미지를 쓴다
-  home_background_item_id: number | null;
-  home_background_item_key: string;
-  home_background_image_url: string | null;
 };
-
-// 홈 배경 변경 — itemId=null 이면 기본 배경으로 되돌린다.
-// 해금(애정도 단계) 검증은 서버가 하고, 못 미치면 403이 온다.
-export function updateHomeBackground(itemId: number | null) {
-  return request<UserSettingResponse>("/api/settings/home-background", {
-    method: "PATCH",
-    body: JSON.stringify({ item_id: itemId }),
-  });
-}
 
 // 현재 위치 설정 조회 — 미설정이면 default_location: null (400이 아님)
 export function getUserSettings() {
