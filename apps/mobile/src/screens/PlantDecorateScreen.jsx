@@ -7,6 +7,7 @@ import {
     ScrollView,
     Image,
     StatusBar,
+    Alert,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -18,76 +19,50 @@ import HeartsRow from "../components/HeartsRow";
 import { Colors, GreenTint, Leaf, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { plantImages } from "../data/plants";
-import { getPlantAffinity } from "../api";
+import {
+    ACCESSORY_IMAGES,
+    BACKGROUND_IMAGES,
+    DEFAULT_BACKGROUND_KEY,
+} from "../data/decor";
+import {
+    getItems,
+    getPlantAffinity,
+    setPlantDecoration,
+    updateHomeBackground,
+} from "../api";
 
 /*
-    꾸미기 아이템 — requiredLevel 은 "꽉 찬 하트 수"다.
-    돌봄(물주기/영양제/분갈이)으로 애정도가 쌓여 하트가 한 칸 채워질 때마다
-    다음 아이템이 해금된다. 점수→하트 환산은 서버(app/affinity.py)가 정한다.
-*/
-const ITEMS = [
-    {
-        id: 1,
-        requiredLevel: 1,
-        label: "잎사귀",
-        itemImage: require("../../assets/items/level1_item.png"),
-        plantImage: require("../../assets/items/level1_plants.png"),
-    },
-    {
-        id: 2,
-        requiredLevel: 2,
-        label: "반짝이",
-        itemImage: require("../../assets/items/level2_item.png"),
-        plantImage: require("../../assets/items/level2_plants.png"),
-    },
-    {
-        id: 3,
-        requiredLevel: 3,
-        label: "하트",
-        itemImage: require("../../assets/items/level3_item.png"),
-        plantImage: require("../../assets/items/level3_plants.png"),
-    },
-    {
-        id: 4,
-        requiredLevel: 4,
-        label: "알록달록",
-        itemImage: require("../../assets/items/level4_item.png"),
-        plantImage: require("../../assets/items/level4_plants.png"),
-    },
-    {
-        id: 5,
-        requiredLevel: 5,
-        label: "나비",
-        itemImage: require("../../assets/items/level5_item.png"),
-        plantImage: require("../../assets/items/level5_plants.png"),
-    },
-];
+    꾸미기 아이템 — 이름과 requiredLevel("꽉 찬 하트 수")은 서버 item 테이블이 단일 출처다
+    (GET /api/items). 돌봄(물주기/영양제/분갈이)으로 애정도가 쌓여 하트가 한 칸
+    채워질 때마다 다음 아이템이 해금된다. 점수→하트 환산은 app/affinity.py 가 정한다.
 
-/*
-    홈 배경 — 아이템과 같은 규칙으로 애정도 단계에 따라 해금된다.
-    (코인/스토어를 없애고 이 화면으로 합쳤다. key 는 HomeScreen 의 BG_IMAGES 키와 일치)
-    아이템 해금 사이사이에 배경이 열리도록 2·4단계에 배치했다.
+    이미지는 앱 번들이라 서버가 준 item_key 로 src/data/decor.js 에서 찾는다.
+    번들에 이미지가 없는 키(서버에 아이템만 먼저 추가된 경우)는 그려질 게 없어 건너뛴다.
 */
-const BACKGROUNDS = [
-    {
-        key: "home-bg",
-        label: "들판",
-        requiredLevel: 0, // 기본 제공
-        preview: require("../../assets/images/home_clear_bg.png"),
-    },
-    {
-        key: "store_bg1",
-        label: "창가",
-        requiredLevel: 2,
-        preview: require("../../assets/images/store_bg1.png"),
-    },
-    {
-        key: "store_bg2",
-        label: "마룻바닥",
-        requiredLevel: 4,
-        preview: require("../../assets/images/store_bg2.png"),
-    },
-];
+function toAccessory(item) {
+    const images = ACCESSORY_IMAGES[item.item_key];
+    if (!images) return null;
+    return {
+        id: item.id,
+        key: item.item_key,
+        label: item.item_name,
+        requiredLevel: item.required_level,
+        itemImage: images.card,
+        plantImage: images.plant,
+    };
+}
+
+function toBackground(item) {
+    const preview = BACKGROUND_IMAGES[item.item_key];
+    if (!preview) return null;
+    return {
+        id: item.id,
+        key: item.item_key,
+        label: item.item_name,
+        requiredLevel: item.required_level,
+        preview,
+    };
+}
 
 // 등록일 기준 함께한 일수
 function daysSince(iso) {
@@ -100,9 +75,10 @@ function daysSince(iso) {
 export default function PlantDecorateScreen({
     navigation,
     route,
-    appliedItem,
-    setAppliedItem,
-    appliedBg = "home-bg",
+    plants = [],
+    decorations,
+    applyDecoration,
+    appliedBg = DEFAULT_BACKGROUND_KEY,
     setAppliedBg,
 }) {
     const plant = route?.params?.plant;
@@ -134,19 +110,82 @@ export default function PlantDecorateScreen({
     const affinityLevel = affinity.level ?? 0;
     const progressPercent = affinity.level_progress_pct ?? 0;
 
-    const [selectedItem, setSelectedItem] = useState(appliedItem ?? null);
+    /*
+        배경 해금 기준은 개체가 아니라 "개체 중 가장 높은 단계"다 —
+        배경은 홈 전체에 적용되는데 애정도는 개체별이라, 한 마리를 잘 키운 보상이
+        홈에 남게 하려는 것. 서버(PATCH /api/settings/home-background)도 같은 기준으로
+        검증하므로 여기서 다르게 그리면 눌러도 403이 난다.
+    */
+    const backgroundUnlockLevel = plants.reduce(
+        (best, row) => Math.max(best, row?.affinityLevel ?? 0),
+        affinityLevel,
+    );
+
+    // 아이템 목록 — 서버에서 받아 번들 이미지가 있는 것만 남긴다
+    const [accessories, setAccessories] = useState([]);
+    const [backgrounds, setBackgrounds] = useState([]);
+
+    useEffect(() => {
+        let active = true;
+        getItems()
+            .then((rows) => {
+                if (!active) return;
+                setAccessories(
+                    rows.filter((r) => r.item_type === "ACCESSORY").map(toAccessory).filter(Boolean),
+                );
+                setBackgrounds(
+                    rows.filter((r) => r.item_type === "BACKGROUND").map(toBackground).filter(Boolean),
+                );
+            })
+            .catch((e) => console.warn("꾸미기 아이템 조회 실패:", e?.message));
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    // 착용 중인 액세서리 — 서버(plant_decoration)에 저장된 키를 목록에서 찾아 맞춘다
+    const appliedKey = decorations?.[String(plant?.id)] ?? null;
+    const selectedItem = accessories.find((item) => item.key === appliedKey) ?? null;
+
+    // 저장 중에는 다음 탭을 받지 않는다 — 연달아 누르면 응답 순서가 뒤바뀔 수 있다
+    const [saving, setSaving] = useState(false);
+
+    const changeDecoration = async (next) => {
+        const id = plant?.id;
+        if (!id || saving) return;
+        setSaving(true);
+        try {
+            await setPlantDecoration(Number(id), next?.id ?? null);
+            // 서버 저장이 끝난 뒤에만 화면에 반영한다 (실패하면 이전 상태 그대로)
+            applyDecoration?.(id, next?.key ?? null);
+        } catch (e) {
+            Alert.alert("적용 실패", e?.message ?? "다시 시도해주세요.");
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const handleItemPress = (item) => {
         if (item.requiredLevel > affinityLevel) return;
-        const next = selectedItem?.id === item.id ? null : item;
-        setSelectedItem(next);
-        setAppliedItem(next);
+        // 착용 중인 아이템을 다시 누르면 벗는다
+        changeDecoration(selectedItem?.id === item.id ? null : item);
     };
 
     // 배경은 홈 화면 전체에 적용된다 — 해제 개념이 없어 다시 눌러도 유지한다
-    const handleBackgroundPress = (background) => {
-        if (background.requiredLevel > affinityLevel) return;
+    const handleBackgroundPress = async (background) => {
+        if (background.requiredLevel > backgroundUnlockLevel) return;
+        if (appliedBg === background.key || saving) return;
+        const previous = appliedBg;
         setAppliedBg?.(background.key);
+        setSaving(true);
+        try {
+            await updateHomeBackground(background.id);
+        } catch (e) {
+            setAppliedBg?.(previous);
+            Alert.alert("배경 적용 실패", e?.message ?? "다시 시도해주세요.");
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -282,7 +321,7 @@ export default function PlantDecorateScreen({
                                 showsHorizontalScrollIndicator={false}
                                 contentContainerStyle={styles.itemScroll}
                             >
-                                {ITEMS.map((item) => {
+                                {accessories.map((item) => {
                                     const isUnlocked = item.requiredLevel <= affinityLevel;
                                     const isSelected = selectedItem?.id === item.id;
 
@@ -412,8 +451,9 @@ export default function PlantDecorateScreen({
                                 showsHorizontalScrollIndicator={false}
                                 contentContainerStyle={styles.itemScroll}
                             >
-                                {BACKGROUNDS.map((background) => {
-                                    const isUnlocked = background.requiredLevel <= affinityLevel;
+                                {backgrounds.map((background) => {
+                                    const isUnlocked =
+                                        background.requiredLevel <= backgroundUnlockLevel;
                                     const isApplied = appliedBg === background.key;
 
                                     return (
@@ -505,10 +545,7 @@ export default function PlantDecorateScreen({
                 {selectedItem && (
                     <TouchableOpacity
                         style={styles.removeButton}
-                        onPress={() => {
-                            setSelectedItem(null);
-                            setAppliedItem(null);
-                        }}
+                        onPress={() => changeDecoration(null)}
                         activeOpacity={0.75}
                     >
                         <Text style={styles.removeButtonText}>아이템 해제</Text>

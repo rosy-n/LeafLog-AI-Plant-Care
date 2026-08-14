@@ -19,15 +19,17 @@ from .image_preprocessing import (
     preprocess_plant_photo,
     remove_background_for_sprite,
 )
-from .models import AppUser, CareRecord, CareSchedule, MediaAsset, Plant, PlantSpecies, UserSetting
 from .models import (
     AppUser,
     CareRecord,
     CareSchedule,
+    Item,
     MediaAsset,
     Plant,
+    PlantDecoration,
     PlantSpecies,
     SpeciesSourceLink,
+    UserSetting,
 )
 from .schemas import (
     AffinityAward,
@@ -42,11 +44,15 @@ from .schemas import (
     CareSummary,
     CurrentEnvironmentResponse,
     EnvironmentHistoryResponse,
+    HomeBackgroundUpdate,
+    ItemRead,
     LoginRequest,
     PersonaChatRequest,
     PersonaChatResponse,
     PersonaOption,
     PlantCreate,
+    PlantDecorationRead,
+    PlantDecorationUpdate,
     PlantDetail,
     PlantImagePreprocessResponse,
     PlantListItem,
@@ -631,6 +637,16 @@ def list_plants(
         for pid, object_key, file_url in char_rows:
             char_map.setdefault(pid, presigned_get_url(object_key) or file_url)
 
+    # 착용 중인 꾸미기 액세서리 — 개체마다 조회하지 않도록 한 번에 모은다
+    decoration_map: dict[int, str] = {}
+    if plant_ids:
+        for pid, item_key in db.execute(
+            select(PlantDecoration.plant_id, Item.item_key)
+            .join(Item, Item.item_id == PlantDecoration.item_id)
+            .where(PlantDecoration.plant_id.in_(plant_ids))
+        ).all():
+            decoration_map[pid] = item_key
+
     # 물주기 일정 — 개체마다 조회하지 않고 두 번의 쿼리로 모은다
     schedule_map: dict[int, CareSchedule] = {}
     last_watered_map: dict[int, datetime] = {}
@@ -684,6 +700,7 @@ def list_plants(
                 affinity_score=score,
                 affinity_hearts=affinity.hearts_for_score(score),
                 affinity_level=affinity.level_for_score(score),
+                decoration_item_key=decoration_map.get(plant.plant_id),
             )
         )
     return items
@@ -1013,6 +1030,125 @@ def pet_plant(
     )
 
 
+# ---------------------------------------------------------------------------
+# 꾸미기 — 아이템 목록 / 개체 착용 / 홈 배경
+#
+# 해금 여부는 저장하지 않는다. 아이템의 required_level 과 애정도에서 계산한
+# 단계를 비교할 뿐이라, affinity.py 의 기준을 바꾸면 즉시 새 기준이 적용된다.
+# ---------------------------------------------------------------------------
+
+# 액세서리 슬롯 — 현재 UI는 하나뿐이라 고정값을 쓴다 (plant_decoration.position_key)
+ACCESSORY_POSITION_KEY = "HEAD"
+
+# 배경을 고르기 전의 기본값. item 시드의 item_key 이자 앱 번들 이미지 맵의 키다.
+DEFAULT_BACKGROUND_ITEM_KEY = "home-bg"
+
+
+def _active_item_or_404(item_id: int, item_type: str, db: Session) -> Item:
+    item = db.get(Item, item_id)
+    if item is None or not item.is_active or item.item_type != item_type:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="존재하지 않는 아이템입니다."
+        )
+    return item
+
+
+@app.get("/api/items", response_model=list[ItemRead])
+def list_items(
+    item_type: str | None = Query(default=None, description="ACCESSORY | BACKGROUND"),
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ItemRead]:
+    """꾸미기 아이템 목록. 이미지는 앱 번들이라 item_key 로 찾아 쓴다.
+
+    해금 여부는 내려보내지 않는다 — 액세서리는 개체마다, 배경은 유저 전체 기준이라
+    조건이 달라서, 앱이 required_level 과 해당 애정도 단계를 비교한다.
+    """
+    query = select(Item).where(Item.is_active.is_(True))
+    if item_type is not None:
+        query = query.where(Item.item_type == item_type)
+    rows = db.scalars(query.order_by(Item.required_level, Item.item_id)).all()
+    return [
+        ItemRead(
+            id=item.item_id,
+            item_key=item.item_key,
+            item_name=item.item_name,
+            item_type=item.item_type,
+            required_level=item.required_level,
+        )
+        for item in rows
+    ]
+
+
+@app.get("/api/plants/{plant_id}/decoration", response_model=PlantDecorationRead)
+def get_plant_decoration(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PlantDecorationRead:
+    """개체가 착용 중인 액세서리. 없으면 두 필드 모두 null."""
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+    row = db.execute(
+        select(PlantDecoration.item_id, Item.item_key)
+        .join(Item, Item.item_id == PlantDecoration.item_id)
+        .where(
+            PlantDecoration.plant_id == plant.plant_id,
+            PlantDecoration.position_key == ACCESSORY_POSITION_KEY,
+        )
+    ).first()
+    if row is None:
+        return PlantDecorationRead()
+    return PlantDecorationRead(item_id=row[0], item_key=row[1])
+
+
+@app.put("/api/plants/{plant_id}/decoration", response_model=PlantDecorationRead)
+def set_plant_decoration(
+    plant_id: int,
+    payload: PlantDecorationUpdate,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PlantDecorationRead:
+    """액세서리를 착용하거나(item_id) 벗는다(null).
+
+    그 개체의 애정도 단계가 아이템의 required_level 에 못 미치면 거절한다 —
+    앱에서도 잠긴 카드를 못 누르게 막지만, 해금 판정의 최종 책임은 서버에 둔다.
+    """
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+    current = db.scalar(
+        select(PlantDecoration).where(
+            PlantDecoration.plant_id == plant.plant_id,
+            PlantDecoration.position_key == ACCESSORY_POSITION_KEY,
+        )
+    )
+
+    if payload.item_id is None:
+        if current is not None:
+            db.delete(current)
+            db.commit()
+        return PlantDecorationRead()
+
+    item = _active_item_or_404(payload.item_id, "ACCESSORY", db)
+    if affinity.level_for_score(plant.affinity_score or 0) < item.required_level:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"하트 {item.required_level}개부터 사용할 수 있어요.",
+        )
+
+    if current is None:
+        db.add(
+            PlantDecoration(
+                plant_id=plant.plant_id,
+                item_id=item.item_id,
+                position_key=ACCESSORY_POSITION_KEY,
+            )
+        )
+    else:
+        current.item_id = item.item_id
+        current.applied_at = datetime.now(timezone.utc)
+    db.commit()
+    return PlantDecorationRead(item_id=item.item_id, item_key=item.item_key)
+
+
 @app.delete("/api/plants/{plant_id}/care-records/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_care_record(
     plant_id: int,
@@ -1089,13 +1225,25 @@ def update_me(
     return UserRead.model_validate(current_user)
 
 
+def _settings_read(setting: UserSetting | None, db: Session) -> UserSettingRead:
+    """설정 응답. 홈 배경은 앱이 번들 이미지를 찾을 수 있게 item_key 까지 함께 준다."""
+    item_id = setting.home_background_item_id if setting else None
+    item_key = db.scalar(select(Item.item_key).where(Item.item_id == item_id)) if item_id else None
+    return UserSettingRead(
+        default_location=setting.default_location if setting else None,
+        home_background_item_id=item_id,
+        # 고르지 않았거나 아이템이 사라졌으면 기본 배경으로 그린다
+        home_background_item_key=item_key or DEFAULT_BACKGROUND_ITEM_KEY,
+    )
+
+
 @app.get("/api/settings", response_model=UserSettingRead)
 def get_settings(
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> UserSettingRead:
     setting = db.scalar(select(UserSetting).where(UserSetting.user_id == current_user.user_id))
-    return UserSettingRead(default_location=setting.default_location if setting else None)
+    return _settings_read(setting, db)
 
 
 @app.patch("/api/settings", response_model=UserSettingRead)
@@ -1115,7 +1263,45 @@ def update_settings(
         setting.default_location = region.name
     db.commit()
 
-    return UserSettingRead(default_location=region.name)
+    return _settings_read(setting, db)
+
+
+@app.patch("/api/settings/home-background", response_model=UserSettingRead)
+def update_home_background(
+    payload: HomeBackgroundUpdate,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserSettingRead:
+    """홈 배경 선택. item_id 가 null 이면 기본 배경으로 되돌린다.
+
+    배경은 홈 전체에 적용되는데 애정도는 개체별이라, 개체 중 가장 높은 단계를
+    기준으로 해금을 판정한다 — 한 마리를 잘 키운 보상이 홈에 남고,
+    개체를 지웠다고 이미 열린 배경이 다시 잠기지도 않게.
+    (위치 설정과 payload 가 달라 PATCH /api/settings 와 엔드포인트를 나눴다.)
+    """
+    setting = db.scalar(select(UserSetting).where(UserSetting.user_id == current_user.user_id))
+    if setting is None:
+        setting = UserSetting(user_id=current_user.user_id)
+        db.add(setting)
+
+    if payload.item_id is None:
+        setting.home_background_item_id = None
+        db.commit()
+        return _settings_read(setting, db)
+
+    item = _active_item_or_404(payload.item_id, "BACKGROUND", db)
+    best_score = db.scalar(
+        select(func.max(Plant.affinity_score)).where(Plant.user_id == current_user.user_id)
+    )
+    if affinity.level_for_score(best_score or 0) < item.required_level:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"하트 {item.required_level}개부터 사용할 수 있어요.",
+        )
+
+    setting.home_background_item_id = item.item_id
+    db.commit()
+    return _settings_read(setting, db)
 
 
 @app.get("/api/environment/current", response_model=CurrentEnvironmentResponse)

@@ -12,6 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Numeric,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -492,18 +493,70 @@ class SpeciesMatchReview(Base):
     )
 
 
+class Item(Base):
+    """꾸미기 아이템 마스터 — 액세서리(개체 착용)와 홈 배경.
+
+    해금 여부는 저장하지 않는다. affinity.level_for_score(plant.affinity_score) 가
+    required_level 이상이면 해금이다 (DDL: apps/api/scripts/add-item-tables.sql).
+    """
+
+    __tablename__ = "item"
+
+    item_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    # 앱 번들 이미지 맵(apps/mobile/src/data/decor.js)의 키
+    item_key: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    item_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    item_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    # 해금에 필요한 꽉 찬 하트 수 (0 = 기본 제공, 상한은 affinity.MAX_HEARTS)
+    required_level: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0, server_default="0"
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("item_type IN ('BACKGROUND', 'ACCESSORY')", name="ck_item_type"),
+        CheckConstraint("required_level BETWEEN 0 AND 5", name="ck_item_required_level"),
+    )
+
+
+class PlantDecoration(Base):
+    """개체가 지금 착용 중인 액세서리 — position_key 당 한 개."""
+
+    __tablename__ = "plant_decoration"
+
+    decoration_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    plant_id: Mapped[int] = mapped_column(
+        ForeignKey("plant.plant_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    item_id: Mapped[int] = mapped_column(
+        ForeignKey("item.item_id", ondelete="CASCADE"), nullable=False
+    )
+    # 현재 UI는 슬롯이 하나뿐이라 'HEAD' 만 쓴다
+    position_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("plant_id", "position_key", name="uq_plant_decoration_position"),
+    )
+
+
 class UserSetting(Base):
     __tablename__ = "user_setting"
 
-    # docs/database-schema.sql의 user_setting 전체 컬럼 중 날씨/대기질 기능
-    # 범위(default_location)만 구현한다. push_enabled 등 알림 관련 컬럼과
-    # home_background_item_id(Item 모델 없음)는 이번 스코프가 아니라 제외.
+    # docs/database-schema.sql의 user_setting 전체 컬럼 중 날씨/대기질(default_location)과
+    # 홈 배경(home_background_item_id)만 구현한다. push_enabled 등 알림 관련 컬럼은 제외.
     setting_id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(
         ForeignKey("app_user.user_id", ondelete="CASCADE"), unique=True, nullable=False
     )
     # "서울특별시 마포구" 형태 — region_data.Region.name과 정확히 일치해야 한다.
     default_location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # 홈 화면에 적용 중인 배경. NULL 이면 기본 배경(item_key = 'home-bg').
+    home_background_item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("item.item_id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
