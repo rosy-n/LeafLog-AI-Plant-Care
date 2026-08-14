@@ -46,15 +46,11 @@ const ICONS = [
     require("../../assets/icons/watering_icon.png"),
 ];
 
-// 홈 배경 외의 배경 — login-bg 는 로그인 전 랜딩에서 이미 로드되므로 여기 넣지 않는다
-const BACKGROUNDS = [
-    require("../../assets/images/detail-bg.png"),
-];
+// login-bg 는 로그인 전 랜딩에서 이미 로드되므로 여기 넣지 않는다
 
 export const BUNDLED_IMAGES = [
     ...ICONS,
-    ...BACKGROUNDS,
-    // 꾸미기 아이템(카드 아이콘 + 캐릭터에 겹칠 이미지)과 홈 배경 —
+    // 꾸미기 아이템(카드 아이콘 + 캐릭터에 겹칠 이미지)과 배경 —
     // decor.js 가 단일 출처라 여기서 다시 적지 않는다
     ...Object.values(ACCESSORY_IMAGES).flatMap((images) => [images.card, images.plant]),
     ...Object.values(BACKGROUND_IMAGES),

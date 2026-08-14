@@ -1,5 +1,4 @@
--- 꾸미기 아이템 마스터(item) + 개체별 착용 상태(plant_decoration)
--- + 유저의 홈 배경 선택(user_setting.home_background_item_id).
+-- 꾸미기 아이템 마스터(item) + 개체별 적용 상태(plant_decoration).
 --
 -- docs/database-schema.sql "6. 아이템 / 인벤토리" 를 코인/스토어 삭제 이후 설계에 맞춰
 -- 줄인 형태다(그쪽 주석에도 같은 내용을 반영해 뒀다). 원래 정의와 달라진 점:
@@ -10,8 +9,9 @@
 --     사라졌고, 해금은 affinity.level_for_score(plant.affinity_score) 로 계산한다
 --     (해금을 행으로 저장하면 기준을 바꿔도 옛 해금이 남아 두 출처가 갈라진다).
 --     배경도 액세서리와 똑같이 개체별로 적용·해금되므로 plant_decoration 에 함께 넣는다.
---   - asset_id(media_asset) 대신 item_key — 아이템 이미지가 아직 앱 번들이라
---     앱의 이미지 맵(src/data/decor.js) 키와 맞춘다. S3로 옮길 때 asset_id 를 추가한다.
+--   - item_key 추가 — 앱 번들 이미지 맵(src/data/decor.js)의 키.
+--     S3 이미지가 없거나 URL 발급이 안 될 때 앱이 이 키로 fallback 한다.
+--     (S3 연결용 asset_id/sprite_asset_id 는 add-item-asset-columns.sql 에서 붙인다)
 --
 -- 슈퍼유저(postgres)로 실행 — leaflog_user는 db-setup.sql의 ALTER DEFAULT PRIVILEGES로 이미 권한 보유
 --   & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -f apps/api/scripts/add-item-tables.sql
@@ -57,15 +57,19 @@ CREATE TABLE IF NOT EXISTS plant_decoration (
 
 -- 아이템 시드 — 이름/해금 단계는 서버가, 이미지는 앱 번들이 들고 있다.
 -- item_key 는 src/data/decor.js 의 키와 정확히 같아야 한다.
+-- detail-bg 는 개체가 배경을 고르지 않았을 때의 기본값이다
+-- (main.py 의 DEFAULT_BACKGROUND_ITEM_KEY). 다른 배경을 골랐다가 되돌릴 수 있도록
+-- 목록에도 한 칸으로 들어간다.
 INSERT INTO item (item_key, item_name, item_type, required_level) VALUES
-    ('level1',    '잎사귀',   'ACCESSORY',  1),
-    ('level2',    '반짝이',   'ACCESSORY',  2),
-    ('level3',    '하트',     'ACCESSORY',  3),
-    ('level4',    '알록달록', 'ACCESSORY',  4),
-    ('level5',    '나비',     'ACCESSORY',  5),
-    ('home-bg',   '들판',     'BACKGROUND', 0),
-    ('store_bg1', '창가',     'BACKGROUND', 2),
-    ('store_bg2', '마룻바닥', 'BACKGROUND', 4)
+    ('level1',     '잎사귀',   'ACCESSORY',  1),
+    ('level2',     '반짝이',   'ACCESSORY',  2),
+    ('level3',     '하트',     'ACCESSORY',  3),
+    ('level4',     '알록달록', 'ACCESSORY',  4),
+    ('level5',     '나비',     'ACCESSORY',  5),
+    ('detail-bg',  '풀밭',     'BACKGROUND', 0),
+    ('home-bg',    '들판',     'BACKGROUND', 0),
+    ('store_bg1',  '창가',     'BACKGROUND', 2),
+    ('store_bg2',  '마룻바닥', 'BACKGROUND', 4)
 ON CONFLICT (item_key) DO UPDATE SET
     item_name      = EXCLUDED.item_name,
     item_type      = EXCLUDED.item_type,

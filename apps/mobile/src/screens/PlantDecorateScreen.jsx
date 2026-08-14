@@ -125,8 +125,14 @@ export default function PlantDecorateScreen({
         () => items.filter((r) => r.item_type === "ACCESSORY").map(toAccessory).filter(Boolean),
         [items],
     );
+    // 기본 배경을 맨 앞에 둔다 — 액세서리의 "없음" 카드와 같은 자리라 되돌리기 쉽게
     const backgrounds = useMemo(
-        () => items.filter((r) => r.item_type === "BACKGROUND").map(toBackground).filter(Boolean),
+        () =>
+            items
+                .filter((r) => r.item_type === "BACKGROUND")
+                .map(toBackground)
+                .filter(Boolean)
+                .sort((a, b) => (a.key === DEFAULT_BACKGROUND_KEY ? -1 : b.key === DEFAULT_BACKGROUND_KEY ? 1 : 0)),
         [items],
     );
 

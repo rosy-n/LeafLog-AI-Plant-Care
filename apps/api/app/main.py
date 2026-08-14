@@ -716,6 +716,7 @@ def list_plants(
             last_watered_map[pid] = completed_at
 
     today = datetime.now(timezone.utc).date()
+    default_background = _default_background(db)
 
     def watering_summary(plant: Plant) -> tuple[int | None, date | None]:
         """(주기, 다음 예정일). 일정 행이 없으면 계산만 하고 저장하지 않는다."""
@@ -753,11 +754,9 @@ def list_plants(
                 affinity_level=affinity.level_for_score(score),
                 decoration_item_key=accessory_map.get(plant.plant_id, (None, None))[0],
                 decoration_sprite_url=accessory_map.get(plant.plant_id, (None, None))[1],
-                # 배경을 고르지 않았으면 기본 배경 키를 준다 (개체탭이 그걸로 그린다)
-                background_item_key=background_map.get(
-                    plant.plant_id, (DEFAULT_BACKGROUND_ITEM_KEY, None)
-                )[0],
-                background_image_url=background_map.get(plant.plant_id, (None, None))[1],
+                # 배경을 고르지 않았으면 기본 배경 (개체탭이 그걸로 그린다)
+                background_item_key=background_map.get(plant.plant_id, default_background)[0],
+                background_image_url=background_map.get(plant.plant_id, default_background)[1],
             )
         )
     return items
@@ -1101,8 +1100,9 @@ def pet_plant(
 ACCESSORY_POSITION_KEY = "HEAD"
 BACKGROUND_POSITION_KEY = "BACKGROUND"
 
-# 배경을 고르기 전의 기본값. item 시드의 item_key 이자 앱 번들 이미지 맵의 키다.
-DEFAULT_BACKGROUND_ITEM_KEY = "home-bg"
+# 개체가 배경을 고르기 전의 기본값. item 시드의 item_key 이자 앱 번들 이미지 맵의 키다.
+# (홈 화면 배경 'home-bg' 와는 다르다 — 홈은 고정이고 여기 관여하지 않는다)
+DEFAULT_BACKGROUND_ITEM_KEY = "detail-bg"
 
 
 def _active_item_or_404(item_id: int, item_type: str, db: Session) -> Item:
@@ -1169,6 +1169,20 @@ def _item_sprite_url(item: Item, db: Session) -> str | None:
 def _item_card_url(item: Item, db: Session) -> str | None:
     """목록 카드 이미지 URL (배경은 이게 곧 배경 그림이다)"""
     return _media_asset_url(item.asset_id, db)
+
+
+def _default_background(db: Session) -> tuple[str, str | None]:
+    """배경을 고르지 않은 개체가 쓸 기본 배경 (item_key, 이미지 URL).
+
+    이미지도 함께 찾는다 — 안 그러면 기본 배경만 번들 사본으로 그려져서,
+    서버에서 기본 배경 그림을 갈아끼워도 반영되지 않는다.
+    """
+    row = db.execute(
+        select(MediaAsset.object_key, MediaAsset.file_url, MediaAsset.bucket_name)
+        .join(Item, Item.asset_id == MediaAsset.asset_id)
+        .where(Item.item_key == DEFAULT_BACKGROUND_ITEM_KEY)
+    ).first()
+    return DEFAULT_BACKGROUND_ITEM_KEY, (_asset_url(*row) if row else None)
 
 
 @app.get("/api/items", response_model=list[ItemRead])
@@ -1297,7 +1311,8 @@ def get_plant_background(
         )
     ).first()
     if row is None:
-        return PlantBackgroundRead(item_key=DEFAULT_BACKGROUND_ITEM_KEY)
+        key, url = _default_background(db)
+        return PlantBackgroundRead(item_key=key, image_url=url)
     item_id, item_key, object_key, file_url, bucket_name = row
     return PlantBackgroundRead(
         item_id=item_id,
@@ -1323,7 +1338,8 @@ def set_plant_background(
     if payload.item_id is None:
         _set_decoration(plant, None, BACKGROUND_POSITION_KEY, db)
         db.commit()
-        return PlantBackgroundRead(item_key=DEFAULT_BACKGROUND_ITEM_KEY)
+        key, url = _default_background(db)
+        return PlantBackgroundRead(item_key=key, image_url=url)
 
     item = _active_item_or_404(payload.item_id, "BACKGROUND", db)
     _require_unlocked(plant, item)
