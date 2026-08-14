@@ -6,6 +6,8 @@ readonly FORGE_ROOT="/home/leaflog/stable-diffusion-webui-forge-recovered"
 readonly LEGACY_MODEL_ROOT="/home/leaflog/stable-diffusion-webui-forge/models"
 readonly MODEL_ROOT="/home/leaflog/leaflog-ai-models"
 readonly FORGE_PYTHON="/home/leaflog/miniforge3/envs/forge/bin/python"
+readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly FORGE_API_PATCH="$SCRIPT_DIR/forge-api-controlnet.patch"
 
 if [[ ${EUID} -ne 0 ]]; then
   echo "Run this installer as root." >&2
@@ -18,6 +20,15 @@ for path in "$FORGE_ROOT/launch.py" "$FORGE_PYTHON"; do
     exit 1
   fi
 done
+
+if git -C "$FORGE_ROOT" apply --reverse --check "$FORGE_API_PATCH" >/dev/null 2>&1; then
+  echo "Forge ControlNet API patch is already applied."
+elif git -C "$FORGE_ROOT" apply --check "$FORGE_API_PATCH"; then
+  runuser -u "$LEAFLOG_USER" -- git -C "$FORGE_ROOT" apply "$FORGE_API_PATCH"
+else
+  echo "Forge ControlNet API patch does not match the installed Forge checkout." >&2
+  exit 1
+fi
 
 install -d -o "$LEAFLOG_USER" -g "$LEAFLOG_USER" \
   "$MODEL_ROOT/Stable-diffusion" \
@@ -54,9 +65,9 @@ link_model "Lora" "plantpet_sprite_lora_v2.safetensors"
 link_model "VAE" "sdxl_vae.safetensors"
 link_model "ControlNet" "diffusers_xl_canny_mid.safetensors"
 
-install -m 0755 leaflog-gpu-mode /usr/local/sbin/leaflog-gpu-mode
+install -m 0755 "$SCRIPT_DIR/leaflog-gpu-mode" /usr/local/sbin/leaflog-gpu-mode
 ln -sfn /usr/local/sbin/leaflog-gpu-mode /usr/local/bin/leaflog-gpu
-install -m 0644 leaflog-forge.service /etc/systemd/system/leaflog-forge.service
+install -m 0644 "$SCRIPT_DIR/leaflog-forge.service" /etc/systemd/system/leaflog-forge.service
 
 install -d /etc/systemd/system/ollama.service.d
 cat >/etc/systemd/system/ollama.service.d/leaflog-gpu.conf <<'EOF'

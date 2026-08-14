@@ -7,6 +7,7 @@ readonly FORGE_SERVICE="leaflog-forge.service"
 readonly OLLAMA_SERVICE="ollama.service"
 readonly LOCK_FILE="/run/lock/leaflog-gpu-mode.lock"
 readonly FORGE_HEALTH_URL="http://127.0.0.1:7860/sdapi/v1/options"
+readonly FORGE_SCRIPTS_URL="http://127.0.0.1:7860/sdapi/v1/script-info"
 readonly OLLAMA_HEALTH_URL="http://127.0.0.1:11434/api/tags"
 
 if [[ ${EUID} -ne 0 ]]; then
@@ -40,7 +41,8 @@ wait_forge() {
   local timeout_seconds=$1
   local started=$SECONDS
 
-  until curl --fail --silent --max-time 3 "$FORGE_HEALTH_URL" >/dev/null 2>&1; do
+  until curl --fail --silent --max-time 3 "$FORGE_HEALTH_URL" >/dev/null 2>&1 \
+    && curl --fail --silent --max-time 3 "$FORGE_SCRIPTS_URL" | grep --quiet --ignore-case '"name":"controlnet"'; do
     if systemctl is-failed --quiet "$FORGE_SERVICE"; then
       return 1
     fi
@@ -69,7 +71,8 @@ show_status() {
     echo "Ollama API:     unavailable"
   fi
 
-  if curl --fail --silent --max-time 2 "$FORGE_HEALTH_URL" >/dev/null 2>&1; then
+  if curl --fail --silent --max-time 2 "$FORGE_HEALTH_URL" >/dev/null 2>&1 \
+    && curl --fail --silent --max-time 2 "$FORGE_SCRIPTS_URL" | grep --quiet --ignore-case '"name":"controlnet"'; then
     echo "Forge API:      ready (127.0.0.1:7860)"
   else
     echo "Forge API:      unavailable"

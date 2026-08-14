@@ -70,14 +70,19 @@ export default function PersonaScreen() {
     if (!selected || !params.plantId) return;
     setIsSubmitting(true);
     try {
-      await updatePlant(Number(params.plantId), { persona: selected });
+      const savedPlant = await updatePlant(Number(params.plantId), { persona: selected });
       router.replace({
         pathname: '/',
         params: {
           plant: {
-            id: params.plantId,
-            name: params.nickname,
-            createdAt: params.createdAt,
+            id: String(savedPlant.id),
+            name: savedPlant.nickname,
+            favorite: savedPlant.is_favorite,
+            imageUri: savedPlant.character_image_url,
+            memorial: savedPlant.status === 'DEAD',
+            commonNameKo: savedPlant.common_name_ko,
+            persona: savedPlant.persona,
+            createdAt: savedPlant.created_at,
           },
         },
       });

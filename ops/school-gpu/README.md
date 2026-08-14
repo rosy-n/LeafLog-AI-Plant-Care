@@ -11,6 +11,8 @@
 - 생성 작업이 끝나면 반드시 `leaflog-gpu ollama`를 실행한다.
 - 전환 중에는 파일 잠금을 사용하며, `systemd` 서비스도 서로 충돌하도록 설정돼 있다.
 - Forge 시작 실패 시 전환 스크립트가 Forge를 종료하고 Ollama를 복구한다.
+- 고정된 Forge 버전의 ControlNet API 초기화 오류는 설치 시 `forge-api-controlnet.patch`로 보정한다.
+- Forge 준비 완료는 기본 API뿐 아니라 img2img ControlNet 스크립트 등록까지 확인한다.
 
 ## 명령
 
