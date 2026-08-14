@@ -42,6 +42,8 @@ export type PlantListItem = {
   affinity_score: number;
   affinity_hearts: number;
   affinity_level: number;
+  // 착용 중인 꾸미기 액세서리의 item_key (src/data/decor.js 의 이미지 키). 없으면 null
+  decoration_item_key: string | null;
 };
 
 // 로그인/회원가입 후 받은 액세스 토큰을 앱 전역에서 공유 (메모리 보관)
@@ -399,6 +401,41 @@ export function petPlant(plantId: number) {
   });
 }
 
+// 꾸미기 아이템 — 이름과 해금 단계는 서버(item 테이블)가 단일 출처다.
+// 이미지는 앱 번들이라 item_key 로 src/data/decor.js 에서 찾는다.
+export type Item = {
+  id: number;
+  item_key: string;
+  item_name: string;
+  item_type: "ACCESSORY" | "BACKGROUND";
+  // 해금에 필요한 꽉 찬 하트 수 (0 = 기본 제공)
+  required_level: number;
+};
+
+export function getItems(itemType?: "ACCESSORY" | "BACKGROUND") {
+  const query = itemType ? `?item_type=${itemType}` : "";
+  return request<Item[]>(`/api/items${query}`);
+}
+
+// 개체가 착용 중인 액세서리. 착용 안 했으면 두 필드 모두 null.
+export type PlantDecoration = {
+  item_id: number | null;
+  item_key: string | null;
+};
+
+export function getPlantDecoration(plantId: number) {
+  return request<PlantDecoration>(`/api/plants/${plantId}/decoration`);
+}
+
+// 액세서리 착용(itemId) 또는 해제(null).
+// 해금(애정도 단계) 검증은 서버가 하고, 못 미치면 403이 온다.
+export function setPlantDecoration(plantId: number, itemId: number | null) {
+  return request<PlantDecoration>(`/api/plants/${plantId}/decoration`, {
+    method: "PUT",
+    body: JSON.stringify({ item_id: itemId }),
+  });
+}
+
 // 특정 식물의 관리 기록 목록 (care_type: WATERING | FERTILIZING | REPOTTING)
 export function getCareRecords(plantId: number, careType: string) {
   return request<CareRecordItem[]>(
@@ -504,7 +541,19 @@ export function personaChat(
 export type UserSettingResponse = {
   // region_data.Region.name과 정확히 일치하는 "서울특별시 마포구" 형태, 미설정이면 null
   default_location: string | null;
+  // 홈 배경 — 고르지 않았으면 id 는 null 이고 key 는 기본 배경("home-bg")이 온다
+  home_background_item_id: number | null;
+  home_background_item_key: string;
 };
+
+// 홈 배경 변경 — itemId=null 이면 기본 배경으로 되돌린다.
+// 해금(애정도 단계) 검증은 서버가 하고, 못 미치면 403이 온다.
+export function updateHomeBackground(itemId: number | null) {
+  return request<UserSettingResponse>("/api/settings/home-background", {
+    method: "PATCH",
+    body: JSON.stringify({ item_id: itemId }),
+  });
+}
 
 // 현재 위치 설정 조회 — 미설정이면 default_location: null (400이 아님)
 export function getUserSettings() {

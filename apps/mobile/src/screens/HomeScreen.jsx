@@ -16,6 +16,7 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { getCurrentEnvironment } from "../api";
+import { backgroundImage } from "../data/decor";
 
 const WEATHER_ICONS = {
     "맑음": require("../../assets/icons/sunny_icon.png"),
@@ -31,11 +32,7 @@ const AIR_QUALITY_ICONS = {
     "매우나쁨": require("../../assets/icons/air_veryBad_icon.png"),
 };
 
-const BG_IMAGES = {
-    "home-bg": require("../../assets/images/home_clear_bg.png"),
-    "store_bg1": require("../../assets/images/store_bg1.png"),
-    "store_bg2": require("../../assets/images/store_bg2.png"),
-};
+// 배경 이미지는 src/data/decor.js 가 단일 출처 (아래 FIELD_BOUNDS 의 키와 같다)
 
 const HOME_MENU_ITEMS = [
     { label: "설정", icon: "settings-outline", screen: "Settings" },
@@ -198,7 +195,7 @@ export default function HomeScreen({
     return (
         <View style={styles.root}>
             <ImageBackground
-                source={BG_IMAGES[appliedBg] ?? BG_IMAGES["home-bg"]}
+                source={backgroundImage(appliedBg)}
                 resizeMode="cover"
                 style={styles.background}
             >

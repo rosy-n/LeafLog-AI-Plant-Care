@@ -25,7 +25,8 @@ import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
 import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
 import AddPlantNavigator from "./src/screens/AddPlantNavigator";
-import { getPlants } from "./src/api";
+import { getPlants, getUserSettings } from "./src/api";
+import { DEFAULT_BACKGROUND_KEY } from "./src/data/decor";
 import { syncWateringReminders } from "./src/notifications";
 import { buildCareNotices } from "./src/careNotices";
 import { preloadBundledImages } from "./src/data/assets";
@@ -66,11 +67,15 @@ function toGardenPlant(plant) {
 // onLogout — 인증 상태는 App.tsx 가 들고 있어서 여기서는 콜백을 받아 설정 화면까지 내려준다
 export default function MainApp({ user, onLogout }) {
     const [plants, setPlants] = useState([]);
-    const [appliedItem, setAppliedItem] = useState(null);
+    // 개체별로 착용 중인 액세서리 — { [plantId]: item_key }.
+    // 서버(plant_decoration)가 원본이고 목록 응답에 실려 온다. 화면들이 route 로 받은
+    // 식물 스냅샷 대신 이 맵을 보게 해서, 꾸미고 돌아왔을 때 옛 값이 남지 않게 한다.
+    const [decorations, setDecorations] = useState({});
     const [username, setUsername] = useState(user?.nickname ?? "식물집사");
     const [imagesLoaded, setImagesLoaded] = useState(false);
-    // 홈 배경 — 애정도 단계로 해금되며 식물 꾸미기 탭에서 고른다 (코인/스토어 없음)
-    const [appliedBg, setAppliedBg] = useState("home-bg");
+    // 홈 배경 — 애정도 단계로 해금되며 식물 꾸미기 탭에서 고른다 (코인/스토어 없음).
+    // 서버 user_setting.home_background_item_id 에 저장된다.
+    const [appliedBg, setAppliedBg] = useState(DEFAULT_BACKGROUND_KEY);
     // 돌봄 알림 목록 — 더미 배열 대신 개체 일정에서 계산한다
     const notices = useMemo(() => buildCareNotices(plants), [plants]);
 
@@ -100,6 +105,14 @@ export default function MainApp({ user, onLogout }) {
             .then((rows) => {
                 const mapped = rows.map(toGardenPlant);
                 setPlants(mapped);
+                // 착용 중인 액세서리도 목록에 함께 와서 개체마다 조회하지 않는다
+                setDecorations(
+                    Object.fromEntries(
+                        rows
+                            .filter((row) => row.decoration_item_key)
+                            .map((row) => [String(row.id), row.decoration_item_key]),
+                    ),
+                );
                 // 캐릭터 이미지는 번들이 아니라 S3 URL이라 preload 대상이 아니다 —
                 // 목록을 받은 즉시 미리 받아둬서 정원/개체탭에서 늦게 뜨지 않게 한다
                 mapped.forEach((plant) => {
@@ -114,6 +127,27 @@ export default function MainApp({ user, onLogout }) {
     useEffect(() => {
         loadPlants();
     }, [loadPlants]);
+
+    // 저장된 홈 배경 — 못 읽으면 기본 배경 그대로 둔다
+    useEffect(() => {
+        getUserSettings()
+            .then((setting) => {
+                if (setting?.home_background_item_key) {
+                    setAppliedBg(setting.home_background_item_key);
+                }
+            })
+            .catch((error) => console.warn("홈 배경 설정 로드 실패:", error?.message));
+    }, []);
+
+    // 꾸미기 화면이 서버 저장에 성공하면 호출한다 (itemKey=null 이면 벗은 것)
+    const applyDecoration = useCallback((plantId, itemKey) => {
+        setDecorations((prev) => {
+            const next = { ...prev };
+            if (itemKey) next[String(plantId)] = itemKey;
+            else delete next[String(plantId)];
+            return next;
+        });
+    }, []);
 
     // 물주기 알림을 현재 일정에 맞춰 다시 맞춘다.
     // 다른 기기에서 물을 줬거나 주기를 바꿨으면 기기에 남은 예약이 어긋나기 때문.
@@ -238,7 +272,7 @@ export default function MainApp({ user, onLogout }) {
                     }}
                 >
                     {(props) => (
-                        <PlantDetailScreen {...props} appliedItem={appliedItem} />
+                        <PlantDetailScreen {...props} decorations={decorations} />
                     )}
                 </Stack.Screen>
 
@@ -313,8 +347,9 @@ export default function MainApp({ user, onLogout }) {
                     {(props) => (
                         <PlantDecorateScreen
                             {...props}
-                            appliedItem={appliedItem}
-                            setAppliedItem={setAppliedItem}
+                            plants={plants}
+                            decorations={decorations}
+                            applyDecoration={applyDecoration}
                             appliedBg={appliedBg}
                             setAppliedBg={setAppliedBg}
                         />
@@ -350,7 +385,7 @@ export default function MainApp({ user, onLogout }) {
                     }}
                 >
                     {(props) => (
-                        <MemorialPlantScreen {...props} appliedItem={appliedItem} />
+                        <MemorialPlantScreen {...props} decorations={decorations} />
                     )}
                 </Stack.Screen>
 
