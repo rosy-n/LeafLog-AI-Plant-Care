@@ -12,7 +12,14 @@ import { Image, StyleSheet, View } from "react-native";
     한쪽만 있으면 있는 쪽을 그대로 그린다(교체용 View 를 만들지 않는다).
 */
 export default function DecorImage({ remote, fallback, style, resizeMode = "contain" }) {
-    const [remoteReady, setRemoteReady] = useState(false);
+    /*
+        "다 받았다"를 boolean 이 아니라 URL 로 기억한다 — 미리보기처럼 한 자리에서
+        source 만 바뀌는 경우, boolean 이면 이전 아이템의 완료 상태가 남아
+        번들 사본이 가려진 채 새 URL 을 기다리는 동안 빈 칸이 보인다.
+    */
+    const [loadedUri, setLoadedUri] = useState(null);
+    const uri = remote?.uri ?? null;
+    const remoteReady = uri !== null && loadedUri === uri;
 
     if (!remote) {
         return fallback ? (
@@ -36,7 +43,7 @@ export default function DecorImage({ remote, fallback, style, resizeMode = "cont
                 source={remote}
                 style={[StyleSheet.absoluteFill, !remoteReady && styles.hidden]}
                 resizeMode={resizeMode}
-                onLoad={() => setRemoteReady(true)}
+                onLoad={() => setLoadedUri(uri)}
             />
         </View>
     );

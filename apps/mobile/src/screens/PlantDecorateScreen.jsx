@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     View,
     Text,
@@ -16,7 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import HeartsRow from "../components/HeartsRow";
-import { Colors, GreenTint, Leaf, Accent, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Leaf, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { plantImages } from "../data/plants";
 import {
@@ -145,56 +145,71 @@ export default function PlantDecorateScreen({
         [items],
     );
 
-    // 착용 중인 액세서리 — 서버(plant_decoration)에 저장된 키를 목록에서 찾아 맞춘다
-    const appliedKey = decorations?.[String(plant?.id)] ?? null;
+    // 착용 중인 액세서리 — 서버(plant_decoration)에 저장된 키를 목록에서 찾아 맞춘다.
+    // decorations 값은 { key, spriteUrl } 객체다 (App.js 참조)
+    const appliedKey = decorations?.[String(plant?.id)]?.key ?? null;
     const selectedItem = accessories.find((item) => item.key === appliedKey) ?? null;
+    // 맨 앞 "없음" 카드가 선택된 상태 (= 아무것도 착용하지 않음)
+    const noneSelected = !appliedKey;
 
-    // 저장 중에는 다음 탭을 받지 않는다 — 연달아 누르면 응답 순서가 뒤바뀔 수 있다
-    const [saving, setSaving] = useState(false);
+    /*
+        착용/배경 변경은 낙관적으로 반영한다 — 서버 왕복(원격 DB라 눈에 띈다)을 기다리면
+        누른 뒤 한 박자 늦게 바뀌어 반응이 없는 것처럼 보인다. 화면을 먼저 바꾸고
+        저장에 실패하면 되돌린다.
+
+        연달아 누르면 응답이 도착 순서대로 오지 않을 수 있어(A 요청 응답이 B 뒤에 오면
+        A 로 되돌아간다) 마지막 요청의 응답만 반영한다.
+    */
+    const decorSeq = useRef(0);
+    const bgSeq = useRef(0);
 
     const changeDecoration = async (next) => {
         const id = plant?.id;
-        if (!id || saving) return;
-        setSaving(true);
+        if (!id) return;
+        const previous = decorations?.[String(id)] ?? null;
+        const seq = ++decorSeq.current;
+
+        applyDecoration?.(id, next ? { key: next.key, spriteUrl: next.spriteUrl ?? null } : null);
         try {
             const saved = await setPlantDecoration(Number(id), next?.id ?? null);
-            // 서버 저장이 끝난 뒤에만 화면에 반영한다 (실패하면 이전 상태 그대로).
-            // 이미지 URL 은 응답 값을 쓴다 — 목록을 받은 뒤 갈아끼웠을 수도 있어서.
+            if (seq !== decorSeq.current) return;
+            // 서버가 준 값으로 한 번 더 맞춘다 — 목록을 받은 뒤 이미지가 바뀌었을 수도 있어서
             applyDecoration?.(
                 id,
                 saved?.item_key ? { key: saved.item_key, spriteUrl: saved.sprite_url ?? null } : null,
             );
         } catch (e) {
+            if (seq !== decorSeq.current) return;
+            applyDecoration?.(id, previous);
             Alert.alert("적용 실패", e?.message ?? "다시 시도해주세요.");
-        } finally {
-            setSaving(false);
         }
     };
 
     const handleItemPress = (item) => {
         if (item.requiredLevel > affinityLevel) return;
         // 착용 중인 아이템을 다시 누르면 벗는다
-        changeDecoration(selectedItem?.id === item.id ? null : item);
+        changeDecoration(item.key === appliedKey ? null : item);
     };
 
     // 배경은 홈 화면 전체에 적용된다 — 해제 개념이 없어 다시 눌러도 유지한다
     const handleBackgroundPress = async (background) => {
         if (background.requiredLevel > backgroundUnlockLevel) return;
-        if (appliedBgKey === background.key || saving) return;
+        if (appliedBgKey === background.key) return;
         const previous = homeBg;
+        const seq = ++bgSeq.current;
+
         setHomeBg?.({ key: background.key, url: background.url ?? null });
-        setSaving(true);
         try {
             const saved = await updateHomeBackground(background.id);
+            if (seq !== bgSeq.current) return;
             setHomeBg?.({
                 key: saved.home_background_item_key,
                 url: saved.home_background_image_url ?? null,
             });
         } catch (e) {
+            if (seq !== bgSeq.current) return;
             setHomeBg?.(previous);
             Alert.alert("배경 적용 실패", e?.message ?? "다시 시도해주세요.");
-        } finally {
-            setSaving(false);
         }
     };
 
@@ -331,9 +346,70 @@ export default function PlantDecorateScreen({
                                 showsHorizontalScrollIndicator={false}
                                 contentContainerStyle={styles.itemScroll}
                             >
+                                {/*
+                                    맨 앞은 "아이템 없음" — 아무것도 착용하지 않은 상태다.
+                                    다른 카드와 같은 방식으로 선택 표시가 되도록 같은 구조를 쓰고,
+                                    썸네일은 이 개체의 캐릭터(아이템 없는 모습)를 그대로 보여준다.
+                                */}
+                                <TouchableOpacity
+                                    activeOpacity={0.78}
+                                    // 이미 아무것도 안 쓴 상태면 보낼 게 없다
+                                    onPress={() => !noneSelected && changeDecoration(null)}
+                                    style={styles.itemCardWrap}
+                                >
+                                    <View
+                                        style={[
+                                            styles.itemCard,
+                                            noneSelected && styles.itemCardSelected,
+                                        ]}
+                                    >
+                                        <BlurView intensity={20} tint="light" style={styles.itemCardBlur}>
+                                            <LinearGradient
+                                                colors={[Glass.frost72, Glass.mist]}
+                                                start={{ x: 0.1, y: 0 }}
+                                                end={{ x: 1, y: 1 }}
+                                                style={styles.itemCardGradient}
+                                            >
+                                                <Image
+                                                    source={
+                                                        plant?.imageUri
+                                                            ? { uri: plant.imageUri }
+                                                            : plantImages[plant?.imageKey ?? "spaghetti"]
+                                                    }
+                                                    style={styles.itemImage}
+                                                    resizeMode="contain"
+                                                />
+
+                                                {noneSelected && (
+                                                    <View style={styles.selectedCheck}>
+                                                        <Ionicons
+                                                            name="checkmark"
+                                                            size={13}
+                                                            color={Colors.white}
+                                                        />
+                                                    </View>
+                                                )}
+                                            </LinearGradient>
+                                        </BlurView>
+                                    </View>
+
+                                    <View style={[styles.levelBadge, styles.levelBadgeUnlocked]}>
+                                        <Text
+                                            style={[styles.levelBadgeText, styles.levelBadgeTextUnlocked]}
+                                        >
+                                            기본
+                                        </Text>
+                                    </View>
+
+                                    <Text style={styles.itemLabel} numberOfLines={1}>
+                                        없음
+                                    </Text>
+                                </TouchableOpacity>
+
                                 {accessories.map((item) => {
                                     const isUnlocked = item.requiredLevel <= affinityLevel;
-                                    const isSelected = selectedItem?.id === item.id;
+                                    // 저장된 키로 판단한다 — 목록을 아직 못 받았을 때도 어긋나지 않게
+                                    const isSelected = item.key === appliedKey;
 
                                     return (
                                         <TouchableOpacity
@@ -356,12 +432,7 @@ export default function PlantDecorateScreen({
                                                 >
                                                     <LinearGradient
                                                         colors={
-                                                            isSelected
-                                                                ? [
-                                                                      Glass.leafBright,
-                                                                      Glass.leafSoft,
-                                                                  ]
-                                                                : isUnlocked
+                                                            isUnlocked
                                                                 ? [
                                                                       Glass.frost72,
                                                                       Glass.mist,
@@ -552,16 +623,6 @@ export default function PlantDecorateScreen({
                 </View>
 
                 </ScrollView>
-
-                {selectedItem && (
-                    <TouchableOpacity
-                        style={styles.removeButton}
-                        onPress={() => changeDecoration(null)}
-                        activeOpacity={0.75}
-                    >
-                        <Text style={styles.removeButtonText}>아이템 해제</Text>
-                    </TouchableOpacity>
-                )}
             </SafeAreaView>
         </View>
     );
@@ -575,9 +636,8 @@ const styles = StyleSheet.create({
     safe: {
         flex: 1,
     },
-    // 아래 "아이템 해제" 플로팅 버튼에 마지막 섹션이 가리지 않도록 여유를 둔다
     scrollContent: {
-        paddingBottom: 110,
+        paddingBottom: 32,
     },
 
     // Header
@@ -784,8 +844,9 @@ const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderColor: Glass.frost60,
     },
+    // 선택 표시는 면을 칠하지 않고 메인 녹색 테두리로만 — 아이템·배경 카드 공용
     itemCardSelected: {
-        borderColor: GreenTint.medium,
+        borderColor: Colors.primary,
         borderWidth: 2.5,
     },
     itemCardLocked: {
@@ -889,21 +950,4 @@ const styles = StyleSheet.create({
         height: "100%",
     },
 
-    removeButton: {
-        position: "absolute",
-        bottom: 42,
-        right: 24,
-        zIndex: 100,
-        paddingHorizontal: Spacing.section,
-        paddingVertical: Spacing.sm,
-        backgroundColor: Glass.warm14,
-        borderRadius: Radius.pill,
-        borderWidth: 1,
-        borderColor: Glass.warm35,
-    },
-    removeButtonText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Accent.rust,
-    },
 });
