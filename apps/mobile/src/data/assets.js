@@ -1,6 +1,7 @@
 import { Asset } from "expo-asset";
 
 import { plantImages } from "./plants";
+import { ACCESSORY_IMAGES, BACKGROUND_IMAGES } from "./decor";
 
 /*
     앱이 쓰는 번들 이미지 목록 — 시작할 때 한 번에 캐시로 올린다.
@@ -45,32 +46,14 @@ const ICONS = [
     require("../../assets/icons/watering_icon.png"),
 ];
 
-// 배경 — login-bg 는 로그인 전 랜딩에서 이미 로드되므로 여기 넣지 않는다
-const BACKGROUNDS = [
-    require("../../assets/images/home_clear_bg.png"),
-    require("../../assets/images/store_bg1.png"),
-    require("../../assets/images/store_bg2.png"),
-    require("../../assets/images/detail-bg.png"),
-];
-
-// 꾸미기 아이템 (카드용 아이콘 + 적용된 식물 이미지)
-const DECORATION_ITEMS = [
-    require("../../assets/items/level1_item.png"),
-    require("../../assets/items/level1_plants.png"),
-    require("../../assets/items/level2_item.png"),
-    require("../../assets/items/level2_plants.png"),
-    require("../../assets/items/level3_item.png"),
-    require("../../assets/items/level3_plants.png"),
-    require("../../assets/items/level4_item.png"),
-    require("../../assets/items/level4_plants.png"),
-    require("../../assets/items/level5_item.png"),
-    require("../../assets/items/level5_plants.png"),
-];
+// login-bg 는 로그인 전 랜딩에서 이미 로드되므로 여기 넣지 않는다
 
 export const BUNDLED_IMAGES = [
     ...ICONS,
-    ...BACKGROUNDS,
-    ...DECORATION_ITEMS,
+    // 꾸미기 아이템(카드 아이콘 + 캐릭터에 겹칠 이미지)과 배경 —
+    // decor.js 가 단일 출처라 여기서 다시 적지 않는다
+    ...Object.values(ACCESSORY_IMAGES).flatMap((images) => [images.card, images.plant]),
+    ...Object.values(BACKGROUND_IMAGES),
     // 도트 캐릭터 fallback — plants.js 가 단일 출처라 여기서 다시 적지 않는다
     ...Object.values(plantImages),
 ];

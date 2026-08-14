@@ -8,6 +8,8 @@ CREATE TABLE app_user (
     nickname            VARCHAR(100) NOT NULL,
     password_hash       TEXT,
     profile_image_url   TEXT,
+    -- 미사용 — 코인/스토어를 없애고 아이템·배경을 애정도 해금으로 바꿨다(6번 섹션).
+    -- 이미 만들어진 컬럼이라 남겨두지만 읽거나 쓰는 코드는 없다.
     coin_balance       INTEGER NOT NULL DEFAULT 0 CHECK (coin_balance >= 0),
     role                VARCHAR(30) DEFAULT 'USER'
                         CHECK (role IN ('USER', 'ADMIN')),
@@ -47,9 +49,9 @@ CREATE TABLE user_setting (
     -- null이면 날씨 알림 비활성
     default_location      VARCHAR(255),
 
-    -- 현재 홈 화면에 적용 중인 배경 아이템
-        home_background_item_id BIGINT
-            REFERENCES item(item_id) ON DELETE SET NULL,
+    -- (제거됨) home_background_item_id — 배경은 홈이 아니라 개체탭에 적용되고
+    -- 액세서리와 똑같이 개체별로 해금되므로 plant_decoration 으로 옮겼다.
+    -- 홈 배경은 고정이다. DDL: apps/api/scripts/drop-user-setting-home-background.sql
 
     created_at            TIMESTAMP    DEFAULT now(),
     updated_at            TIMESTAMP    DEFAULT now()
@@ -585,93 +587,60 @@ CREATE TABLE plant_character (
 
 
 -- =========================================================
--- 6. 아이템 / 인벤토리 / 간단 보상
+-- 6. 아이템 / 꾸미기
 -- =========================================================
+-- 코인/스토어를 없애고 애정도 해금으로 바꾸면서 설계를 줄였다. 원래 있던
+-- user_background(배경 보유)와 plant_accessory_unlock(개체별 해금 상태)은 만들지 않는다:
+--   - "보유"는 코인 구매와 함께 사라졌다. 액세서리도 배경도 개체마다 하나씩
+--     고르는 것뿐이라 plant_decoration 한 테이블이면 된다.
+--   - 해금은 저장하지 않고 계산한다 — app/affinity.py 의
+--     level_for_score(plant.affinity_score) >= item.required_level.
+--     해금을 행으로 스냅샷하면 LEVEL_THRESHOLDS 를 조정했을 때 옛 해금 행이 남아
+--     두 출처가 갈라진다(애정도 점수만 저장하는 원칙과 같은 이유).
+-- DDL: apps/api/scripts/add-item-tables.sql
 
 CREATE TABLE item (
     item_id          BIGSERIAL PRIMARY KEY,
+
+    -- 앱 번들 이미지 맵(apps/mobile/src/data/decor.js)의 키.
+    -- 이름/이미지가 바뀌어도 이 키는 고정이다. 아래 asset 이 비었거나 URL이
+    -- 만료됐을 때 앱이 이 키로 번들 이미지를 찾아 fallback 한다.
+    item_key         VARCHAR(50) UNIQUE NOT NULL,
+
     item_name        VARCHAR(100) NOT NULL,
 
     item_type        VARCHAR(30) NOT NULL
                      CHECK (item_type IN ('BACKGROUND', 'ACCESSORY')),
 
-    description      TEXT,
-
-    -- PURCHASE: 코인으로 구매
-    -- AFFINITY: 호감도 조건으로 해금
-    -- DEFAULT: 기본 제공
-    unlock_type      VARCHAR(30) NOT NULL DEFAULT 'PURCHASE'
-                     CHECK (unlock_type IN ('PURCHASE', 'AFFINITY', 'DEFAULT')),
-
-        -- 필요한 호감도 점수
-    required_affinity_score INTEGER,
-
-    price_coin       INTEGER DEFAULT 0 CHECK (price_coin >= 0),
-
+    -- 이미지 2종 (asset_type = 'ITEM_IMAGE'). DDL: apps/api/scripts/add-item-asset-columns.sql
+    --   asset_id        목록 카드 이미지 (액세서리 아이콘 / 배경 미리보기)
+    --   sprite_asset_id 그 액세서리를 착용한 캐릭터 이미지. 배경은 NULL.
+    --                   액세서리가 투명 오버레이가 아니라 "아이템을 쓴 캐릭터"
+    --                   통짜 이미지라 카드와 별개 파일이 필요해 컬럼을 하나 더 뒀다.
     asset_id         BIGINT REFERENCES media_asset(asset_id) ON DELETE SET NULL,
+    sprite_asset_id  BIGINT REFERENCES media_asset(asset_id) ON DELETE SET NULL,
+
+    -- 해금에 필요한 꽉 찬 하트 수. 0이면 기본 제공.
+    -- 점수(required_affinity_score)가 아니라 단계로 두는 이유:
+    -- 점수를 넣으면 affinity.py 의 LEVEL_THRESHOLDS 표가 DB에도 복제된다.
+    -- 상한 5는 affinity.MAX_HEARTS 와 같아야 한다.
+    required_level   SMALLINT NOT NULL DEFAULT 0
+                     CHECK (required_level BETWEEN 0 AND 5),
 
     is_active        BOOLEAN DEFAULT true,
     created_at       TIMESTAMP DEFAULT now(),
-    updated_at       TIMESTAMP DEFAULT now(),
-
-    CHECK (
-        (
-            item_type = 'BACKGROUND'
-            AND unlock_type = 'DEFAULT'
-            AND required_affinity_score IS NULL
-            AND price_coin = 0
-        )
-        OR
-        (
-            item_type = 'BACKGROUND'
-            AND unlock_type = 'PURCHASE'
-            AND required_affinity_score IS NULL
-            AND price_coin > 0
-        )
-        OR
-        (
-            item_type = 'ACCESSORY'
-            AND unlock_type = 'AFFINITY'
-            AND required_affinity_score IS NOT NULL
-            AND required_affinity_score >= 0
-            AND price_coin = 0
-        )
-    )
+    updated_at       TIMESTAMP DEFAULT now()
 );
 
--- 배경 아이템 보유용
--- 액세서리가 들어가지 않도록 앱 코드에서 막아야 함
-CREATE TABLE user_background (
-    inventory_id    BIGSERIAL PRIMARY KEY,
-    user_id         BIGINT NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
-    item_id         BIGINT NOT NULL REFERENCES item(item_id) ON DELETE CASCADE,
-
-    acquired_at      TIMESTAMP DEFAULT now(),
-
-    UNIQUE (user_id, item_id)
-);
-
--- 식물별 액세서리 해금 상태를 저장
-CREATE TABLE plant_accessory_unlock (
-    unlock_id       BIGSERIAL PRIMARY KEY,
-
-    plant_id        BIGINT NOT NULL
-                    REFERENCES plant(plant_id) ON DELETE CASCADE,
-
-    item_id         BIGINT NOT NULL
-                    REFERENCES item(item_id) ON DELETE CASCADE,
-
-    unlocked_at     TIMESTAMP DEFAULT now(),
-
-    UNIQUE (plant_id, item_id)
-);
-
--- 해금되지 않은 액세서리도 착용 가능 -> 코드로 제한해야 함
+-- 개체에 지금 적용된 꾸미기 (해금 검증은 서버 코드가 한다).
+-- 액세서리와 배경 모두 개체 단위라 한 테이블에 담고 position_key 로 나눈다.
 CREATE TABLE plant_decoration (
     decoration_id    BIGSERIAL PRIMARY KEY,
     plant_id         BIGINT NOT NULL REFERENCES plant(plant_id) ON DELETE CASCADE,
     item_id          BIGINT NOT NULL REFERENCES item(item_id) ON DELETE CASCADE,
-    -- 이 식물의 HEAD 위치에는 리본을 장착
+    -- 'HEAD'       이 식물의 머리 위치에 장착한 액세서리 (리본 등)
+    -- 'BACKGROUND' 이 식물의 개체탭 배경 (홈 배경은 고정이라 여기 없다)
+    -- UNIQUE (plant_id, position_key) 가 슬롯당 하나를 보장한다
     position_key     VARCHAR(50) NOT NULL,
     applied_at       TIMESTAMP DEFAULT now(),
 
