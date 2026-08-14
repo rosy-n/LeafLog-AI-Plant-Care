@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     View,
     Text,
@@ -20,47 +20,50 @@ import { Colors, GreenTint, Leaf, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { plantImages } from "../data/plants";
 import {
-    ACCESSORY_IMAGES,
+    accessoryCardBundle,
+    accessorySpriteBundle,
+    backgroundBundle,
     BACKGROUND_IMAGES,
     DEFAULT_BACKGROUND_KEY,
 } from "../data/decor";
-import {
-    getItems,
-    getPlantAffinity,
-    setPlantDecoration,
-    updateHomeBackground,
-} from "../api";
+import DecorImage from "../components/DecorImage";
+import { getPlantAffinity, setPlantDecoration, updateHomeBackground } from "../api";
 
 /*
-    꾸미기 아이템 — 이름과 requiredLevel("꽉 찬 하트 수")은 서버 item 테이블이 단일 출처다
-    (GET /api/items). 돌봄(물주기/영양제/분갈이)으로 애정도가 쌓여 하트가 한 칸
-    채워질 때마다 다음 아이템이 해금된다. 점수→하트 환산은 app/affinity.py 가 정한다.
+    꾸미기 아이템 — 이름·requiredLevel("꽉 찬 하트 수")·이미지 모두 서버 item 테이블이
+    단일 출처다(GET /api/items). 돌봄(물주기/영양제/분갈이)으로 애정도가 쌓여 하트가
+    한 칸 채워질 때마다 다음 아이템이 해금된다. 점수→하트 환산은 app/affinity.py 가 정한다.
 
-    이미지는 앱 번들이라 서버가 준 item_key 로 src/data/decor.js 에서 찾는다.
-    번들에 이미지가 없는 키(서버에 아이템만 먼저 추가된 경우)는 그려질 게 없어 건너뛴다.
+    이미지는 S3 URL 이 오면 그걸 쓰고, 아직 없으면(null) item_key 로 번들 이미지를 쓴다.
+    둘 다 없는 아이템은 그릴 게 없어 목록에서 뺀다.
 */
 function toAccessory(item) {
-    const images = ACCESSORY_IMAGES[item.item_key];
-    if (!images) return null;
+    const cardBundle = accessoryCardBundle(item.item_key);
+    if (!cardBundle && !item.image_url) return null;
     return {
         id: item.id,
         key: item.item_key,
         label: item.item_name,
         requiredLevel: item.required_level,
-        itemImage: images.card,
-        plantImage: images.plant,
+        // 원격/번들을 둘 다 넘긴다 — DecorImage 가 번들로 먼저 그리고 원격으로 바꿔 끼운다
+        cardBundle,
+        cardUrl: item.image_url,
+        spriteBundle: accessorySpriteBundle(item.item_key),
+        spriteUrl: item.sprite_url,
     };
 }
 
 function toBackground(item) {
-    const preview = BACKGROUND_IMAGES[item.item_key];
-    if (!preview) return null;
+    // backgroundBundle 은 모르는 키를 기본 배경으로 떨어뜨린다 —
+    // 목록에서는 엉뚱한 그림 대신 아예 빼야 하므로 여기서 먼저 걸러낸다
+    if (!item.image_url && !BACKGROUND_IMAGES[item.item_key]) return null;
     return {
         id: item.id,
         key: item.item_key,
         label: item.item_name,
         requiredLevel: item.required_level,
-        preview,
+        previewBundle: backgroundBundle(item.item_key),
+        url: item.image_url,
     };
 }
 
@@ -76,12 +79,15 @@ export default function PlantDecorateScreen({
     navigation,
     route,
     plants = [],
+    items = [],
+    reloadItems,
     decorations,
     applyDecoration,
-    appliedBg = DEFAULT_BACKGROUND_KEY,
-    setAppliedBg,
+    homeBg,
+    setHomeBg,
 }) {
     const plant = route?.params?.plant;
+    const appliedBgKey = homeBg?.key ?? DEFAULT_BACKGROUND_KEY;
 
     // 애정도 — 정원 목록에서 넘어온 값으로 먼저 그리고 서버 값으로 갱신한다.
     // 점수/하트/해금 단계와 다음 단계 기준은 모두 서버가 계산해서 내려준다.
@@ -121,27 +127,23 @@ export default function PlantDecorateScreen({
         affinityLevel,
     );
 
-    // 아이템 목록 — 서버에서 받아 번들 이미지가 있는 것만 남긴다
-    const [accessories, setAccessories] = useState([]);
-    const [backgrounds, setBackgrounds] = useState([]);
-
+    /*
+        아이템 목록은 App.js 가 앱 시작 때 받아 두고 이미지까지 미리 받아 놓는다 —
+        화면에 들어와서 조회하면 그 왕복 시간만큼 빈 화면이 보인다.
+        아직 못 받았거나 실패했으면(목록이 비어 있으면) 여기서 한 번 더 시도한다.
+    */
     useEffect(() => {
-        let active = true;
-        getItems()
-            .then((rows) => {
-                if (!active) return;
-                setAccessories(
-                    rows.filter((r) => r.item_type === "ACCESSORY").map(toAccessory).filter(Boolean),
-                );
-                setBackgrounds(
-                    rows.filter((r) => r.item_type === "BACKGROUND").map(toBackground).filter(Boolean),
-                );
-            })
-            .catch((e) => console.warn("꾸미기 아이템 조회 실패:", e?.message));
-        return () => {
-            active = false;
-        };
-    }, []);
+        if (items.length === 0) reloadItems?.();
+    }, [items.length, reloadItems]);
+
+    const accessories = useMemo(
+        () => items.filter((r) => r.item_type === "ACCESSORY").map(toAccessory).filter(Boolean),
+        [items],
+    );
+    const backgrounds = useMemo(
+        () => items.filter((r) => r.item_type === "BACKGROUND").map(toBackground).filter(Boolean),
+        [items],
+    );
 
     // 착용 중인 액세서리 — 서버(plant_decoration)에 저장된 키를 목록에서 찾아 맞춘다
     const appliedKey = decorations?.[String(plant?.id)] ?? null;
@@ -155,9 +157,13 @@ export default function PlantDecorateScreen({
         if (!id || saving) return;
         setSaving(true);
         try {
-            await setPlantDecoration(Number(id), next?.id ?? null);
-            // 서버 저장이 끝난 뒤에만 화면에 반영한다 (실패하면 이전 상태 그대로)
-            applyDecoration?.(id, next?.key ?? null);
+            const saved = await setPlantDecoration(Number(id), next?.id ?? null);
+            // 서버 저장이 끝난 뒤에만 화면에 반영한다 (실패하면 이전 상태 그대로).
+            // 이미지 URL 은 응답 값을 쓴다 — 목록을 받은 뒤 갈아끼웠을 수도 있어서.
+            applyDecoration?.(
+                id,
+                saved?.item_key ? { key: saved.item_key, spriteUrl: saved.sprite_url ?? null } : null,
+            );
         } catch (e) {
             Alert.alert("적용 실패", e?.message ?? "다시 시도해주세요.");
         } finally {
@@ -174,14 +180,18 @@ export default function PlantDecorateScreen({
     // 배경은 홈 화면 전체에 적용된다 — 해제 개념이 없어 다시 눌러도 유지한다
     const handleBackgroundPress = async (background) => {
         if (background.requiredLevel > backgroundUnlockLevel) return;
-        if (appliedBg === background.key || saving) return;
-        const previous = appliedBg;
-        setAppliedBg?.(background.key);
+        if (appliedBgKey === background.key || saving) return;
+        const previous = homeBg;
+        setHomeBg?.({ key: background.key, url: background.url ?? null });
         setSaving(true);
         try {
-            await updateHomeBackground(background.id);
+            const saved = await updateHomeBackground(background.id);
+            setHomeBg?.({
+                key: saved.home_background_item_key,
+                url: saved.home_background_image_url ?? null,
+            });
         } catch (e) {
-            setAppliedBg?.(previous);
+            setHomeBg?.(previous);
             Alert.alert("배경 적용 실패", e?.message ?? "다시 시도해주세요.");
         } finally {
             setSaving(false);
@@ -272,10 +282,10 @@ export default function PlantDecorateScreen({
                 <View style={styles.plantPreviewArea}>
                     <View style={styles.plantPreviewInner}>
                         {selectedItem ? (
-                            <Image
-                                source={selectedItem.plantImage}
+                            <DecorImage
+                                remote={selectedItem.spriteUrl ? { uri: selectedItem.spriteUrl } : null}
+                                fallback={selectedItem.spriteBundle}
                                 style={styles.plantPreviewImage}
-                                resizeMode="contain"
                             />
                         ) : (
                             <Image
@@ -365,13 +375,13 @@ export default function PlantDecorateScreen({
                                                         end={{ x: 1, y: 1 }}
                                                         style={styles.itemCardGradient}
                                                     >
-                                                        <Image
-                                                            source={item.itemImage}
+                                                        <DecorImage
+                                                            remote={item.cardUrl ? { uri: item.cardUrl } : null}
+                                                            fallback={item.cardBundle}
                                                             style={[
                                                                 styles.itemImage,
                                                                 !isUnlocked && styles.itemImageLocked,
                                                             ]}
-                                                            resizeMode="contain"
                                                         />
 
                                                         {!isUnlocked && (
@@ -454,7 +464,7 @@ export default function PlantDecorateScreen({
                                 {backgrounds.map((background) => {
                                     const isUnlocked =
                                         background.requiredLevel <= backgroundUnlockLevel;
-                                    const isApplied = appliedBg === background.key;
+                                    const isApplied = appliedBgKey === background.key;
 
                                     return (
                                         <TouchableOpacity
@@ -470,8 +480,9 @@ export default function PlantDecorateScreen({
                                                     !isUnlocked && styles.itemCardLocked,
                                                 ]}
                                             >
-                                                <Image
-                                                    source={background.preview}
+                                                <DecorImage
+                                                    remote={background.url ? { uri: background.url } : null}
+                                                    fallback={background.previewBundle}
                                                     style={[
                                                         styles.bgPreview,
                                                         !isUnlocked && styles.itemImageLocked,

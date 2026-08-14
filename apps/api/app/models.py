@@ -503,10 +503,19 @@ class Item(Base):
     __tablename__ = "item"
 
     item_id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    # 앱 번들 이미지 맵(apps/mobile/src/data/decor.js)의 키
+    # 앱 번들 이미지 맵(apps/mobile/src/data/decor.js)의 키 —
+    # 아래 asset 이 비었거나 URL이 만료됐을 때 앱이 이 키로 fallback 한다
     item_key: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     item_name: Mapped[str] = mapped_column(String(100), nullable=False)
     item_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    # 목록 카드 이미지 (액세서리 아이콘 / 배경 미리보기)
+    asset_id: Mapped[int | None] = mapped_column(
+        ForeignKey("media_asset.asset_id", ondelete="SET NULL"), nullable=True
+    )
+    # 그 액세서리를 착용한 캐릭터 이미지. 배경은 NULL
+    sprite_asset_id: Mapped[int | None] = mapped_column(
+        ForeignKey("media_asset.asset_id", ondelete="SET NULL"), nullable=True
+    )
     # 해금에 필요한 꽉 찬 하트 수 (0 = 기본 제공, 상한은 affinity.MAX_HEARTS)
     required_level: Mapped[int] = mapped_column(
         SmallInteger, nullable=False, default=0, server_default="0"

@@ -25,7 +25,7 @@ import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
 import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
 import AddPlantNavigator from "./src/screens/AddPlantNavigator";
-import { getPlants, getUserSettings } from "./src/api";
+import { getItems, getPlants, getUserSettings } from "./src/api";
 import { DEFAULT_BACKGROUND_KEY } from "./src/data/decor";
 import { syncWateringReminders } from "./src/notifications";
 import { buildCareNotices } from "./src/careNotices";
@@ -67,15 +67,19 @@ function toGardenPlant(plant) {
 // onLogout — 인증 상태는 App.tsx 가 들고 있어서 여기서는 콜백을 받아 설정 화면까지 내려준다
 export default function MainApp({ user, onLogout }) {
     const [plants, setPlants] = useState([]);
-    // 개체별로 착용 중인 액세서리 — { [plantId]: item_key }.
+    // 개체별로 착용 중인 액세서리 — { [plantId]: { key, spriteUrl } }.
     // 서버(plant_decoration)가 원본이고 목록 응답에 실려 온다. 화면들이 route 로 받은
     // 식물 스냅샷 대신 이 맵을 보게 해서, 꾸미고 돌아왔을 때 옛 값이 남지 않게 한다.
+    // spriteUrl 이 없으면(아직 S3에 이미지가 없으면) key 로 번들 이미지를 쓴다.
     const [decorations, setDecorations] = useState({});
+    // 꾸미기 아이템 마스터 (이름·해금 단계·이미지 URL). 서버가 단일 출처다
+    const [items, setItems] = useState([]);
     const [username, setUsername] = useState(user?.nickname ?? "식물집사");
     const [imagesLoaded, setImagesLoaded] = useState(false);
     // 홈 배경 — 애정도 단계로 해금되며 식물 꾸미기 탭에서 고른다 (코인/스토어 없음).
     // 서버 user_setting.home_background_item_id 에 저장된다.
-    const [appliedBg, setAppliedBg] = useState(DEFAULT_BACKGROUND_KEY);
+    // { key, url } — url 이 없으면 key 로 번들 이미지를 쓴다.
+    const [homeBg, setHomeBg] = useState({ key: DEFAULT_BACKGROUND_KEY, url: null });
     // 돌봄 알림 목록 — 더미 배열 대신 개체 일정에서 계산한다
     const notices = useMemo(() => buildCareNotices(plants), [plants]);
 
@@ -110,7 +114,13 @@ export default function MainApp({ user, onLogout }) {
                     Object.fromEntries(
                         rows
                             .filter((row) => row.decoration_item_key)
-                            .map((row) => [String(row.id), row.decoration_item_key]),
+                            .map((row) => [
+                                String(row.id),
+                                {
+                                    key: row.decoration_item_key,
+                                    spriteUrl: row.decoration_sprite_url ?? null,
+                                },
+                            ]),
                     ),
                 );
                 // 캐릭터 이미지는 번들이 아니라 S3 URL이라 preload 대상이 아니다 —
@@ -118,6 +128,12 @@ export default function MainApp({ user, onLogout }) {
                 mapped.forEach((plant) => {
                     if (plant.imageUri) {
                         Image.prefetch(plant.imageUri).catch(() => {});
+                    }
+                });
+                // 꾸미기 이미지도 S3 URL 이면 마찬가지로 미리 받아둔다
+                rows.forEach((row) => {
+                    if (row.decoration_sprite_url) {
+                        Image.prefetch(row.decoration_sprite_url).catch(() => {});
                     }
                 });
             })
@@ -128,22 +144,49 @@ export default function MainApp({ user, onLogout }) {
         loadPlants();
     }, [loadPlants]);
 
+    /*
+        꾸미기 아이템 목록 — 꾸미기 탭에 들어간 뒤 조회하면 왕복 시간만큼 빈 화면이 보여서
+        시작할 때 미리 받아 둔다. 이미지도 함께 미리 받아 두면 탭을 열자마자 그려진다
+        (번들 사본이 있어 그동안에도 빈 칸은 아니지만, 원격으로 바뀌는 순간이 빨라진다).
+    */
+    const loadItems = useCallback(() => {
+        getItems()
+            .then((rows) => {
+                setItems(rows);
+                rows.forEach((row) => {
+                    [row.image_url, row.sprite_url].forEach((url) => {
+                        if (url) Image.prefetch(url).catch(() => {});
+                    });
+                });
+            })
+            .catch((error) => console.warn("꾸미기 아이템 로드 실패:", error?.message));
+    }, []);
+
+    useEffect(() => {
+        loadItems();
+    }, [loadItems]);
+
     // 저장된 홈 배경 — 못 읽으면 기본 배경 그대로 둔다
     useEffect(() => {
         getUserSettings()
             .then((setting) => {
-                if (setting?.home_background_item_key) {
-                    setAppliedBg(setting.home_background_item_key);
+                if (!setting?.home_background_item_key) return;
+                setHomeBg({
+                    key: setting.home_background_item_key,
+                    url: setting.home_background_image_url ?? null,
+                });
+                if (setting.home_background_image_url) {
+                    Image.prefetch(setting.home_background_image_url).catch(() => {});
                 }
             })
             .catch((error) => console.warn("홈 배경 설정 로드 실패:", error?.message));
     }, []);
 
-    // 꾸미기 화면이 서버 저장에 성공하면 호출한다 (itemKey=null 이면 벗은 것)
-    const applyDecoration = useCallback((plantId, itemKey) => {
+    // 꾸미기 화면이 서버 저장에 성공하면 호출한다 (decoration=null 이면 벗은 것)
+    const applyDecoration = useCallback((plantId, decoration) => {
         setDecorations((prev) => {
             const next = { ...prev };
-            if (itemKey) next[String(plantId)] = itemKey;
+            if (decoration?.key) next[String(plantId)] = decoration;
             else delete next[String(plantId)];
             return next;
         });
@@ -234,7 +277,7 @@ export default function MainApp({ user, onLogout }) {
                     {(props) => (
                         <HomeScreen
                             {...props}
-                            appliedBg={appliedBg}
+                            homeBg={homeBg}
                             hasUnread={notices.some((n) => n.urgent)}
                             urgentCount={notices.filter((n) => n.urgent).length}
                         />
@@ -348,10 +391,12 @@ export default function MainApp({ user, onLogout }) {
                         <PlantDecorateScreen
                             {...props}
                             plants={plants}
+                            items={items}
+                            reloadItems={loadItems}
                             decorations={decorations}
                             applyDecoration={applyDecoration}
-                            appliedBg={appliedBg}
-                            setAppliedBg={setAppliedBg}
+                            homeBg={homeBg}
+                            setHomeBg={setHomeBg}
                         />
                     )}
                 </Stack.Screen>

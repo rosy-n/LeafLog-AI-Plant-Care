@@ -42,8 +42,10 @@ export type PlantListItem = {
   affinity_score: number;
   affinity_hearts: number;
   affinity_level: number;
-  // 착용 중인 꾸미기 액세서리의 item_key (src/data/decor.js 의 이미지 키). 없으면 null
+  // 착용 중인 꾸미기 액세서리. 없으면 null.
+  // sprite_url 이 null 이면 item_key 로 번들 이미지(src/data/decor.js)를 쓴다
   decoration_item_key: string | null;
+  decoration_sprite_url: string | null;
 };
 
 // 로그인/회원가입 후 받은 액세스 토큰을 앱 전역에서 공유 (메모리 보관)
@@ -401,8 +403,8 @@ export function petPlant(plantId: number) {
   });
 }
 
-// 꾸미기 아이템 — 이름과 해금 단계는 서버(item 테이블)가 단일 출처다.
-// 이미지는 앱 번들이라 item_key 로 src/data/decor.js 에서 찾는다.
+// 꾸미기 아이템 — 이름·해금 단계·이미지 모두 서버(item 테이블)가 단일 출처다.
+// *_url 이 null 이면 아직 S3에 이미지가 없다는 뜻 → item_key 로 번들 이미지를 쓴다.
 export type Item = {
   id: number;
   item_key: string;
@@ -410,6 +412,10 @@ export type Item = {
   item_type: "ACCESSORY" | "BACKGROUND";
   // 해금에 필요한 꽉 찬 하트 수 (0 = 기본 제공)
   required_level: number;
+  // 목록 카드 이미지 (액세서리 아이콘 / 배경 미리보기)
+  image_url: string | null;
+  // 그 액세서리를 착용한 캐릭터 이미지. 배경은 항상 null
+  sprite_url: string | null;
 };
 
 export function getItems(itemType?: "ACCESSORY" | "BACKGROUND") {
@@ -421,6 +427,7 @@ export function getItems(itemType?: "ACCESSORY" | "BACKGROUND") {
 export type PlantDecoration = {
   item_id: number | null;
   item_key: string | null;
+  sprite_url: string | null;
 };
 
 export function getPlantDecoration(plantId: number) {
@@ -541,9 +548,11 @@ export function personaChat(
 export type UserSettingResponse = {
   // region_data.Region.name과 정확히 일치하는 "서울특별시 마포구" 형태, 미설정이면 null
   default_location: string | null;
-  // 홈 배경 — 고르지 않았으면 id 는 null 이고 key 는 기본 배경("home-bg")이 온다
+  // 홈 배경 — 고르지 않았으면 id 는 null 이고 key 는 기본 배경("home-bg")이 온다.
+  // image_url 이 null 이면 key 로 번들 이미지를 쓴다
   home_background_item_id: number | null;
   home_background_item_key: string;
+  home_background_image_url: string | null;
 };
 
 // 홈 배경 변경 — itemId=null 이면 기본 배경으로 되돌린다.

@@ -16,7 +16,7 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { getCurrentEnvironment } from "../api";
-import { backgroundImage } from "../data/decor";
+import { backgroundSource, DEFAULT_BACKGROUND_KEY } from "../data/decor";
 
 const WEATHER_ICONS = {
     "맑음": require("../../assets/icons/sunny_icon.png"),
@@ -119,10 +119,12 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 export default function HomeScreen({
     navigation,
-    appliedBg = "home-bg",
+    // { key, url } — url 이 없으면 key 로 번들 이미지를 쓴다 (src/data/decor.js)
+    homeBg,
     hasUnread = false,
     urgentCount = 0,
 }) {
+    const bgKey = homeBg?.key ?? DEFAULT_BACKGROUND_KEY;
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [environment, setEnvironment] = useState(null);
@@ -195,7 +197,7 @@ export default function HomeScreen({
     return (
         <View style={styles.root}>
             <ImageBackground
-                source={backgroundImage(appliedBg)}
+                source={backgroundSource(homeBg)}
                 resizeMode="cover"
                 style={styles.background}
             >
@@ -264,7 +266,7 @@ export default function HomeScreen({
                 <View
                     style={[
                         styles.field,
-                        FIELD_BOUNDS[appliedBg] ?? FIELD_BOUNDS["home-bg"],
+                        FIELD_BOUNDS[bgKey] ?? FIELD_BOUNDS[DEFAULT_BACKGROUND_KEY],
                     ]}
                     pointerEvents="none"
                     onLayout={(event) => {

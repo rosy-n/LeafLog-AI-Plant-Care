@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from . import affinity, air_quality, asos, environment, persona_chat, region_data, weather
 from .config import settings
@@ -69,7 +69,7 @@ from .schemas import (
     WateringScheduleUpdate,
 )
 from .security import create_access_token, decode_access_token, hash_password, verify_password
-from .storage import presigned_get_url
+from .storage import bucket_from_url, presigned_get_url
 
 app = FastAPI(title="LeafLog API", version="0.1.0")
 
@@ -112,15 +112,27 @@ def _object_key_from_url(url: str) -> str:
 def _latest_character_url(plant_id: int, db: Session) -> str | None:
     """개체의 가장 최근 CHARACTER_IMAGE에 대한 presigned URL (실패 시 raw file_url)."""
     row = db.execute(
-        select(MediaAsset.object_key, MediaAsset.file_url)
+        select(MediaAsset.object_key, MediaAsset.file_url, MediaAsset.bucket_name)
         .where(MediaAsset.plant_id == plant_id, MediaAsset.asset_type == "CHARACTER_IMAGE")
         .order_by(MediaAsset.created_at.desc())
         .limit(1)
     ).first()
     if row is None:
         return None
-    object_key, file_url = row
-    return presigned_get_url(object_key) or file_url
+    return _asset_url(*row)
+
+
+def _asset_url(
+    object_key: str | None, file_url: str | None, bucket_name: str | None = None
+) -> str | None:
+    """media_asset 한 건의 표시용 URL — presign 되면 그걸, 아니면 저장된 file_url.
+
+    bucket_name 이 비어 있으면 기본 버킷(S3_BUCKET)의 객체로 본다.
+    공개 객체(예: leaflog/item-images/*)는 서명 없이 file_url 이 그대로 나간다.
+    """
+    if object_key is None and file_url is None:
+        return None
+    return presigned_get_url(object_key, bucket_name) or file_url
 
 
 def _parse_dt(value: str | None) -> datetime | None:
@@ -568,6 +580,7 @@ def create_plant(
             plant_id=plant.plant_id,
             object_key=_object_key_from_url(payload.capturedPhotoUri),
             file_url=payload.capturedPhotoUri,
+            bucket_name=bucket_from_url(payload.capturedPhotoUri),
             asset_type="PLANT_PHOTO",
             checksum=payload.photoChecksum or None,
         ))
@@ -577,6 +590,7 @@ def create_plant(
             plant_id=plant.plant_id,
             object_key=_object_key_from_url(payload.characterImageUrl),
             file_url=payload.characterImageUrl,
+            bucket_name=bucket_from_url(payload.characterImageUrl),
             asset_type="CHARACTER_IMAGE",
             checksum=payload.characterChecksum or None,
         ))
@@ -627,25 +641,39 @@ def list_plants(
     char_map: dict[int, str] = {}
     if plant_ids:
         char_rows = db.execute(
-            select(MediaAsset.plant_id, MediaAsset.object_key, MediaAsset.file_url)
+            select(
+                MediaAsset.plant_id,
+                MediaAsset.object_key,
+                MediaAsset.file_url,
+                MediaAsset.bucket_name,
+            )
             .where(
                 MediaAsset.plant_id.in_(plant_ids),
                 MediaAsset.asset_type == "CHARACTER_IMAGE",
             )
             .order_by(MediaAsset.created_at.desc())
         ).all()
-        for pid, object_key, file_url in char_rows:
-            char_map.setdefault(pid, presigned_get_url(object_key) or file_url)
+        for pid, object_key, file_url, bucket_name in char_rows:
+            char_map.setdefault(pid, _asset_url(object_key, file_url, bucket_name))
 
-    # 착용 중인 꾸미기 액세서리 — 개체마다 조회하지 않도록 한 번에 모은다
-    decoration_map: dict[int, str] = {}
+    # 착용 중인 꾸미기 액세서리 — 개체마다 조회하지 않도록 한 번에 모은다.
+    # 이미지가 S3에 없으면 sprite URL 이 None 이고, 앱은 item_key 로 번들 이미지를 쓴다.
+    decoration_map: dict[int, tuple[str, str | None]] = {}
     if plant_ids:
-        for pid, item_key in db.execute(
-            select(PlantDecoration.plant_id, Item.item_key)
+        sprite = aliased(MediaAsset)
+        for pid, item_key, object_key, file_url, bucket_name in db.execute(
+            select(
+                PlantDecoration.plant_id,
+                Item.item_key,
+                sprite.object_key,
+                sprite.file_url,
+                sprite.bucket_name,
+            )
             .join(Item, Item.item_id == PlantDecoration.item_id)
+            .join(sprite, sprite.asset_id == Item.sprite_asset_id, isouter=True)
             .where(PlantDecoration.plant_id.in_(plant_ids))
         ).all():
-            decoration_map[pid] = item_key
+            decoration_map[pid] = (item_key, _asset_url(object_key, file_url, bucket_name))
 
     # 물주기 일정 — 개체마다 조회하지 않고 두 번의 쿼리로 모은다
     schedule_map: dict[int, CareSchedule] = {}
@@ -700,7 +728,8 @@ def list_plants(
                 affinity_score=score,
                 affinity_hearts=affinity.hearts_for_score(score),
                 affinity_level=affinity.level_for_score(score),
-                decoration_item_key=decoration_map.get(plant.plant_id),
+                decoration_item_key=decoration_map.get(plant.plant_id, (None, None))[0],
+                decoration_sprite_url=decoration_map.get(plant.plant_id, (None, None))[1],
             )
         )
     return items
@@ -1053,21 +1082,51 @@ def _active_item_or_404(item_id: int, item_type: str, db: Session) -> Item:
     return item
 
 
+def _item_sprite_url(item: Item, db: Session) -> str | None:
+    """액세서리를 착용한 캐릭터 이미지 URL. 아직 S3에 올리지 않았으면 None."""
+    if item.sprite_asset_id is None:
+        return None
+    row = db.execute(
+        select(MediaAsset.object_key, MediaAsset.file_url, MediaAsset.bucket_name).where(
+            MediaAsset.asset_id == item.sprite_asset_id
+        )
+    ).first()
+    return _asset_url(*row) if row else None
+
+
 @app.get("/api/items", response_model=list[ItemRead])
 def list_items(
     item_type: str | None = Query(default=None, description="ACCESSORY | BACKGROUND"),
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[ItemRead]:
-    """꾸미기 아이템 목록. 이미지는 앱 번들이라 item_key 로 찾아 쓴다.
+    """꾸미기 아이템 목록.
+
+    이미지는 S3(media_asset)에 올린 게 있으면 그 URL을, 없으면 null 을 준다 —
+    앱은 null 일 때 item_key 로 번들 이미지를 그린다.
 
     해금 여부는 내려보내지 않는다 — 액세서리는 개체마다, 배경은 유저 전체 기준이라
     조건이 달라서, 앱이 required_level 과 해당 애정도 단계를 비교한다.
     """
-    query = select(Item).where(Item.is_active.is_(True))
+    card = aliased(MediaAsset)
+    sprite = aliased(MediaAsset)
+    query = (
+        select(
+            Item,
+            card.object_key,
+            card.file_url,
+            card.bucket_name,
+            sprite.object_key,
+            sprite.file_url,
+            sprite.bucket_name,
+        )
+        .join(card, card.asset_id == Item.asset_id, isouter=True)
+        .join(sprite, sprite.asset_id == Item.sprite_asset_id, isouter=True)
+        .where(Item.is_active.is_(True))
+    )
     if item_type is not None:
         query = query.where(Item.item_type == item_type)
-    rows = db.scalars(query.order_by(Item.required_level, Item.item_id)).all()
+    rows = db.execute(query.order_by(Item.required_level, Item.item_id)).all()
     return [
         ItemRead(
             id=item.item_id,
@@ -1075,8 +1134,10 @@ def list_items(
             item_name=item.item_name,
             item_type=item.item_type,
             required_level=item.required_level,
+            image_url=_asset_url(card_key, card_url, card_bucket),
+            sprite_url=_asset_url(sprite_key, sprite_url, sprite_bucket),
         )
-        for item in rows
+        for item, card_key, card_url, card_bucket, sprite_key, sprite_url, sprite_bucket in rows
     ]
 
 
@@ -1088,9 +1149,17 @@ def get_plant_decoration(
 ) -> PlantDecorationRead:
     """개체가 착용 중인 액세서리. 없으면 두 필드 모두 null."""
     plant = _owned_plant_or_404(plant_id, current_user, db)
+    sprite = aliased(MediaAsset)
     row = db.execute(
-        select(PlantDecoration.item_id, Item.item_key)
+        select(
+            PlantDecoration.item_id,
+            Item.item_key,
+            sprite.object_key,
+            sprite.file_url,
+            sprite.bucket_name,
+        )
         .join(Item, Item.item_id == PlantDecoration.item_id)
+        .join(sprite, sprite.asset_id == Item.sprite_asset_id, isouter=True)
         .where(
             PlantDecoration.plant_id == plant.plant_id,
             PlantDecoration.position_key == ACCESSORY_POSITION_KEY,
@@ -1098,7 +1167,12 @@ def get_plant_decoration(
     ).first()
     if row is None:
         return PlantDecorationRead()
-    return PlantDecorationRead(item_id=row[0], item_key=row[1])
+    item_id, item_key, object_key, file_url, bucket_name = row
+    return PlantDecorationRead(
+        item_id=item_id,
+        item_key=item_key,
+        sprite_url=_asset_url(object_key, file_url, bucket_name),
+    )
 
 
 @app.put("/api/plants/{plant_id}/decoration", response_model=PlantDecorationRead)
@@ -1146,7 +1220,11 @@ def set_plant_decoration(
         current.item_id = item.item_id
         current.applied_at = datetime.now(timezone.utc)
     db.commit()
-    return PlantDecorationRead(item_id=item.item_id, item_key=item.item_key)
+    return PlantDecorationRead(
+        item_id=item.item_id,
+        item_key=item.item_key,
+        sprite_url=_item_sprite_url(item, db),
+    )
 
 
 @app.delete("/api/plants/{plant_id}/care-records/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -1226,14 +1304,29 @@ def update_me(
 
 
 def _settings_read(setting: UserSetting | None, db: Session) -> UserSettingRead:
-    """설정 응답. 홈 배경은 앱이 번들 이미지를 찾을 수 있게 item_key 까지 함께 준다."""
+    """설정 응답. 홈 배경은 이미지 URL 과, 그게 없을 때 쓸 item_key 를 함께 준다."""
     item_id = setting.home_background_item_id if setting else None
-    item_key = db.scalar(select(Item.item_key).where(Item.item_id == item_id)) if item_id else None
+    row = (
+        db.execute(
+            select(
+                Item.item_key,
+                MediaAsset.object_key,
+                MediaAsset.file_url,
+                MediaAsset.bucket_name,
+            )
+            .join(MediaAsset, MediaAsset.asset_id == Item.asset_id, isouter=True)
+            .where(Item.item_id == item_id)
+        ).first()
+        if item_id
+        else None
+    )
+    item_key, object_key, file_url, bucket_name = row if row else (None, None, None, None)
     return UserSettingRead(
         default_location=setting.default_location if setting else None,
         home_background_item_id=item_id,
         # 고르지 않았거나 아이템이 사라졌으면 기본 배경으로 그린다
         home_background_item_key=item_key or DEFAULT_BACKGROUND_ITEM_KEY,
+        home_background_image_url=_asset_url(object_key, file_url, bucket_name),
     )
 
 
