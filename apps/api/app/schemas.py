@@ -379,10 +379,14 @@ class PlantListItem(BaseModel):
     affinity_hearts: float = 0
     affinity_level: int = 0
 
-    # 착용 중인 꾸미기 액세서리 — 개체마다 따로 조회하지 않도록 함께 싣는다.
-    # 없으면 착용 안 한 것. sprite_url 이 null 이면 앱이 item_key 로 번들 이미지를 쓴다.
+    # 개체에 적용된 꾸미기 — 개체마다 따로 조회하지 않도록 함께 싣는다.
+    # *_url 이 null 이면 앱이 item_key 로 번들 이미지를 쓴다.
+    # decoration_* 는 착용 액세서리(없으면 null), background_* 는 개체탭 배경
+    # (고르지 않았으면 기본 배경 키).
     decoration_item_key: str | None = None
     decoration_sprite_url: str | None = None
+    background_item_key: str | None = None
+    background_image_url: str | None = None
 
     persona: str | None = None
     created_at: str
@@ -416,19 +420,22 @@ class PlantDecorationRead(BaseModel):
     sprite_url: str | None = None
 
 
+class PlantBackgroundUpdate(BaseModel):
+    # 이 개체의 개체탭 배경. null 이면 기본 배경으로 되돌린다.
+    item_id: int | None = None
+
+
+class PlantBackgroundRead(BaseModel):
+    item_id: int | None = None
+    # 고르지 않았으면 기본 배경 키('home-bg')가 들어간다
+    item_key: str | None = None
+    # null 이면 앱이 item_key 로 번들 이미지를 쓴다
+    image_url: str | None = None
+
+
 class UserSettingRead(BaseModel):
     # default_location은 region_data.Region.name과 정확히 일치("서울특별시 마포구" 형태)
     default_location: str | None = None
-    # 홈 배경 — 고르지 않았으면 기본 배경 키('home-bg')가 들어간다.
-    # image_url 이 null 이면 앱이 key 로 번들 이미지를 쓴다.
-    home_background_item_id: int | None = None
-    home_background_item_key: str | None = None
-    home_background_image_url: str | None = None
-
-
-class HomeBackgroundUpdate(BaseModel):
-    # 적용할 배경 아이템. null 이면 기본 배경으로 되돌린다.
-    item_id: int | None = None
 
 
 class UserSettingUpdate(BaseModel):

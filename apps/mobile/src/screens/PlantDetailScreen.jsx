@@ -39,7 +39,7 @@ import {
     getPlantAffinity,
     petPlant,
 } from "../api";
-import { accessorySpriteBundle } from "../data/decor";
+import { accessorySpriteBundle, backgroundSource } from "../data/decor";
 import DecorImage from "../components/DecorImage";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper, Pink } from "../../constants/colors";
@@ -104,9 +104,12 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
     // 착용 중인 액세서리 — route 로 받은 식물 스냅샷이 아니라 App.js 의 맵에서 찾는다
     // (꾸미기 탭에서 바꾸고 돌아왔을 때 옛 값이 남지 않게).
     const decoration = decorations?.[String(plant?.id)] ?? null;
-    const decorRemote = decoration?.spriteUrl ? { uri: decoration.spriteUrl } : null;
-    const decorBundle = accessorySpriteBundle(decoration?.key);
+    const accessory = decoration?.accessory ?? null;
+    const decorRemote = accessory?.spriteUrl ? { uri: accessory.spriteUrl } : null;
+    const decorBundle = accessorySpriteBundle(accessory?.key);
     const hasDecor = Boolean(decorRemote || decorBundle);
+    // 개체탭 배경도 개체마다 다르다 — 고르지 않았으면 기본 배경
+    const background = decoration?.background ?? null;
     const plantName = plant?.name ?? "스파게티";
     const togetherDays = daysSince(plant?.createdAt);
 
@@ -513,7 +516,8 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
     return (
         <View style={styles.root}>
             <ImageBackground
-                source={require("../../assets/images/detail-bg.png")}
+                // 이 개체에 적용된 배경 (꾸미기 탭에서 고른다. 해금·저장은 서버가 관리)
+                source={backgroundSource(background)}
                 resizeMode="cover"
                 style={styles.background}
             >

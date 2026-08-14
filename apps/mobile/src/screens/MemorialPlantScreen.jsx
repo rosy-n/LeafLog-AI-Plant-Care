@@ -37,9 +37,9 @@ let heartIdCounter = 0;
 export default function MemorialPlantScreen({ navigation, route, decorations }) {
     const plant = route?.params?.plant;
     // 착용 중인 액세서리 — App.js 의 맵에서 찾는다 (PlantDetailScreen 과 같은 방식)
-    const decoration = decorations?.[String(plant?.id)] ?? null;
-    const decorRemote = decoration?.spriteUrl ? { uri: decoration.spriteUrl } : null;
-    const decorBundle = accessorySpriteBundle(decoration?.key);
+    const accessory = decorations?.[String(plant?.id)]?.accessory ?? null;
+    const decorRemote = accessory?.spriteUrl ? { uri: accessory.spriteUrl } : null;
+    const decorBundle = accessorySpriteBundle(accessory?.key);
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [graveModalVisible, setGraveModalVisible] = useState(false);

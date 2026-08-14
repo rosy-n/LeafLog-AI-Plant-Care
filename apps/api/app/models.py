@@ -531,7 +531,11 @@ class Item(Base):
 
 
 class PlantDecoration(Base):
-    """개체가 지금 착용 중인 액세서리 — position_key 당 한 개."""
+    """개체에 지금 적용된 꾸미기 — position_key 당 한 개.
+
+    'HEAD' = 착용 중인 액세서리, 'BACKGROUND' = 개체탭 배경.
+    배경도 액세서리와 똑같이 개체마다 적용되고 그 개체의 애정도로 해금된다.
+    """
 
     __tablename__ = "plant_decoration"
 
@@ -554,18 +558,15 @@ class PlantDecoration(Base):
 class UserSetting(Base):
     __tablename__ = "user_setting"
 
-    # docs/database-schema.sql의 user_setting 전체 컬럼 중 날씨/대기질(default_location)과
-    # 홈 배경(home_background_item_id)만 구현한다. push_enabled 등 알림 관련 컬럼은 제외.
+    # docs/database-schema.sql의 user_setting 전체 컬럼 중 날씨/대기질 기능
+    # 범위(default_location)만 구현한다. push_enabled 등 알림 관련 컬럼은 제외.
+    # 배경은 개체별이라 여기가 아니라 plant_decoration 에 있다.
     setting_id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(
         ForeignKey("app_user.user_id", ondelete="CASCADE"), unique=True, nullable=False
     )
     # "서울특별시 마포구" 형태 — region_data.Region.name과 정확히 일치해야 한다.
     default_location: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    # 홈 화면에 적용 중인 배경. NULL 이면 기본 배경(item_key = 'home-bg').
-    home_background_item_id: Mapped[int | None] = mapped_column(
-        ForeignKey("item.item_id", ondelete="SET NULL"), nullable=True
-    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 

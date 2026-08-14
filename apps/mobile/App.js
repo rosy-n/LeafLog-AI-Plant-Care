@@ -25,7 +25,7 @@ import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
 import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
 import AddPlantNavigator from "./src/screens/AddPlantNavigator";
-import { getItems, getPlants, getUserSettings } from "./src/api";
+import { getItems, getPlants } from "./src/api";
 import { DEFAULT_BACKGROUND_KEY } from "./src/data/decor";
 import { syncWateringReminders } from "./src/notifications";
 import { buildCareNotices } from "./src/careNotices";
@@ -67,19 +67,20 @@ function toGardenPlant(plant) {
 // onLogout — 인증 상태는 App.tsx 가 들고 있어서 여기서는 콜백을 받아 설정 화면까지 내려준다
 export default function MainApp({ user, onLogout }) {
     const [plants, setPlants] = useState([]);
-    // 개체별로 착용 중인 액세서리 — { [plantId]: { key, spriteUrl } }.
-    // 서버(plant_decoration)가 원본이고 목록 응답에 실려 온다. 화면들이 route 로 받은
-    // 식물 스냅샷 대신 이 맵을 보게 해서, 꾸미고 돌아왔을 때 옛 값이 남지 않게 한다.
-    // spriteUrl 이 없으면(아직 S3에 이미지가 없으면) key 로 번들 이미지를 쓴다.
+    /*
+        개체별 꾸미기 —
+        { [plantId]: { accessory: { key, spriteUrl } | null, background: { key, url } } }
+
+        액세서리도 배경도 개체 단위이고 그 개체의 애정도로 해금된다(홈 배경은 고정).
+        서버(plant_decoration)가 원본이고 목록 응답에 실려 온다. 화면들이 route 로 받은
+        식물 스냅샷 대신 이 맵을 보게 해서, 꾸미고 돌아왔을 때 옛 값이 남지 않게 한다.
+        url 이 없으면(아직 S3에 이미지가 없으면) key 로 번들 이미지를 쓴다.
+    */
     const [decorations, setDecorations] = useState({});
     // 꾸미기 아이템 마스터 (이름·해금 단계·이미지 URL). 서버가 단일 출처다
     const [items, setItems] = useState([]);
     const [username, setUsername] = useState(user?.nickname ?? "식물집사");
     const [imagesLoaded, setImagesLoaded] = useState(false);
-    // 홈 배경 — 애정도 단계로 해금되며 식물 꾸미기 탭에서 고른다 (코인/스토어 없음).
-    // 서버 user_setting.home_background_item_id 에 저장된다.
-    // { key, url } — url 이 없으면 key 로 번들 이미지를 쓴다.
-    const [homeBg, setHomeBg] = useState({ key: DEFAULT_BACKGROUND_KEY, url: null });
     // 돌봄 알림 목록 — 더미 배열 대신 개체 일정에서 계산한다
     const notices = useMemo(() => buildCareNotices(plants), [plants]);
 
@@ -109,18 +110,24 @@ export default function MainApp({ user, onLogout }) {
             .then((rows) => {
                 const mapped = rows.map(toGardenPlant);
                 setPlants(mapped);
-                // 착용 중인 액세서리도 목록에 함께 와서 개체마다 조회하지 않는다
+                // 적용된 꾸미기도 목록에 함께 와서 개체마다 조회하지 않는다
                 setDecorations(
                     Object.fromEntries(
-                        rows
-                            .filter((row) => row.decoration_item_key)
-                            .map((row) => [
-                                String(row.id),
-                                {
-                                    key: row.decoration_item_key,
-                                    spriteUrl: row.decoration_sprite_url ?? null,
+                        rows.map((row) => [
+                            String(row.id),
+                            {
+                                accessory: row.decoration_item_key
+                                    ? {
+                                          key: row.decoration_item_key,
+                                          spriteUrl: row.decoration_sprite_url ?? null,
+                                      }
+                                    : null,
+                                background: {
+                                    key: row.background_item_key ?? DEFAULT_BACKGROUND_KEY,
+                                    url: row.background_image_url ?? null,
                                 },
-                            ]),
+                            },
+                        ]),
                     ),
                 );
                 // 캐릭터 이미지는 번들이 아니라 S3 URL이라 preload 대상이 아니다 —
@@ -132,9 +139,9 @@ export default function MainApp({ user, onLogout }) {
                 });
                 // 꾸미기 이미지도 S3 URL 이면 마찬가지로 미리 받아둔다
                 rows.forEach((row) => {
-                    if (row.decoration_sprite_url) {
-                        Image.prefetch(row.decoration_sprite_url).catch(() => {});
-                    }
+                    [row.decoration_sprite_url, row.background_image_url].forEach((url) => {
+                        if (url) Image.prefetch(url).catch(() => {});
+                    });
                 });
             })
             .catch((error) => console.warn("식물 목록 로드 실패:", error?.message));
@@ -166,29 +173,15 @@ export default function MainApp({ user, onLogout }) {
         loadItems();
     }, [loadItems]);
 
-    // 저장된 홈 배경 — 못 읽으면 기본 배경 그대로 둔다
-    useEffect(() => {
-        getUserSettings()
-            .then((setting) => {
-                if (!setting?.home_background_item_key) return;
-                setHomeBg({
-                    key: setting.home_background_item_key,
-                    url: setting.home_background_image_url ?? null,
-                });
-                if (setting.home_background_image_url) {
-                    Image.prefetch(setting.home_background_image_url).catch(() => {});
-                }
-            })
-            .catch((error) => console.warn("홈 배경 설정 로드 실패:", error?.message));
-    }, []);
-
-    // 꾸미기 화면이 서버 저장에 성공하면 호출한다 (decoration=null 이면 벗은 것)
-    const applyDecoration = useCallback((plantId, decoration) => {
+    /*
+        꾸미기 화면이 슬롯 하나를 바꿀 때 호출한다 (낙관적 반영 → 서버 저장 → 확정).
+        slot 은 'accessory' | 'background', value 는 { key, ... } 또는 null(액세서리 해제).
+        배경은 해제 대신 기본 배경 키가 들어온다.
+    */
+    const applyDecoration = useCallback((plantId, slot, value) => {
         setDecorations((prev) => {
-            const next = { ...prev };
-            if (decoration?.key) next[String(plantId)] = decoration;
-            else delete next[String(plantId)];
-            return next;
+            const id = String(plantId);
+            return { ...prev, [id]: { ...(prev[id] ?? {}), [slot]: value } };
         });
     }, []);
 
@@ -277,7 +270,6 @@ export default function MainApp({ user, onLogout }) {
                     {(props) => (
                         <HomeScreen
                             {...props}
-                            homeBg={homeBg}
                             hasUnread={notices.some((n) => n.urgent)}
                             urgentCount={notices.filter((n) => n.urgent).length}
                         />
@@ -390,13 +382,10 @@ export default function MainApp({ user, onLogout }) {
                     {(props) => (
                         <PlantDecorateScreen
                             {...props}
-                            plants={plants}
                             items={items}
                             reloadItems={loadItems}
                             decorations={decorations}
                             applyDecoration={applyDecoration}
-                            homeBg={homeBg}
-                            setHomeBg={setHomeBg}
                         />
                     )}
                 </Stack.Screen>

@@ -9,6 +9,7 @@
 --   - user_background / plant_accessory_unlock 은 만들지 않는다 — "보유"는 코인과 함께
 --     사라졌고, 해금은 affinity.level_for_score(plant.affinity_score) 로 계산한다
 --     (해금을 행으로 저장하면 기준을 바꿔도 옛 해금이 남아 두 출처가 갈라진다).
+--     배경도 액세서리와 똑같이 개체별로 적용·해금되므로 plant_decoration 에 함께 넣는다.
 --   - asset_id(media_asset) 대신 item_key — 아이템 이미지가 아직 앱 번들이라
 --     앱의 이미지 맵(src/data/decor.js) 키와 맞춘다. S3로 옮길 때 asset_id 를 추가한다.
 --
@@ -40,8 +41,10 @@ CREATE TABLE IF NOT EXISTS item (
     updated_at     TIMESTAMP DEFAULT now()
 );
 
--- 개체가 지금 착용 중인 액세서리. position_key 당 하나 —
--- 현재 UI는 슬롯이 하나뿐이라 'HEAD' 만 쓰지만, 슬롯이 늘어도 스키마는 그대로다.
+-- 개체에 지금 적용된 꾸미기. position_key 당 하나씩 —
+--   'HEAD'        착용 중인 액세서리
+--   'BACKGROUND'  개체탭 배경 (홈 배경은 고정이라 여기 들어가지 않는다)
+-- 슬롯이 늘어도 스키마는 그대로 쓸 수 있다.
 CREATE TABLE IF NOT EXISTS plant_decoration (
     decoration_id  BIGSERIAL PRIMARY KEY,
     plant_id       BIGINT NOT NULL REFERENCES plant(plant_id) ON DELETE CASCADE,
@@ -51,11 +54,6 @@ CREATE TABLE IF NOT EXISTS plant_decoration (
 
     UNIQUE (plant_id, position_key)
 );
-
--- 홈 화면에 적용 중인 배경 (유저당 하나라 별도 테이블 대신 설정 컬럼)
-ALTER TABLE user_setting
-    ADD COLUMN IF NOT EXISTS home_background_item_id BIGINT
-        REFERENCES item(item_id) ON DELETE SET NULL;
 
 -- 아이템 시드 — 이름/해금 단계는 서버가, 이미지는 앱 번들이 들고 있다.
 -- item_key 는 src/data/decor.js 의 키와 정확히 같아야 한다.

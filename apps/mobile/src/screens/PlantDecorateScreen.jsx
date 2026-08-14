@@ -27,7 +27,7 @@ import {
     DEFAULT_BACKGROUND_KEY,
 } from "../data/decor";
 import DecorImage from "../components/DecorImage";
-import { getPlantAffinity, setPlantDecoration, updateHomeBackground } from "../api";
+import { getPlantAffinity, setPlantBackground, setPlantDecoration } from "../api";
 
 /*
     꾸미기 아이템 — 이름·requiredLevel("꽉 찬 하트 수")·이미지 모두 서버 item 테이블이
@@ -78,16 +78,12 @@ function daysSince(iso) {
 export default function PlantDecorateScreen({
     navigation,
     route,
-    plants = [],
     items = [],
     reloadItems,
     decorations,
     applyDecoration,
-    homeBg,
-    setHomeBg,
 }) {
     const plant = route?.params?.plant;
-    const appliedBgKey = homeBg?.key ?? DEFAULT_BACKGROUND_KEY;
 
     // 애정도 — 정원 목록에서 넘어온 값으로 먼저 그리고 서버 값으로 갱신한다.
     // 점수/하트/해금 단계와 다음 단계 기준은 모두 서버가 계산해서 내려준다.
@@ -117,17 +113,6 @@ export default function PlantDecorateScreen({
     const progressPercent = affinity.level_progress_pct ?? 0;
 
     /*
-        배경 해금 기준은 개체가 아니라 "개체 중 가장 높은 단계"다 —
-        배경은 홈 전체에 적용되는데 애정도는 개체별이라, 한 마리를 잘 키운 보상이
-        홈에 남게 하려는 것. 서버(PATCH /api/settings/home-background)도 같은 기준으로
-        검증하므로 여기서 다르게 그리면 눌러도 403이 난다.
-    */
-    const backgroundUnlockLevel = plants.reduce(
-        (best, row) => Math.max(best, row?.affinityLevel ?? 0),
-        affinityLevel,
-    );
-
-    /*
         아이템 목록은 App.js 가 앱 시작 때 받아 두고 이미지까지 미리 받아 놓는다 —
         화면에 들어와서 조회하면 그 왕복 시간만큼 빈 화면이 보인다.
         아직 못 받았거나 실패했으면(목록이 비어 있으면) 여기서 한 번 더 시도한다.
@@ -145,9 +130,11 @@ export default function PlantDecorateScreen({
         [items],
     );
 
-    // 착용 중인 액세서리 — 서버(plant_decoration)에 저장된 키를 목록에서 찾아 맞춘다.
-    // decorations 값은 { key, spriteUrl } 객체다 (App.js 참조)
-    const appliedKey = decorations?.[String(plant?.id)]?.key ?? null;
+    // 이 개체에 적용된 꾸미기 — 서버(plant_decoration)에 저장된 키를 목록에서 찾아 맞춘다.
+    // decorations 값은 { accessory, background } 다 (App.js 참조)
+    const applied = decorations?.[String(plant?.id)] ?? null;
+    const appliedKey = applied?.accessory?.key ?? null;
+    const appliedBgKey = applied?.background?.key ?? DEFAULT_BACKGROUND_KEY;
     const selectedItem = accessories.find((item) => item.key === appliedKey) ?? null;
     // 맨 앞 "없음" 카드가 선택된 상태 (= 아무것도 착용하지 않음)
     const noneSelected = !appliedKey;
@@ -166,21 +153,26 @@ export default function PlantDecorateScreen({
     const changeDecoration = async (next) => {
         const id = plant?.id;
         if (!id) return;
-        const previous = decorations?.[String(id)] ?? null;
+        const previous = decorations?.[String(id)]?.accessory ?? null;
         const seq = ++decorSeq.current;
 
-        applyDecoration?.(id, next ? { key: next.key, spriteUrl: next.spriteUrl ?? null } : null);
+        applyDecoration?.(
+            id,
+            "accessory",
+            next ? { key: next.key, spriteUrl: next.spriteUrl ?? null } : null,
+        );
         try {
             const saved = await setPlantDecoration(Number(id), next?.id ?? null);
             if (seq !== decorSeq.current) return;
             // 서버가 준 값으로 한 번 더 맞춘다 — 목록을 받은 뒤 이미지가 바뀌었을 수도 있어서
             applyDecoration?.(
                 id,
+                "accessory",
                 saved?.item_key ? { key: saved.item_key, spriteUrl: saved.sprite_url ?? null } : null,
             );
         } catch (e) {
             if (seq !== decorSeq.current) return;
-            applyDecoration?.(id, previous);
+            applyDecoration?.(id, "accessory", previous);
             Alert.alert("적용 실패", e?.message ?? "다시 시도해주세요.");
         }
     };
@@ -191,24 +183,33 @@ export default function PlantDecorateScreen({
         changeDecoration(item.key === appliedKey ? null : item);
     };
 
-    // 배경은 홈 화면 전체에 적용된다 — 해제 개념이 없어 다시 눌러도 유지한다
+    /*
+        배경은 이 개체의 개체탭에 적용된다 (홈 배경은 고정).
+        액세서리와 같은 규칙으로 이 개체의 애정도 단계에 따라 해금되고,
+        해제 개념이 없어 다시 눌러도 유지한다 — 기본 배경도 목록의 한 칸이다.
+    */
     const handleBackgroundPress = async (background) => {
-        if (background.requiredLevel > backgroundUnlockLevel) return;
+        const id = plant?.id;
+        if (!id) return;
+        if (background.requiredLevel > affinityLevel) return;
         if (appliedBgKey === background.key) return;
-        const previous = homeBg;
+        const previous = decorations?.[String(id)]?.background ?? null;
         const seq = ++bgSeq.current;
 
-        setHomeBg?.({ key: background.key, url: background.url ?? null });
+        applyDecoration?.(id, "background", {
+            key: background.key,
+            url: background.url ?? null,
+        });
         try {
-            const saved = await updateHomeBackground(background.id);
+            const saved = await setPlantBackground(Number(id), background.id);
             if (seq !== bgSeq.current) return;
-            setHomeBg?.({
-                key: saved.home_background_item_key,
-                url: saved.home_background_image_url ?? null,
+            applyDecoration?.(id, "background", {
+                key: saved.item_key ?? DEFAULT_BACKGROUND_KEY,
+                url: saved.image_url ?? null,
             });
         } catch (e) {
             if (seq !== bgSeq.current) return;
-            setHomeBg?.(previous);
+            applyDecoration?.(id, "background", previous);
             Alert.alert("배경 적용 실패", e?.message ?? "다시 시도해주세요.");
         }
     };
@@ -517,7 +518,7 @@ export default function PlantDecorateScreen({
                     </BlurView>
                 </View>
 
-                {/* Background Selection Section — 아이템과 같은 애정도 단계 기준으로 해금 */}
+                {/* Background Selection Section — 개체탭 배경. 아이템과 같은 애정도 기준으로 해금 */}
                 <View style={[styles.itemSection, styles.bgSection]}>
                     <BlurView intensity={22} tint="light" style={styles.itemSectionBlur}>
                         <LinearGradient
@@ -526,7 +527,7 @@ export default function PlantDecorateScreen({
                             end={{ x: 0, y: 1 }}
                             style={styles.itemSectionGradient}
                         >
-                            <Text style={styles.itemSectionTitle}>홈 배경</Text>
+                            <Text style={styles.itemSectionTitle}>배경 선택</Text>
                             <ScrollView
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
@@ -534,7 +535,7 @@ export default function PlantDecorateScreen({
                             >
                                 {backgrounds.map((background) => {
                                     const isUnlocked =
-                                        background.requiredLevel <= backgroundUnlockLevel;
+                                        background.requiredLevel <= affinityLevel;
                                     const isApplied = appliedBgKey === background.key;
 
                                     return (
@@ -923,7 +924,7 @@ const styles = StyleSheet.create({
         color: Colors.textGray,
     },
 
-    // 홈 배경 카드 — 세로 화면 비율이라 아이템 카드보다 길다
+    // 배경 카드 — 세로 화면 비율이라 아이템 카드보다 길다
     bgSection: {
         marginTop: Spacing.lg,
     },
