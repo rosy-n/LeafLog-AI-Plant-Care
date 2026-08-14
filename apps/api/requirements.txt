@@ -12,6 +12,8 @@ python-multipart==0.0.20
 requests==2.32.3
 pyproj==3.7.1
 pillow==11.2.1
+numpy==2.4.6
+opencv-python-headless==5.0.0.93
 rembg==2.0.67
 onnxruntime==1.22.0
 # 종 마스터 적재 전용 — 국가생물종지식정보시스템 다운로드 파일이 레거시 .xls(BIFF8)

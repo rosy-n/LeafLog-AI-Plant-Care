@@ -2,14 +2,16 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, UploadFile, status
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from . import affinity, air_quality, asos, environment, persona_chat, region_data, weather
+from .character_generation import CharacterGenerationJob, character_generation_manager
 from .config import settings
 from .database import Base, engine, get_db
 from .image_preprocessing import (
@@ -18,6 +20,7 @@ from .image_preprocessing import (
     QualityMode,
     preprocess_plant_photo,
     remove_background_for_sprite,
+    remove_character_face,
 )
 from .models import AppUser, CareRecord, CareSchedule, MediaAsset, Plant, PlantSpecies, UserSetting
 from .models import (
@@ -42,6 +45,9 @@ from .schemas import (
     CareSummary,
     CurrentEnvironmentResponse,
     EnvironmentHistoryResponse,
+    CharacterFaceRemovalResponse,
+    CharacterCandidateRead,
+    CharacterGenerationJobRead,
     LoginRequest,
     PersonaChatRequest,
     PersonaChatResponse,
@@ -69,6 +75,12 @@ app = FastAPI(title="LeafLog API", version="0.1.0")
 
 MAX_IMAGE_UPLOAD_BYTES = 12 * 1024 * 1024
 IMAGE_LAB_PATH = Path(__file__).parent / "static" / "image_lab.html"
+settings.character_output_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/generated/characters",
+    StaticFiles(directory=settings.character_output_dir),
+    name="generated-characters",
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -270,6 +282,11 @@ def create_tables() -> None:
     Base.metadata.create_all(bind=engine)
 
 
+@app.on_event("shutdown")
+def shutdown_character_generation() -> None:
+    character_generation_manager.shutdown()
+
+
 def get_current_user(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
@@ -323,6 +340,27 @@ def _image_error_response(exc: Exception) -> HTTPException:
     return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Image preprocessing failed.")
 
 
+def _character_job_response(job: CharacterGenerationJob) -> CharacterGenerationJobRead:
+    return CharacterGenerationJobRead(
+        id=job.id,
+        status=job.status,
+        progress=job.progress,
+        message=job.message,
+        current_candidate=job.current_candidate,
+        candidate_count=job.candidate_count,
+        candidates=[
+            CharacterCandidateRead(
+                id=candidate.id,
+                image_url=candidate.image_url,
+                checksum=candidate.checksum,
+                seed=candidate.seed,
+            )
+            for candidate in job.candidates
+        ],
+        error=job.error,
+    )
+
+
 @app.post("/images/preprocess-plant", response_model=PlantImagePreprocessResponse)
 async def preprocess_plant_image(
     file: UploadFile = File(...),
@@ -368,6 +406,59 @@ async def remove_image_background(
         canvas_size=result.canvas_size,
         transparent_png_base64=result.transparent_png_base64,
     )
+
+
+@app.post("/images/remove-character-face", response_model=CharacterFaceRemovalResponse)
+async def remove_generated_character_face(
+    file: UploadFile = File(...),
+) -> CharacterFaceRemovalResponse:
+    image_bytes = await _read_image_upload(file)
+
+    try:
+        result = remove_character_face(image_bytes=image_bytes)
+    except Exception as exc:
+        raise _image_error_response(exc) from exc
+
+    return CharacterFaceRemovalResponse(
+        width=result.width,
+        height=result.height,
+        face_removed_png_base64=result.face_removed_png_base64,
+    )
+
+
+@app.post(
+    "/api/character-generations",
+    response_model=CharacterGenerationJobRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def create_character_generation(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: AppUser = Depends(get_current_user),
+) -> CharacterGenerationJobRead:
+    image_bytes = await _read_image_upload(file)
+    public_base_url = settings.character_public_base_url or str(request.base_url).rstrip("/")
+    job = character_generation_manager.create_job(
+        user_id=current_user.user_id,
+        image_bytes=image_bytes,
+        public_base_url=public_base_url,
+    )
+    return _character_job_response(job)
+
+
+@app.get("/api/character-generations/{job_id}", response_model=CharacterGenerationJobRead)
+def get_character_generation(
+    job_id: str,
+    current_user: AppUser = Depends(get_current_user),
+) -> CharacterGenerationJobRead:
+    try:
+        job = character_generation_manager.get_job(job_id, current_user.user_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="캐릭터 생성 작업을 찾을 수 없습니다.",
+        ) from None
+    return _character_job_response(job)
 
 
 @app.get("/auth/check-email", response_model=AvailabilityResponse)
