@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
     View,
     Text,
+    Image,
     StyleSheet,
     TouchableOpacity,
     ScrollView,
@@ -11,7 +12,7 @@ import {
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Line, Polyline, Circle, Text as SvgText } from "react-native-svg";
 
@@ -172,13 +173,15 @@ function LineChart({ tempData, humidityData, timestamps, periodKey }) {
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
-function StatCard({ icon, label, value, rating, valueSize }) {
+function StatCard({ icon, label, value, rating, valueSize, indentValueWithLabel }) {
     const valueStyle = valueSize === "placeholder" ? styles.statValuePlaceholder : null;
     return (
         <View style={styles.statCard}>
-            <View style={styles.statIconWrap}>{icon}</View>
-            <Text style={styles.statLabel}>{label}</Text>
-            <Text style={[styles.statValue, valueStyle]}>{value}</Text>
+            <View style={styles.statHeaderRow}>
+                <View style={styles.statIconWrap}>{icon}</View>
+                <Text style={styles.statLabel}>{label}</Text>
+            </View>
+            <Text style={[styles.statValue, valueStyle, indentValueWithLabel && styles.statValueIndent]}>{value}</Text>
             {rating && (
                 <View style={styles.ratingBadge}>
                     <Ionicons name="checkmark-circle" size={12} color={GreenTint.deep} />
@@ -419,21 +422,23 @@ export default function SensorDataScreen({ navigation, route }) {
                                 <View style={styles.statsGrid}>
                                     <View style={styles.statsRow}>
                                         <StatCard
-                                            icon={<Ionicons name="thermometer" size={26} color={Gauge.warm} />}
+                                            icon={<Image source={require("../../assets/icons/thermometer_icon.png")} style={styles.statIconImage} resizeMode="contain" />}
                                             label="평균 기온"
                                             value={avgTemp !== null ? `${avgTemp}°C` : "-"}
                                             rating={tempRating}
+                                            indentValueWithLabel
                                         />
                                         <StatCard
-                                            icon={<Ionicons name="water" size={26} color={Gauge.cool} />}
+                                            icon={<Image source={require("../../assets/icons/water_icon.png")} style={styles.statIconImage} resizeMode="contain" />}
                                             label="평균 습도"
                                             value={avgHumidity !== null ? `${avgHumidity}%` : "-"}
                                             rating={humidityRating}
+                                            indentValueWithLabel
                                         />
                                     </View>
                                     <View style={styles.statsRow}>
                                         <StatCard
-                                            icon={<Ionicons name="cloud-outline" size={26} color={GreenTint.medium} />}
+                                            icon={<Image source={require("../../assets/icons/air_icon.png")} style={styles.statIconImage} resizeMode="contain" />}
                                             label="평균 대기질"
                                             value={
                                                 avgPm10 !== null ? (
@@ -448,7 +453,7 @@ export default function SensorDataScreen({ navigation, route }) {
                                             }
                                         />
                                         <StatCard
-                                            icon={<MaterialCommunityIcons name="water-percent" size={26} color={GreenTint.medium} />}
+                                            icon={<Image source={require("../../assets/icons/soil_ humidity_icon.png")} style={styles.statIconImage} resizeMode="contain" />}
                                             label="평균 토양습도"
                                             value="아직 센서가 없어요"
                                             valueSize="placeholder"
@@ -650,13 +655,24 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
         alignItems: "flex-start",
     },
-    statIconWrap: {
-        marginBottom: Spacing.xxs,
+    statHeaderRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: Spacing.xs,
+    },
+    statIconWrap: {},
+    statIconImage: {
+        width: 26,
+        height: 26,
     },
     statLabel: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
         color: GreenTint.strong,
+    },
+    // 평균 기온·평균 습도만 값 텍스트 시작 x좌표를 라벨과 맞춤 (아이콘 폭 + 헤더 행 간격만큼 들여씀)
+    statValueIndent: {
+        marginLeft: 26 + Spacing.xs,
     },
     statValue: {
         fontFamily: Fonts.neoDunggeunmo,
