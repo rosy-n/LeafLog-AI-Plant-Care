@@ -168,6 +168,38 @@ class SpeciesDetail(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CharacterFaceRemovalResponse(BaseModel):
+    width: int
+    height: int
+    face_removed_png_base64: str
+
+
+class CharacterCandidateRead(BaseModel):
+    id: str
+    image_url: str
+    checksum: str
+    seed: int
+
+
+class CharacterGenerationJobRead(BaseModel):
+    id: str
+    status: Literal[
+        "queued",
+        "preprocessing",
+        "starting_gpu",
+        "generating",
+        "postprocessing",
+        "completed",
+        "failed",
+    ]
+    progress: int = Field(ge=0, le=100)
+    message: str
+    current_candidate: int = Field(ge=0, le=3)
+    candidate_count: int = 3
+    candidates: list[CharacterCandidateRead] = Field(default_factory=list)
+    error: str | None = None
+
+
 class PlantCreate(BaseModel):
     # 종 정보 (plant_species로 매핑)
     # speciesId 가 오면 그 종을 그대로 사용, 없으면 학명/국명으로 get-or-create (마스터 미수록 종)

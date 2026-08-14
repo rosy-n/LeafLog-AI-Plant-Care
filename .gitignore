@@ -50,6 +50,7 @@ ai/character-generation/data/
 ai/character-generation/local-artifacts/
 ai/character-generation/models/
 ai/character-generation/outputs/
+output_sample/
 ai/character-generation/**/*.tar.gz
 ai/character-generation/**/*.zip
 
@@ -64,3 +65,5 @@ ai/diagnosis/*.xlsx
 ai/diagnosis/*.npy
 ai/diagnosis/*.pkl
 ai/diagnosis/.env
+# FastAPI가 실험 중 생성한 캐릭터 이미지
+apps/api/generated/
