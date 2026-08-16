@@ -294,6 +294,37 @@ class PersonaChatResponse(BaseModel):
 
 class DiagnosisResponse(BaseModel):
     diagnosis: str
+    # chat_session.session_id — 같은 상담을 이어가려면 다음 요청에 그대로 실어 보낸다.
+    # 최초 요청(세션 없음)에는 서버가 새로 만들어 이 값으로 돌려준다.
+    session_id: int
+
+
+class ConsultationSummary(BaseModel):
+    # 상담 기록 목록 카드용 — chat_session.summary는 저장하지 않고(계산값), preview는
+    # 그 세션의 마지막 ASSISTANT 메시지를 조회 시점에 잘라서 보여준다.
+    id: int
+    title: str | None = None
+    preview: str | None = None
+    started_at: str
+    updated_at: str
+
+
+class ConsultationMessage(BaseModel):
+    id: int
+    role: Literal["user", "assistant"]
+    content: str
+    # 사진과 함께 보낸 메시지만 값이 있음 (chat_message.asset_id → media_asset)
+    image_url: str | None = None
+    created_at: str
+
+
+class ConsultationDetail(BaseModel):
+    id: int
+    title: str | None = None
+    plant_id: int | None = None
+    started_at: str
+    updated_at: str
+    messages: list[ConsultationMessage]
 
 
 class PersonaOption(BaseModel):

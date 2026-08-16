@@ -39,6 +39,12 @@ DEFAULT_TOP_K = 5
 REQUEST_TIMEOUT_SECONDS = 180
 MAX_GENERATION_ATTEMPTS = 2
 
+# 세션에 쌓인 이전 대화(chat_message)를 여기까지만 잘라서 컨텍스트에 넣는다.
+# persona_chat의 10(5턴)보다 보수적으로 잡은 이유: 이미지 토큰 + 5단계 형식의 긴 답변이
+# 겹치면 OLLAMA_NUM_CTX=8192를 금방 채운다. 이전 턴의 이미지는 다시 첨부하지 않고
+# 텍스트(content)만 이어붙인다 — chat_message 스키마에 이미지 참조 컬럼이 없다.
+DIAGNOSIS_MAX_HISTORY_MESSAGES = 6
+
 SYSTEM_PROMPT = """너는 초보 식집사를 돕는 식물 병해충 상담 어시스턴트다.
 너는 식물병리 전문가가 아니며, 사진만으로 병명을 확정할 수 없다.
 반드시 아래 5단계 구조로만 답변한다. 각 번호를 그대로 제목으로 사용한다.
@@ -283,13 +289,13 @@ def _strip_foreign_script(text: str) -> str:
 OLLAMA_NUM_CTX = 8192
 
 
-def _call_ollama(messages: list[dict]) -> str:
+def _call_ollama(messages: list[dict], *, options: dict | None = None) -> str:
     payload = {
         "model": OLLAMA_MODEL_NAME,
         "messages": messages,
         "stream": False,
         "think": False,
-        "options": {"num_ctx": OLLAMA_NUM_CTX},
+        "options": options or {"num_ctx": OLLAMA_NUM_CTX},
     }
 
     try:
@@ -338,6 +344,7 @@ def generate_diagnosis(
     symptom_text: str | None = None,
     plant_care_context: str | None = None,
     weather_air_quality: WeatherAirQuality | None = None,
+    conversation_history: list[dict] | None = None,
 ) -> str:
     image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
     species_line = f"식물종: {plant_species}\n" if plant_species else ""
@@ -359,8 +366,10 @@ def generate_diagnosis(
         system_sections.append("[날씨 및 대기질 정보]\n" + build_weather_air_quality_context(weather_air_quality))
     system_prompt = "\n\n".join(system_sections)
 
+    recent_history = (conversation_history or [])[-DIAGNOSIS_MAX_HISTORY_MESSAGES:]
     messages = [
         {"role": "system", "content": system_prompt},
+        *recent_history,
         {"role": "user", "content": user_text, "images": [image_b64]},
     ]
 
@@ -374,6 +383,7 @@ def diagnose(
     symptom_text: str | None = None,
     plant_care_context: str | None = None,
     weather_air_quality: WeatherAirQuality | None = None,
+    conversation_history: list[dict] | None = None,
     top_k: int = DEFAULT_TOP_K,
 ) -> str:
     """검색(Qdrant)과 생성(Qwen)을 한 번에 묶은 엔드포인트용 진입점."""
@@ -385,6 +395,7 @@ def diagnose(
         symptom_text=symptom_text,
         plant_care_context=plant_care_context,
         weather_air_quality=weather_air_quality,
+        conversation_history=conversation_history,
     )
 
 
@@ -394,6 +405,7 @@ def generate_text_diagnosis(
     plant_species: str | None = None,
     plant_care_context: str | None = None,
     weather_air_quality: WeatherAirQuality | None = None,
+    conversation_history: list[dict] | None = None,
 ) -> str:
     species_line = f"식물종: {plant_species}\n" if plant_species else ""
 
@@ -410,8 +422,10 @@ def generate_text_diagnosis(
         system_sections.append("[날씨 및 대기질 정보]\n" + build_weather_air_quality_context(weather_air_quality))
     system_prompt = "\n\n".join(system_sections)
 
+    recent_history = (conversation_history or [])[-DIAGNOSIS_MAX_HISTORY_MESSAGES:]
     messages = [
         {"role": "system", "content": system_prompt},
+        *recent_history,
         {"role": "user", "content": user_text},
     ]
 
@@ -424,6 +438,7 @@ def diagnose_text_only(
     plant_species: str | None = None,
     plant_care_context: str | None = None,
     weather_air_quality: WeatherAirQuality | None = None,
+    conversation_history: list[dict] | None = None,
 ) -> str:
     """이미지 없이 자연어 증상 설명만으로 상담하는 진입점 — CLIP/Qdrant 검색을 건너뛴다."""
     return generate_text_diagnosis(
@@ -431,4 +446,50 @@ def diagnose_text_only(
         plant_species=plant_species,
         plant_care_context=plant_care_context,
         weather_air_quality=weather_air_quality,
+        conversation_history=conversation_history,
     )
+
+
+TITLE_SYSTEM_PROMPT = """다음은 식물 병해충 상담의 사용자 질문과 그에 대한 답변이다.
+이 상담이 무엇에 대한 것인지 반드시 15자 이내의 아주 짧은 한국어 제목 한 줄로 요약해라.
+
+규칙:
+- 반드시 15자를 넘기지 않는다. 넘길 것 같으면 더 줄인다.
+- 명사구 형태로 끝내고(예: "잎 끝 갈변 원인", "총채벌레 피해") 완전한 문장으로 쓰지 않는다.
+- 따옴표, 마침표, 마크다운 기호(#, *, ==), 번호를 쓰지 않는다.
+- 제목 한 줄만 출력하고 다른 설명은 절대 덧붙이지 않는다."""
+
+# 답변 앞부분("1. 현재 상태 요약" 섹션)만으로도 제목을 뽑기엔 충분해 토큰을 아낀다.
+TITLE_INPUT_MAX_CHARS = 600
+# 모델이 규칙을 어기고 길게 쓸 때의 최후 안전장치 — 실제 표시 상한은 이 값.
+TITLE_MAX_LENGTH = 15
+# 짧고 일관된 제목이 목적이라 진단 생성보다 훨씬 보수적인 옵션을 쓴다.
+TITLE_GENERATION_OPTIONS = {"num_ctx": OLLAMA_NUM_CTX, "num_predict": 32, "temperature": 0.3}
+
+
+def _fallback_consultation_title(symptom_text: str | None) -> str:
+    """Qwen 제목 생성이 실패했을 때만 쓰는 대체값 — 첫 질문을 그대로 잘라 쓴다."""
+    source = symptom_text or "사진으로 상담"
+    return " ".join(source.split())[:TITLE_MAX_LENGTH]
+
+
+def generate_consultation_title(*, symptom_text: str | None, diagnosis_text: str) -> str:
+    """세션의 첫 턴에서만 호출 — 상담 기록 목록 카드에 쓸 짧은 제목을 Qwen에게 요약시킨다.
+    실패(Ollama 다운 등)해도 진단 응답 자체를 막으면 안 되므로 조용히 대체값으로 넘어간다."""
+    parts = []
+    if symptom_text:
+        parts.append(f"사용자 질문: {symptom_text}")
+    parts.append(f"상담 답변 일부: {diagnosis_text[:TITLE_INPUT_MAX_CHARS]}")
+    messages = [
+        {"role": "system", "content": TITLE_SYSTEM_PROMPT},
+        {"role": "user", "content": "\n".join(parts)},
+    ]
+
+    try:
+        raw_title = _call_ollama(messages, options=TITLE_GENERATION_OPTIONS)
+    except RuntimeError:
+        return _fallback_consultation_title(symptom_text)
+
+    cleaned = raw_title.strip().strip('"').strip("'")
+    first_line = cleaned.splitlines()[0].strip() if cleaned else ""
+    return first_line[:TITLE_MAX_LENGTH] or _fallback_consultation_title(symptom_text)
