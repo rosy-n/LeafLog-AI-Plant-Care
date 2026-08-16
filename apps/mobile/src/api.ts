@@ -413,21 +413,69 @@ export function removeGeneratedImageBackground(
 
 export type DiagnosisResult = {
   diagnosis: string;
+  // chat_session.session_id — 같은 상담을 이어가려면 다음 호출에 그대로 넘긴다.
+  session_id: number;
 };
 
 // 병해충/증상 상담 — CLIP 검색 + Qwen 생성이 한 번에 돌기 때문에 수초~수십초 걸릴 수 있다.
 // image가 없으면(자연어만 입력) 서버가 CLIP/Qdrant 검색을 건너뛰고 symptomText만으로 답변한다 —
 // 이 경우 symptomText는 필수.
 // plantId가 있으면(개체 상세에서 진입한 경우) 서버가 그 개체의 종 관리 기준·물주기 일정을 답변에 참고한다.
+// sessionId가 없으면 서버가 새 상담 세션을 만들어 응답에 session_id로 돌려준다 — 같은 화면 안에서
+// 이어지는 질문은 그 값을 그대로 넘겨야 이전 대화 맥락(chat_message 이력)이 유지된다.
 export function diagnosePlantPhoto(
   image: UploadableImage | null,
   symptomText?: string,
   plantId?: number,
+  sessionId?: number,
 ) {
   const formData = image ? createImageFormData(image) : new FormData();
   if (symptomText) formData.append("symptom_text", symptomText);
   if (plantId != null) formData.append("plant_id", String(plantId));
+  if (sessionId != null) formData.append("session_id", String(sessionId));
   return requestForm<DiagnosisResult>("/api/diagnosis", formData);
+}
+
+// 상담 기록(chat_session, session_type=DIAGNOSIS) 목록 카드용 — preview는 마지막 답변 일부
+export type ConsultationSummary = {
+  id: number;
+  title: string | null;
+  preview: string | null;
+  started_at: string;
+  updated_at: string;
+};
+
+// 특정 식물의 과거 진단 상담 목록 (최근 순, 토큰 자동 첨부)
+export function listConsultations(plantId: number) {
+  return request<ConsultationSummary[]>(`/api/plants/${plantId}/consultations`);
+}
+
+export type ConsultationMessage = {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  // 사진과 함께 보낸 메시지만 값이 있음
+  image_url: string | null;
+  created_at: string;
+};
+
+export type ConsultationDetail = {
+  id: number;
+  title: string | null;
+  plant_id: number | null;
+  started_at: string;
+  updated_at: string;
+  messages: ConsultationMessage[];
+};
+
+// 상담 기록 상세(메시지 전체 + 사진 URL), 토큰 자동 첨부
+export function getConsultation(sessionId: number) {
+  return request<ConsultationDetail>(`/api/consultations/${sessionId}`);
+}
+
+// 상담 기록 삭제 — 세션과 그 안의 메시지 전체를 지운다 (되돌릴 수 없음)
+export function deleteConsultation(sessionId: number) {
+  return request<null>(`/api/consultations/${sessionId}`, { method: "DELETE" });
 }
 
 export type PersonaOption = {

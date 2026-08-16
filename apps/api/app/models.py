@@ -277,6 +277,61 @@ class MediaAsset(Base):
 
 
 # =========================================================
+# AI 대화 (docs/database-schema.sql "4. AI 대화")
+# =========================================================
+
+
+class ChatSession(Base):
+    __tablename__ = "chat_session"
+
+    session_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("app_user.user_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    plant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("plant.plant_id", ondelete="SET NULL"), nullable=True
+    )
+
+    session_type: Mapped[str] = mapped_column(String(30), default="PERSONA")
+    title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        CheckConstraint(
+            "session_type IN ('PERSONA', 'CONSULTATION', 'DIAGNOSIS')",
+            name="ck_chat_session_type",
+        ),
+    )
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_message"
+
+    message_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("chat_session.session_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    # USER: 앱 사용자가 보낸 메시지, ASSISTANT: AI가 답변한 메시지
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    token_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # 사진과 함께 보낸 메시지(진단 상담)만 값이 있다. care_record.asset_id와 같은 패턴.
+    asset_id: Mapped[int | None] = mapped_column(
+        ForeignKey("media_asset.asset_id", ondelete="SET NULL"), nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("role IN ('USER', 'ASSISTANT')", name="ck_chat_message_role"),
+    )
+
+
+# =========================================================
 # 종 정보 외부 데이터 소스 (docs/database-schema.sql 2-3)
 # 적재 배치 전용 — 런타임 API 는 plant_species 만 조회한다
 # =========================================================

@@ -512,6 +512,8 @@ CREATE TABLE chat_message (
                   CHECK (role IN ('USER', 'ASSISTANT')),
     content       TEXT NOT NULL,
     token_count   INTEGER,
+    -- 사진과 함께 보낸 메시지(진단 상담)만 값이 있음. care_record.asset_id와 같은 패턴.
+    asset_id      BIGINT REFERENCES media_asset(asset_id) ON DELETE SET NULL,
 
     created_at    TIMESTAMP DEFAULT now()
 );

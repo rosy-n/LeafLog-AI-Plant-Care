@@ -1,11 +1,14 @@
+import hashlib
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
+from uuid import uuid4
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
-from sqlalchemy import case, func, or_, select
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -24,6 +27,8 @@ from .models import (
     AppUser,
     CareRecord,
     CareSchedule,
+    ChatMessage,
+    ChatSession,
     MediaAsset,
     Plant,
     PlantSpecies,
@@ -37,6 +42,9 @@ from .schemas import (
     CareRecordCreate,
     CareRecordItem,
     CareSummary,
+    ConsultationDetail,
+    ConsultationMessage,
+    ConsultationSummary,
     CurrentEnvironmentResponse,
     DiagnosisResponse,
     EnvironmentHistoryResponse,
@@ -60,11 +68,20 @@ from .schemas import (
     WateringScheduleUpdate,
 )
 from .security import create_access_token, decode_access_token, hash_password, verify_password
-from .storage import presigned_get_url
+from .storage import LOCAL_UPLOAD_DIR, presigned_get_url, save_local_file, upload_bytes
 
 app = FastAPI(title="LeafLog API", version="0.1.0")
 
 MAX_IMAGE_UPLOAD_BYTES = 12 * 1024 * 1024
+
+# 진단 사진 S3 저장용 확장자 매핑 — 모르는 타입은 jpg로 취급 (대부분 카메라/갤러리 사진이라 안전한 기본값)
+DIAGNOSIS_PHOTO_EXTENSIONS = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/heic": "heic",
+    "image/heif": "heif",
+}
 IMAGE_LAB_PATH = Path(__file__).parent / "static" / "image_lab.html"
 
 app.add_middleware(
@@ -74,6 +91,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# S3_BUCKET 미설정 환경(학교 랩 PC 등)에서 diagnosis.upload_bytes()가 로컬로 폴백해 저장한
+# 파일을 그대로 서빙 — StaticFiles가 마운트 시점에 디렉터리 존재를 요구해 먼저 만들어둔다.
+LOCAL_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static/uploads", StaticFiles(directory=LOCAL_UPLOAD_DIR), name="local-uploads")
 
 # plant CHECK 제약과 일치 — 허용되지 않는 값은 저장 시 NULL 처리해 제약 위반 방지
 LOCATION_NAMES = {"LIVING_ROOM", "BEDROOM", "BALCONY", "KITCHEN", "OFFICE"}
@@ -205,6 +227,27 @@ def _owned_plant_or_404(plant_id: int, current_user: "AppUser", db: Session) -> 
     if plant is None or plant.user_id != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="식물을 찾을 수 없습니다.")
     return plant
+
+
+def _owned_chat_session_or_404(session_id: int, current_user: AppUser, db: Session) -> ChatSession:
+    session = db.get(ChatSession, session_id)
+    if session is None or session.user_id != current_user.user_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="상담 세션을 찾을 수 없습니다.")
+    return session
+
+
+def _diagnosis_history_messages(session_id: int, db: Session) -> list[dict[str, str]]:
+    """세션에 이미 쌓인 메시지를 Ollama 메시지 포맷으로 변환.
+
+    chat_message.role은 DB CHECK 제약상 'USER'/'ASSISTANT'(대문자)이고
+    Ollama는 소문자 'user'/'assistant'를 기대해서 여기서 변환한다.
+    """
+    rows = db.scalars(
+        select(ChatMessage)
+        .where(ChatMessage.session_id == session_id)
+        .order_by(ChatMessage.created_at)
+    ).all()
+    return [{"role": row.role.lower(), "content": row.content} for row in rows]
 
 
 # plant_species가 아직 미확인(species_id NULL)인 개체용 대체 문구.
@@ -1030,10 +1073,12 @@ def persona_chat_reply(
 
 @app.post("/api/diagnosis", response_model=DiagnosisResponse)
 async def diagnose_plant_photo(
+    request: Request,
     file: UploadFile | None = File(default=None),
     species: str | None = Form(default=None),
     symptom_text: str | None = Form(default=None),
     plant_id: int | None = Form(default=None),
+    session_id: int | None = Form(default=None),
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> DiagnosisResponse:
@@ -1046,16 +1091,35 @@ async def diagnose_plant_photo(
 
     image_bytes = await _read_image_upload(file) if file is not None else None
 
+    # session_id가 오면 이어지는 턴 — 같은 세션 안에서 plant_id가 바뀌지 않도록
+    # 최초 생성 시점 값(chat_session.plant_id)을 그대로 쓴다. 없으면 이번이 상담의
+    # 첫 턴이라 새 세션을 만든다.
+    is_new_session = session_id is None
+    if session_id is not None:
+        chat_session = _owned_chat_session_or_404(session_id, current_user, db)
+        effective_plant_id = chat_session.plant_id
+    else:
+        chat_session = ChatSession(
+            user_id=current_user.user_id,
+            plant_id=plant_id,
+            session_type="DIAGNOSIS",
+        )
+        db.add(chat_session)
+        db.flush()
+        effective_plant_id = plant_id
+
+    conversation_history = _diagnosis_history_messages(chat_session.session_id, db)
+
     # plant_id는 특정 개체 화면(PlantDetail 등)에서 상담을 시작했을 때만 온다 —
     # 등록된 종의 표준 관리 기준(광량/온도/습도/물주기)과 실제 물주기 일정을 진단 근거로 곁들인다.
     plant_care_context: str | None = None
-    if plant_id is not None:
-        plant = _owned_plant_or_404(plant_id, current_user, db)
+    if effective_plant_id is not None:
+        plant = _owned_plant_or_404(effective_plant_id, current_user, db)
         plant_species = db.get(PlantSpecies, plant.species_id) if plant.species_id else None
         if plant_species is not None:
             plant_care_context = diagnosis.build_plant_care_context(
                 _diagnosis_species_care(plant_species),
-                _persona_watering_schedule(plant_id, db),
+                _persona_watering_schedule(effective_plant_id, db),
                 plant_name=plant.nickname,
                 reference_date=persona_chat.today_in_korea(),
             )
@@ -1070,6 +1134,7 @@ async def diagnose_plant_photo(
                 symptom_text=symptom_text,
                 plant_care_context=plant_care_context,
                 weather_air_quality=weather_air_quality,
+                conversation_history=conversation_history,
             )
         else:
             diagnosis_text = diagnosis.diagnose_text_only(
@@ -1077,11 +1142,166 @@ async def diagnose_plant_photo(
                 plant_species=species,
                 plant_care_context=plant_care_context,
                 weather_air_quality=weather_air_quality,
+                conversation_history=conversation_history,
             )
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
-    return DiagnosisResponse(diagnosis=diagnosis_text)
+    # 사진을 보낸 턴이면 저장소에 올리고 media_asset을 만들어 이번 USER 메시지에 연결한다 —
+    # 과거 상담을 다시 볼 때 그때 올렸던 사진도 함께 보여주기 위함.
+    # S3(S3_BUCKET 설정 시)를 먼저 시도하고, 없으면 로컬 디스크로 폴백한다(학교 랩 PC처럼
+    # S3가 없는 개발 환경 대응). 둘 다 실패해도 진단 응답 자체는 막지 않고 asset_id 없이 저장한다.
+    user_asset_id: int | None = None
+    if image_bytes is not None:
+        content_type = file.content_type or "image/jpeg"
+        extension = DIAGNOSIS_PHOTO_EXTENSIONS.get(content_type.lower(), "jpg")
+        object_key = f"diagnosis/{current_user.user_id}/{uuid4().hex}.{extension}"
+
+        file_url = upload_bytes(image_bytes, object_key, content_type)
+        bucket_name = settings.s3_bucket or None
+        if file_url is None:
+            local_path = save_local_file(image_bytes, object_key)
+            if local_path is not None:
+                # request.base_url을 써야 휴대폰이 실제로 접근 가능한 호스트로 URL이 만들어진다
+                # (localhost를 하드코딩하면 같은 Wi-Fi의 휴대폰에서 못 연다).
+                file_url = str(request.base_url).rstrip("/") + local_path
+                bucket_name = None
+
+        if file_url is not None:
+            media_asset = MediaAsset(
+                user_id=current_user.user_id,
+                plant_id=effective_plant_id,
+                bucket_name=bucket_name,
+                object_key=object_key,
+                file_url=file_url,
+                asset_type="DIAGNOSIS_PHOTO",
+                mime_type=content_type,
+                file_size=len(image_bytes),
+                checksum=hashlib.sha256(image_bytes).hexdigest(),
+            )
+            db.add(media_asset)
+            db.flush()
+            user_asset_id = media_asset.asset_id
+
+    # chat_message.content는 NOT NULL이라 사진만 보낸 턴에는 자리표시자를 남긴다.
+    # 이전 턴 이미지는 프롬프트에 다시 첨부하지 않지만(히스토리는 텍스트만 이어붙임),
+    # asset_id로 media_asset을 가리켜두면 과거 상담 조회 화면에서 사진을 다시 보여줄 수 있다.
+    user_message_content = symptom_text or "[사진]"
+    if is_new_session:
+        # 상담 기록 목록 카드에 쓸 제목 — Qwen에게 짧게 요약시킨다 (실패 시 내부에서 대체값으로 넘어감).
+        chat_session.title = diagnosis.generate_consultation_title(
+            symptom_text=symptom_text, diagnosis_text=diagnosis_text
+        )
+    db.add(
+        ChatMessage(
+            session_id=chat_session.session_id,
+            role="USER",
+            content=user_message_content,
+            asset_id=user_asset_id,
+        )
+    )
+    db.add(ChatMessage(session_id=chat_session.session_id, role="ASSISTANT", content=diagnosis_text))
+    chat_session.updated_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return DiagnosisResponse(diagnosis=diagnosis_text, session_id=chat_session.session_id)
+
+
+@app.get("/api/plants/{plant_id}/consultations", response_model=list[ConsultationSummary])
+def list_consultations(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ConsultationSummary]:
+    """식물 상담탭의 "상담 기록" 목록 — 이 개체에 대한 진단 세션만, 최근 순."""
+    _owned_plant_or_404(plant_id, current_user, db)
+
+    sessions = db.scalars(
+        select(ChatSession)
+        .where(
+            ChatSession.plant_id == plant_id,
+            ChatSession.user_id == current_user.user_id,
+            ChatSession.session_type == "DIAGNOSIS",
+        )
+        .order_by(ChatSession.updated_at.desc())
+    ).all()
+    if not sessions:
+        return []
+
+    # 세션별 마지막 ASSISTANT 메시지를 미리보기로 — chat_session.summary는 저장하지 않고
+    # 조회 시점에 계산한다 (별도 요약 LLM 호출 없음).
+    session_ids = [s.session_id for s in sessions]
+    preview_map: dict[int, str] = {}
+    for msg_session_id, content in db.execute(
+        select(ChatMessage.session_id, ChatMessage.content)
+        .where(ChatMessage.session_id.in_(session_ids), ChatMessage.role == "ASSISTANT")
+        .order_by(ChatMessage.session_id, ChatMessage.created_at.desc())
+    ).all():
+        preview_map.setdefault(msg_session_id, content)
+
+    return [
+        ConsultationSummary(
+            id=s.session_id,
+            title=s.title,
+            preview=preview_map.get(s.session_id),
+            started_at=s.started_at.isoformat(),
+            updated_at=s.updated_at.isoformat(),
+        )
+        for s in sessions
+    ]
+
+
+@app.get("/api/consultations/{session_id}", response_model=ConsultationDetail)
+def get_consultation(
+    session_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ConsultationDetail:
+    """상담 기록 상세 — 메시지 전체 + 사진이 달린 메시지의 이미지 URL."""
+    chat_session = _owned_chat_session_or_404(session_id, current_user, db)
+
+    rows = db.scalars(
+        select(ChatMessage).where(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at)
+    ).all()
+
+    # 사진 달린 메시지만 media_asset을 한 번에 모아 조회 (N+1 방지)
+    asset_ids = [row.asset_id for row in rows if row.asset_id is not None]
+    asset_url_map: dict[int, str] = {}
+    if asset_ids:
+        for asset in db.scalars(select(MediaAsset).where(MediaAsset.asset_id.in_(asset_ids))).all():
+            asset_url_map[asset.asset_id] = presigned_get_url(asset.object_key) or asset.file_url
+
+    return ConsultationDetail(
+        id=chat_session.session_id,
+        title=chat_session.title,
+        plant_id=chat_session.plant_id,
+        started_at=chat_session.started_at.isoformat(),
+        updated_at=chat_session.updated_at.isoformat(),
+        messages=[
+            ConsultationMessage(
+                id=row.message_id,
+                role=row.role.lower(),
+                content=row.content,
+                image_url=asset_url_map.get(row.asset_id) if row.asset_id is not None else None,
+                created_at=row.created_at.isoformat(),
+            )
+            for row in rows
+        ],
+    )
+
+
+@app.delete("/api/consultations/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_consultation(
+    session_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    chat_session = _owned_chat_session_or_404(session_id, current_user, db)
+    # DB의 ON DELETE CASCADE에 기대지 않고 명시적으로 지운다 — SQLite 기본 설정은
+    # 외래키 제약을 강제하지 않아 세션만 지우면 메시지가 고아로 남을 수 있다.
+    db.execute(delete(ChatMessage).where(ChatMessage.session_id == session_id))
+    db.delete(chat_session)
+    db.commit()
 
 
 @app.get("/auth/me", response_model=UserRead)

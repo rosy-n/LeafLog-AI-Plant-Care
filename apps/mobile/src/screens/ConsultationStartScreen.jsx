@@ -34,8 +34,10 @@ const STATUS_LABELS = { ALIVE: "건강", SICK: "아픔", DEAD: "떠나보냄" };
 
 // Qwen 답변이 오기까지 수초~수십초 걸리므로, "···" 하나만 보여주는 대신 처리 단계를
 // 순서대로 보여준다 — 이미지 유무에 따라 실제로 거치는 파이프라인이 다르므로 문구도 다르다.
-// 마지막 문구에서 멈춰 응답이 올 때까지 유지된다.
-const LOADING_STEP_INTERVAL_MS = 2500;
+// 각 단계는 10초씩 유지되고, 마지막 단계는 응답이 올 때까지 그대로 떠 있는다.
+const LOADING_STEP_INTERVAL_MS = 10000;
+// 각 단계 문구를 한 글자씩 타이핑하듯 보여주는 속도
+const TYPING_CHAR_INTERVAL_MS = 35;
 const IMAGE_LOADING_STEPS = [
     "RAG에서 유사한 이미지를 검색하고 있어요",
     "RAG 검색결과를 토대로 Qwen에게 물어보고 있어요",
@@ -132,8 +134,12 @@ export default function ConsultStartScreen({ navigation, route }) {
     // 후속 질문에 새 사진이 없으면 직전에 보낸 사진을 재사용한다 — 사진이 한 번도 없었다면
     // 자연어만으로 상담(텍스트 전용 경로)한다.
     const lastImageRef = useRef(null);
+    // 이 화면을 여는 동안의 상담 세션 — 첫 응답에서 서버가 발급한 값을 저장해두고
+    // 후속 질문마다 그대로 실어 보내야 서버가 같은 chat_session에 대화를 이어붙인다.
+    const sessionIdRef = useRef(null);
     const copiedTimerRef = useRef(null);
     const loadingStepTimerRef = useRef(null);
+    const typingTimerRef = useRef(null);
 
     useEffect(() => {
         const id = plant?.id;
@@ -153,6 +159,24 @@ export default function ConsultStartScreen({ navigation, route }) {
 
     useEffect(() => () => clearTimeout(copiedTimerRef.current), []);
     useEffect(() => () => clearInterval(loadingStepTimerRef.current), []);
+    useEffect(() => () => clearInterval(typingTimerRef.current), []);
+
+    // loadingId 메시지의 텍스트를 fullText로 한 글자씩 타이핑하듯 채운다.
+    // 다음 단계로 넘어갈 때 이전 타이핑이 안 끝났어도 즉시 중단하고 새로 시작한다.
+    const typeOutStep = (loadingId, fullText) => {
+        clearInterval(typingTimerRef.current);
+        let charCount = 0;
+        typingTimerRef.current = setInterval(() => {
+            charCount += 1;
+            const partial = fullText.slice(0, charCount);
+            setMessages((prev) =>
+                prev.map((item) => (item.id === loadingId ? { ...item, text: partial } : item))
+            );
+            if (charCount >= fullText.length) {
+                clearInterval(typingTimerRef.current);
+            }
+        }, TYPING_CHAR_INTERVAL_MS);
+    };
 
     const plantName = plantDetail?.nickname ?? plant?.name ?? "식물";
 
@@ -226,8 +250,9 @@ export default function ConsultStartScreen({ navigation, route }) {
         setIsSending(true);
         setMessages((prev) => [
             ...prev,
-            { id: loadingId, role: "assistant", text: loadingSteps[0], images: [] },
+            { id: loadingId, role: "assistant", text: "", images: [] },
         ]);
+        typeOutStep(loadingId, loadingSteps[0]);
 
         let stepIndex = 0;
         loadingStepTimerRef.current = setInterval(() => {
@@ -236,19 +261,17 @@ export default function ConsultStartScreen({ navigation, route }) {
                 clearInterval(loadingStepTimerRef.current);
                 return;
             }
-            setMessages((prev) =>
-                prev.map((item) =>
-                    item.id === loadingId ? { ...item, text: loadingSteps[stepIndex] } : item
-                )
-            );
+            typeOutStep(loadingId, loadingSteps[stepIndex]);
         }, LOADING_STEP_INTERVAL_MS);
 
         try {
             const result = await diagnosePlantPhoto(
                 hasImage ? { uri: lastImageRef.current } : null,
                 trimmed || undefined,
-                plant?.id
+                plant?.id,
+                sessionIdRef.current ?? undefined
             );
+            sessionIdRef.current = result.session_id;
             setMessages((prev) =>
                 prev.map((item) =>
                     item.id === loadingId
@@ -263,6 +286,7 @@ export default function ConsultStartScreen({ navigation, route }) {
             );
         } finally {
             clearInterval(loadingStepTimerRef.current);
+            clearInterval(typingTimerRef.current);
             setIsSending(false);
         }
     };

@@ -11,6 +11,7 @@ import {
     SafeAreaView,
     StatusBar,
     Image,
+    ActivityIndicator,
     Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,7 +26,9 @@ import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
-import { diagnosePlantPhoto, getPlant, updatePlant } from "../api";
+import { diagnosePlantPhoto, getConsultation, getPlant, updatePlant } from "../api";
+
+const FALLBACK_TITLE = "상담 기록";
 
 // 상담 화면의 "식물 상태 업데이트" 카드 — 프로필 탭과 값은 같지만(CHECK 제약)
 // 카드에서는 짧은 라벨을 쓴다.
@@ -94,72 +97,11 @@ const markdownStyles = {
 };
 
 export default function ConsultationScreen({ navigation, route }) {
-    const { consultation, plant } = route.params;
+    const { sessionId, plant } = route.params;
 
-    const messagesByConsultation = {
-        1: [
-            {
-                id: "h1",
-                role: "assistant",
-                text: "안녕하세요! 식물 상태가 걱정되시나요?\n증상을 자세히 알려주시면 원인을 함께 찾아볼게요.",
-                images: [],
-            },
-            {
-                id: "h2",
-                role: "user",
-                text: "잎 끝이 갈색으로 변해있어. 왜 그런거야?",
-                images: [],
-            },
-            {
-                id: "h3",
-                role: "assistant",
-                text: "주요 원인을 하나씩 확인해볼게요.\n\n• 수분 부족 — 흙이 너무 건조하면 잎 끝부터 말라요. 손가락으로 흙 2~3cm를 눌러보고 건조하면 충분히 물을 주세요.\n\n• 낮은 공중 습도 — 실내 난방이나 에어컨으로 공기가 건조할 때 자주 나타나요. 분무기로 잎에 물을 뿌리거나 가습기를 활용해보세요.\n\n• 수돗물의 염소·불소 — 민감한 식물은 수돗물에 반응할 수 있어요. 물을 하루 이상 받아뒀다 주거나 정수한 물을 사용해보세요.\n\n• 비료 과다 — 뿌리 주변 염류 농도가 높으면 잎 끝이 타들어가요. 최근 비료를 자주 줬다면 한동안 중단하고 물로 흙을 씻어내보세요.\n\n현재 물 주는 주기와 실내 환경을 알려주시면 더 정확히 확인해드릴게요!",
-                images: [],
-            },
-        ],
-        2: [
-            {
-                id: "h1",
-                role: "assistant",
-                text: "안녕하세요! 식물 상태가 걱정되시나요?\n증상을 자세히 알려주시면 원인을 함께 찾아볼게요.",
-                images: [],
-            },
-            {
-                id: "h2",
-                role: "user",
-                text: "잎에 흰 줄무늬 같은 상처가 생겼어. 왜 그런거야?",
-                images: [],
-            },
-            {
-                id: "h3",
-                role: "assistant",
-                text: "총채벌레에 의한 피해일 가능성이 높아요.\n\n총채벌레는 잎 표면을 갉아먹으면서 흰 줄이나 은색 반점, 상처 자국을 남겨요. 잎 뒷면을 자세히 보면 아주 작은 벌레가 보이기도 해요.\n\n대처 방법을 알려드릴게요.\n\n• 즉시 격리 — 다른 식물에 전파되지 않도록 감염된 식물을 먼저 분리해주세요.\n\n• 살충제 처리 — 총채벌레 전용 살충제 또는 님 오일을 잎 앞뒷면에 고루 뿌려주세요. 3~5일 간격으로 2~3회 반복하는 것이 효과적이에요.\n\n• 황색 끈끈이 트랩 — 총채벌레는 황색에 유인되므로 트랩을 설치하면 개체 수를 줄이는 데 도움이 돼요.\n\n• 피해 잎 제거 — 심하게 손상된 잎은 제거해 추가 확산을 막아주세요.\n\n방제 후에도 새 잎이 계속 손상된다면 알이 남아 있을 수 있으니 살충을 반복해서 진행해야 해요.",
-                images: [],
-            },
-        ],
-        3: [
-            {
-                id: "h1",
-                role: "assistant",
-                text: "안녕하세요! 식물 상태가 걱정되시나요?\n증상을 자세히 알려주시면 원인을 함께 찾아볼게요.",
-                images: [],
-            },
-            {
-                id: "h2",
-                role: "user",
-                text: "흙 표면에 하얀 솜 같은 게 생겼어. 곰팡이인가?",
-                images: [],
-            },
-            {
-                id: "h3",
-                role: "assistant",
-                text: "네, 흙 표면에 생기는 하얀 솜 형태는 대부분 곰팡이균이에요. 식물에 직접 해를 끼치는 경우는 드물지만, 환경이 맞지 않다는 신호예요.\n\n주요 원인과 대처법을 알려드릴게요.\n\n• 통풍 부족 — 밀폐된 공간이나 바람이 없는 환경에서 잘 발생해요. 창문을 자주 열거나 선풍기로 공기를 순환시켜 주세요.\n\n• 과습한 흙 — 물을 너무 자주 주거나 배수가 잘 안 되면 흙이 계속 축축해져 곰팡이가 번식해요. 흙이 충분히 마른 후에 물을 주는 습관이 중요해요.\n\n• 유기물이 많은 흙 — 부엽토 등 유기물이 풍부한 흙은 곰팡이의 먹이가 되기 쉬워요.\n\n곰팡이가 핀 흙 표면 1~2cm를 걷어내고 버린 후, 계핏가루나 숯을 얇게 뿌리면 재발 방지에 도움이 돼요. 물 주는 횟수를 줄이고 환기를 자주 시켜주시면 금방 나아질 거예요!",
-                images: [],
-            },
-        ],
-    };
-
-    const historyMessages = messagesByConsultation[consultation.id] ?? [];
+    const [historyMessages, setHistoryMessages] = useState([]);
+    const [consultationTitle, setConsultationTitle] = useState(FALLBACK_TITLE);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
     const [message, setMessage] = useState("");
     const [newMessages, setNewMessages] = useState([]);
@@ -173,6 +115,7 @@ export default function ConsultationScreen({ navigation, route }) {
     const [copiedId, setCopiedId] = useState(null);
     const scrollViewRef = useRef(null);
     // 진단은 매 요청마다 이미지가 필요하다 — 후속 질문에 새 사진이 없으면 직전에 보낸 사진을 재사용한다.
+    // 과거 기록을 불러오면 그 세션의 마지막 사진 URL로 초기화된다(S3 URL도 업로드 폼에 그대로 쓸 수 있음).
     const lastImageRef = useRef(null);
     const copiedTimerRef = useRef(null);
 
@@ -191,6 +134,42 @@ export default function ConsultationScreen({ navigation, route }) {
             mounted = false;
         };
     }, [plant?.id]);
+
+    useEffect(() => {
+        let mounted = true;
+        getConsultation(sessionId)
+            .then((detail) => {
+                if (!mounted) return;
+                setConsultationTitle(detail.title || FALLBACK_TITLE);
+                const converted = detail.messages.map((m) => ({
+                    id: `h${m.id}`,
+                    role: m.role,
+                    // 사진만 보낸 턴은 서버가 "[사진]" 자리표시자를 넣어두는데, 사진 버블이 이미
+                    // 있으니 그 문구를 텍스트 버블로 중복 표시하지 않는다.
+                    text: m.content === "[사진]" && m.image_url ? "" : m.content,
+                    images: m.image_url ? [m.image_url] : [],
+                }));
+                setHistoryMessages(converted);
+                const lastUserImage = [...converted].reverse().find((m) => m.role === "user" && m.images.length > 0);
+                if (lastUserImage) {
+                    lastImageRef.current = lastUserImage.images[0];
+                }
+            })
+            .catch((e) => {
+                if (!mounted) return;
+                Alert.alert(
+                    "상담 기록을 불러오지 못했어요",
+                    e?.message ?? "다시 시도해주세요.",
+                    [{ text: "확인", onPress: () => navigation.goBack() }]
+                );
+            })
+            .finally(() => {
+                if (mounted) setIsLoadingHistory(false);
+            });
+        return () => {
+            mounted = false;
+        };
+    }, [sessionId]);
 
     useEffect(() => () => clearTimeout(copiedTimerRef.current), []);
 
@@ -277,7 +256,12 @@ export default function ConsultationScreen({ navigation, route }) {
         setNewMessages((prev) => [...prev, { id: loadingId, role: "assistant", text: "···", images: [] }]);
 
         try {
-            const result = await diagnosePlantPhoto({ uri: lastImageRef.current }, trimmed || undefined, plant?.id);
+            const result = await diagnosePlantPhoto(
+                { uri: lastImageRef.current },
+                trimmed || undefined,
+                plant?.id,
+                sessionId
+            );
             setNewMessages((prev) =>
                 prev.map((item) =>
                     item.id === loadingId
@@ -411,35 +395,39 @@ export default function ConsultationScreen({ navigation, route }) {
                 style={styles.container}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                <ScreenHeader title={consultation.title} onBack={() => navigation.goBack()} />
+                <ScreenHeader title={consultationTitle} onBack={() => navigation.goBack()} />
 
-                <ScrollView
-                    ref={scrollViewRef}
-                    style={styles.chatArea}
-                    contentContainerStyle={styles.chatContent}
-                    showsVerticalScrollIndicator={false}
-                    onContentSizeChange={() =>
-                        scrollViewRef.current?.scrollToEnd({ animated: true })
-                    }
-                >
-                    <View style={styles.historyLabel}>
-                        <View style={styles.historyLine} />
-                        <Text style={styles.historyLabelText}>이전 상담 내역</Text>
-                        <View style={styles.historyLine} />
-                    </View>
-
-                    {historyMessages.map(renderBubble)}
-
-                    {newMessages.length > 0 && (
-                        <View style={styles.continueDivider}>
+                {isLoadingHistory ? (
+                    <ActivityIndicator style={styles.loadingIndicator} color={Colors.primary} />
+                ) : (
+                    <ScrollView
+                        ref={scrollViewRef}
+                        style={styles.chatArea}
+                        contentContainerStyle={styles.chatContent}
+                        showsVerticalScrollIndicator={false}
+                        onContentSizeChange={() =>
+                            scrollViewRef.current?.scrollToEnd({ animated: true })
+                        }
+                    >
+                        <View style={styles.historyLabel}>
                             <View style={styles.historyLine} />
-                            <Text style={styles.continueDividerText}>이어서</Text>
+                            <Text style={styles.historyLabelText}>이전 상담 내역</Text>
                             <View style={styles.historyLine} />
                         </View>
-                    )}
 
-                    {newMessages.map(renderBubble)}
-                </ScrollView>
+                        {historyMessages.map(renderBubble)}
+
+                        {newMessages.length > 0 && (
+                            <View style={styles.continueDivider}>
+                                <View style={styles.historyLine} />
+                                <Text style={styles.continueDividerText}>이어서</Text>
+                                <View style={styles.historyLine} />
+                            </View>
+                        )}
+
+                        {newMessages.map(renderBubble)}
+                    </ScrollView>
+                )}
 
                 <View style={styles.inputWrapper}>
                     <TouchableOpacity
@@ -506,6 +494,10 @@ const styles = StyleSheet.create({
     },
 
     chatArea: {
+        flex: 1,
+    },
+
+    loadingIndicator: {
         flex: 1,
     },
 
