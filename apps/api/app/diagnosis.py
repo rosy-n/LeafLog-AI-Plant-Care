@@ -72,6 +72,40 @@ SYSTEM_PROMPT = """너는 초보 식집사를 돕는 식물 병해충 상담 어
 예외적으로 병해충의 학명·영문 통용명처럼 한국어로 옮기기 어려운 고유명사만 "Spider Mite"처럼
 단어 하나로 인용할 수 있다. 그 외 한자, 일본어, 그리스어, 러시아어 등 다른 외국어는 절대 쓰지 않는다."""
 
+TEXT_ONLY_SYSTEM_PROMPT = """너는 초보 식집사를 돕는 식물 상담 어시스턴트다.
+너는 식물병리 전문가가 아니며, 사진 없이 글만으로는 상태를 확정할 수 없다.
+반드시 아래 5단계 구조로만 답변한다. 각 번호를 그대로 제목으로 사용한다.
+
+1. 현재 상태 요약
+2. 가능성 높은 원인 2~3가지
+3. 사용자가 확인해야 할 점
+4. 지금 할 수 있는 조치
+5. 주의할 점
+
+금지 표현: "확정적으로 ○○병입니다", "반드시 ~해야 한다"는 단정적 진단/처방 톤은 절대 쓰지 않는다.
+대신 "~일 가능성이 있습니다", "~로 보입니다" 같은 가능성 기반 표현을 사용한다.
+사진이 없어 사용자의 글만으로 판단하는 상황이니, 증상 설명이 모호하면 어떤 부분을
+더 구체적으로 알려주면 좋을지, 또는 사진을 찍어 올리면 더 정확한 진단이 가능하다는 점을
+자연스럽게 안내한다.
+
+아래에 '등록된 식물 정보'나 '날씨 및 대기질 정보' 섹션이 주어지면 다음 규칙을 따른다.
+- 등록된 식물 정보(광량/온도/습도/물주기 기준)는 사용자의 실제 관리 습관과 비교해서
+  원인을 더 구체적으로 짚는 데에만 사용하고, 섹션이 없으면 언급하지 않는다.
+- 날씨/대기질 정보는 증상과 관련 있어 보일 때만 짧게 참고하고, 관련 없으면 언급하지 않는다.
+- 두 섹션 모두 제공된 값만 사용하고 세부 수치를 지어내지 않는다.
+
+답변은 마크다운 문법으로 작성한다.
+- 5단계 제목은 "## 1. 현재 상태 요약"처럼 ## 헤더로 쓴다.
+- 병해충 이름, 핵심 원인, 중요한 조치는 **굵게** 표시한다.
+- 방치하면 식물이 더 상하거나 즉시 조치가 필요한 시급한 경고는 ==하이라이트==로 감싼다.
+  (**굵게**보다 강한 표시이니 남발하지 말고, 정말 시급한 경고에만 쓴다.)
+- 나열되는 확인 사항이나 조치는 "- "로 시작하는 목록으로 정리한다.
+
+언어 규칙: 반드시 한국어 문장으로만 답한다. "provided image", "may be caused by"처럼
+영어 문장이나 구를 그대로 섞어 쓰지 않는다 — 모든 설명은 자연스러운 한국어 문장으로 쓴다.
+예외적으로 병해충의 학명·영문 통용명처럼 한국어로 옮기기 어려운 고유명사만 "Spider Mite"처럼
+단어 하나로 인용할 수 있다. 그 외 한자, 일본어, 그리스어, 러시아어 등 다른 외국어는 절대 쓰지 않는다."""
+
 LANGUAGE_RETRY_MESSAGE = (
     "방금 답변에 외국어가 섞여 있다. 한국어 문장으로만 다시 답변해라. 병해충의 학명·영문 "
     "통용명처럼 한국어로 옮기기 어려운 고유명사 단어 하나 정도만 예외로 허용되고, "
@@ -278,6 +312,24 @@ def _call_ollama(messages: list[dict]) -> str:
     return text
 
 
+def _call_ollama_with_language_retry(messages: list[dict]) -> str:
+    text = _call_ollama(messages)
+
+    if _detect_language_violation(text):
+        messages = [
+            *messages,
+            {"role": "assistant", "content": text},
+            {"role": "user", "content": LANGUAGE_RETRY_MESSAGE},
+        ]
+        text = _call_ollama(messages)
+        # 그리스어/한자 등 외국 문자는 눈에 띄게 어색해서 최후 수단으로 제거하지만,
+        # 영어 문장 조각은 지우면 문장이 더 부자연스러워질 수 있어 재시도 결과를 그대로 둔다.
+        if _detect_foreign_script(text):
+            text = _strip_foreign_script(text)
+
+    return text
+
+
 def generate_diagnosis(
     image_bytes: bytes,
     similar_cases: list[SimilarCase],
@@ -312,21 +364,7 @@ def generate_diagnosis(
         {"role": "user", "content": user_text, "images": [image_b64]},
     ]
 
-    text = _call_ollama(messages)
-
-    if _detect_language_violation(text):
-        messages = [
-            *messages,
-            {"role": "assistant", "content": text},
-            {"role": "user", "content": LANGUAGE_RETRY_MESSAGE},
-        ]
-        text = _call_ollama(messages)
-        # 그리스어/한자 등 외국 문자는 눈에 띄게 어색해서 최후 수단으로 제거하지만,
-        # 영어 문장 조각은 지우면 문장이 더 부자연스러워질 수 있어 재시도 결과를 그대로 둔다.
-        if _detect_foreign_script(text):
-            text = _strip_foreign_script(text)
-
-    return text
+    return _call_ollama_with_language_retry(messages)
 
 
 def diagnose(
@@ -345,6 +383,52 @@ def diagnose(
         similar_cases,
         plant_species=plant_species,
         symptom_text=symptom_text,
+        plant_care_context=plant_care_context,
+        weather_air_quality=weather_air_quality,
+    )
+
+
+def generate_text_diagnosis(
+    symptom_text: str,
+    *,
+    plant_species: str | None = None,
+    plant_care_context: str | None = None,
+    weather_air_quality: WeatherAirQuality | None = None,
+) -> str:
+    species_line = f"식물종: {plant_species}\n" if plant_species else ""
+
+    user_text = (
+        f"{species_line}"
+        f"사용자가 적은 증상 설명: {symptom_text}\n\n"
+        "사진 없이 위 설명만으로 식물 상태를 봐줘. 5단계 형식으로 답변해줘."
+    )
+
+    system_sections = [TEXT_ONLY_SYSTEM_PROMPT]
+    if plant_care_context:
+        system_sections.append(plant_care_context)
+    if weather_air_quality is not None:
+        system_sections.append("[날씨 및 대기질 정보]\n" + build_weather_air_quality_context(weather_air_quality))
+    system_prompt = "\n\n".join(system_sections)
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_text},
+    ]
+
+    return _call_ollama_with_language_retry(messages)
+
+
+def diagnose_text_only(
+    symptom_text: str,
+    *,
+    plant_species: str | None = None,
+    plant_care_context: str | None = None,
+    weather_air_quality: WeatherAirQuality | None = None,
+) -> str:
+    """이미지 없이 자연어 증상 설명만으로 상담하는 진입점 — CLIP/Qdrant 검색을 건너뛴다."""
+    return generate_text_diagnosis(
+        symptom_text,
+        plant_species=plant_species,
         plant_care_context=plant_care_context,
         weather_air_quality=weather_air_quality,
     )

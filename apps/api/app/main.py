@@ -1030,14 +1030,21 @@ def persona_chat_reply(
 
 @app.post("/api/diagnosis", response_model=DiagnosisResponse)
 async def diagnose_plant_photo(
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(default=None),
     species: str | None = Form(default=None),
     symptom_text: str | None = Form(default=None),
     plant_id: int | None = Form(default=None),
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> DiagnosisResponse:
-    image_bytes = await _read_image_upload(file)
+    # 사진 없이도 상담할 수 있게 하되(증상 설명만으로 텍스트 상담), 사진도 증상 설명도
+    # 전혀 없으면 답변할 근거가 없으므로 막는다.
+    if file is None and not symptom_text:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="사진 또는 증상 설명 중 하나는 입력해야 해요."
+        )
+
+    image_bytes = await _read_image_upload(file) if file is not None else None
 
     # plant_id는 특정 개체 화면(PlantDetail 등)에서 상담을 시작했을 때만 온다 —
     # 등록된 종의 표준 관리 기준(광량/온도/습도/물주기)과 실제 물주기 일정을 진단 근거로 곁들인다.
@@ -1056,13 +1063,21 @@ async def diagnose_plant_photo(
     weather_air_quality = _persona_weather_air_quality(current_user, db)
 
     try:
-        diagnosis_text = diagnosis.diagnose(
-            image_bytes,
-            plant_species=species,
-            symptom_text=symptom_text,
-            plant_care_context=plant_care_context,
-            weather_air_quality=weather_air_quality,
-        )
+        if image_bytes is not None:
+            diagnosis_text = diagnosis.diagnose(
+                image_bytes,
+                plant_species=species,
+                symptom_text=symptom_text,
+                plant_care_context=plant_care_context,
+                weather_air_quality=weather_air_quality,
+            )
+        else:
+            diagnosis_text = diagnosis.diagnose_text_only(
+                symptom_text,
+                plant_species=species,
+                plant_care_context=plant_care_context,
+                weather_air_quality=weather_air_quality,
+            )
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
