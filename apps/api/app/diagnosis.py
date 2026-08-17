@@ -36,6 +36,11 @@ from .persona_chat import (
 
 CLIP_MODEL_NAME = "openai/clip-vit-large-patch14"
 DEFAULT_TOP_K = 5
+# 코사인 유사도(L2-정규화 CLIP 임베딩, Qdrant Distance.COSINE) 컷오프 — 이 아래 사례는
+# 유사도가 낮아 근거로 부적합하다고 보고 프롬프트/응답에서 제외한다.
+# 실측 점수 분포 데이터가 아직 없는 잠정값이라, ai/diagnosis/scripts/03_search_similar.py로
+# 실제 쿼리 이미지들의 점수 분포를 확인한 뒤 조정할 것.
+MIN_SIMILARITY_SCORE = 0.75
 REQUEST_TIMEOUT_SECONDS = 180
 MAX_GENERATION_ATTEMPTS = 2
 
@@ -153,6 +158,11 @@ class SimilarCase:
     symptom_group: str | None
     suspected_cause: str | None
     plant_part: str | None
+    # Qdrant 포인트 ID(02_build_index.py가 라벨 엑셀의 image_id를 그대로 씀) — 레퍼런스 이미지
+    # 조회 키. file_name/source_url은 인덱싱 시점 payload 원본 값(둘 다 참고용, 비어있을 수 있음).
+    image_id: int
+    file_name: str | None
+    source_url: str | None
 
 
 @dataclass(frozen=True)
@@ -197,11 +207,18 @@ def _embed_image(image: Image.Image) -> list[float]:
     return features[0].cpu().tolist()
 
 
-def search_similar_cases(image_bytes: bytes, top_k: int = DEFAULT_TOP_K) -> list[SimilarCase]:
+def search_similar_cases(
+    image_bytes: bytes,
+    top_k: int = DEFAULT_TOP_K,
+    min_score: float = MIN_SIMILARITY_SCORE,
+) -> list[SimilarCase]:
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     vector = _embed_image(image)
     points = _qdrant().query_points(
-        collection_name=settings.qdrant_collection, query=vector, limit=top_k
+        collection_name=settings.qdrant_collection,
+        query=vector,
+        limit=top_k,
+        score_threshold=min_score,
     ).points
     return [
         SimilarCase(
@@ -210,6 +227,9 @@ def search_similar_cases(image_bytes: bytes, top_k: int = DEFAULT_TOP_K) -> list
             symptom_group=(point.payload or {}).get("symptom_group"),
             suspected_cause=(point.payload or {}).get("suspected_cause"),
             plant_part=(point.payload or {}).get("plant_part"),
+            image_id=int(point.id),
+            file_name=(point.payload or {}).get("file_name"),
+            source_url=(point.payload or {}).get("source_url"),
         )
         for point in points
     ]
@@ -385,10 +405,15 @@ def diagnose(
     weather_air_quality: WeatherAirQuality | None = None,
     conversation_history: list[dict] | None = None,
     top_k: int = DEFAULT_TOP_K,
-) -> str:
-    """검색(Qdrant)과 생성(Qwen)을 한 번에 묶은 엔드포인트용 진입점."""
-    similar_cases = search_similar_cases(image_bytes, top_k=top_k)
-    return generate_diagnosis(
+    min_score: float = MIN_SIMILARITY_SCORE,
+) -> tuple[str, list[SimilarCase]]:
+    """검색(Qdrant)과 생성(Qwen)을 한 번에 묶은 엔드포인트용 진입점.
+
+    similar_cases도 함께 돌려주는 이유: 호출부(main.py)가 이 값을 응답에 실어 보내면
+    앱에서 "RAG 검색 결과" 토글로 Qwen이 참고한 근거를 그대로 보여줄 수 있기 때문.
+    """
+    similar_cases = search_similar_cases(image_bytes, top_k=top_k, min_score=min_score)
+    diagnosis_text = generate_diagnosis(
         image_bytes,
         similar_cases,
         plant_species=plant_species,
@@ -397,6 +422,7 @@ def diagnose(
         weather_air_quality=weather_air_quality,
         conversation_history=conversation_history,
     )
+    return diagnosis_text, similar_cases
 
 
 def generate_text_diagnosis(

@@ -411,10 +411,23 @@ export function removeGeneratedImageBackground(
   );
 }
 
+// Qwen에게 근거로 넘긴, CLIP 임베딩으로 검색한 유사 사례 — "RAG 검색 결과" 토글용
+export type DiagnosisSimilarCase = {
+  score: number;
+  plant_species: string | null;
+  symptom_group: string | null;
+  suspected_cause: string | null;
+  plant_part: string | null;
+  // 레퍼런스 이미지가 아직 media_asset에 적재되지 않았으면 null — 그때는 텍스트만 보여준다
+  image_url: string | null;
+};
+
 export type DiagnosisResult = {
   diagnosis: string;
   // chat_session.session_id — 같은 상담을 이어가려면 다음 호출에 그대로 넘긴다.
   session_id: number;
+  // 사진 없이(symptom_text만으로) 상담한 턴은 빈 배열
+  similar_cases: DiagnosisSimilarCase[];
 };
 
 // 병해충/증상 상담 — CLIP 검색 + Qwen 생성이 한 번에 돌기 때문에 수초~수십초 걸릴 수 있다.
@@ -456,6 +469,8 @@ export type ConsultationMessage = {
   content: string;
   // 사진과 함께 보낸 메시지만 값이 있음
   image_url: string | null;
+  // assistant 메시지가 진단 당시 참고한 RAG 유사 사례 — 저장돼 있어서 과거 상담도 다시 볼 수 있음
+  similar_cases: DiagnosisSimilarCase[];
   created_at: string;
 };
 
