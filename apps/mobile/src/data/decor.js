@@ -47,7 +47,8 @@ export const BACKGROUND_IMAGES = {
 // (서버 main.py 의 DEFAULT_BACKGROUND_ITEM_KEY 와 같아야 한다)
 export const DEFAULT_BACKGROUND_KEY = "detail-bg";
 
-// 홈 화면 배경은 고정이다 — 꾸미기로 바뀌지 않는다
+// 홈 화면 배경은 꾸미기(item_key)로는 바뀌지 않는다 — 날씨별 배경은 HomeScreen.jsx 의
+// WEATHER_BACKGROUNDS 가 별도로 갖고 있고, 이 키는 그중 기본값(맑음)을 가리킨다
 export const HOME_BACKGROUND_KEY = "home-bg";
 
 /*

@@ -16,7 +16,7 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { getCurrentEnvironment } from "../api";
-// 홈 배경은 고정이다 — 꾸미기로 바뀌는 배경은 개체탭(PlantDetailScreen) 것이다
+// 꾸미기(item_key 기반)로 바뀌는 배경은 개체탭(PlantDetailScreen) 것 — 홈은 날씨로만 바뀐다
 import { BACKGROUND_IMAGES, HOME_BACKGROUND_KEY } from "../data/decor";
 
 const WEATHER_ICONS = {
@@ -24,6 +24,14 @@ const WEATHER_ICONS = {
     "흐림": require("../../assets/icons/cloudy_icon.png"),
     "비": require("../../assets/icons/rainy_icon.png"),
     "눈": require("../../assets/icons/snow_icon.png"),
+};
+
+// 날씨별 홈 배경 — API 응답 전이거나 모르는 상태값이면 기본 배경(맑음=home-bg)을 그대로 쓴다
+const WEATHER_BACKGROUNDS = {
+    "맑음": BACKGROUND_IMAGES[HOME_BACKGROUND_KEY],
+    "흐림": require("../../assets/images/home-bg-cloudy.png"),
+    "비": require("../../assets/images/home-bg-rain.png"),
+    "눈": require("../../assets/images/home-bg-snow.png"),
 };
 
 const AIR_QUALITY_ICONS = {
@@ -154,6 +162,8 @@ export default function HomeScreen({
     const airQualityIconSource = environment
         ? AIR_QUALITY_ICONS[environment.air_quality_status] ?? AIR_QUALITY_ICONS["보통"]
         : null;
+    const homeBackgroundSource =
+        WEATHER_BACKGROUNDS[environment?.weather_status] ?? BACKGROUND_IMAGES[HOME_BACKGROUND_KEY];
 
     const openMenu = () => {
         setMenuVisible(true);
@@ -195,7 +205,7 @@ export default function HomeScreen({
     return (
         <View style={styles.root}>
             <ImageBackground
-                source={BACKGROUND_IMAGES[HOME_BACKGROUND_KEY]}
+                source={homeBackgroundSource}
                 resizeMode="cover"
                 style={styles.background}
             >
