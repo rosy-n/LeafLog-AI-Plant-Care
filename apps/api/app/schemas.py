@@ -312,6 +312,9 @@ class DiagnosisResponse(BaseModel):
     session_id: int
     # 사진 없이(symptom_text만으로) 상담한 턴은 CLIP 검색을 안 하므로 빈 리스트.
     similar_cases: list[DiagnosisSimilarCase] = Field(default_factory=list)
+    # RAG 코퍼스 전체 크기 — "전체 N장 중 몇 건 매칭"을 앱이 보여줄 수 있게. 검색 자체를
+    # 안 한 턴(사진 없음)은 None.
+    reference_dataset_size: int | None = None
 
 
 class ConsultationSummary(BaseModel):
@@ -332,6 +335,8 @@ class ConsultationMessage(BaseModel):
     image_url: str | None = None
     # ASSISTANT 메시지가 진단 당시 참고한 RAG 유사 사례 (chat_message.rag_context 복원) — 없으면 빈 배열
     similar_cases: list[DiagnosisSimilarCase] = Field(default_factory=list)
+    # 그 진단 시점의 RAG 코퍼스 전체 크기 (DiagnosisResponse와 동일한 의미)
+    reference_dataset_size: int | None = None
     created_at: str
 
 

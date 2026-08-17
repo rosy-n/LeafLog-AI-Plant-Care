@@ -151,6 +151,7 @@ export default function ConsultationScreen({ navigation, route }) {
                     images: m.image_url ? [m.image_url] : [],
                     // DB에 저장된 진단 당시 RAG 근거 — 과거 상담을 다시 열어도 토글로 보여줄 수 있다.
                     similarCases: m.similar_cases ?? [],
+                    referenceDatasetSize: m.reference_dataset_size ?? null,
                 }));
                 setHistoryMessages(converted);
                 const lastUserImage = [...converted].reverse().find((m) => m.role === "user" && m.images.length > 0);
@@ -273,6 +274,7 @@ export default function ConsultationScreen({ navigation, route }) {
                               text: result.diagnosis,
                               isDiagnosis: true,
                               similarCases: result.similar_cases,
+                              referenceDatasetSize: result.reference_dataset_size,
                           }
                         : item
                 )
@@ -319,7 +321,12 @@ export default function ConsultationScreen({ navigation, route }) {
                             }
                         >
                             <Text style={styles.ragToggleText}>
-                                RAG 검색 결과 {expandedRagId[item.id] ? "▲" : "▼"}
+                                RAG 검색 결과
+                                {item.referenceDatasetSize != null
+                                    ? ` · 전체 ${item.referenceDatasetSize}장 중 ${item.similarCases.length}건`
+                                    : ""}
+                                {" "}
+                                {expandedRagId[item.id] ? "▲" : "▼"}
                             </Text>
                         </TouchableOpacity>
                         {expandedRagId[item.id] && (

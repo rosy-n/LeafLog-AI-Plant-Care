@@ -196,6 +196,13 @@ def _qdrant() -> QdrantClient:
     return QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key or None)
 
 
+@lru_cache(maxsize=1)
+def reference_dataset_size() -> int:
+    """RAG 코퍼스 전체 크기 — "전체 N장 중 몇 건 매칭"을 앱에 보여주기 위함.
+    재인덱싱은 API 재시작을 동반하므로 프로세스 생애주기 동안 캐시해도 무방하다."""
+    return _qdrant().count(collection_name=settings.qdrant_collection, exact=True).count
+
+
 @torch.no_grad()
 def _embed_image(image: Image.Image) -> list[float]:
     model, processor, device = _clip()
