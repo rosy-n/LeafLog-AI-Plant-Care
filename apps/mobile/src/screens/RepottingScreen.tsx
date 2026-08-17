@@ -11,6 +11,7 @@ import {
     Modal,
     KeyboardAvoidingView,
     Platform,
+    Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -86,6 +87,8 @@ export default function RepottingScreen({ navigation, route }: { navigation: any
     const [records, setRecords] = useState<RepottingRecord[]>([]);
     const [selectedRecord, setSelectedRecord] = useState<RepottingRecord | null>(null);
     const [showCharacterModal, setShowCharacterModal] = useState(false);
+    // 이번 기록으로 얻은 애정도 (0이면 오늘 이미 분갈이를 기록했거나 만점)
+    const [affinityAwarded, setAffinityAwarded] = useState(0);
 
     // DB에서 이 식물의 분갈이(REPOTTING) 기록 로드
     const loadRecords = useCallback(() => {
@@ -136,7 +139,8 @@ export default function RepottingScreen({ navigation, route }: { navigation: any
         const trimmedPotSize = potSize.trim();
         const note = encodeNote(potType, potSize, soilMix.filter((e) => e.type.trim()), memo);
         try {
-            await createCareRecord(plantId, { care_type: "REPOTTING", note });
+            const saved = await createCareRecord(plantId, { care_type: "REPOTTING", note });
+            setAffinityAwarded(saved.affinity_awarded);
             // 분갈이 = 화분 교체이므로 입력한 화분 종류/크기를 식물 프로필에 반영
             const potPatch: { pot_type?: string; pot_size?: string } = {};
             if (trimmedPotType) potPatch.pot_type = trimmedPotType;
@@ -554,6 +558,21 @@ export default function RepottingScreen({ navigation, route }: { navigation: any
                                 새 화분으로 이사했어요.{"\n"}
                                 캐릭터도 새 모습으로 업데이트할까요?
                             </Text>
+
+                            {/* 이번 돌봄으로 오른 애정도 — 하트는 개체탭에서 채워진다 */}
+                            {affinityAwarded > 0 ? (
+                                <View style={styles.affinityGainChip}>
+                                    <Image
+                                        source={require("../../assets/icons/fullheart_icon.png")}
+                                        style={styles.affinityGainHeart}
+                                        resizeMode="contain"
+                                    />
+                                    <Text style={styles.affinityGainText}>
+                                        애정도 +{affinityAwarded}
+                                    </Text>
+                                </View>
+                            ) : null}
+
                             <View style={styles.modalButtonRow}>
                                 <TouchableOpacity
                                     style={[styles.modalButton, styles.modalButtonGray]}
@@ -899,6 +918,28 @@ const styles = StyleSheet.create({
         includeFontPadding: false,
         marginTop: Spacing.xs,
         marginBottom: Spacing.sm,
+    },
+    affinityGainChip: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: Spacing.xs,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        marginBottom: Spacing.md,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.separator,
+        borderWidth: 1,
+        borderColor: GreenTint.line,
+    },
+    affinityGainHeart: {
+        width: 16,
+        height: 16,
+    },
+    affinityGainText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.deep,
+        includeFontPadding: false,
     },
     modalButtonRow: {
         flexDirection: "row",

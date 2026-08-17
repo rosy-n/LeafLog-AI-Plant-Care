@@ -19,7 +19,7 @@ import { scheduleWateringReminder } from '../../src/notifications';
 
 import { styles } from './styles/info.styles';
 import type { NewPlantPayload } from '../../types/plant';
-const PLACEHOLDER_CHARACTER = require('../../assets/dot-character-placeholder.png');
+import { getCharacterImageSource } from '../../constants/character-candidates';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -158,7 +158,9 @@ export default function InfoScreen() {
     scientificName?: string;
     commonNameKo?: string;
     nickname?: string;
+    characterId?: string;
     characterImageUrl?: string;
+    characterChecksum?: string;
     capturedPhotoUri?: string;
     // 종 마스터의 대표 이미지 (plant-detail 단계에서 전달)
     imageUrl?: string;
@@ -235,6 +237,7 @@ export default function InfoScreen() {
         commonNameKo:      params.commonNameKo ?? '',
         nickname:          params.nickname ?? '',
         characterImageUrl: params.characterImageUrl ?? '',
+        characterChecksum: params.characterChecksum ?? '',
         capturedPhotoUri:  params.capturedPhotoUri ?? '',
         location:          LOCATION_CODES[location!] ?? '',
         lightLevel:        LIGHT_CODE_BY_LABEL[lightLevel!] ?? '',
@@ -269,6 +272,8 @@ export default function InfoScreen() {
           plantId: String(created.id),
           nickname: created.nickname,
           createdAt: created.created_at,
+          characterId: params.characterId ?? '',
+          characterImageUrl: params.characterImageUrl ?? '',
         },
       });
     } catch (e: any) {
@@ -278,8 +283,10 @@ export default function InfoScreen() {
     }
   };
 
-  // Plant header image: 종 마스터의 대표 이미지 → 없으면 사용자가 찍은 사진 → 없으면 placeholder
+  // Plant header image: 종 마스터의 대표 이미지 → 없으면 사용자가 찍은 사진 →
+  // 없으면 2단계에서 고른 도트 캐릭터(그마저 없으면 placeholder)
   const headerImageUri = params.imageUrl || null;
+  const characterSource = getCharacterImageSource(params.characterId);
 
   return (
     <KeyboardAvoidingView
@@ -298,7 +305,7 @@ export default function InfoScreen() {
           ) : params.capturedPhotoUri ? (
             <Image source={{ uri: params.capturedPhotoUri }} style={styles.plantHeaderImage} resizeMode="cover" />
           ) : (
-            <Image source={PLACEHOLDER_CHARACTER} style={styles.plantHeaderImage} resizeMode="contain" />
+            <Image source={characterSource} style={styles.plantHeaderImage} resizeMode="contain" />
           )}
           <View style={{ flex: 1 }}>
             <Text style={styles.plantHeaderName} numberOfLines={1}>

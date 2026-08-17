@@ -9,6 +9,7 @@ S3_BUCKET이 없는 개발 환경(학교 랩 PC 등)을 위해 로컬 디스크 
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import urlparse
 
 import boto3
 from botocore.config import Config
@@ -37,15 +38,38 @@ def _s3():
     return _client
 
 
-def presigned_get_url(object_key: str | None) -> str | None:
+def bucket_from_url(url: str | None) -> str | None:
+    """업로드 URL에서 버킷 이름 추출 — media_asset.bucket_name 에 남겨 둘 값.
+
+    가상 호스팅 스타일(https://{bucket}.s3[.{region}].amazonaws.com/{key})만 알아본다.
+    CDN 도메인이나 path-style URL 이면 None → 기본 버킷(S3_BUCKET)의 객체로 본다.
+    """
+    host = urlparse(url or "").hostname or ""
+    if not host.endswith(".amazonaws.com"):
+        return None
+    head, sep, _ = host.partition(".s3.")
+    if not sep:
+        head, sep, _ = host.partition(".s3-")
+    if not sep:
+        # https://s3.{region}.amazonaws.com/{bucket}/{key} 는 경로에 버킷이 있어 여기서 못 읽는다
+        return None
+    return head or None
+
+
+def presigned_get_url(object_key: str | None, bucket: str | None = None) -> str | None:
     """object_key에 대한 presigned GET URL.
-    presign 비활성(S3_PRESIGN=false)/버킷 미설정/키 없음/서명 실패 시 None → 호출부가 file_url로 fallback."""
-    if not settings.s3_presign_enabled or not settings.s3_bucket or not object_key:
+    presign 비활성(S3_PRESIGN=false)/버킷 미설정/키 없음/서명 실패 시 None → 호출부가 file_url로 fallback.
+
+    bucket 은 media_asset.bucket_name — 객체가 어느 버킷에 있는지다. 비어 있으면
+    기본 버킷(S3_BUCKET)으로 본다. 자산마다 버킷이 다를 수 있어서 받는다:
+    엉뚱한 버킷 이름으로 서명하면 URL 은 만들어지지만 열 때 403 이 난다."""
+    target = bucket or settings.s3_bucket
+    if not settings.s3_presign_enabled or not target or not object_key:
         return None
     try:
         return _s3().generate_presigned_url(
             "get_object",
-            Params={"Bucket": settings.s3_bucket, "Key": object_key},
+            Params={"Bucket": target, "Key": object_key},
             ExpiresIn=settings.s3_presign_expire,
         )
     except (BotoCoreError, ClientError):

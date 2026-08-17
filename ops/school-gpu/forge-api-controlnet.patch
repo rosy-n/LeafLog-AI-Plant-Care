@@ -1,0 +1,16 @@
+diff --git a/modules/api/api.py b/modules/api/api.py
+--- a/modules/api/api.py
++++ b/modules/api/api.py
+@@ -329,9 +329,10 @@ class Api:
+         # get default values
+         with gr.Blocks(): # will throw errors calling ui function without this
+             for script in script_runner.scripts:
+-                if script.ui(script.is_img2img):
++                script_ui = script.ui(script.is_img2img)
++                if script_ui:
+                     ui_default_values = []
+-                    for elem in script.ui(script.is_img2img):
++                    for elem in script_ui:
+                         ui_default_values.append(elem.value)
+                     script_args[script.args_from:script.args_to] = ui_default_values
+         return script_args

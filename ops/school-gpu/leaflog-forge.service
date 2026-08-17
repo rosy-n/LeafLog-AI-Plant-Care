@@ -1,0 +1,25 @@
+[Unit]
+Description=LeafLog SDXL Forge API
+After=network-online.target
+Wants=network-online.target
+Conflicts=ollama.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=leaflog
+Group=leaflog
+WorkingDirectory=/home/leaflog/stable-diffusion-webui-forge-recovered
+Environment=HOME=/home/leaflog
+Environment=PATH=/home/leaflog/miniforge3/envs/forge/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/wsl/lib
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/leaflog/miniforge3/envs/forge/bin/python /home/leaflog/stable-diffusion-webui-forge-recovered/webui.py --api --port 7860 --cuda-malloc --ckpt /home/leaflog/leaflog-ai-models/Stable-diffusion/pixelArtDiffusionXL_spriteShaper.safetensors --vae-path /home/leaflog/leaflog-ai-models/VAE/sdxl_vae.safetensors --controlnet-dir /home/leaflog/leaflog-ai-models/ControlNet
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=0
+TimeoutStopSec=120
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

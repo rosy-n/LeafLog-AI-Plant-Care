@@ -1,0 +1,7 @@
+*.sh text eol=lf
+*.patch text eol=lf
+ops/school-gpu/leaflog-gpu-mode text eol=lf
+apps/api/app/character_generation.py text eol=lf
+apps/api/app/image_preprocessing.py text eol=lf
+apps/api/requirements.txt text eol=lf
+ops/school-gpu/README.md text eol=lf

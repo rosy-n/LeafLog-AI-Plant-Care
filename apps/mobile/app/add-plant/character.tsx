@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,11 +15,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { common } from './styles/common.styles';
 import { styles } from './styles/character.styles';
 import { Colors } from '../../constants/colors';
+import { CHARACTER_CANDIDATES } from '../../constants/character-candidates';
+import type { CharacterCandidate } from '../../constants/character-candidates';
+import { getCharacterGeneration, startCharacterGeneration } from '../../src/api';
 
 type ScreenState = 'intro' | 'guide' | 'preview' | 'generating' | 'result';
-
-// TODO: FLUX 모델 프롬프트 확정 후 실제 API 연동으로 교체 예정.
-const PLACEHOLDER_CHARACTER = require('../../assets/dot-character-placeholder.png');
 
 const CHAR_SAMPLE_1 = require('../../assets/char-sample-1.png');
 const CHAR_SAMPLE_2 = require('../../assets/char-sample-2.png');
@@ -55,7 +55,27 @@ export default function CharacterScreen() {
   const [screenState, setScreenState] = useState<ScreenState>('intro');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [phase, setPhase] = useState<1 | 2>(1);
+  const [generationMessage, setGenerationMessage] = useState('식물 특징을 파악하는 중...');
+  const [candidates, setCandidates] = useState<CharacterCandidate[]>(CHARACTER_CANDIDATES);
+  // 후보 3종 중 사용자가 직접 고른 캐릭터. 고르기 전에는 null → 확인 버튼 비활성.
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const generationRunRef = useRef(0);
+
+  const selectedCandidate =
+    candidates.find((candidate) => candidate.id === selectedCandidateId) ?? null;
+
+  useEffect(() => () => {
+    generationRunRef.current += 1;
+  }, []);
+
+  const handleRetry = () => {
+    generationRunRef.current += 1;
+    setPhotoUri(null);
+    setSelectedCandidateId(null);
+    setCandidates([]);
+    setScreenState('guide');
+  };
 
   // ── camera ────────────────────────────────────────────────────────────────
 
@@ -67,7 +87,9 @@ export default function CharacterScreen() {
     }
     const picked = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.9 });
     if (picked.canceled) return;
-    setPhotoUri(picked.assets[0].uri);
+    const uri = picked.assets[0]?.uri;
+    if (!uri) return;
+    setPhotoUri(uri);
     setScreenState('preview');
   };
 
@@ -79,7 +101,9 @@ export default function CharacterScreen() {
     }
     const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.9 });
     if (picked.canceled) return;
-    setPhotoUri(picked.assets[0].uri);
+    const uri = picked.assets[0]?.uri;
+    if (!uri) return;
+    setPhotoUri(uri);
     setScreenState('preview');
   };
 
@@ -94,29 +118,73 @@ export default function CharacterScreen() {
   // ── generation ────────────────────────────────────────────────────────────
 
   const handleGenerate = async () => {
+    if (!photoUri) return;
+    const runId = generationRunRef.current + 1;
+    generationRunRef.current = runId;
     progressAnim.setValue(0);
     setPhase(1);
+    setGenerationMessage('식물 특징을 파악하는 중...');
+    setSelectedCandidateId(null);
+    setCandidates([]);
     setScreenState('generating');
 
-    Animated.timing(progressAnim, { toValue: 0.5, duration: 1200, useNativeDriver: false }).start();
-    await new Promise<void>((r) => setTimeout(r, 1400));
+    try {
+      let job = await startCharacterGeneration({
+        uri: photoUri,
+        name: 'plant-photo',
+        type: 'application/octet-stream',
+      });
 
-    setPhase(2);
-    await new Promise<void>((r) => {
-      Animated.timing(progressAnim, { toValue: 1, duration: 1000, useNativeDriver: false })
-        .start(() => r());
-    });
-    await new Promise<void>((r) => setTimeout(r, 300));
+      while (generationRunRef.current === runId) {
+        const progress = Math.max(0, Math.min(100, job.progress)) / 100;
+        Animated.timing(progressAnim, {
+          toValue: progress,
+          duration: 300,
+          useNativeDriver: false,
+        }).start();
+        setPhase(job.status === 'queued' || job.status === 'preprocessing' ? 1 : 2);
+        setGenerationMessage(job.message);
 
-    setScreenState('result');
+        if (job.status === 'failed') {
+          throw new Error(job.error || '캐릭터 생성에 실패했어요.');
+        }
+        if (job.status === 'completed') {
+          const generatedCandidates: CharacterCandidate[] = job.candidates.map((candidate, index) => ({
+            id: candidate.id,
+            label: `${index + 1}번`,
+            source: { uri: candidate.image_url },
+            imageUrl: candidate.image_url,
+            checksum: candidate.checksum,
+          }));
+          if (generatedCandidates.length !== 3) {
+            throw new Error('생성된 캐릭터 3개를 모두 불러오지 못했어요.');
+          }
+          setCandidates(generatedCandidates);
+          progressAnim.setValue(1);
+          setScreenState('result');
+          return;
+        }
+
+        await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+        job = await getCharacterGeneration(job.id);
+      }
+    } catch (error: any) {
+      if (generationRunRef.current !== runId) return;
+      Alert.alert('생성 실패', error?.message ?? '잠시 후 다시 시도해주세요.');
+      setScreenState('preview');
+    }
   };
 
   const handleNext = () => {
+    if (!selectedCandidate) return;
     router.push({
       pathname: '/add-plant/name',
       params: {
         ...params,
-        characterImageUrl: '',
+        // characterId: 어느 후보를 골랐는지 (이후 화면에서 같은 캐릭터를 보여주기 위함)
+        characterId: selectedCandidate.id,
+        characterImageUrl: selectedCandidate.imageUrl,
+        characterChecksum: selectedCandidate.checksum ?? '',
         capturedPhotoUri: photoUri ?? '',
       },
     });
@@ -224,7 +292,7 @@ export default function CharacterScreen() {
         <View style={styles.rowBtns}>
           <TouchableOpacity
             style={[styles.btn, styles.outlineBtn]}
-            onPress={() => { setPhotoUri(null); setScreenState('guide'); }}
+            onPress={handleRetry}
             activeOpacity={0.8}
           >
             <Text style={styles.outlineBtnText}>다시 찍어요</Text>
@@ -253,7 +321,7 @@ export default function CharacterScreen() {
           <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
         </View>
         <Text style={styles.progressLabel}>
-          {phase === 1 ? '식물 특징을 파악하는 중...' : '도트 이미지를 그리는 중...'}
+          {generationMessage}
         </Text>
       </View>
     );
@@ -268,23 +336,70 @@ export default function CharacterScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[common.title, { marginBottom: 8 }]} numberOfLines={1}>도트 캐릭터가 완성됐어요!</Text>
-        <Image source={PLACEHOLDER_CHARACTER} style={styles.characterImage} resizeMode="contain" />
+        <Text style={[common.title, { marginBottom: 8 }]} numberOfLines={1}>도트 친구 3명이 도착했어요!</Text>
+        <Text style={styles.resultSubtitle}>마음에 드는 친구를 골라주세요</Text>
+
+        {/* 선택된 후보 크게 보기 — 아직 안 골랐으면 안내 문구 */}
+        <View style={styles.selectedPreview}>
+          {selectedCandidate ? (
+            <Image
+              source={selectedCandidate.source}
+              style={styles.selectedPreviewImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <Text style={styles.selectedPreviewHint}>
+              아래 후보를 눌러{'\n'}미리 볼 수 있어요
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.candidateRow}>
+          {candidates.map((candidate) => {
+            const isSelected = candidate.id === selectedCandidateId;
+            return (
+              <TouchableOpacity
+                key={candidate.id}
+                style={[styles.candidateCard, isSelected && styles.candidateCardSelected]}
+                onPress={() => setSelectedCandidateId(candidate.id)}
+                activeOpacity={0.8}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={`${candidate.label} 도트 캐릭터`}
+              >
+                <Image
+                  source={candidate.source}
+                  style={styles.candidateImage}
+                  resizeMode="contain"
+                />
+                {isSelected && (
+                  <View style={styles.candidateCheck}>
+                    <Ionicons name="checkmark" size={14} color={Colors.white} />
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         <View style={styles.spacer} />
         <View style={styles.rowBtns}>
           <TouchableOpacity
             style={[styles.btn, styles.outlineBtn]}
-            onPress={() => { setPhotoUri(null); setScreenState('guide'); }}
+            onPress={handleRetry}
             activeOpacity={0.8}
           >
             <Text style={styles.outlineBtnText}>다시 만들기</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.btn, styles.primaryBtn]}
+            style={[styles.btn, styles.primaryBtn, !selectedCandidate && styles.disabledBtn]}
             onPress={handleNext}
+            disabled={!selectedCandidate}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryBtnText}>확인</Text>
+            <Text style={[styles.primaryBtnText, !selectedCandidate && styles.disabledBtnText]}>
+              확인
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

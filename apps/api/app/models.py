@@ -12,6 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Numeric,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -151,6 +152,14 @@ class Plant(Base):
     # persona-chat 캐릭터 성격 — 선택 전에는 NULL (persona_chat.PERSONA_SLUG_TO_FILE 키와 일치)
     persona: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
+    # 애정도 — 돌봄 상호작용(물주기/영양제/분갈이)마다 점수를 더해 쌓는다.
+    # 하트/단계 환산은 app/affinity.py 가 이 숫자를 나눠서 계산한다 (상한 = affinity.MAX_SCORE).
+    affinity_score: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+
+    # 캐릭터를 문질러 애정도를 받은 마지막 날짜(한국 기준) — 하루 1회 제한 판정용.
+    # 문지르기는 돌봄 기록이 아니라서 care_record 를 남기지 않는다.
+    last_petted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
@@ -171,6 +180,7 @@ class Plant(Base):
             "persona IN ('SUNSHINE', 'CHIC', 'RELAXED', 'TIMID', 'SAGE', 'PLAYFUL', 'DILIGENT', 'DREAMER')",
             name="ck_plant_persona",
         ),
+        CheckConstraint("affinity_score >= 0", name="ck_plant_affinity_score"),
     )
 
 
@@ -541,12 +551,74 @@ class SpeciesMatchReview(Base):
     )
 
 
+class Item(Base):
+    """꾸미기 아이템 마스터 — 액세서리(개체 착용)와 홈 배경.
+
+    해금 여부는 저장하지 않는다. affinity.level_for_score(plant.affinity_score) 가
+    required_level 이상이면 해금이다 (DDL: apps/api/scripts/add-item-tables.sql).
+    """
+
+    __tablename__ = "item"
+
+    item_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    # 앱 번들 이미지 맵(apps/mobile/src/data/decor.js)의 키 —
+    # 아래 asset 이 비었거나 URL이 만료됐을 때 앱이 이 키로 fallback 한다
+    item_key: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    item_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    item_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    # 목록 카드 이미지 (액세서리 아이콘 / 배경 미리보기)
+    asset_id: Mapped[int | None] = mapped_column(
+        ForeignKey("media_asset.asset_id", ondelete="SET NULL"), nullable=True
+    )
+    # 그 액세서리를 착용한 캐릭터 이미지. 배경은 NULL
+    sprite_asset_id: Mapped[int | None] = mapped_column(
+        ForeignKey("media_asset.asset_id", ondelete="SET NULL"), nullable=True
+    )
+    # 해금에 필요한 꽉 찬 하트 수 (0 = 기본 제공, 상한은 affinity.MAX_HEARTS)
+    required_level: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0, server_default="0"
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("item_type IN ('BACKGROUND', 'ACCESSORY')", name="ck_item_type"),
+        CheckConstraint("required_level BETWEEN 0 AND 5", name="ck_item_required_level"),
+    )
+
+
+class PlantDecoration(Base):
+    """개체에 지금 적용된 꾸미기 — position_key 당 한 개.
+
+    'HEAD' = 착용 중인 액세서리, 'BACKGROUND' = 개체탭 배경.
+    배경도 액세서리와 똑같이 개체마다 적용되고 그 개체의 애정도로 해금된다.
+    """
+
+    __tablename__ = "plant_decoration"
+
+    decoration_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    plant_id: Mapped[int] = mapped_column(
+        ForeignKey("plant.plant_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    item_id: Mapped[int] = mapped_column(
+        ForeignKey("item.item_id", ondelete="CASCADE"), nullable=False
+    )
+    # 현재 UI는 슬롯이 하나뿐이라 'HEAD' 만 쓴다
+    position_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("plant_id", "position_key", name="uq_plant_decoration_position"),
+    )
+
+
 class UserSetting(Base):
     __tablename__ = "user_setting"
 
     # docs/database-schema.sql의 user_setting 전체 컬럼 중 날씨/대기질 기능
-    # 범위(default_location)만 구현한다. push_enabled 등 알림 관련 컬럼과
-    # home_background_item_id(Item 모델 없음)는 이번 스코프가 아니라 제외.
+    # 범위(default_location)만 구현한다. push_enabled 등 알림 관련 컬럼은 제외.
+    # 배경은 개체별이라 여기가 아니라 plant_decoration 에 있다.
     setting_id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(
         ForeignKey("app_user.user_id", ondelete="CASCADE"), unique=True, nullable=False

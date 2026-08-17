@@ -11,6 +11,7 @@ import {
     Modal,
     KeyboardAvoidingView,
     Platform,
+    Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -75,6 +76,8 @@ export default function NutrientScreen({ navigation, route }: { navigation: any;
     const [records, setRecords] = useState<NutrientRecord[]>([]);
     const [selectedRecord, setSelectedRecord] = useState<NutrientRecord | null>(null);
     const [showCharacterModal, setShowCharacterModal] = useState(false);
+    // 이번 기록으로 얻은 애정도 (0이면 오늘 이미 영양제를 기록했거나 만점)
+    const [affinityAwarded, setAffinityAwarded] = useState(0);
 
     // DB에서 이 식물의 영양제(FERTILIZING) 기록 로드
     const loadRecords = useCallback(() => {
@@ -111,7 +114,8 @@ export default function NutrientScreen({ navigation, route }: { navigation: any;
         }
         const note = encodeNote(fertilizerType.trim(), amount.trim(), intervalDays.trim(), memo.trim());
         try {
-            await createCareRecord(plantId, { care_type: "FERTILIZING", note });
+            const saved = await createCareRecord(plantId, { care_type: "FERTILIZING", note });
+            setAffinityAwarded(saved.affinity_awarded);
             resetForm();
             await loadRecords();
             setShowCharacterModal(true);
@@ -429,6 +433,21 @@ export default function NutrientScreen({ navigation, route }: { navigation: any;
                                 든든하게 영양을 채웠어요.{"\n"}
                                 다음 영양제 날까지 무럭무럭 자랄게요!
                             </Text>
+
+                            {/* 이번 돌봄으로 오른 애정도 — 하트는 개체탭에서 채워진다 */}
+                            {affinityAwarded > 0 ? (
+                                <View style={styles.affinityGainChip}>
+                                    <Image
+                                        source={require("../../assets/icons/fullheart_icon.png")}
+                                        style={styles.affinityGainHeart}
+                                        resizeMode="contain"
+                                    />
+                                    <Text style={styles.affinityGainText}>
+                                        애정도 +{affinityAwarded}
+                                    </Text>
+                                </View>
+                            ) : null}
+
                             <TouchableOpacity
                                 style={[styles.modalButton, styles.modalButtonGreen]}
                                 activeOpacity={0.8}
@@ -740,6 +759,28 @@ const styles = StyleSheet.create({
         includeFontPadding: false,
         marginTop: Spacing.xs,
         marginBottom: Spacing.sm,
+    },
+    affinityGainChip: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: Spacing.xs,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        marginBottom: Spacing.md,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.fertilizer,
+        borderWidth: 1,
+        borderColor: Colors.fertilizerIcon,
+    },
+    affinityGainHeart: {
+        width: 16,
+        height: 16,
+    },
+    affinityGainText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.fertilizerIcon,
+        includeFontPadding: false,
     },
     modalButton: {
         flexDirection: "row",

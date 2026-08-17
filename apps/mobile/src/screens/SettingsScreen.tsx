@@ -21,7 +21,7 @@ import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
-import { getUserSettings } from "../api";
+import { getUserSettings, updateMe } from "../api";
 import {
     sendTestReminder,
     listScheduledReminders,
@@ -109,14 +109,17 @@ export default function SettingsScreen({
     navigation,
     username,
     setUsername,
+    onLogout,
 }: {
     navigation: any;
     username: string;
     setUsername: (name: string) => void;
+    onLogout?: () => void;
 }) {
     // 어카운트
     const [isEditingName, setIsEditingName] = useState(false);
     const [draftName, setDraftName] = useState(username);
+    const [isSavingName, setIsSavingName] = useState(false);
 
     // 위치 — 위치 변경 화면에서 돌아올 때마다 최신값으로 갱신
     const [homeLocation, setHomeLocation] = useState<string | null>(null);
@@ -151,9 +154,26 @@ export default function SettingsScreen({
     const [inquiryContent, setInquiryContent] = useState("");
     const [inquiryDone, setInquiryDone] = useState(false);
 
-    const saveName = () => {
-        if (draftName.trim()) setUsername(draftName.trim());
-        setIsEditingName(false);
+    // 이름 변경 — 서버(app_user.nickname)에 저장한 뒤 화면 값을 갱신한다.
+    // 실패하면 편집 상태를 유지해서 사용자가 고칠 수 있게 한다.
+    const saveName = async () => {
+        const next = draftName.trim();
+        if (!next || isSavingName) return;
+        if (next === username) {
+            setIsEditingName(false);
+            return;
+        }
+
+        setIsSavingName(true);
+        try {
+            const updated = await updateMe({ nickname: next });
+            setUsername(updated.nickname);
+            setIsEditingName(false);
+        } catch (e: any) {
+            Alert.alert("이름 변경 실패", e?.message ?? "다시 시도해주세요.");
+        } finally {
+            setIsSavingName(false);
+        }
     };
 
     // 예약된 물주기 알림 목록 — 알럿은 닫히면 사라져서 확인이 어려우니 화면에 둔다
@@ -235,7 +255,8 @@ export default function SettingsScreen({
                 { text: "취소", style: "cancel" },
                 {
                     text: "로그아웃",
-                    onPress: () => navigation.navigate("Home"),
+                    // 토큰 삭제·예약 알림 취소·로그인 화면 복귀는 App.tsx 가 처리한다
+                    onPress: () => onLogout?.(),
                 },
             ]
         );
@@ -285,16 +306,24 @@ export default function SettingsScreen({
                                             value={draftName}
                                             onChangeText={setDraftName}
                                             autoFocus
-                                            maxLength={5}
+                                            // 서버 규칙과 동일하게 2~10자 (한글/영문/숫자)
+                                            maxLength={10}
                                             returnKeyType="done"
+                                            editable={!isSavingName}
                                             onSubmitEditing={saveName}
                                         />
                                         <TouchableOpacity
-                                            style={styles.saveBtn}
+                                            style={[
+                                                styles.saveBtn,
+                                                isSavingName && styles.saveBtnDisabled,
+                                            ]}
                                             onPress={saveName}
                                             activeOpacity={0.8}
+                                            disabled={isSavingName}
                                         >
-                                            <Text style={styles.saveBtnText}>저장</Text>
+                                            <Text style={styles.saveBtnText}>
+                                                {isSavingName ? "저장 중" : "저장"}
+                                            </Text>
                                         </TouchableOpacity>
                                     </View>
                                 ) : (
@@ -710,6 +739,9 @@ const styles = StyleSheet.create({
         borderRadius: Radius.sm,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
+    },
+    saveBtnDisabled: {
+        backgroundColor: GreenTint.soft,
     },
     saveBtnText: {
         fontFamily: Fonts.neoDunggeunmo,

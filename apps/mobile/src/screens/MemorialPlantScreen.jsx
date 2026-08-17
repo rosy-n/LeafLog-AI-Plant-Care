@@ -1,7 +1,6 @@
 import React, { useRef, useState } from "react";
 import {
     ImageBackground,
-    Image,
     View,
     Text,
     StyleSheet,
@@ -14,6 +13,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { accessorySpriteBundle } from "../data/decor";
+import DecorImage from "../components/DecorImage";
 import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
@@ -33,8 +34,12 @@ const MENU_ITEMS = [
 
 let heartIdCounter = 0;
 
-export default function MemorialPlantScreen({ navigation, route, appliedItem }) {
+export default function MemorialPlantScreen({ navigation, route, decorations }) {
     const plant = route?.params?.plant;
+    // 착용 중인 액세서리 — App.js 의 맵에서 찾는다 (PlantDetailScreen 과 같은 방식)
+    const accessory = decorations?.[String(plant?.id)]?.accessory ?? null;
+    const decorRemote = accessory?.spriteUrl ? { uri: accessory.spriteUrl } : null;
+    const decorBundle = accessorySpriteBundle(accessory?.key);
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [graveModalVisible, setGraveModalVisible] = useState(false);
@@ -117,8 +122,9 @@ export default function MemorialPlantScreen({ navigation, route, appliedItem }) 
                 style={styles.background}
             >
                 <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+                    {/* 함께한 동안 쌓인 애정도 — 떠난 개체라 더 이상 오르지 않는다 */}
                     <View style={styles.heartsArea}>
-                        <HeartsRow count={5} size={25} />
+                        <HeartsRow count={plant?.hearts ?? 0} size={25} />
                     </View>
 
                     <View style={styles.speechBubble}>
@@ -129,11 +135,11 @@ export default function MemorialPlantScreen({ navigation, route, appliedItem }) 
 
                     {/* Plant — same structure as PlantDetailScreen, no overlay */}
                     <View style={styles.mainPlantArea}>
-                        {appliedItem ? (
-                            <Image
-                                source={appliedItem.plantImage}
+                        {decorRemote || decorBundle ? (
+                            <DecorImage
+                                remote={decorRemote}
+                                fallback={decorBundle}
                                 style={{ width: 230, height: 230 }}
-                                resizeMode="contain"
                             />
                         ) : (
                             <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={230} height={230} />

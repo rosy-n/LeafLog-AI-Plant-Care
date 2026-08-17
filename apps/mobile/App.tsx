@@ -30,10 +30,21 @@ import {
   updateUserLocation,
   type AuthResponse,
 } from "./src/api";
+import { cancelAllWateringReminders } from "./src/notifications";
 import MainApp from "./App.js";
 import AppButton from "./src/components/AppButton";
 import BackButton from "./src/components/BackButton";
 import PixelButton from "./src/components/PixelButton";
+
+/*
+    런타임(Metro)은 "./App.js" 를 실제 App.js(로그인 후 본 앱)로 불러오지만,
+    TypeScript 는 확장자를 바꿔가며 찾다가 같은 폴더의 App.tsx(이 파일)로 해석해서
+    props 가 없는 컴포넌트로 본다. 런타임 동작은 맞으니 타입만 여기서 명시한다.
+*/
+const MainAppScreen = MainApp as unknown as React.ComponentType<{
+  user: AuthResponse["user"];
+  onLogout: () => void;
+}>;
 
 type Screen = "home" | "login" | "signup" | "nickname";
 type CheckStatus = "idle" | "checking" | "available" | "taken";
@@ -208,6 +219,24 @@ export default function App() {
   function goHome() {
     resetAuthForms();
     setScreen("home");
+  }
+
+  /*
+    로그아웃 — 설정 화면에서 호출한다.
+    인증 상태가 이 컴포넌트에 있어서 MainApp 안에서는 비울 수 없으므로 콜백으로 내려준다.
+    토큰을 지우고(다음 요청이 401이 되도록) 예약된 물주기 알림도 함께 취소한다 —
+    로그아웃한 계정의 식물 알림이 계속 울리면 안 된다.
+  */
+  async function handleLogout() {
+    try {
+      await cancelAllWateringReminders();
+    } catch (error) {
+      console.warn("알림 취소 실패:", (error as Error)?.message);
+    }
+    setAuthToken(null);
+    setAuth(null);
+    setLocationStatus("unknown");
+    goHome();
   }
 
   function goLogin() {
@@ -388,7 +417,7 @@ export default function App() {
         </View>
       );
     }
-    return <MainApp user={auth.user} />;
+    return <MainAppScreen user={auth.user} onLogout={handleLogout} />;
   }
 
   // 랜딩은 배경 이미지가 화면 정중앙을 기준으로 꽉 차야 하므로

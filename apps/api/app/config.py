@@ -51,5 +51,41 @@ class Settings:
     qdrant_api_key: str = os.getenv("QDRANT_API_KEY", "")
     qdrant_collection: str = os.getenv("QDRANT_COLLECTION", "leaflog-diagnosis")
 
+    # SDXL 캐릭터 생성. FastAPI와 Forge가 같은 학교 WSL에서 실행되면 기본 URL을 그대로 쓴다.
+    forge_api_url: str = os.getenv("FORGE_API_URL", "http://127.0.0.1:7860")
+    character_output_dir: Path = Path(
+        os.getenv(
+            "CHARACTER_OUTPUT_DIR",
+            str(Path(__file__).resolve().parent.parent / "generated" / "characters"),
+        )
+    )
+    character_public_base_url: str = os.getenv("CHARACTER_PUBLIC_BASE_URL", "").rstrip("/")
+    character_gpu_mode_command: str = os.getenv("CHARACTER_GPU_MODE_COMMAND", "")
+    character_restore_ollama: bool = os.getenv("CHARACTER_RESTORE_OLLAMA", "true").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    character_mock_generation: bool = os.getenv("CHARACTER_MOCK_GENERATION", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    character_canvas_size: int = int(os.getenv("CHARACTER_CANVAS_SIZE", "1024"))
+    character_preprocess_quality: str = os.getenv("CHARACTER_PREPROCESS_QUALITY", "quality")
+    character_postprocess_quality: str = os.getenv("CHARACTER_POSTPROCESS_QUALITY", "quality")
+    character_forge_startup_timeout_seconds: int = int(
+        os.getenv("CHARACTER_FORGE_STARTUP_TIMEOUT_SECONDS", "180")
+    )
+    character_generation_timeout_seconds: int = int(
+        os.getenv("CHARACTER_GENERATION_TIMEOUT_SECONDS", "600")
+    )
+    character_gpu_switch_timeout_seconds: int = int(
+        os.getenv("CHARACTER_GPU_SWITCH_TIMEOUT_SECONDS", "240")
+    )
+    character_max_jobs: int = int(os.getenv("CHARACTER_MAX_JOBS", "100"))
+
 
 settings = Settings()

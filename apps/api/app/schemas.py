@@ -47,6 +47,20 @@ class SignupRequest(BaseModel):
         return nickname
 
 
+class UserUpdate(BaseModel):
+    """내 프로필 수정 — 지금은 닉네임만. 규칙은 회원가입과 같아야 한다."""
+
+    nickname: str = Field(min_length=2, max_length=10)
+
+    @field_validator("nickname")
+    @classmethod
+    def validate_nickname(cls, value: str) -> str:
+        nickname = value.strip()
+        if not NICKNAME_PATTERN.match(nickname):
+            raise ValueError("닉네임은 2~10자, 한글/영문/숫자만 사용할 수 있습니다.")
+        return nickname
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str
@@ -154,6 +168,38 @@ class SpeciesDetail(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CharacterFaceRemovalResponse(BaseModel):
+    width: int
+    height: int
+    face_removed_png_base64: str
+
+
+class CharacterCandidateRead(BaseModel):
+    id: str
+    image_url: str
+    checksum: str
+    seed: int
+
+
+class CharacterGenerationJobRead(BaseModel):
+    id: str
+    status: Literal[
+        "queued",
+        "preprocessing",
+        "starting_gpu",
+        "generating",
+        "postprocessing",
+        "completed",
+        "failed",
+    ]
+    progress: int = Field(ge=0, le=100)
+    message: str
+    current_candidate: int = Field(ge=0, le=3)
+    candidate_count: int = 3
+    candidates: list[CharacterCandidateRead] = Field(default_factory=list)
+    error: str | None = None
+
+
 class PlantCreate(BaseModel):
     # 종 정보 (plant_species로 매핑)
     # speciesId 가 오면 그 종을 그대로 사용, 없으면 학명/국명으로 get-or-create (마스터 미수록 종)
@@ -258,6 +304,50 @@ class CareRecordItem(BaseModel):
     note: str | None = None
 
 
+class AffinityStatus(BaseModel):
+    """애정도 현황 — 점수 규칙은 app/affinity.py 가 단일 출처다.
+
+    앱이 점수표를 다시 정의하지 않도록 화면에 필요한 값(하트 수, 해금 단계,
+    다음 단계까지의 기준)을 모두 담아 내려준다.
+    """
+
+    # 돌봄 상호작용으로 쌓인 점수 (max_score 에서 멈춘다)
+    score: int
+    # 0~5, 0.5 단위 — 하트 아이콘(빈/반/가득)으로 그릴 값
+    hearts: float
+    # 꽉 찬 하트 수 = 해금된 꾸미기 아이템 단계 (0~5)
+    level: int
+    max_score: int
+    max_hearts: int
+    # 단계별 누적 기준 점수 (Lv1~Lv5). 단계가 올라갈수록 간격이 넓어진다
+    level_thresholds: list[int]
+    # 다음 단계에 필요한 총점. 만점이면 null
+    next_level_score: int | None = None
+    # 현재 단계 → 다음 단계 진행률 (0~100). 만점이면 100
+    level_progress_pct: int
+
+
+class AffinityAward(BaseModel):
+    """애정도만 오르는 상호작용(문지르기)의 응답.
+
+    affinity_awarded 가 0이면 오늘 이미 받았거나 만점이라는 뜻이다.
+    """
+
+    affinity_awarded: int
+    affinity: AffinityStatus
+
+
+class CareRecordCreated(CareRecordItem):
+    """기록 저장 응답 — 이 기록으로 얻은 애정도를 함께 알려준다.
+
+    affinity_awarded 가 0이면 이미 그날 같은 종류를 기록했거나 만점이라
+    점수가 오르지 않았다는 뜻이다.
+    """
+
+    affinity_awarded: int
+    affinity: AffinityStatus
+
+
 class WateringScheduleUpdate(BaseModel):
     """물주기 주기 변경.
 
@@ -356,7 +446,7 @@ class PersonaOption(BaseModel):
 
 
 class PlantListItem(BaseModel):
-    # 정원 목록에 필요한 최소 필드 — 미구현(캐릭터 이미지/호감도)은 앱에서 placeholder 처리
+    # 정원 목록에 필요한 최소 필드 — 미구현(캐릭터 이미지)은 앱에서 placeholder 처리
     id: int
     nickname: str
     common_name_ko: str | None = None
@@ -371,8 +461,65 @@ class PlantListItem(BaseModel):
     watering_interval_days: int | None = None
     next_watering_date: str | None = None
     days_until_watering: int | None = None
+
+    # 애정도 — 정원 목록의 하트/호감도순 정렬용 (개체마다 조회하지 않도록 함께 싣는다).
+    # 계산 규칙은 app/affinity.py 참조.
+    affinity_score: int = 0
+    affinity_hearts: float = 0
+    affinity_level: int = 0
+
+    # 개체에 적용된 꾸미기 — 개체마다 따로 조회하지 않도록 함께 싣는다.
+    # *_url 이 null 이면 앱이 item_key 로 번들 이미지를 쓴다.
+    # decoration_* 는 착용 액세서리(없으면 null), background_* 는 개체탭 배경
+    # (고르지 않았으면 기본 배경 키).
+    decoration_item_key: str | None = None
+    decoration_sprite_url: str | None = None
+    background_item_key: str | None = None
+    background_image_url: str | None = None
+
     persona: str | None = None
     created_at: str
+
+
+class ItemRead(BaseModel):
+    # 꾸미기 아이템 마스터
+    id: int
+    # S3 이미지가 없거나 URL 발급이 안 될 때 앱이 번들 이미지를 찾는 키
+    item_key: str
+    item_name: str
+    # 'ACCESSORY'(개체 착용) | 'BACKGROUND'(홈 배경)
+    item_type: str
+    # 해금에 필요한 꽉 찬 하트 수 (0 = 기본 제공). 환산 규칙은 app/affinity.py.
+    required_level: int
+    # 목록 카드 이미지 (액세서리 아이콘 / 배경 미리보기). 미등록이면 null → 앱이 번들로 그린다
+    image_url: str | None = None
+    # 그 액세서리를 착용한 캐릭터 이미지. 배경은 항상 null
+    sprite_url: str | None = None
+
+
+class PlantDecorationUpdate(BaseModel):
+    # 착용할 아이템. null 이면 벗는다.
+    item_id: int | None = None
+
+
+class PlantDecorationRead(BaseModel):
+    item_id: int | None = None
+    item_key: str | None = None
+    # 착용한 캐릭터 이미지 URL — 앱이 즉시 다시 그릴 수 있게 함께 준다
+    sprite_url: str | None = None
+
+
+class PlantBackgroundUpdate(BaseModel):
+    # 이 개체의 개체탭 배경. null 이면 기본 배경으로 되돌린다.
+    item_id: int | None = None
+
+
+class PlantBackgroundRead(BaseModel):
+    item_id: int | None = None
+    # 고르지 않았으면 기본 배경 키('home-bg')가 들어간다
+    item_key: str | None = None
+    # null 이면 앱이 item_key 로 번들 이미지를 쓴다
+    image_url: str | None = None
 
 
 class UserSettingRead(BaseModel):

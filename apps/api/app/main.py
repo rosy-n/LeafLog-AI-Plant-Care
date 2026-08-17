@@ -10,9 +10,10 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
-from . import air_quality, asos, diagnosis, environment, persona_chat, region_data, weather
+from . import affinity, air_quality, asos, diagnosis, environment, persona_chat, region_data, weather
+from .character_generation import CharacterGenerationJob, character_generation_manager
 from .config import settings
 from .database import Base, engine, get_db
 from .image_preprocessing import (
@@ -21,25 +22,31 @@ from .image_preprocessing import (
     QualityMode,
     preprocess_plant_photo,
     remove_background_for_sprite,
+    remove_character_face,
 )
-from .models import AppUser, CareRecord, CareSchedule, MediaAsset, Plant, PlantSpecies, UserSetting
 from .models import (
     AppUser,
     CareRecord,
     CareSchedule,
     ChatMessage,
     ChatSession,
+    Item,
     MediaAsset,
     Plant,
+    PlantDecoration,
     PlantSpecies,
     SpeciesSourceLink,
+    UserSetting,
 )
 from .schemas import (
+    AffinityAward,
+    AffinityStatus,
     AvailabilityResponse,
     AirQualityHistoryPoint,
     AuthResponse,
     BackgroundRemovalResponse,
     CareRecordCreate,
+    CareRecordCreated,
     CareRecordItem,
     CareSummary,
     ConsultationDetail,
@@ -49,11 +56,19 @@ from .schemas import (
     DiagnosisResponse,
     DiagnosisSimilarCase,
     EnvironmentHistoryResponse,
+    CharacterFaceRemovalResponse,
+    CharacterCandidateRead,
+    CharacterGenerationJobRead,
+    ItemRead,
     LoginRequest,
     PersonaChatRequest,
     PersonaChatResponse,
     PersonaOption,
+    PlantBackgroundRead,
+    PlantBackgroundUpdate,
     PlantCreate,
+    PlantDecorationRead,
+    PlantDecorationUpdate,
     PlantDetail,
     PlantImagePreprocessResponse,
     PlantListItem,
@@ -65,11 +80,12 @@ from .schemas import (
     UserRead,
     UserSettingRead,
     UserSettingUpdate,
+    UserUpdate,
     WeatherHistoryPoint,
     WateringScheduleUpdate,
 )
 from .security import create_access_token, decode_access_token, hash_password, verify_password
-from .storage import LOCAL_UPLOAD_DIR, presigned_get_url, save_local_file, upload_bytes
+from .storage import LOCAL_UPLOAD_DIR, bucket_from_url, presigned_get_url, save_local_file, upload_bytes
 
 app = FastAPI(title="LeafLog API", version="0.1.0")
 
@@ -84,6 +100,12 @@ DIAGNOSIS_PHOTO_EXTENSIONS = {
     "image/heif": "heif",
 }
 IMAGE_LAB_PATH = Path(__file__).parent / "static" / "image_lab.html"
+settings.character_output_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/generated/characters",
+    StaticFiles(directory=settings.character_output_dir),
+    name="generated-characters",
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -126,15 +148,27 @@ def _object_key_from_url(url: str) -> str:
 def _latest_character_url(plant_id: int, db: Session) -> str | None:
     """개체의 가장 최근 CHARACTER_IMAGE에 대한 presigned URL (실패 시 raw file_url)."""
     row = db.execute(
-        select(MediaAsset.object_key, MediaAsset.file_url)
+        select(MediaAsset.object_key, MediaAsset.file_url, MediaAsset.bucket_name)
         .where(MediaAsset.plant_id == plant_id, MediaAsset.asset_type == "CHARACTER_IMAGE")
         .order_by(MediaAsset.created_at.desc())
         .limit(1)
     ).first()
     if row is None:
         return None
-    object_key, file_url = row
-    return presigned_get_url(object_key) or file_url
+    return _asset_url(*row)
+
+
+def _asset_url(
+    object_key: str | None, file_url: str | None, bucket_name: str | None = None
+) -> str | None:
+    """media_asset 한 건의 표시용 URL — presign 되면 그걸, 아니면 저장된 file_url.
+
+    bucket_name 이 비어 있으면 기본 버킷(S3_BUCKET)의 객체로 본다.
+    공개 객체(예: leaflog/item-images/*)는 서명 없이 file_url 이 그대로 나간다.
+    """
+    if object_key is None and file_url is None:
+        return None
+    return presigned_get_url(object_key, bucket_name) or file_url
 
 
 def _parse_dt(value: str | None) -> datetime | None:
@@ -335,12 +369,16 @@ def _rag_reference_image_urls(image_ids: list[int], db: Session) -> dict[int, st
         return {}
     object_keys = [_rag_reference_object_key(image_id) for image_id in image_ids]
     rows = db.execute(
-        select(MediaAsset.object_key, MediaAsset.asset_id, MediaAsset.file_url).where(
+        select(
+            MediaAsset.object_key, MediaAsset.asset_id, MediaAsset.file_url, MediaAsset.bucket_name
+        ).where(
             MediaAsset.asset_type == "RAG_REFERENCE_IMAGE",
             MediaAsset.object_key.in_(object_keys),
         )
     ).all()
-    url_by_key = {row.object_key: presigned_get_url(row.object_key) or row.file_url for row in rows}
+    url_by_key = {
+        row.object_key: presigned_get_url(row.object_key, row.bucket_name) or row.file_url for row in rows
+    }
     return {
         image_id: url_by_key[key]
         for image_id, key in zip(image_ids, object_keys)
@@ -657,6 +695,7 @@ def create_plant(
             plant_id=plant.plant_id,
             object_key=_object_key_from_url(payload.capturedPhotoUri),
             file_url=payload.capturedPhotoUri,
+            bucket_name=bucket_from_url(payload.capturedPhotoUri),
             asset_type="PLANT_PHOTO",
             checksum=payload.photoChecksum or None,
         ))
@@ -666,17 +705,24 @@ def create_plant(
             plant_id=plant.plant_id,
             object_key=_object_key_from_url(payload.characterImageUrl),
             file_url=payload.characterImageUrl,
+            bucket_name=bucket_from_url(payload.characterImageUrl),
             asset_type="CHARACTER_IMAGE",
             checksum=payload.characterChecksum or None,
         ))
 
     # 4. 최초 물주기/분갈이 기록 → care_record (넘어온 날짜만)
+    initial_care: list[str] = []
     watered_at = _parse_dt(payload.lastWateredAt)
     if watered_at:
         db.add(CareRecord(plant_id=plant.plant_id, care_type="WATERING", completed_at=watered_at))
+        initial_care.append("WATERING")
     repotted_at = _parse_dt(payload.lastRepottedAt)
     if repotted_at:
         db.add(CareRecord(plant_id=plant.plant_id, care_type="REPOTTING", completed_at=repotted_at))
+        initial_care.append("REPOTTING")
+
+    # 등록할 때 적은 최초 돌봄도 애정도로 인정 (기록이 곧 상호작용이라 기준을 맞춘다)
+    plant.affinity_score = affinity.initial_score(initial_care)
 
     # 5. 물주기 일정 — 종의 권장 주기를 개체 일정으로 복사.
     #    마지막 물준 날을 알면 그 날 기준, 모르면 등록일 기준으로 다음 예정일을 잡는다.
@@ -710,15 +756,61 @@ def list_plants(
     char_map: dict[int, str] = {}
     if plant_ids:
         char_rows = db.execute(
-            select(MediaAsset.plant_id, MediaAsset.object_key, MediaAsset.file_url)
+            select(
+                MediaAsset.plant_id,
+                MediaAsset.object_key,
+                MediaAsset.file_url,
+                MediaAsset.bucket_name,
+            )
             .where(
                 MediaAsset.plant_id.in_(plant_ids),
                 MediaAsset.asset_type == "CHARACTER_IMAGE",
             )
             .order_by(MediaAsset.created_at.desc())
         ).all()
-        for pid, object_key, file_url in char_rows:
-            char_map.setdefault(pid, presigned_get_url(object_key) or file_url)
+        for pid, object_key, file_url, bucket_name in char_rows:
+            char_map.setdefault(pid, _asset_url(object_key, file_url, bucket_name))
+
+    # 개체에 적용된 꾸미기(액세서리 + 배경) — 개체마다 조회하지 않도록 한 번에 모은다.
+    # 이미지가 S3에 없으면 URL 이 None 이고, 앱은 item_key 로 번들 이미지를 쓴다.
+    # 액세서리는 sprite(착용한 캐릭터), 배경은 card(배경 그림) 자산을 쓴다.
+    accessory_map: dict[int, tuple[str, str | None]] = {}
+    background_map: dict[int, tuple[str, str | None]] = {}
+    if plant_ids:
+        sprite = aliased(MediaAsset)
+        card = aliased(MediaAsset)
+        rows_deco = db.execute(
+            select(
+                PlantDecoration.plant_id,
+                PlantDecoration.position_key,
+                Item.item_key,
+                sprite.object_key,
+                sprite.file_url,
+                sprite.bucket_name,
+                card.object_key,
+                card.file_url,
+                card.bucket_name,
+            )
+            .join(Item, Item.item_id == PlantDecoration.item_id)
+            .join(sprite, sprite.asset_id == Item.sprite_asset_id, isouter=True)
+            .join(card, card.asset_id == Item.asset_id, isouter=True)
+            .where(PlantDecoration.plant_id.in_(plant_ids))
+        ).all()
+        for (
+            pid,
+            position_key,
+            item_key,
+            s_key,
+            s_url,
+            s_bucket,
+            c_key,
+            c_url,
+            c_bucket,
+        ) in rows_deco:
+            if position_key == BACKGROUND_POSITION_KEY:
+                background_map[pid] = (item_key, _asset_url(c_key, c_url, c_bucket))
+            else:
+                accessory_map[pid] = (item_key, _asset_url(s_key, s_url, s_bucket))
 
     # 물주기 일정 — 개체마다 조회하지 않고 두 번의 쿼리로 모은다
     schedule_map: dict[int, CareSchedule] = {}
@@ -738,6 +830,7 @@ def list_plants(
             last_watered_map[pid] = completed_at
 
     today = datetime.now(timezone.utc).date()
+    default_background = _default_background(db)
 
     def watering_summary(plant: Plant) -> tuple[int | None, date | None]:
         """(주기, 다음 예정일). 일정 행이 없으면 계산만 하고 저장하지 않는다."""
@@ -753,6 +846,8 @@ def list_plants(
     items: list[PlantListItem] = []
     for plant, common_name_ko in rows:
         interval, next_due = watering_summary(plant)
+        # 애정도 — 목록의 하트/호감도순 정렬용 (plant 컬럼이라 추가 쿼리가 없다)
+        score = plant.affinity_score or 0
         items.append(
             PlantListItem(
                 id=plant.plant_id,
@@ -768,6 +863,14 @@ def list_plants(
                 watering_interval_days=interval,
                 next_watering_date=next_due.isoformat() if next_due else None,
                 days_until_watering=(next_due - today).days if next_due else None,
+                affinity_score=score,
+                affinity_hearts=affinity.hearts_for_score(score),
+                affinity_level=affinity.level_for_score(score),
+                decoration_item_key=accessory_map.get(plant.plant_id, (None, None))[0],
+                decoration_sprite_url=accessory_map.get(plant.plant_id, (None, None))[1],
+                # 배경을 고르지 않았으면 기본 배경 (개체탭이 그걸로 그린다)
+                background_item_key=background_map.get(plant.plant_id, default_background)[0],
+                background_image_url=background_map.get(plant.plant_id, default_background)[1],
             )
         )
     return items
@@ -1021,18 +1124,23 @@ def list_care_records(
     ]
 
 
-@app.post("/api/plants/{plant_id}/care-records", response_model=CareRecordItem, status_code=status.HTTP_201_CREATED)
+@app.post("/api/plants/{plant_id}/care-records", response_model=CareRecordCreated, status_code=status.HTTP_201_CREATED)
 def create_care_record(
     plant_id: int,
     payload: CareRecordCreate,
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> CareRecordItem:
+) -> CareRecordCreated:
     plant = _owned_plant_or_404(plant_id, current_user, db)
     if payload.care_type not in CARE_TYPES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="지원하지 않는 관리 유형입니다.")
 
     completed = _parse_dt(payload.completed_at) or datetime.now(timezone.utc).replace(tzinfo=None)
+
+    # 애정도 적립 — 이번 기록을 같은 날 중복 판정에서 제외하려면 db.add 전에 호출해야 한다.
+    # 그날 같은 종류를 이미 기록했거나 만점이면 0점.
+    awarded = affinity.award_for_care(db, plant, payload.care_type, completed)
+
     record = CareRecord(
         plant_id=plant_id,
         care_type=payload.care_type,
@@ -1048,11 +1156,313 @@ def create_care_record(
 
     db.commit()
     db.refresh(record)
-    return CareRecordItem(
+
+    return CareRecordCreated(
         id=record.care_record_id,
         care_type=record.care_type,
         completed_at=record.completed_at.isoformat(),
         note=record.note,
+        affinity_awarded=awarded,
+        affinity=affinity.status_for_plant(plant),
+    )
+
+
+@app.get("/api/plants/{plant_id}/affinity", response_model=AffinityStatus)
+def get_plant_affinity(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AffinityStatus:
+    """개체의 애정도 현황 — plant.affinity_score 를 단계로 환산한다. app/affinity.py 참조."""
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+    return affinity.status_for_plant(plant)
+
+
+@app.post("/api/plants/{plant_id}/pet", response_model=AffinityAward)
+def pet_plant(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AffinityAward:
+    """캐릭터 문지르기 — 하루 한 번 소량의 애정도를 준다.
+
+    돌봄이 아니라 애정 표현이라 care_record 는 남기지 않는다.
+    이미 오늘 받았거나 만점이면 affinity_awarded 가 0으로 온다.
+    """
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+    awarded = affinity.award_for_petting(plant)
+    if awarded:
+        db.commit()
+        db.refresh(plant)
+    return AffinityAward(
+        affinity_awarded=awarded,
+        affinity=affinity.status_for_plant(plant),
+    )
+
+
+# ---------------------------------------------------------------------------
+# 꾸미기 — 아이템 목록 / 개체 액세서리 / 개체탭 배경
+#
+# 액세서리도 배경도 **개체마다** 적용되고, 그 개체의 애정도로 해금된다.
+# 해금 여부는 저장하지 않는다. 아이템의 required_level 과 애정도에서 계산한
+# 단계를 비교할 뿐이라, affinity.py 의 기준을 바꾸면 즉시 새 기준이 적용된다.
+#
+# 둘 다 plant_decoration 한 테이블에 담고 position_key 로 나눈다 —
+# UNIQUE (plant_id, position_key) 가 슬롯당 하나를 보장한다.
+# ---------------------------------------------------------------------------
+
+ACCESSORY_POSITION_KEY = "HEAD"
+BACKGROUND_POSITION_KEY = "BACKGROUND"
+
+# 개체가 배경을 고르기 전의 기본값. item 시드의 item_key 이자 앱 번들 이미지 맵의 키다.
+# (홈 화면 배경 'home-bg' 와는 다르다 — 홈은 고정이고 여기 관여하지 않는다)
+DEFAULT_BACKGROUND_ITEM_KEY = "detail-bg"
+
+
+def _active_item_or_404(item_id: int, item_type: str, db: Session) -> Item:
+    item = db.get(Item, item_id)
+    if item is None or not item.is_active or item.item_type != item_type:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="존재하지 않는 아이템입니다."
+        )
+    return item
+
+
+def _require_unlocked(plant: Plant, item: Item) -> None:
+    """그 개체의 애정도 단계가 아이템 조건에 못 미치면 403.
+
+    앱에서도 잠긴 카드를 못 누르게 막지만, 해금 판정의 최종 책임은 서버에 둔다.
+    """
+    if affinity.level_for_score(plant.affinity_score or 0) < item.required_level:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"하트 {item.required_level}개부터 사용할 수 있어요.",
+        )
+
+
+def _set_decoration(plant: Plant, item: Item | None, position_key: str, db: Session) -> None:
+    """슬롯 하나를 갈아 끼우거나(item) 비운다(None)."""
+    current = db.scalar(
+        select(PlantDecoration).where(
+            PlantDecoration.plant_id == plant.plant_id,
+            PlantDecoration.position_key == position_key,
+        )
+    )
+    if item is None:
+        if current is not None:
+            db.delete(current)
+        return
+    if current is None:
+        db.add(
+            PlantDecoration(
+                plant_id=plant.plant_id, item_id=item.item_id, position_key=position_key
+            )
+        )
+    else:
+        current.item_id = item.item_id
+        current.applied_at = datetime.now(timezone.utc)
+
+
+def _media_asset_url(asset_id: int | None, db: Session) -> str | None:
+    """media_asset 한 건의 표시용 URL. 아직 S3에 올리지 않았으면 None."""
+    if asset_id is None:
+        return None
+    row = db.execute(
+        select(MediaAsset.object_key, MediaAsset.file_url, MediaAsset.bucket_name).where(
+            MediaAsset.asset_id == asset_id
+        )
+    ).first()
+    return _asset_url(*row) if row else None
+
+
+def _item_sprite_url(item: Item, db: Session) -> str | None:
+    """액세서리를 착용한 캐릭터 이미지 URL"""
+    return _media_asset_url(item.sprite_asset_id, db)
+
+
+def _item_card_url(item: Item, db: Session) -> str | None:
+    """목록 카드 이미지 URL (배경은 이게 곧 배경 그림이다)"""
+    return _media_asset_url(item.asset_id, db)
+
+
+def _default_background(db: Session) -> tuple[str, str | None]:
+    """배경을 고르지 않은 개체가 쓸 기본 배경 (item_key, 이미지 URL).
+
+    이미지도 함께 찾는다 — 안 그러면 기본 배경만 번들 사본으로 그려져서,
+    서버에서 기본 배경 그림을 갈아끼워도 반영되지 않는다.
+    """
+    row = db.execute(
+        select(MediaAsset.object_key, MediaAsset.file_url, MediaAsset.bucket_name)
+        .join(Item, Item.asset_id == MediaAsset.asset_id)
+        .where(Item.item_key == DEFAULT_BACKGROUND_ITEM_KEY)
+    ).first()
+    return DEFAULT_BACKGROUND_ITEM_KEY, (_asset_url(*row) if row else None)
+
+
+@app.get("/api/items", response_model=list[ItemRead])
+def list_items(
+    item_type: str | None = Query(default=None, description="ACCESSORY | BACKGROUND"),
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ItemRead]:
+    """꾸미기 아이템 목록.
+
+    이미지는 S3(media_asset)에 올린 게 있으면 그 URL을, 없으면 null 을 준다 —
+    앱은 null 일 때 item_key 로 번들 이미지를 그린다.
+
+    해금 여부는 내려보내지 않는다 — 액세서리는 개체마다, 배경은 유저 전체 기준이라
+    조건이 달라서, 앱이 required_level 과 해당 애정도 단계를 비교한다.
+    """
+    card = aliased(MediaAsset)
+    sprite = aliased(MediaAsset)
+    query = (
+        select(
+            Item,
+            card.object_key,
+            card.file_url,
+            card.bucket_name,
+            sprite.object_key,
+            sprite.file_url,
+            sprite.bucket_name,
+        )
+        .join(card, card.asset_id == Item.asset_id, isouter=True)
+        .join(sprite, sprite.asset_id == Item.sprite_asset_id, isouter=True)
+        .where(Item.is_active.is_(True))
+    )
+    if item_type is not None:
+        query = query.where(Item.item_type == item_type)
+    rows = db.execute(query.order_by(Item.required_level, Item.item_id)).all()
+    return [
+        ItemRead(
+            id=item.item_id,
+            item_key=item.item_key,
+            item_name=item.item_name,
+            item_type=item.item_type,
+            required_level=item.required_level,
+            image_url=_asset_url(card_key, card_url, card_bucket),
+            sprite_url=_asset_url(sprite_key, sprite_url, sprite_bucket),
+        )
+        for item, card_key, card_url, card_bucket, sprite_key, sprite_url, sprite_bucket in rows
+    ]
+
+
+@app.get("/api/plants/{plant_id}/decoration", response_model=PlantDecorationRead)
+def get_plant_decoration(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PlantDecorationRead:
+    """개체가 착용 중인 액세서리. 없으면 두 필드 모두 null."""
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+    sprite = aliased(MediaAsset)
+    row = db.execute(
+        select(
+            PlantDecoration.item_id,
+            Item.item_key,
+            sprite.object_key,
+            sprite.file_url,
+            sprite.bucket_name,
+        )
+        .join(Item, Item.item_id == PlantDecoration.item_id)
+        .join(sprite, sprite.asset_id == Item.sprite_asset_id, isouter=True)
+        .where(
+            PlantDecoration.plant_id == plant.plant_id,
+            PlantDecoration.position_key == ACCESSORY_POSITION_KEY,
+        )
+    ).first()
+    if row is None:
+        return PlantDecorationRead()
+    item_id, item_key, object_key, file_url, bucket_name = row
+    return PlantDecorationRead(
+        item_id=item_id,
+        item_key=item_key,
+        sprite_url=_asset_url(object_key, file_url, bucket_name),
+    )
+
+
+@app.put("/api/plants/{plant_id}/decoration", response_model=PlantDecorationRead)
+def set_plant_decoration(
+    plant_id: int,
+    payload: PlantDecorationUpdate,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PlantDecorationRead:
+    """액세서리를 착용하거나(item_id) 벗는다(null)."""
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+
+    if payload.item_id is None:
+        _set_decoration(plant, None, ACCESSORY_POSITION_KEY, db)
+        db.commit()
+        return PlantDecorationRead()
+
+    item = _active_item_or_404(payload.item_id, "ACCESSORY", db)
+    _require_unlocked(plant, item)
+    _set_decoration(plant, item, ACCESSORY_POSITION_KEY, db)
+    db.commit()
+    return PlantDecorationRead(
+        item_id=item.item_id,
+        item_key=item.item_key,
+        sprite_url=_item_sprite_url(item, db),
+    )
+
+
+@app.get("/api/plants/{plant_id}/background", response_model=PlantBackgroundRead)
+def get_plant_background(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PlantBackgroundRead:
+    """개체탭 배경. 고르지 않았으면 기본 배경 키를 돌려준다."""
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+    card = aliased(MediaAsset)
+    row = db.execute(
+        select(PlantDecoration.item_id, Item.item_key, card.object_key, card.file_url, card.bucket_name)
+        .join(Item, Item.item_id == PlantDecoration.item_id)
+        .join(card, card.asset_id == Item.asset_id, isouter=True)
+        .where(
+            PlantDecoration.plant_id == plant.plant_id,
+            PlantDecoration.position_key == BACKGROUND_POSITION_KEY,
+        )
+    ).first()
+    if row is None:
+        key, url = _default_background(db)
+        return PlantBackgroundRead(item_key=key, image_url=url)
+    item_id, item_key, object_key, file_url, bucket_name = row
+    return PlantBackgroundRead(
+        item_id=item_id,
+        item_key=item_key,
+        image_url=_asset_url(object_key, file_url, bucket_name),
+    )
+
+
+@app.put("/api/plants/{plant_id}/background", response_model=PlantBackgroundRead)
+def set_plant_background(
+    plant_id: int,
+    payload: PlantBackgroundUpdate,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PlantBackgroundRead:
+    """개체탭 배경을 바꾸거나(item_id) 기본으로 되돌린다(null).
+
+    액세서리와 같은 규칙 — 그 개체의 애정도 단계로 해금을 판정한다.
+    홈 화면 배경은 고정이라 여기서 바뀌지 않는다.
+    """
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+
+    if payload.item_id is None:
+        _set_decoration(plant, None, BACKGROUND_POSITION_KEY, db)
+        db.commit()
+        key, url = _default_background(db)
+        return PlantBackgroundRead(item_key=key, image_url=url)
+
+    item = _active_item_or_404(payload.item_id, "BACKGROUND", db)
+    _require_unlocked(plant, item)
+    _set_decoration(plant, item, BACKGROUND_POSITION_KEY, db)
+    db.commit()
+    return PlantBackgroundRead(
+        item_id=item.item_id,
+        item_key=item.item_key,
+        image_url=_item_card_url(item, db),
     )
 
 
@@ -1350,7 +1760,7 @@ def get_consultation(
     asset_url_map: dict[int, str] = {}
     if asset_ids:
         for asset in db.scalars(select(MediaAsset).where(MediaAsset.asset_id.in_(asset_ids))).all():
-            asset_url_map[asset.asset_id] = presigned_get_url(asset.object_key) or asset.file_url
+            asset_url_map[asset.asset_id] = presigned_get_url(asset.object_key, asset.bucket_name) or asset.file_url
 
     messages = []
     for row in rows:
@@ -1393,6 +1803,19 @@ def delete_consultation(
 
 @app.get("/auth/me", response_model=UserRead)
 def me(current_user: AppUser = Depends(get_current_user)) -> UserRead:
+    return UserRead.model_validate(current_user)
+
+
+@app.patch("/auth/me", response_model=UserRead)
+def update_me(
+    payload: UserUpdate,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserRead:
+    """내 프로필 수정 — 설정 화면의 이름 변경. 닉네임 규칙은 회원가입과 동일."""
+    current_user.nickname = payload.nickname
+    db.commit()
+    db.refresh(current_user)
     return UserRead.model_validate(current_user)
 
 
