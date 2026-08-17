@@ -38,6 +38,7 @@ export const Colors = {
   primaryLight: '#E8F5E9',   // 연녹 면 배경
   separator: '#F0F0F0',
   surfaceGray: '#E8E8E8',
+  surfaceGrayTint: 'rgba(232, 232, 232, 0.7)',  // surfaceGray의 반투명 버전 (RAG 검색 결과 박스 등)
 } as const;
 
 // 메인↔배경 사이의 녹색: primary(#1F5D01)를 배경 위에 투명도로 표현한다.

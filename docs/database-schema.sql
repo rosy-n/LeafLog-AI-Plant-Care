@@ -514,6 +514,9 @@ CREATE TABLE chat_message (
     token_count   INTEGER,
     -- 사진과 함께 보낸 메시지(진단 상담)만 값이 있음. care_record.asset_id와 같은 패턴.
     asset_id      BIGINT REFERENCES media_asset(asset_id) ON DELETE SET NULL,
+    -- ASSISTANT 메시지가 RAG 검색으로 근거 삼은 유사 사례 스냅샷(JSON 배열, DiagnosisSimilarCase 형태).
+    -- 응답 시점 값을 그대로 굳혀서 과거 상담을 다시 열어도 그때 근거를 보여줄 수 있다.
+    rag_context   JSON,
 
     created_at    TIMESTAMP DEFAULT now()
 );

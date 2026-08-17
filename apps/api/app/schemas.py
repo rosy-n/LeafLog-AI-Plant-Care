@@ -292,11 +292,26 @@ class PersonaChatResponse(BaseModel):
     persona: str
 
 
+class DiagnosisSimilarCase(BaseModel):
+    # CLIP 임베딩으로 검색한, Qwen에게 근거로 넘긴 유사 사례 — 앱에서 "RAG 검색 결과" 토글로 노출.
+    # 응답 시점 값을 chat_message.rag_context에 그대로 저장해두므로, 과거 상담을 다시 열어도
+    # 이 스키마 그대로 복원된다.
+    score: float
+    plant_species: str | None = None
+    symptom_group: str | None = None
+    suspected_cause: str | None = None
+    plant_part: str | None = None
+    # 레퍼런스 이미지가 media_asset에 아직 적재되지 않았으면 None — 그 경우 앱은 텍스트만 보여준다.
+    image_url: str | None = None
+
+
 class DiagnosisResponse(BaseModel):
     diagnosis: str
     # chat_session.session_id — 같은 상담을 이어가려면 다음 요청에 그대로 실어 보낸다.
     # 최초 요청(세션 없음)에는 서버가 새로 만들어 이 값으로 돌려준다.
     session_id: int
+    # 사진 없이(symptom_text만으로) 상담한 턴은 CLIP 검색을 안 하므로 빈 리스트.
+    similar_cases: list[DiagnosisSimilarCase] = Field(default_factory=list)
 
 
 class ConsultationSummary(BaseModel):
@@ -315,6 +330,8 @@ class ConsultationMessage(BaseModel):
     content: str
     # 사진과 함께 보낸 메시지만 값이 있음 (chat_message.asset_id → media_asset)
     image_url: str | None = None
+    # ASSISTANT 메시지가 진단 당시 참고한 RAG 유사 사례 (chat_message.rag_context 복원) — 없으면 빈 배열
+    similar_cases: list[DiagnosisSimilarCase] = Field(default_factory=list)
     created_at: str
 
 

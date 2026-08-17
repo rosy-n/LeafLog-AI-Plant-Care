@@ -323,6 +323,9 @@ class ChatMessage(Base):
     asset_id: Mapped[int | None] = mapped_column(
         ForeignKey("media_asset.asset_id", ondelete="SET NULL"), nullable=True
     )
+    # ASSISTANT 메시지가 RAG 검색으로 근거 삼은 유사 사례 스냅샷 (schemas.DiagnosisSimilarCase 형태의
+    # dict 리스트). 응답 시점에 만든 값을 그대로 굳혀서, 과거 상담을 다시 열어도 그때 근거를 보여줄 수 있다.
+    rag_context: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 

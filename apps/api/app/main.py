@@ -47,6 +47,7 @@ from .schemas import (
     ConsultationSummary,
     CurrentEnvironmentResponse,
     DiagnosisResponse,
+    DiagnosisSimilarCase,
     EnvironmentHistoryResponse,
     LoginRequest,
     PersonaChatRequest,
@@ -315,6 +316,36 @@ def _diagnosis_species_care(species: PlantSpecies) -> diagnosis.SpeciesCareInfo:
         humidity_max_pct=float(species.humidity_max_pct) if species.humidity_max_pct is not None else None,
         watering_interval_days=species.watering_interval_days,
     )
+
+
+# apps/api/scripts/ingest_rag_reference_images.py가 채워둔 레퍼런스 이미지의 object_key 규칙.
+# 인덱싱 시점 원본 확장자와 무관하게 항상 .jpg로 정규화해서 올리므로 이미지 확장자를 몰라도
+# image_id만으로 정확히 한 행을 찾을 수 있다.
+def _rag_reference_object_key(image_id: int) -> str:
+    return f"rag-reference/{image_id}.jpg"
+
+
+def _rag_reference_image_urls(image_ids: list[int], db: Session) -> dict[int, str]:
+    """search_similar_cases()가 돌려준 image_id들에 대해 media_asset(RAG_REFERENCE_IMAGE)을 한 번에 조회.
+
+    아직 apps/api/scripts/ingest_rag_reference_images.py로 적재되지 않은 이미지는 매핑에서
+    빠진다 — 호출부는 없는 image_id를 image_url=None으로 두고 텍스트만 보여준다.
+    """
+    if not image_ids:
+        return {}
+    object_keys = [_rag_reference_object_key(image_id) for image_id in image_ids]
+    rows = db.execute(
+        select(MediaAsset.object_key, MediaAsset.asset_id, MediaAsset.file_url).where(
+            MediaAsset.asset_type == "RAG_REFERENCE_IMAGE",
+            MediaAsset.object_key.in_(object_keys),
+        )
+    ).all()
+    url_by_key = {row.object_key: presigned_get_url(row.object_key) or row.file_url for row in rows}
+    return {
+        image_id: url_by_key[key]
+        for image_id, key in zip(image_ids, object_keys)
+        if key in url_by_key
+    }
 
 
 @app.on_event("startup")
@@ -1128,7 +1159,7 @@ async def diagnose_plant_photo(
 
     try:
         if image_bytes is not None:
-            diagnosis_text = diagnosis.diagnose(
+            diagnosis_text, similar_cases = diagnosis.diagnose(
                 image_bytes,
                 plant_species=species,
                 symptom_text=symptom_text,
@@ -1144,6 +1175,7 @@ async def diagnose_plant_photo(
                 weather_air_quality=weather_air_quality,
                 conversation_history=conversation_history,
             )
+            similar_cases = []
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
@@ -1183,6 +1215,20 @@ async def diagnose_plant_photo(
             db.flush()
             user_asset_id = media_asset.asset_id
 
+    # 검색된 사례의 레퍼런스 이미지 URL을 한 번에 조회 — 아직 적재 안 된 사례는 image_url=None.
+    image_url_by_id = _rag_reference_image_urls([case.image_id for case in similar_cases], db)
+    similar_cases_out = [
+        DiagnosisSimilarCase(
+            score=case.score,
+            plant_species=case.plant_species,
+            symptom_group=case.symptom_group,
+            suspected_cause=case.suspected_cause,
+            plant_part=case.plant_part,
+            image_url=image_url_by_id.get(case.image_id),
+        )
+        for case in similar_cases
+    ]
+
     # chat_message.content는 NOT NULL이라 사진만 보낸 턴에는 자리표시자를 남긴다.
     # 이전 턴 이미지는 프롬프트에 다시 첨부하지 않지만(히스토리는 텍스트만 이어붙임),
     # asset_id로 media_asset을 가리켜두면 과거 상담 조회 화면에서 사진을 다시 보여줄 수 있다.
@@ -1200,11 +1246,23 @@ async def diagnose_plant_photo(
             asset_id=user_asset_id,
         )
     )
-    db.add(ChatMessage(session_id=chat_session.session_id, role="ASSISTANT", content=diagnosis_text))
+    db.add(
+        ChatMessage(
+            session_id=chat_session.session_id,
+            role="ASSISTANT",
+            content=diagnosis_text,
+            # 응답 시점 RAG 근거를 그대로 굳혀서 과거 상담 재조회 시에도 토글에 쓸 수 있게 한다.
+            rag_context=[case.model_dump() for case in similar_cases_out] or None,
+        )
+    )
     chat_session.updated_at = datetime.now(timezone.utc)
     db.commit()
 
-    return DiagnosisResponse(diagnosis=diagnosis_text, session_id=chat_session.session_id)
+    return DiagnosisResponse(
+        diagnosis=diagnosis_text,
+        session_id=chat_session.session_id,
+        similar_cases=similar_cases_out,
+    )
 
 
 @app.get("/api/plants/{plant_id}/consultations", response_model=list[ConsultationSummary])
@@ -1283,6 +1341,7 @@ def get_consultation(
                 role=row.role.lower(),
                 content=row.content,
                 image_url=asset_url_map.get(row.asset_id) if row.asset_id is not None else None,
+                similar_cases=[DiagnosisSimilarCase(**case) for case in (row.rag_context or [])],
                 created_at=row.created_at.isoformat(),
             )
             for row in rows
