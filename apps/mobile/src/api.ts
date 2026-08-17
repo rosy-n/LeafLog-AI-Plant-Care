@@ -428,6 +428,8 @@ export type DiagnosisResult = {
   session_id: number;
   // 사진 없이(symptom_text만으로) 상담한 턴은 빈 배열
   similar_cases: DiagnosisSimilarCase[];
+  // RAG 코퍼스 전체 크기("전체 N장 중 몇 건 매칭" 표시용) — 검색을 안 한 턴은 null
+  reference_dataset_size: number | null;
 };
 
 // 병해충/증상 상담 — CLIP 검색 + Qwen 생성이 한 번에 돌기 때문에 수초~수십초 걸릴 수 있다.
@@ -471,6 +473,8 @@ export type ConsultationMessage = {
   image_url: string | null;
   // assistant 메시지가 진단 당시 참고한 RAG 유사 사례 — 저장돼 있어서 과거 상담도 다시 볼 수 있음
   similar_cases: DiagnosisSimilarCase[];
+  // 그 진단 시점의 RAG 코퍼스 전체 크기 (DiagnosisResult와 동일한 의미)
+  reference_dataset_size: number | null;
   created_at: string;
 };
 

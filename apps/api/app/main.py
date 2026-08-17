@@ -348,6 +348,18 @@ def _rag_reference_image_urls(image_ids: list[int], db: Session) -> dict[int, st
     }
 
 
+def _parse_rag_context(raw: object) -> tuple[list[DiagnosisSimilarCase], int | None]:
+    """chat_message.rag_context(JSON)를 복원. {"cases": [...], "dataset_size": N} 형태가 현재 스키마인데,
+    reference_dataset_size 도입 전(사례 배열만 저장하던 시절)에 저장된 옛 행은 raw 자체가 리스트라
+    두 형태를 다 처리한다."""
+    if isinstance(raw, dict):
+        cases = [DiagnosisSimilarCase(**case) for case in raw.get("cases", [])]
+        return cases, raw.get("dataset_size")
+    if isinstance(raw, list):
+        return [DiagnosisSimilarCase(**case) for case in raw], None
+    return [], None
+
+
 @app.on_event("startup")
 def create_tables() -> None:
     Base.metadata.create_all(bind=engine)
@@ -1228,6 +1240,8 @@ async def diagnose_plant_photo(
         )
         for case in similar_cases
     ]
+    # 검색을 실제로 돌린 턴(사진 있음)만 "전체 N장 중 몇 건 매칭"을 계산 — 텍스트 전용 턴은 None.
+    reference_dataset_size = diagnosis.reference_dataset_size() if image_bytes is not None else None
 
     # chat_message.content는 NOT NULL이라 사진만 보낸 턴에는 자리표시자를 남긴다.
     # 이전 턴 이미지는 프롬프트에 다시 첨부하지 않지만(히스토리는 텍스트만 이어붙임),
@@ -1251,8 +1265,16 @@ async def diagnose_plant_photo(
             session_id=chat_session.session_id,
             role="ASSISTANT",
             content=diagnosis_text,
-            # 응답 시점 RAG 근거를 그대로 굳혀서 과거 상담 재조회 시에도 토글에 쓸 수 있게 한다.
-            rag_context=[case.model_dump() for case in similar_cases_out] or None,
+            # 응답 시점 RAG 근거(사례 + 코퍼스 전체 크기)를 그대로 굳혀서 과거 상담 재조회 시에도
+            # 토글에 쓸 수 있게 한다. 검색 자체를 안 한 턴(사진 없음)은 None.
+            rag_context=(
+                {
+                    "cases": [case.model_dump() for case in similar_cases_out],
+                    "dataset_size": reference_dataset_size,
+                }
+                if image_bytes is not None
+                else None
+            ),
         )
     )
     chat_session.updated_at = datetime.now(timezone.utc)
@@ -1262,6 +1284,7 @@ async def diagnose_plant_photo(
         diagnosis=diagnosis_text,
         session_id=chat_session.session_id,
         similar_cases=similar_cases_out,
+        reference_dataset_size=reference_dataset_size,
     )
 
 
@@ -1329,23 +1352,28 @@ def get_consultation(
         for asset in db.scalars(select(MediaAsset).where(MediaAsset.asset_id.in_(asset_ids))).all():
             asset_url_map[asset.asset_id] = presigned_get_url(asset.object_key) or asset.file_url
 
+    messages = []
+    for row in rows:
+        similar_cases, reference_dataset_size = _parse_rag_context(row.rag_context)
+        messages.append(
+            ConsultationMessage(
+                id=row.message_id,
+                role=row.role.lower(),
+                content=row.content,
+                image_url=asset_url_map.get(row.asset_id) if row.asset_id is not None else None,
+                similar_cases=similar_cases,
+                reference_dataset_size=reference_dataset_size,
+                created_at=row.created_at.isoformat(),
+            )
+        )
+
     return ConsultationDetail(
         id=chat_session.session_id,
         title=chat_session.title,
         plant_id=chat_session.plant_id,
         started_at=chat_session.started_at.isoformat(),
         updated_at=chat_session.updated_at.isoformat(),
-        messages=[
-            ConsultationMessage(
-                id=row.message_id,
-                role=row.role.lower(),
-                content=row.content,
-                image_url=asset_url_map.get(row.asset_id) if row.asset_id is not None else None,
-                similar_cases=[DiagnosisSimilarCase(**case) for case in (row.rag_context or [])],
-                created_at=row.created_at.isoformat(),
-            )
-            for row in rows
-        ],
+        messages=messages,
     )
 
 

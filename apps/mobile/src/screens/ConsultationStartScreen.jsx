@@ -130,6 +130,7 @@ export default function ConsultStartScreen({ navigation, route }) {
     const [statusUpdates, setStatusUpdates] = useState({});
     const [savingStatusId, setSavingStatusId] = useState(null);
     const [copiedId, setCopiedId] = useState(null);
+    const [expandedRagId, setExpandedRagId] = useState({});
     const scrollViewRef = useRef(null);
     // 후속 질문에 새 사진이 없으면 직전에 보낸 사진을 재사용한다 — 사진이 한 번도 없었다면
     // 자연어만으로 상담(텍스트 전용 경로)한다.
@@ -275,7 +276,13 @@ export default function ConsultStartScreen({ navigation, route }) {
             setMessages((prev) =>
                 prev.map((item) =>
                     item.id === loadingId
-                        ? { ...item, text: result.diagnosis, isDiagnosis: true }
+                        ? {
+                              ...item,
+                              text: result.diagnosis,
+                              isDiagnosis: true,
+                              similarCases: result.similar_cases,
+                              referenceDatasetSize: result.reference_dataset_size,
+                          }
                         : item
                 )
             );
@@ -337,6 +344,50 @@ export default function ConsultStartScreen({ navigation, route }) {
                                 {copiedId === item.id && (
                                     <View style={[styles.copiedBadge, styles.copiedBadgeLeft]}>
                                         <Text style={styles.copiedBadgeText}>복사됨</Text>
+                                    </View>
+                                )}
+                                {item.similarCases?.length > 0 && (
+                                    <View style={styles.ragSection}>
+                                        <TouchableOpacity
+                                            style={styles.ragToggle}
+                                            activeOpacity={0.7}
+                                            onPress={() =>
+                                                setExpandedRagId((prev) => ({
+                                                    ...prev,
+                                                    [item.id]: !prev[item.id],
+                                                }))
+                                            }
+                                        >
+                                            <Text style={styles.ragToggleText}>
+                                                RAG 검색 결과
+                                                {item.referenceDatasetSize != null
+                                                    ? ` · 전체 ${item.referenceDatasetSize}장 중 ${item.similarCases.length}건`
+                                                    : ""}
+                                                {" "}
+                                                {expandedRagId[item.id] ? "▲" : "▼"}
+                                            </Text>
+                                        </TouchableOpacity>
+                                        {expandedRagId[item.id] && (
+                                            <View style={styles.ragList}>
+                                                {item.similarCases.map((c, idx) => (
+                                                    <View key={idx} style={styles.ragRow}>
+                                                        {c.image_url ? (
+                                                            <Image
+                                                                source={{ uri: c.image_url }}
+                                                                style={styles.ragThumb}
+                                                                resizeMode="cover"
+                                                            />
+                                                        ) : null}
+                                                        <Text style={styles.ragItemText}>
+                                                            {idx + 1}. {c.plant_species ?? "종 미상"} · {c.symptom_group ?? "증상 미상"}
+                                                            {c.suspected_cause ? ` · ${c.suspected_cause}` : ""}
+                                                            {c.plant_part ? ` · ${c.plant_part}` : ""}
+                                                            {"  "}(유사도 {Math.round(c.score * 100)}%)
+                                                        </Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
                                     </View>
                                 )}
                                 {item.isDiagnosis && plant?.id && (
@@ -528,6 +579,49 @@ const styles = StyleSheet.create({
 
     assistantRow: {
         marginBottom: Spacing.xl,
+    },
+
+    ragSection: {
+        marginTop: Spacing.sm,
+    },
+
+    ragToggle: {
+        alignSelf: "flex-start",
+    },
+
+    ragToggleText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        // FontSizes.small(12)보다 아주 약간 큼 — 본문(FontSizes.body, 14)보다는 계속 작게 유지.
+        fontSize: 13,
+        color: Colors.textGray,
+    },
+
+    ragList: {
+        marginTop: Spacing.xs,
+        gap: Spacing.xs,
+        padding: Spacing.md,
+        borderRadius: Radius.lg,
+        backgroundColor: Colors.surfaceGrayTint,
+    },
+
+    ragRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: Spacing.xs,
+    },
+
+    ragThumb: {
+        width: 32,
+        height: 32,
+        borderRadius: Radius.sm,
+    },
+
+    ragItemText: {
+        flex: 1,
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        lineHeight: 17,
+        color: Colors.textGray,
     },
 
     statusCard: {
