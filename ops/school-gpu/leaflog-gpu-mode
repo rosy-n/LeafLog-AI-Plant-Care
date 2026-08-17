@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/wsl/lib"
+
+readonly FORGE_SERVICE="leaflog-forge.service"
+readonly OLLAMA_SERVICE="ollama.service"
+readonly LOCK_FILE="/run/lock/leaflog-gpu-mode.lock"
+readonly FORGE_HEALTH_URL="http://127.0.0.1:7860/sdapi/v1/options"
+readonly FORGE_SCRIPTS_URL="http://127.0.0.1:7860/sdapi/v1/script-info"
+readonly OLLAMA_HEALTH_URL="http://127.0.0.1:11434/api/tags"
+
+if [[ ${EUID} -ne 0 ]]; then
+  exec sudo -n /usr/local/sbin/leaflog-gpu-mode "$@"
+fi
+
+usage() {
+  cat <<'EOF'
+Usage: leaflog-gpu {ollama|sdxl|status}
+
+  ollama  Stop Forge, release its GPU memory, and start Ollama.
+  sdxl    Stop Ollama, start Forge, and wait until the SDXL API is ready.
+  status  Show the active services, API health, RAM, and VRAM.
+EOF
+}
+
+wait_http() {
+  local url=$1
+  local timeout_seconds=$2
+  local started=$SECONDS
+
+  until curl --fail --silent --max-time 3 "$url" >/dev/null 2>&1; do
+    if (( SECONDS - started >= timeout_seconds )); then
+      return 1
+    fi
+    sleep 2
+  done
+}
+
+wait_forge() {
+  local timeout_seconds=$1
+  local started=$SECONDS
+
+  until curl --fail --silent --max-time 3 "$FORGE_HEALTH_URL" >/dev/null 2>&1 \
+    && curl --fail --silent --max-time 3 "$FORGE_SCRIPTS_URL" | grep --quiet --ignore-case '"name":"controlnet"'; do
+    if systemctl is-failed --quiet "$FORGE_SERVICE"; then
+      return 1
+    fi
+    if (( SECONDS - started >= timeout_seconds )); then
+      return 1
+    fi
+    sleep 2
+  done
+}
+
+service_state() {
+  systemctl is-active "$1" 2>/dev/null || true
+}
+
+show_status() {
+  local forge_state ollama_state
+  forge_state=$(service_state "$FORGE_SERVICE")
+  ollama_state=$(service_state "$OLLAMA_SERVICE")
+
+  printf 'Ollama service: %s\n' "$ollama_state"
+  printf 'Forge service:  %s\n' "$forge_state"
+
+  if curl --fail --silent --max-time 2 "$OLLAMA_HEALTH_URL" >/dev/null 2>&1; then
+    echo "Ollama API:     ready (127.0.0.1:11434)"
+  else
+    echo "Ollama API:     unavailable"
+  fi
+
+  if curl --fail --silent --max-time 2 "$FORGE_HEALTH_URL" >/dev/null 2>&1 \
+    && curl --fail --silent --max-time 2 "$FORGE_SCRIPTS_URL" | grep --quiet --ignore-case '"name":"controlnet"'; then
+    echo "Forge API:      ready (127.0.0.1:7860)"
+  else
+    echo "Forge API:      unavailable"
+  fi
+
+  echo
+  free -h
+  echo
+  nvidia-smi --query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu --format=csv,noheader
+}
+
+start_ollama() {
+  echo "Stopping SDXL Forge..."
+  systemctl stop "$FORGE_SERVICE"
+
+  echo "Starting Ollama..."
+  systemctl start "$OLLAMA_SERVICE"
+  if ! wait_http "$OLLAMA_HEALTH_URL" 90; then
+    echo "Ollama did not become ready within 90 seconds." >&2
+    systemctl status "$OLLAMA_SERVICE" --no-pager >&2 || true
+    return 1
+  fi
+
+  echo "Ollama mode is ready. Models load only when requested."
+}
+
+start_sdxl() {
+  echo "Stopping Ollama and unloading its models..."
+  systemctl stop "$OLLAMA_SERVICE"
+
+  echo "Starting SDXL Forge..."
+  # reset-failed returns non-zero when the unit has no recorded failed state.
+  systemctl reset-failed "$FORGE_SERVICE" 2>/dev/null || true
+  systemctl start "$FORGE_SERVICE"
+  if ! wait_forge 900; then
+    echo "Forge did not become ready within 15 minutes; restoring Ollama." >&2
+    systemctl stop "$FORGE_SERVICE" || true
+    systemctl start "$OLLAMA_SERVICE" || true
+    journalctl -u "$FORGE_SERVICE" -n 80 --no-pager >&2 || true
+    return 1
+  fi
+
+  echo "SDXL mode is ready at http://127.0.0.1:7860."
+}
+
+case "${1:-}" in
+  status)
+    show_status
+    ;;
+  ollama|sdxl)
+    exec 9>"$LOCK_FILE"
+    if ! flock -w 920 9; then
+      echo "Another GPU mode transition is still running." >&2
+      exit 1
+    fi
+
+    if [[ $1 == "ollama" ]]; then
+      start_ollama
+    else
+      start_sdxl
+    fi
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

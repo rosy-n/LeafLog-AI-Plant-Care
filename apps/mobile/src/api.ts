@@ -38,6 +38,16 @@ export type PlantListItem = {
   watering_interval_days: number | null;
   next_watering_date: string | null;
   days_until_watering: number | null;
+  // 애정도 — 정원 목록 하트/호감도순 정렬용 (돌봄 기록에서 서버가 계산)
+  affinity_score: number;
+  affinity_hearts: number;
+  affinity_level: number;
+  // 개체에 적용된 꾸미기. *_url 이 null 이면 item_key 로 번들 이미지(src/data/decor.js)를 쓴다.
+  // decoration_* 는 착용 액세서리(없으면 null), background_* 는 개체탭 배경(기본 배경 키)
+  decoration_item_key: string | null;
+  decoration_sprite_url: string | null;
+  background_item_key: string | null;
+  background_image_url: string | null;
 };
 
 // 로그인/회원가입 후 받은 액세스 토큰을 앱 전역에서 공유 (메모리 보관)
@@ -66,6 +76,31 @@ export type UploadableImage = {
   uri: string;
   name?: string;
   type?: string;
+};
+
+export type CharacterGenerationCandidate = {
+  id: string;
+  image_url: string;
+  checksum: string;
+  seed: number;
+};
+
+export type CharacterGenerationJob = {
+  id: string;
+  status:
+    | "queued"
+    | "preprocessing"
+    | "starting_gpu"
+    | "generating"
+    | "postprocessing"
+    | "completed"
+    | "failed";
+  progress: number;
+  message: string;
+  current_candidate: number;
+  candidate_count: number;
+  candidates: CharacterGenerationCandidate[];
+  error: string | null;
 };
 
 // EXPO_PUBLIC_API_BASE_URL이 명시돼 있으면 그 값을 우선 사용(터널 모드 등).
@@ -353,6 +388,108 @@ export type CareRecordItem = {
   note: string | null;
 };
 
+// 애정도 현황 — 점수 규칙(상호작용별 점수, 하트 환산)은 서버(app/affinity.py)가 단일 출처.
+// 앱은 이 응답을 그대로 표시하고 점수표를 다시 정의하지 않는다.
+export type AffinityStatus = {
+  score: number;
+  // 0~5, 0.5 단위 — HeartsRow가 빈/반/가득 하트로 그린다
+  hearts: number;
+  // 꽉 찬 하트 수 = 해금된 꾸미기 아이템 단계 (0~5)
+  level: number;
+  max_score: number;
+  max_hearts: number;
+  // 단계별 누적 기준 점수 (Lv1~Lv5). 단계가 올라갈수록 간격이 넓어진다
+  level_thresholds: number[];
+  // 다음 단계에 필요한 총점. 만점이면 null
+  next_level_score: number | null;
+  level_progress_pct: number;
+};
+
+// 돌봄 기록 저장 응답 — 이 기록으로 얻은 애정도가 함께 온다.
+// affinity_awarded === 0 이면 그날 같은 종류를 이미 기록했거나 만점이라 점수가 오르지 않은 것.
+export type CareRecordCreated = CareRecordItem & {
+  affinity_awarded: number;
+  affinity: AffinityStatus;
+};
+
+// 개체의 애정도 현황
+export function getPlantAffinity(plantId: number) {
+  return request<AffinityStatus>(`/api/plants/${plantId}/affinity`);
+}
+
+export type AffinityAward = {
+  affinity_awarded: number;
+  affinity: AffinityStatus;
+};
+
+// 캐릭터 문지르기 — 하루 한 번 소량의 애정도를 받는다.
+// 이미 오늘 받았거나 만점이면 affinity_awarded 가 0으로 온다 (에러가 아니다).
+export function petPlant(plantId: number) {
+  return request<AffinityAward>(`/api/plants/${plantId}/pet`, {
+    method: "POST",
+  });
+}
+
+// 꾸미기 아이템 — 이름·해금 단계·이미지 모두 서버(item 테이블)가 단일 출처다.
+// *_url 이 null 이면 아직 S3에 이미지가 없다는 뜻 → item_key 로 번들 이미지를 쓴다.
+export type Item = {
+  id: number;
+  item_key: string;
+  item_name: string;
+  item_type: "ACCESSORY" | "BACKGROUND";
+  // 해금에 필요한 꽉 찬 하트 수 (0 = 기본 제공)
+  required_level: number;
+  // 목록 카드 이미지 (액세서리 아이콘 / 배경 미리보기)
+  image_url: string | null;
+  // 그 액세서리를 착용한 캐릭터 이미지. 배경은 항상 null
+  sprite_url: string | null;
+};
+
+export function getItems(itemType?: "ACCESSORY" | "BACKGROUND") {
+  const query = itemType ? `?item_type=${itemType}` : "";
+  return request<Item[]>(`/api/items${query}`);
+}
+
+// 개체가 착용 중인 액세서리. 착용 안 했으면 필드가 모두 null.
+export type PlantDecoration = {
+  item_id: number | null;
+  item_key: string | null;
+  sprite_url: string | null;
+};
+
+// 개체탭 배경 — 액세서리와 같이 개체마다 적용되고 그 개체의 애정도로 해금된다.
+// 고르지 않았으면 item_id 는 null 이고 item_key 는 기본 배경("home-bg")이 온다.
+export type PlantBackground = {
+  item_id: number | null;
+  item_key: string | null;
+  image_url: string | null;
+};
+
+export function getPlantBackground(plantId: number) {
+  return request<PlantBackground>(`/api/plants/${plantId}/background`);
+}
+
+// 배경 변경(itemId) 또는 기본으로 되돌리기(null). 해금 검증은 서버가 하고 못 미치면 403.
+export function setPlantBackground(plantId: number, itemId: number | null) {
+  return request<PlantBackground>(`/api/plants/${plantId}/background`, {
+    method: "PUT",
+    body: JSON.stringify({ item_id: itemId }),
+  });
+}
+
+export function getPlantDecoration(plantId: number) {
+  return request<PlantDecoration>(`/api/plants/${plantId}/decoration`);
+}
+
+// 액세서리 착용(itemId) 또는 해제(null).
+// 해금(애정도 단계) 검증은 서버가 하고, 못 미치면 403이 온다.
+export function setPlantDecoration(plantId: number, itemId: number | null) {
+  return request<PlantDecoration>(`/api/plants/${plantId}/decoration`, {
+    method: "PUT",
+    body: JSON.stringify({ item_id: itemId }),
+  });
+}
+
 // 특정 식물의 관리 기록 목록 (care_type: WATERING | FERTILIZING | REPOTTING)
 export function getCareRecords(plantId: number, careType: string) {
   return request<CareRecordItem[]>(
@@ -364,7 +501,7 @@ export function createCareRecord(
   plantId: number,
   body: { care_type: string; note?: string | null; completed_at?: string },
 ) {
-  return request<CareRecordItem>(`/api/plants/${plantId}/care-records`, {
+  return request<CareRecordCreated>(`/api/plants/${plantId}/care-records`, {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -387,6 +524,17 @@ export function checkEmail(email: string) {
   return request<AvailabilityResponse>(
     `/auth/check-email?email=${encodeURIComponent(email)}`,
   );
+}
+
+export type CurrentUser = AuthResponse["user"];
+
+// 내 프로필 수정 (설정 화면의 이름 변경).
+// 닉네임 규칙은 회원가입과 같아서(2~10자, 한글/영문/숫자) 어기면 서버가 400을 준다.
+export function updateMe(body: { nickname: string }) {
+  return request<CurrentUser>("/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 export function preprocessPlantImage(
@@ -495,6 +643,19 @@ export function getConsultation(sessionId: number) {
 // 상담 기록 삭제 — 세션과 그 안의 메시지 전체를 지운다 (되돌릴 수 없음)
 export function deleteConsultation(sessionId: number) {
   return request<null>(`/api/consultations/${sessionId}`, { method: "DELETE" });
+}
+
+export function startCharacterGeneration(image: UploadableImage) {
+  return requestForm<CharacterGenerationJob>(
+    "/api/character-generations",
+    createImageFormData(image),
+  );
+}
+
+export function getCharacterGeneration(jobId: string) {
+  return request<CharacterGenerationJob>(
+    `/api/character-generations/${encodeURIComponent(jobId)}`,
+  );
 }
 
 export type PersonaOption = {

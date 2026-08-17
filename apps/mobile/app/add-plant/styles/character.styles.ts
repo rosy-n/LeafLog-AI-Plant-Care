@@ -8,9 +8,16 @@ const { width, height: screenHeight } = Dimensions.get('window');
 const CHAR_SIZE = Math.min((width - 64) / 2, 140);
 const CHAR_HEIGHT = Math.round(CHAR_SIZE * (4 / 3));
 
-// result 화면의 캐릭터 이미지: 화면 높이의 40%를 상한으로 명시적 픽셀 계산
-const CHAR_IMG_W = Math.round(width * 0.55);
-const CHAR_IMG_H = Math.min(Math.round(CHAR_IMG_W * (4 / 3)), Math.round(screenHeight * 0.4));
+// result 화면의 선택된 후보 미리보기: 후보 카드 3장이 같이 들어가므로
+// 기존 40% 대신 화면 높이의 30%를 상한으로 잡는다.
+const CHAR_IMG_W = Math.round(width * 0.45);
+const CHAR_IMG_H = Math.min(Math.round(CHAR_IMG_W * (4 / 3)), Math.round(screenHeight * 0.3));
+
+// 후보 카드 3장 한 줄: 좌우 gutter + 카드 사이 gap 을 뺀 나머지를 3등분
+const CARD_PADDING = Spacing.sm;
+const CARD_W = Math.floor((width - Spacing.xl * 2 - Spacing.md * 2) / 3);
+// 3:4 portrait 원본 비율 유지 (카드 내부 패딩 제외한 폭 기준)
+const CARD_IMG_H = Math.round((CARD_W - CARD_PADDING * 2) * (4 / 3));
 
 export const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -221,16 +228,77 @@ export const styles = StyleSheet.create({
     color: Colors.textGray,
   },
 
-  // ── Result ─────────────────────────────────────────────────────────────────
+  // ── Result (후보 3종 선택) ──────────────────────────────────────────────────
 
-  // placeholder 원본 1792×2388 = 3:4 portrait
-  // 퍼센트 width는 flex 컨테이너에서 해석이 불안정 → Dimensions 기반 명시적 픽셀로 고정
-  characterImage: {
+  resultSubtitle: {
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.body,
+    color: Colors.textGray,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+  },
+
+  // 선택된 후보 미리보기 자리 — 선택 전/후 높이가 같아야 레이아웃이 튀지 않는다
+  selectedPreview: {
     width: CHAR_IMG_W,
     height: CHAR_IMG_H,
     alignSelf: 'center',
-    marginBottom: Spacing.xxxl,
+    marginBottom: Spacing.xl,
     borderRadius: Radius.xl,
     backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
+  // 원본 1792×2388 = 3:4 portrait
+  selectedPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  selectedPreviewHint: {
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.small,
+    color: Colors.textGray,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+
+  candidateRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    justifyContent: 'center',
+  },
+  candidateCard: {
+    width: CARD_W,
+    padding: CARD_PADDING,
+    borderRadius: Radius.lg,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.white,
+  },
+  candidateCardSelected: {
+    borderWidth: 2.5,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
+  },
+  candidateImage: {
+    width: '100%',
+    height: CARD_IMG_H,
+  },
+  candidateCheck: {
+    position: 'absolute',
+    top: Spacing.xs,
+    right: Spacing.xs,
+    width: 22,
+    height: 22,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ── Disabled ───────────────────────────────────────────────────────────────
+
+  disabledBtn: { backgroundColor: Colors.disabled },
+  disabledBtnText: { color: Colors.textGray },
 });

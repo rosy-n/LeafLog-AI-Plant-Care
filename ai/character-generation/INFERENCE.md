@@ -81,4 +81,4 @@ Forge API payload 예제는 `configs/inference/img2img-controlnet-payload.exampl
 
 모델은 모바일이나 일반 FastAPI 서버 프로세스에 포함하지 않는다. GPU 추론 worker를 별도 서비스로 두고 앱 백엔드는 업로드, 작업 상태, 결과 저장을 조정하는 구조가 적절하다.
 
-Forge API를 사용할 경우 `--api`를 활성화하되 외부에 인증 없이 직접 노출하지 않는다. 배경 분리 전처리와 투명 PNG 후처리는 별도 브랜치 `codex/plant-image-preprocessing`에서 관리 중이며 이 브랜치에는 포함되지 않는다.
+Forge API를 사용할 경우 `--api`를 활성화하되 외부에 인증 없이 직접 노출하지 않는다. 배경 분리 전처리와 투명 PNG 후처리는 `apps/api`의 이미지 전처리 엔드포인트에 포함되어 있다.

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     View,
     Text,
@@ -7,6 +7,7 @@ import {
     ScrollView,
     Image,
     StatusBar,
+    Alert,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -14,80 +15,209 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint, Leaf, Accent, Glass } from "../../constants/colors";
+import HeartsRow from "../components/HeartsRow";
+import { Colors, GreenTint, Leaf, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { plantImages } from "../data/plants";
+import {
+    accessoryCardBundle,
+    accessorySpriteBundle,
+    backgroundBundle,
+    BACKGROUND_IMAGES,
+    DEFAULT_BACKGROUND_KEY,
+} from "../data/decor";
+import DecorImage from "../components/DecorImage";
+import { getPlantAffinity, setPlantBackground, setPlantDecoration } from "../api";
 
-const ITEMS = [
-    {
-        id: 1,
-        requiredLevel: 1,
-        label: "잎사귀",
-        itemImage: require("../../assets/items/level1_item.png"),
-        plantImage: require("../../assets/items/level1_plants.png"),
-    },
-    {
-        id: 2,
-        requiredLevel: 2,
-        label: "반짝이",
-        itemImage: require("../../assets/items/level2_item.png"),
-        plantImage: require("../../assets/items/level2_plants.png"),
-    },
-    {
-        id: 3,
-        requiredLevel: 3,
-        label: "하트",
-        itemImage: require("../../assets/items/level3_item.png"),
-        plantImage: require("../../assets/items/level3_plants.png"),
-    },
-    {
-        id: 4,
-        requiredLevel: 4,
-        label: "알록달록",
-        itemImage: require("../../assets/items/level4_item.png"),
-        plantImage: require("../../assets/items/level4_plants.png"),
-    },
-    {
-        id: 5,
-        requiredLevel: 5,
-        label: "나비",
-        itemImage: require("../../assets/items/level5_item.png"),
-        plantImage: require("../../assets/items/level5_plants.png"),
-    },
-];
+/*
+    꾸미기 아이템 — 이름·requiredLevel("꽉 찬 하트 수")·이미지 모두 서버 item 테이블이
+    단일 출처다(GET /api/items). 돌봄(물주기/영양제/분갈이)으로 애정도가 쌓여 하트가
+    한 칸 채워질 때마다 다음 아이템이 해금된다. 점수→하트 환산은 app/affinity.py 가 정한다.
 
-const NEXT_THRESHOLD = [50, 100, 200, 500, 1000];
-
-function getAffinityLevel(score) {
-    if (score >= 1000) return 5;
-    if (score >= 500) return 4;
-    if (score >= 200) return 3;
-    if (score >= 100) return 2;
-    if (score >= 50) return 1;
-    return 0;
+    이미지는 S3 URL 이 오면 그걸 쓰고, 아직 없으면(null) item_key 로 번들 이미지를 쓴다.
+    둘 다 없는 아이템은 그릴 게 없어 목록에서 뺀다.
+*/
+function toAccessory(item) {
+    const cardBundle = accessoryCardBundle(item.item_key);
+    if (!cardBundle && !item.image_url) return null;
+    return {
+        id: item.id,
+        key: item.item_key,
+        label: item.item_name,
+        requiredLevel: item.required_level,
+        // 원격/번들을 둘 다 넘긴다 — DecorImage 가 번들로 먼저 그리고 원격으로 바꿔 끼운다
+        cardBundle,
+        cardUrl: item.image_url,
+        spriteBundle: accessorySpriteBundle(item.item_key),
+        spriteUrl: item.sprite_url,
+    };
 }
 
-function getLevelProgressPercent(score, level) {
-    const thresholds = [0, 50, 100, 200, 500, 1000];
-    const current = thresholds[level];
-    const next = thresholds[Math.min(level + 1, 5)];
-    if (level >= 5) return 100;
-    return Math.min(((score - current) / (next - current)) * 100, 100);
+function toBackground(item) {
+    // backgroundBundle 은 모르는 키를 기본 배경으로 떨어뜨린다 —
+    // 목록에서는 엉뚱한 그림 대신 아예 빼야 하므로 여기서 먼저 걸러낸다
+    if (!item.image_url && !BACKGROUND_IMAGES[item.item_key]) return null;
+    return {
+        id: item.id,
+        key: item.item_key,
+        label: item.item_name,
+        requiredLevel: item.required_level,
+        previewBundle: backgroundBundle(item.item_key),
+        url: item.image_url,
+    };
 }
 
-export default function PlantDecorateScreen({ navigation, route, appliedItem, setAppliedItem }) {
+// 등록일 기준 함께한 일수
+function daysSince(iso) {
+    if (!iso) return 0;
+    const created = new Date(iso).getTime();
+    if (Number.isNaN(created)) return 0;
+    return Math.max(0, Math.floor((Date.now() - created) / 86400000));
+}
+
+export default function PlantDecorateScreen({
+    navigation,
+    route,
+    items = [],
+    reloadItems,
+    decorations,
+    applyDecoration,
+}) {
     const plant = route?.params?.plant;
-    const affinityScore = 725;
-    const affinityLevel = getAffinityLevel(affinityScore);
-    const progressPercent = getLevelProgressPercent(affinityScore, affinityLevel);
 
-    const [selectedItem, setSelectedItem] = useState(appliedItem ?? null);
+    // 애정도 — 정원 목록에서 넘어온 값으로 먼저 그리고 서버 값으로 갱신한다.
+    // 점수/하트/해금 단계와 다음 단계 기준은 모두 서버가 계산해서 내려준다.
+    const [affinity, setAffinity] = useState(() => ({
+        score: plant?.affinityScore ?? 0,
+        hearts: plant?.hearts ?? 0,
+        level: plant?.affinityLevel ?? 0,
+        next_level_score: null,
+        level_progress_pct: 0,
+    }));
+
+    useEffect(() => {
+        const id = plant?.id;
+        if (!id) return;
+        let active = true;
+        getPlantAffinity(Number(id))
+            .then((status) => {
+                if (active) setAffinity(status);
+            })
+            .catch((e) => console.warn("애정도 조회 실패:", e?.message));
+        return () => {
+            active = false;
+        };
+    }, [plant?.id]);
+
+    const affinityLevel = affinity.level ?? 0;
+    const progressPercent = affinity.level_progress_pct ?? 0;
+
+    /*
+        아이템 목록은 App.js 가 앱 시작 때 받아 두고 이미지까지 미리 받아 놓는다 —
+        화면에 들어와서 조회하면 그 왕복 시간만큼 빈 화면이 보인다.
+        아직 못 받았거나 실패했으면(목록이 비어 있으면) 여기서 한 번 더 시도한다.
+    */
+    useEffect(() => {
+        if (items.length === 0) reloadItems?.();
+    }, [items.length, reloadItems]);
+
+    const accessories = useMemo(
+        () => items.filter((r) => r.item_type === "ACCESSORY").map(toAccessory).filter(Boolean),
+        [items],
+    );
+    // 기본 배경을 맨 앞에 둔다 — 액세서리의 "없음" 카드와 같은 자리라 되돌리기 쉽게
+    const backgrounds = useMemo(
+        () =>
+            items
+                .filter((r) => r.item_type === "BACKGROUND")
+                .map(toBackground)
+                .filter(Boolean)
+                .sort((a, b) => (a.key === DEFAULT_BACKGROUND_KEY ? -1 : b.key === DEFAULT_BACKGROUND_KEY ? 1 : 0)),
+        [items],
+    );
+
+    // 이 개체에 적용된 꾸미기 — 서버(plant_decoration)에 저장된 키를 목록에서 찾아 맞춘다.
+    // decorations 값은 { accessory, background } 다 (App.js 참조)
+    const applied = decorations?.[String(plant?.id)] ?? null;
+    const appliedKey = applied?.accessory?.key ?? null;
+    const appliedBgKey = applied?.background?.key ?? DEFAULT_BACKGROUND_KEY;
+    const selectedItem = accessories.find((item) => item.key === appliedKey) ?? null;
+    // 맨 앞 "없음" 카드가 선택된 상태 (= 아무것도 착용하지 않음)
+    const noneSelected = !appliedKey;
+
+    /*
+        착용/배경 변경은 낙관적으로 반영한다 — 서버 왕복(원격 DB라 눈에 띈다)을 기다리면
+        누른 뒤 한 박자 늦게 바뀌어 반응이 없는 것처럼 보인다. 화면을 먼저 바꾸고
+        저장에 실패하면 되돌린다.
+
+        연달아 누르면 응답이 도착 순서대로 오지 않을 수 있어(A 요청 응답이 B 뒤에 오면
+        A 로 되돌아간다) 마지막 요청의 응답만 반영한다.
+    */
+    const decorSeq = useRef(0);
+    const bgSeq = useRef(0);
+
+    const changeDecoration = async (next) => {
+        const id = plant?.id;
+        if (!id) return;
+        const previous = decorations?.[String(id)]?.accessory ?? null;
+        const seq = ++decorSeq.current;
+
+        applyDecoration?.(
+            id,
+            "accessory",
+            next ? { key: next.key, spriteUrl: next.spriteUrl ?? null } : null,
+        );
+        try {
+            const saved = await setPlantDecoration(Number(id), next?.id ?? null);
+            if (seq !== decorSeq.current) return;
+            // 서버가 준 값으로 한 번 더 맞춘다 — 목록을 받은 뒤 이미지가 바뀌었을 수도 있어서
+            applyDecoration?.(
+                id,
+                "accessory",
+                saved?.item_key ? { key: saved.item_key, spriteUrl: saved.sprite_url ?? null } : null,
+            );
+        } catch (e) {
+            if (seq !== decorSeq.current) return;
+            applyDecoration?.(id, "accessory", previous);
+            Alert.alert("적용 실패", e?.message ?? "다시 시도해주세요.");
+        }
+    };
 
     const handleItemPress = (item) => {
         if (item.requiredLevel > affinityLevel) return;
-        const next = selectedItem?.id === item.id ? null : item;
-        setSelectedItem(next);
-        setAppliedItem(next);
+        // 착용 중인 아이템을 다시 누르면 벗는다
+        changeDecoration(item.key === appliedKey ? null : item);
+    };
+
+    /*
+        배경은 이 개체의 개체탭에 적용된다 (홈 배경은 고정).
+        액세서리와 같은 규칙으로 이 개체의 애정도 단계에 따라 해금되고,
+        해제 개념이 없어 다시 눌러도 유지한다 — 기본 배경도 목록의 한 칸이다.
+    */
+    const handleBackgroundPress = async (background) => {
+        const id = plant?.id;
+        if (!id) return;
+        if (background.requiredLevel > affinityLevel) return;
+        if (appliedBgKey === background.key) return;
+        const previous = decorations?.[String(id)]?.background ?? null;
+        const seq = ++bgSeq.current;
+
+        applyDecoration?.(id, "background", {
+            key: background.key,
+            url: background.url ?? null,
+        });
+        try {
+            const saved = await setPlantBackground(Number(id), background.id);
+            if (seq !== bgSeq.current) return;
+            applyDecoration?.(id, "background", {
+                key: saved.item_key ?? DEFAULT_BACKGROUND_KEY,
+                url: saved.image_url ?? null,
+            });
+        } catch (e) {
+            if (seq !== bgSeq.current) return;
+            applyDecoration?.(id, "background", previous);
+            Alert.alert("배경 적용 실패", e?.message ?? "다시 시도해주세요.");
+        }
     };
 
     return (
@@ -97,6 +227,12 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
 
                 {/* Header */}
                 <ScreenHeader title="식물 꾸미기" onBack={() => navigation.goBack()} />
+
+                {/* 아이템 + 배경 두 섹션이 들어가 화면을 넘길 수 있어 스크롤로 감싼다 */}
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollContent}
+                >
 
                 {/* Affinity Card */}
                 <View style={styles.affinityCardWrap}>
@@ -111,11 +247,16 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                             end={{ x: 1, y: 1 }}
                             style={styles.affinityGradient}
                         >
+                            {/* 하트 — 돌봄으로 쌓인 애정도를 개체탭과 같은 아이콘으로 */}
+                            <View style={styles.affinityHeartsRow}>
+                                <HeartsRow count={affinity.hearts ?? 0} size={24} />
+                            </View>
+
                             <View style={styles.affinityRow}>
                                 <View style={styles.affinityBlock}>
-                                    <Text style={styles.affinityLabel}>호감도</Text>
+                                    <Text style={styles.affinityLabel}>애정도</Text>
                                     <Text style={styles.affinityScore}>
-                                        {affinityScore}
+                                        {affinity.score ?? 0}
                                         <Text style={styles.affinityUnit}>점</Text>
                                     </Text>
                                 </View>
@@ -123,7 +264,7 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                                 <View style={styles.affinityDivider} />
 
                                 <View style={styles.affinityBlock}>
-                                    <Text style={styles.affinityLabel}>레벨</Text>
+                                    <Text style={styles.affinityLabel}>단계</Text>
                                     <Text style={styles.affinityLevelText}>
                                         {affinityLevel > 0 ? `Lv.${affinityLevel}` : "Lv.-"}
                                     </Text>
@@ -133,12 +274,14 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
 
                                 <View style={[styles.affinityBlock, { flex: 1.6 }]}>
                                     <View style={styles.progressRow}>
-                                        <Text style={styles.affinityLabel}>다음 레벨</Text>
-                                        {affinityLevel < 5 && (
+                                        <Text style={styles.affinityLabel}>
+                                            {affinity.next_level_score ? "다음 단계" : "최고 단계"}
+                                        </Text>
+                                        {affinity.next_level_score ? (
                                             <Text style={styles.nextThresholdText}>
-                                                {NEXT_THRESHOLD[affinityLevel]}점
+                                                {affinity.next_level_score}점
                                             </Text>
-                                        )}
+                                        ) : null}
                                     </View>
                                     <View style={styles.progressBg}>
                                         <LinearGradient
@@ -161,10 +304,10 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                 <View style={styles.plantPreviewArea}>
                     <View style={styles.plantPreviewInner}>
                         {selectedItem ? (
-                            <Image
-                                source={selectedItem.plantImage}
+                            <DecorImage
+                                remote={selectedItem.spriteUrl ? { uri: selectedItem.spriteUrl } : null}
+                                fallback={selectedItem.spriteBundle}
                                 style={styles.plantPreviewImage}
-                                resizeMode="contain"
                             />
                         ) : (
                             <Image
@@ -176,8 +319,8 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                     </View>
 
                     <View style={styles.plantLabelGroup}>
-                        <Text style={styles.plantName}>스파게티</Text>
-                        <Text style={styles.plantDay}>D+45</Text>
+                        <Text style={styles.plantName}>{plant?.name ?? "내 식물"}</Text>
+                        <Text style={styles.plantDay}>D+{daysSince(plant?.createdAt)}</Text>
                     </View>
 
                     {selectedItem ? (
@@ -210,9 +353,70 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                                 showsHorizontalScrollIndicator={false}
                                 contentContainerStyle={styles.itemScroll}
                             >
-                                {ITEMS.map((item) => {
+                                {/*
+                                    맨 앞은 "아이템 없음" — 아무것도 착용하지 않은 상태다.
+                                    다른 카드와 같은 방식으로 선택 표시가 되도록 같은 구조를 쓰고,
+                                    썸네일은 이 개체의 캐릭터(아이템 없는 모습)를 그대로 보여준다.
+                                */}
+                                <TouchableOpacity
+                                    activeOpacity={0.78}
+                                    // 이미 아무것도 안 쓴 상태면 보낼 게 없다
+                                    onPress={() => !noneSelected && changeDecoration(null)}
+                                    style={styles.itemCardWrap}
+                                >
+                                    <View
+                                        style={[
+                                            styles.itemCard,
+                                            noneSelected && styles.itemCardSelected,
+                                        ]}
+                                    >
+                                        <BlurView intensity={20} tint="light" style={styles.itemCardBlur}>
+                                            <LinearGradient
+                                                colors={[Glass.frost72, Glass.mist]}
+                                                start={{ x: 0.1, y: 0 }}
+                                                end={{ x: 1, y: 1 }}
+                                                style={styles.itemCardGradient}
+                                            >
+                                                <Image
+                                                    source={
+                                                        plant?.imageUri
+                                                            ? { uri: plant.imageUri }
+                                                            : plantImages[plant?.imageKey ?? "spaghetti"]
+                                                    }
+                                                    style={styles.itemImage}
+                                                    resizeMode="contain"
+                                                />
+
+                                                {noneSelected && (
+                                                    <View style={styles.selectedCheck}>
+                                                        <Ionicons
+                                                            name="checkmark"
+                                                            size={13}
+                                                            color={Colors.white}
+                                                        />
+                                                    </View>
+                                                )}
+                                            </LinearGradient>
+                                        </BlurView>
+                                    </View>
+
+                                    <View style={[styles.levelBadge, styles.levelBadgeUnlocked]}>
+                                        <Text
+                                            style={[styles.levelBadgeText, styles.levelBadgeTextUnlocked]}
+                                        >
+                                            기본
+                                        </Text>
+                                    </View>
+
+                                    <Text style={styles.itemLabel} numberOfLines={1}>
+                                        없음
+                                    </Text>
+                                </TouchableOpacity>
+
+                                {accessories.map((item) => {
                                     const isUnlocked = item.requiredLevel <= affinityLevel;
-                                    const isSelected = selectedItem?.id === item.id;
+                                    // 저장된 키로 판단한다 — 목록을 아직 못 받았을 때도 어긋나지 않게
+                                    const isSelected = item.key === appliedKey;
 
                                     return (
                                         <TouchableOpacity
@@ -235,12 +439,7 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                                                 >
                                                     <LinearGradient
                                                         colors={
-                                                            isSelected
-                                                                ? [
-                                                                      Glass.leafBright,
-                                                                      Glass.leafSoft,
-                                                                  ]
-                                                                : isUnlocked
+                                                            isUnlocked
                                                                 ? [
                                                                       Glass.frost72,
                                                                       Glass.mist,
@@ -254,13 +453,13 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                                                         end={{ x: 1, y: 1 }}
                                                         style={styles.itemCardGradient}
                                                     >
-                                                        <Image
-                                                            source={item.itemImage}
+                                                        <DecorImage
+                                                            remote={item.cardUrl ? { uri: item.cardUrl } : null}
+                                                            fallback={item.cardBundle}
                                                             style={[
                                                                 styles.itemImage,
                                                                 !isUnlocked && styles.itemImageLocked,
                                                             ]}
-                                                            resizeMode="contain"
                                                         />
 
                                                         {!isUnlocked && (
@@ -304,9 +503,17 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                                                 </Text>
                                             </View>
 
-                                            {isUnlocked && (
+                                            {/* 잠긴 아이템은 해금 조건(하트 수)을 대신 보여준다 */}
+                                            {isUnlocked ? (
                                                 <Text style={styles.itemLabel} numberOfLines={1}>
                                                     {item.label}
+                                                </Text>
+                                            ) : (
+                                                <Text
+                                                    style={[styles.itemLabel, styles.itemLabelLocked]}
+                                                    numberOfLines={1}
+                                                >
+                                                    하트 {item.requiredLevel}개
                                                 </Text>
                                             )}
                                         </TouchableOpacity>
@@ -317,18 +524,112 @@ export default function PlantDecorateScreen({ navigation, route, appliedItem, se
                     </BlurView>
                 </View>
 
-                {selectedItem && (
-                    <TouchableOpacity
-                        style={styles.removeButton}
-                        onPress={() => {
-                            setSelectedItem(null);
-                            setAppliedItem(null);
-                        }}
-                        activeOpacity={0.75}
-                    >
-                        <Text style={styles.removeButtonText}>아이템 해제</Text>
-                    </TouchableOpacity>
-                )}
+                {/* Background Selection Section — 개체탭 배경. 아이템과 같은 애정도 기준으로 해금 */}
+                <View style={[styles.itemSection, styles.bgSection]}>
+                    <BlurView intensity={22} tint="light" style={styles.itemSectionBlur}>
+                        <LinearGradient
+                            colors={[Glass.frost72, Glass.mist]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 0, y: 1 }}
+                            style={styles.itemSectionGradient}
+                        >
+                            <Text style={styles.itemSectionTitle}>배경 선택</Text>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.itemScroll}
+                            >
+                                {backgrounds.map((background) => {
+                                    const isUnlocked =
+                                        background.requiredLevel <= affinityLevel;
+                                    const isApplied = appliedBgKey === background.key;
+
+                                    return (
+                                        <TouchableOpacity
+                                            key={background.key}
+                                            activeOpacity={isUnlocked ? 0.78 : 1}
+                                            onPress={() => handleBackgroundPress(background)}
+                                            style={styles.bgCardWrap}
+                                        >
+                                            <View
+                                                style={[
+                                                    styles.bgCard,
+                                                    isApplied && styles.itemCardSelected,
+                                                    !isUnlocked && styles.itemCardLocked,
+                                                ]}
+                                            >
+                                                <DecorImage
+                                                    remote={background.url ? { uri: background.url } : null}
+                                                    fallback={background.previewBundle}
+                                                    style={[
+                                                        styles.bgPreview,
+                                                        !isUnlocked && styles.itemImageLocked,
+                                                    ]}
+                                                    resizeMode="cover"
+                                                />
+
+                                                {!isUnlocked && (
+                                                    <View style={styles.lockOverlay}>
+                                                        <Ionicons
+                                                            name="lock-closed"
+                                                            size={20}
+                                                            color={Glass.frost92}
+                                                        />
+                                                    </View>
+                                                )}
+
+                                                {isApplied && (
+                                                    <View style={styles.selectedCheck}>
+                                                        <Ionicons
+                                                            name="checkmark"
+                                                            size={13}
+                                                            color={Colors.white}
+                                                        />
+                                                    </View>
+                                                )}
+                                            </View>
+
+                                            <View
+                                                style={[
+                                                    styles.levelBadge,
+                                                    isUnlocked
+                                                        ? styles.levelBadgeUnlocked
+                                                        : styles.levelBadgeLocked,
+                                                ]}
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.levelBadgeText,
+                                                        isUnlocked && styles.levelBadgeTextUnlocked,
+                                                    ]}
+                                                >
+                                                    {background.requiredLevel === 0
+                                                        ? "기본"
+                                                        : `Lv.${background.requiredLevel}`}
+                                                </Text>
+                                            </View>
+
+                                            {isUnlocked ? (
+                                                <Text style={styles.itemLabel} numberOfLines={1}>
+                                                    {background.label}
+                                                </Text>
+                                            ) : (
+                                                <Text
+                                                    style={[styles.itemLabel, styles.itemLabelLocked]}
+                                                    numberOfLines={1}
+                                                >
+                                                    하트 {background.requiredLevel}개
+                                                </Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                        </LinearGradient>
+                    </BlurView>
+                </View>
+
+                </ScrollView>
             </SafeAreaView>
         </View>
     );
@@ -341,6 +642,9 @@ const styles = StyleSheet.create({
     },
     safe: {
         flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: 32,
     },
 
     // Header
@@ -368,6 +672,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.xl,
         paddingVertical: Spacing.lg,
         borderRadius: Radius.xl,
+    },
+    affinityHeartsRow: {
+        alignItems: "center",
+        marginBottom: Spacing.md,
     },
     affinityRow: {
         flexDirection: "row",
@@ -543,8 +851,9 @@ const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderColor: Glass.frost60,
     },
+    // 선택 표시는 면을 칠하지 않고 메인 녹색 테두리로만 — 아이템·배경 카드 공용
     itemCardSelected: {
-        borderColor: GreenTint.medium,
+        borderColor: Colors.primary,
         borderWidth: 2.5,
     },
     itemCardLocked: {
@@ -617,22 +926,35 @@ const styles = StyleSheet.create({
         color: Colors.primary,
         textAlign: "center",
     },
+    itemLabelLocked: {
+        color: Colors.textGray,
+    },
 
-    removeButton: {
-        position: "absolute",
-        bottom: 42,
-        right: 24,
-        zIndex: 100,
-        paddingHorizontal: Spacing.section,
-        paddingVertical: Spacing.sm,
-        backgroundColor: Glass.warm14,
-        borderRadius: Radius.pill,
-        borderWidth: 1,
-        borderColor: Glass.warm35,
+    // 배경 카드 — 세로 화면 비율이라 아이템 카드보다 길다
+    bgSection: {
+        marginTop: Spacing.lg,
     },
-    removeButtonText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Accent.rust,
+    bgCardWrap: {
+        alignItems: "center",
+        width: 84,
+        gap: Spacing.sm,
     },
+    bgCard: {
+        width: 84,
+        height: 132,
+        borderRadius: Radius.xl,
+        overflow: "hidden",
+        shadowColor: GreenTint.deep,
+        shadowOpacity: 0.16,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 4,
+        borderWidth: 1.5,
+        borderColor: Glass.frost60,
+    },
+    bgPreview: {
+        width: "100%",
+        height: "100%",
+    },
+
 });

@@ -59,8 +59,8 @@ function triggerDate(nextWateringDate: string, hour: number, minute: number): Da
   return when.getTime() > Date.now() ? when : null;
 }
 
-/** 알림 설정이 꺼져 있으면 예약된 물주기 알림을 전부 지운다 */
-async function cancelAllWateringReminders(): Promise<void> {
+/** 예약된 물주기 알림을 전부 지운다 — 알림 설정을 껐을 때, 그리고 로그아웃할 때 */
+export async function cancelAllWateringReminders(): Promise<void> {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
     scheduled

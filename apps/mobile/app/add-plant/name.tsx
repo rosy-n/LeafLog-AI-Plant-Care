@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { getCharacterImageSource } from '../../constants/character-candidates';
 import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
@@ -17,12 +18,13 @@ import { styles } from './styles/name.styles';
 
 const MAX_LENGTH = 8;
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const PLACEHOLDER_CHARACTER = require('../../assets/dot-character-placeholder.png');
-
 export default function NameScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const params = useLocalSearchParams<{ characterId?: string; characterImageUrl?: string }>();
+  // 2단계에서 고른 후보를 그대로 보여준다 (없으면 기본 placeholder)
+  const characterSource = params.characterImageUrl
+    ? { uri: params.characterImageUrl }
+    : getCharacterImageSource(params.characterId);
   const [nickname, setNickname] = useState('');
   const scrollRef = useRef<ScrollView>(null);
   const [kbHeight, setKbHeight] = useState(0);
@@ -68,7 +70,7 @@ export default function NameScreen() {
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
         <Image
-          source={PLACEHOLDER_CHARACTER}
+          source={characterSource}
           style={styles.characterImage}
           resizeMode="contain"
         />
