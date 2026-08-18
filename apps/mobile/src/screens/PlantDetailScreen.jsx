@@ -28,7 +28,7 @@ import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import PixelButton from "../components/PixelButton";
-import PixelSpeechBubble from "../components/PixelSpeechBubble";
+import PixelSpeechBubble, { WordWrapText } from "../components/PixelSpeechBubble";
 import { scheduleWateringReminder } from "../notifications";
 import {
     getPlantCare,
@@ -44,7 +44,7 @@ import DecorImage from "../components/DecorImage";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper, Pink } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
-import { getPersonaGreeting } from "../../constants/persona-greetings";
+import { getPersonaGreeting, getPersonaWateringLine } from "../../constants/persona-greetings";
 
 const MENU_ITEMS = [
     { label: "프로필", screen: "Profile" },
@@ -98,6 +98,9 @@ const DROP_FALL_MS = 1100;     // 낙하 애니메이션 길이
 
 // 캐릭터가 아직 말투 규칙을 못 지켰을 때(서버 502 등) 대화창에 그대로 보여줄 안전 문구
 const CHAT_FALLBACK_REPLY = "음... 지금은 대답하기 어려워. 잠시 후 다시 말해줄래?";
+
+// 대화창 대사를 한 글자씩 타이핑하듯 보여주는 속도 (ConsultationStartScreen과 동일 값)
+const TYPING_CHAR_INTERVAL_MS = 35;
 
 export default function PlantDetailScreen({ navigation, route, decorations }) {
     const plant = route?.params?.plant;
@@ -247,18 +250,46 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
 
     // 캐릭터 대화 모드 — 이 화면 위에서 말풍선/입력만 표시 (기록은 남기지 않음)
     const [chatMode, setChatMode] = useState(false);
-    const [chatReply, setChatReply] = useState("");   // 캐릭터의 현재 대답
+    const [chatReply, setChatReply] = useState("");   // 캐릭터의 현재 대답(전체 텍스트)
+    const [typedReply, setTypedReply] = useState(""); // chatReply를 한 글자씩 채워 보여주는 타이핑 효과용 텍스트
     const [chatInput, setChatInput] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [userBubble, setUserBubble] = useState(""); // 내가 방금 보낸 말 (대사창 위에 살짝 겹쳐 표시)
+    const typingTimerRef = useRef(null);
+
+    // chatReply가 바뀔 때마다(첫 인사말 포함) 처음부터 한 글자씩 타이핑해서 보여준다
+    useEffect(() => {
+        clearInterval(typingTimerRef.current);
+        if (!chatReply) {
+            setTypedReply("");
+            return;
+        }
+        let charCount = 0;
+        typingTimerRef.current = setInterval(() => {
+            charCount += 1;
+            setTypedReply(chatReply.slice(0, charCount));
+            if (charCount >= chatReply.length) {
+                clearInterval(typingTimerRef.current);
+            }
+        }, TYPING_CHAR_INTERVAL_MS);
+        return () => clearInterval(typingTimerRef.current);
+    }, [chatReply]);
 
     // 페르소나(성격) — plant.persona가 아직 없으면(add-plant 단계에 선택 UI가 없어 null) 첫 대화 시도 시 선택 모달을 띄운다
     const [persona, setPersona] = useState(plant?.persona ?? null);
     const [personaOptions, setPersonaOptions] = useState([]);
     const [personaPickerVisible, setPersonaPickerVisible] = useState(false);
 
-    // 개체 탭에 들어오는 순간 페르소나 기본대사 중 하나를 뽑아 고정 — 탭에 머무는 동안은 바뀌지 않는다
-    const [idleGreeting] = useState(() => getPersonaGreeting(persona));
+    // 개체 탭에 들어오는 순간 페르소나 대사 중 하나를 뽑아 고정 — 탭에 머무는 동안은 바뀌지 않는다.
+    // 물주기 정보(daysUntilWatering)가 도착한 뒤에야 결정되므로 그 전까지는 null(말풍선 숨김).
+    const [idleGreeting, setIdleGreeting] = useState(null);
+    const idleGreetingPickedRef = useRef(false);
+    const pickIdleGreeting = (daysUntilWatering) => {
+        if (idleGreetingPickedRef.current) return;
+        idleGreetingPickedRef.current = true;
+        const isWateringDue = daysUntilWatering != null && daysUntilWatering <= 0;
+        setIdleGreeting(isWateringDue ? getPersonaWateringLine(persona) : getPersonaGreeting(persona));
+    };
 
     // 서버는 대화 기록을 저장하지 않는다 — 클라이언트가 최근 5턴(최대 10개 메시지)만 매번 실어 보낸다
     const chatHistoryRef = useRef([]);
@@ -271,19 +302,24 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
 
     useEffect(() => {
         const id = plant?.id;
-        if (!id) return;
+        if (!id) {
+            pickIdleGreeting(null);
+            return;
+        }
         let mounted = true;
         getPlantCare(Number(id))
             .then((care) => {
                 if (mounted) {
                     setWateringDays(care.days_since_watering);
                     setNutrientDays(care.days_since_fertilizing);
+                    pickIdleGreeting(care.days_until_watering);
                 }
             })
             .catch(() => {
                 if (mounted) {
                     setWateringDays(null);
                     setNutrientDays(null);
+                    pickIdleGreeting(null);
                 }
             });
         return () => {
@@ -560,11 +596,13 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                         </View>
                     )}
 
-                    {!chatMode && (
+                    {!chatMode && !!idleGreeting && (
                         <PixelSpeechBubble
                             style={styles.speechBubble}
                             textStyle={styles.speechText}
+                            contentStyle={styles.speechContent}
                             tailOffset={125}
+                            wrapWords
                         >
                             {idleGreeting}
                         </PixelSpeechBubble>
@@ -838,7 +876,11 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                             {/* 식물 대화창 — 첫 줄에 식물 이름(메인 초록·고정), 그 아래 대사만 갱신 */}
                             <View style={styles.chatReplyBubble}>
                                 <Text style={styles.chatPlantName}>{plantName}</Text>
-                                <Text style={styles.chatReplyText}>{isSending ? "···" : chatReply}</Text>
+                                <WordWrapText
+                                    text={isSending ? "···" : typedReply}
+                                    style={styles.chatReplyText}
+                                    align="flex-start"
+                                />
                             </View>
 
                             {/* 입력 영역 (입력창) */}
@@ -1000,9 +1042,13 @@ const styles = StyleSheet.create({
         height: 70,
         zIndex: 20,
     },
+    speechContent: {
+        paddingHorizontal: Spacing.lg,
+    },
     speechText: {
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
+        fontSize: FontSizes.body,
+        lineHeight: 18,
         color: Colors.textBlack,
     },
 
