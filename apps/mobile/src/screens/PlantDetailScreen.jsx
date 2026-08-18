@@ -127,10 +127,10 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
     const [affinity, setAffinity] = useState(() =>
         plant?.hearts != null
             ? {
-                  score: plant.affinityScore ?? 0,
-                  hearts: plant.hearts,
-                  level: plant.affinityLevel ?? 0,
-              }
+                score: plant.affinityScore ?? 0,
+                hearts: plant.hearts,
+                level: plant.affinityLevel ?? 0,
+            }
             : null
     );
     // 방금 얻은 애정도 점수 — 하트 아래에 "+10" 으로 잠깐 떠오른다
@@ -781,61 +781,61 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                     )}
 
                     {!chatMode && (
-                    <View style={styles.leftButtons}>
-                        <LiquidGlassButton size={54} onPress={toggleMenu}>
-                            <Image
-                                source={
-                                    menuOpen
-                                        ? require("../../assets/icons/close_icon.png")
-                                        : require("../../assets/icons/hamburger_icon.png")
-                                }
-                                style={styles.buttonIcon}
-                                resizeMode="contain"
-                            />
-                        </LiquidGlassButton>
+                        <View style={styles.leftButtons}>
+                            <LiquidGlassButton size={54} onPress={toggleMenu}>
+                                <Image
+                                    source={
+                                        menuOpen
+                                            ? require("../../assets/icons/close_icon.png")
+                                            : require("../../assets/icons/hamburger_icon.png")
+                                    }
+                                    style={styles.buttonIcon}
+                                    resizeMode="contain"
+                                />
+                            </LiquidGlassButton>
 
-                        <LiquidGlassButton
-                            size={54}
-                            onPress={() => navigation.navigate("Home")}
-                        >
-                            <Image
-                                source={require("../../assets/icons/home_icon.png")}
-                                style={styles.buttonIcon}
-                                resizeMode="contain"
-                            />
-                        </LiquidGlassButton>
-                    </View>
+                            <LiquidGlassButton
+                                size={54}
+                                onPress={() => navigation.navigate("Home")}
+                            >
+                                <Image
+                                    source={require("../../assets/icons/home_icon.png")}
+                                    style={styles.buttonIcon}
+                                    resizeMode="contain"
+                                />
+                            </LiquidGlassButton>
+                        </View>
                     )}
 
                     {!chatMode && (
-                    <View style={styles.rightButtons}>
-                        <LiquidGlassButton
-                            size={54}
-                            onPress={() => navigation.navigate("ConsultationHistory", { plant })}
-                        >
-                            <Image
-                                source={require("../../assets/icons/counsel_icon.png")}
-                                style={styles.buttonIcon}
-                                resizeMode="contain"
-                            />
-                        </LiquidGlassButton>
+                        <View style={styles.rightButtons}>
+                            <LiquidGlassButton
+                                size={54}
+                                onPress={() => navigation.navigate("ConsultationHistory", { plant })}
+                            >
+                                <Image
+                                    source={require("../../assets/icons/counsel_icon.png")}
+                                    style={styles.buttonIcon}
+                                    resizeMode="contain"
+                                />
+                            </LiquidGlassButton>
 
-                        <LiquidGlassButton size={54} onPress={openChat}>
-                            <Image
-                                source={require("../../assets/icons/chat_icon.png")}
-                                style={styles.buttonIcon}
-                                resizeMode="contain"
-                            />
-                        </LiquidGlassButton>
+                            <LiquidGlassButton size={54} onPress={openChat}>
+                                <Image
+                                    source={require("../../assets/icons/chat_icon.png")}
+                                    style={styles.buttonIcon}
+                                    resizeMode="contain"
+                                />
+                            </LiquidGlassButton>
 
-                        <LiquidGlassButton size={68} onPress={handleWaterPress}>
-                            <Image
-                                source={require("../../assets/icons/watering_icon.png")}
-                                style={styles.buttonIconLarge}
-                                resizeMode="contain"
-                            />
-                        </LiquidGlassButton>
-                    </View>
+                            <LiquidGlassButton size={68} onPress={handleWaterPress}>
+                                <Image
+                                    source={require("../../assets/icons/watering_icon.png")}
+                                    style={styles.buttonIconLarge}
+                                    resizeMode="contain"
+                                />
+                            </LiquidGlassButton>
+                        </View>
                     )}
 
                     {/* ── 캐릭터 대화 모드 오버레이 (flex 세로 배치로 키보드에 반응) ── */}
@@ -1184,12 +1184,12 @@ const styles = StyleSheet.create({
     },
     userBubble: {
         maxWidth: "78%",
-        backgroundColor: Colors.primary,
+        backgroundColor: "rgba(31, 93, 1, 0.9)",
         borderWidth: 3,
         borderColor: Colors.textBlack,
         paddingVertical: Spacing.xs,
         paddingHorizontal: Spacing.sm,
-        marginBottom: -6, // 아래 chatReplyBubble(테두리 4px)에 살짝 걸치도록
+        marginBottom: -4, // 아래 chatReplyBubble(테두리 4px)에 살짝 걸치도록
     },
     userBubbleText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -1201,8 +1201,8 @@ const styles = StyleSheet.create({
     chatReplyBubble: {
         marginHorizontal: 20,
         marginBottom: Spacing.md,
-        backgroundColor: Colors.white,
-        borderWidth: 4,
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        borderWidth: 3,
         borderColor: Colors.textBlack,
         paddingVertical: Spacing.lg,
         paddingHorizontal: Spacing.lg,
