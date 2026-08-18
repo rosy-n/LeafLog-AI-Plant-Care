@@ -80,11 +80,44 @@ type PixelSpeechBubbleProps = {
   /** 본체 크기·위치 (width/height/position 등) */
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
+  /** 내용 영역(content) 패딩 등을 개별 사용처에서 덮어쓸 때 */
+  contentStyle?: StyleProp<ViewStyle>;
   fill?: string;
   border?: string;
   /** 꼬리의 가로 중심 x (본체 왼쪽 기준) */
   tailOffset?: number;
+  /**
+   * true면 children(문자열)을 공백 기준 단어로 쪼개 flex-wrap 행에 각각 별도 Text로 그린다.
+   * RN의 기본 줄바꿈은 한글에서 공백이 아닌 음절 사이에서도 끊을 수 있어(단어 중간 개행),
+   * 이를 막고 "공백에서만 다음 줄로" 넘어가게 하려면 단어 자체를 쪼개지지 않는 레이아웃
+   * 단위(각각의 Text)로 만들어야 한다.
+   */
+  wrapWords?: boolean;
 };
+
+// 다른 말풍선형 UI(페르소나 대화창 등)에서도 같은 단어-보존 줄바꿈이 필요해 컴포넌트 밖에서도 쓸 수 있게 export.
+export function WordWrapText({
+  text,
+  style,
+  align = "center",
+}: {
+  text: string;
+  style?: StyleProp<TextStyle>;
+  /** 줄마다 단어를 어느 쪽으로 모을지 — 중앙 정렬 말풍선 vs 왼쪽 정렬 대화문 */
+  align?: "center" | "flex-start";
+}) {
+  const words = text.split(" ");
+  return (
+    <View style={[styles.wordWrapRow, { justifyContent: align }]}>
+      {words.map((word, i) => (
+        <Text key={i} style={style}>
+          {word}
+          {i < words.length - 1 ? " " : ""}
+        </Text>
+      ))}
+    </View>
+  );
+}
 
 /**
  * 도트(픽셀) 스타일 말풍선. 본체는 계단형 픽셀 테두리, 꼬리도 계단형 픽셀로
@@ -94,9 +127,11 @@ export default function PixelSpeechBubble({
   children,
   style,
   textStyle,
+  contentStyle,
   fill = Colors.white,
   border = Colors.textBlack,
   tailOffset = 60,
+  wrapWords = false,
 }: PixelSpeechBubbleProps) {
   return (
     <View style={[styles.frame, style]}>
@@ -107,8 +142,14 @@ export default function PixelSpeechBubble({
       {/* 계단형 꼬리 */}
       <PixelTail fill={fill} border={border} offset={tailOffset} />
       {/* 내용 */}
-      <View style={styles.content}>
-        <Text style={[styles.text, textStyle]}>{children}</Text>
+      <View style={[styles.content, contentStyle]}>
+        {wrapWords && typeof children === "string" ? (
+          <WordWrapText text={children} style={[styles.text, textStyle]} />
+        ) : (
+          <Text style={[styles.text, textStyle]} textBreakStrategy="simple">
+            {children}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -126,6 +167,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: Spacing.md,
+  },
+  wordWrapRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
   },
   text: {
     fontFamily: Fonts.neoDunggeunmo,

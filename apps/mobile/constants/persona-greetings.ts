@@ -121,3 +121,53 @@ export function getPersonaGreeting(persona: string | null | undefined): string {
   const lines = (persona && PERSONA_GREETINGS[persona]) || DEFAULT_GREETINGS;
   return lines[Math.floor(Math.random() * lines.length)];
 }
+
+// 페르소나별 "물줘" 대사 — 물주기 예정일이거나 지난 경우, 개체탭 말풍선에서
+// 일반 PERSONA_GREETINGS보다 우선해서 이 중 하나를 랜덤으로 보여준다.
+export const PERSONA_WATERING_LINES: Record<string, string[]> = {
+  SUNSHINE: [
+    '나 지금 물 한 모금만 마시면 기분이 완전 최고일 것 같아!',
+    '목이 조금 말랐어! 시원하게 물 한번 부탁해!',
+    '오늘의 행복 미션은 나한테 물 주기야, 부탁할게!',
+  ],
+  CHIC: [
+    '흥, 목마르다고 내가 먼저 말하게 할 거야? 물 좀 줘.',
+    '딱히 부탁하는 건 아닌데... 흙이 말랐으니까 물은 좀 줘야겠어.',
+    '나 계속 기다리고 있었거든. 이제 슬슬 물 줄 때 된 것 같은데?',
+  ],
+  RELAXED: [
+    '급한 건 아닌데, 이제 슬슬 물 한 번 주면 좋을 것 같아.',
+    '흙이 꽤 말랐네. 시간 될 때 물 좀 부탁할게.',
+    '나도 천천히 기다리고 있었는데, 이제는 물을 좀 마셔야겠어.',
+  ],
+  TIMID: [
+    '혹시... 나 물 조금만 줄 수 있을까? 흙이 많이 마른 것 같아.',
+    '말해도 될지 모르겠는데... 나 지금 조금 목말라.',
+    '혹시 잊은 건 아니지...? 이제 물을 줘야 할 것 같아서.',
+  ],
+  SAGE: [
+    '때가 되면 비가 내리듯, 지금은 내게 물이 필요한 때인 것 같군.',
+    '마른 흙은 말없이 때를 알려주지. 이제 물을 한 번 줄 때야.',
+    '잘 자라기 위해서는 기다림도 필요하지만, 지금은 물 한 모금이 더 필요하겠어.',
+  ],
+  PLAYFUL: [
+    '긴급 속보! 이 식물이 지금 물을 아주아주 기다리고 있대!',
+    '물 한 번 주면 내가 잎 흔들기 특별 공연 보여줄지도 몰라!',
+    '나 지금 목말라서 몰래 물 찾으러 갈 뻔했어, 얼른 물 줘!',
+  ],
+  DILIGENT: [
+    '오늘 관리 목록을 확인해보니 이제 물을 줄 차례야.',
+    '흙이 충분히 말랐어. 잊지 말고 오늘 물을 챙겨줘.',
+    '꾸준한 관리가 중요하니까 오늘은 물주기부터 완료해보자.',
+  ],
+  DREAMER: [
+    '지금 내게 물이 온다면, 잎끝까지 작은 비가 내리는 기분일 것 같아.',
+    '흙이 말라가는 걸 보니 오늘은 작은 비 한 번 내려주면 좋겠어.',
+    '목이 마를 때면 화분 위로 비가 내리는 상상을 해, 오늘은 진짜 물을 만나고 싶어.',
+  ],
+};
+
+export function getPersonaWateringLine(persona: string | null | undefined): string {
+  const lines = (persona && PERSONA_WATERING_LINES[persona]) || DEFAULT_GREETINGS;
+  return lines[Math.floor(Math.random() * lines.length)];
+}
