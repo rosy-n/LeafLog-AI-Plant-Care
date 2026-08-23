@@ -19,6 +19,8 @@ import { screenContent } from "../../constants/layout";
 
 export type CareNotice = {
     id: string;
+    /** 카드를 눌렀을 때 어디로 보낼지 — 물주기는 개체탭, 월 1회 갱신은 갱신 흐름 */
+    kind: "WATERING" | "MONTHLY_REFRESH";
     plantId: string;
     title: string;
     speech: string;
@@ -45,9 +47,15 @@ export default function NotificationsScreen({
     notices: CareNotice[];
     plants: any[];
 }) {
-    const openPlant = (plantId: string) => {
-        const target = plants?.find((p) => p.id === plantId);
-        if (target) navigation.navigate("PlantDetail", { plant: target });
+    // 갱신 카드는 개체탭이 아니라 갱신 흐름으로 보낸다 —
+    // 이 카드를 누르는 것이 곧 "지금 갱신하겠다"는 뜻이다
+    const openNotice = (notice: CareNotice) => {
+        const target = plants?.find((p) => p.id === notice.plantId);
+        if (!target) return;
+        navigation.navigate(
+            notice.kind === "MONTHLY_REFRESH" ? "MonthlyRefresh" : "PlantDetail",
+            { plant: target },
+        );
     };
 
     const urgentItems = notices.filter((n) => n.urgent);
@@ -57,7 +65,7 @@ export default function NotificationsScreen({
         <TouchableOpacity
             key={item.id}
             style={[styles.card, item.urgent && styles.cardUnread]}
-            onPress={() => openPlant(item.plantId)}
+            onPress={() => openNotice(item)}
             activeOpacity={0.8}
         >
             {item.urgent && <View style={styles.unreadBar} />}

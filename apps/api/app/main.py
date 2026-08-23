@@ -72,6 +72,7 @@ from .schemas import (
     PlantDetail,
     PlantImagePreprocessResponse,
     PlantListItem,
+    PlantRefresh,
     PlantUpdate,
     PlantRead,
     SignupRequest,
@@ -131,6 +132,11 @@ CARE_TYPES = {"WATERING", "FERTILIZING", "REPOTTING"}
 # 쪽이 안전해(초보 실패 원인 1위) 하루~이틀 여유를 둔 7일로 잡았다. 주 1회라 기억하기도 쉽다.
 DEFAULT_WATERING_INTERVAL_DAYS = 7
 PLANT_STATUSES = {"ALIVE", "SICK", "DEAD"}
+
+# 캐릭터 재생성 + 개체 정보 갱신을 권하는 주기(개월).
+# 식물이 눈에 보이게 자라고 화분·위치가 바뀌는 데 한 달이면 충분하고,
+# 그보다 자주 물으면 "또 물어본다"가 되어 답이 형식적으로 변한다.
+REFRESH_INTERVAL_MONTHS = 1
 
 
 def _enum_or_none(value: str | None, allowed: set[str]) -> str | None:
@@ -255,6 +261,46 @@ def _upsert_watering_schedule(
     base = (last_watered or datetime.now(timezone.utc)).date()
     schedule.next_due_date = base + timedelta(days=schedule.interval_days)
     return schedule
+
+
+def _add_months(value: date, months: int) -> date:
+    """달을 더한다. 없는 날짜(1/31 + 1개월)는 그 달의 마지막 날로 당긴다.
+
+    timedelta(days=30) 이 아닌 이유: "매달 같은 날"이어야 사용자가 주기를 예측할 수 있다.
+    30일씩 더하면 갱신을 몇 번 반복한 뒤 날짜가 달 안에서 앞으로 밀린다.
+    """
+    total = value.month - 1 + months
+    year = value.year + total // 12
+    month = total % 12 + 1
+    # 다음 달 1일에서 하루 빼면 그 달의 마지막 날
+    if month == 12:
+        last_day = 31
+    else:
+        last_day = (date(year, month + 1, 1) - timedelta(days=1)).day
+    return date(year, month, min(value.day, last_day))
+
+
+def _refresh_dates(plant: Plant, today: date) -> tuple[date, date]:
+    """(갱신 예정일, 기기 알림을 잡을 날짜).
+
+    예정일 = 마지막 갱신(없으면 등록) + REFRESH_INTERVAL_MONTHS. 지났으면 지난 날짜
+      그대로 돌려준다 — 물주기(next_watering_date)와 같게 "며칠 지남"으로 보여주고,
+      갱신을 마칠 때까지 알림 목록에 남게 하려는 값이다.
+    알림일 = 예정일이 지났으면 오늘 이후가 될 때까지 주기만큼 밀어서 잡은 날짜.
+      지난 시각으로는 기기 알림을 예약할 수 없고, 한 번 놓쳐도 다음 달에 다시
+      오게 하려는 것이다("1개월마다 반복"). 예정일과 같은 날이면 그대로 같다.
+
+    둘 다 저장하지 않는다 — 기준점(last_refreshed_at, 없으면 created_at) 하나에서
+    매번 계산되므로 어긋날 여지가 없다.
+    """
+    anchor = (plant.last_refreshed_at or plant.created_at).date()
+    months = REFRESH_INTERVAL_MONTHS
+    due = _add_months(anchor, months)
+    reminder = due
+    while reminder < today:
+        months += REFRESH_INTERVAL_MONTHS
+        reminder = _add_months(anchor, months)
+    return due, reminder
 
 
 def _owned_plant_or_404(plant_id: int, current_user: "AppUser", db: Session) -> Plant:
@@ -846,6 +892,8 @@ def list_plants(
     items: list[PlantListItem] = []
     for plant, common_name_ko in rows:
         interval, next_due = watering_summary(plant)
+        # 갱신 예정일은 plant 컬럼(last_refreshed_at/created_at)만 보면 되므로 추가 쿼리가 없다
+        next_refresh, refresh_reminder = _refresh_dates(plant, today)
         # 애정도 — 목록의 하트/호감도순 정렬용 (plant 컬럼이라 추가 쿼리가 없다)
         score = plant.affinity_score or 0
         items.append(
@@ -863,6 +911,9 @@ def list_plants(
                 watering_interval_days=interval,
                 next_watering_date=next_due.isoformat() if next_due else None,
                 days_until_watering=(next_due - today).days if next_due else None,
+                next_refresh_date=next_refresh.isoformat(),
+                days_until_refresh=(next_refresh - today).days,
+                next_refresh_reminder_date=refresh_reminder.isoformat(),
                 affinity_score=score,
                 affinity_hearts=affinity.hearts_for_score(score),
                 affinity_level=affinity.level_for_score(score),
@@ -964,6 +1015,8 @@ def update_plant(
 
 def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
     species = db.get(PlantSpecies, plant.species_id) if plant.species_id else None
+    today = datetime.now(timezone.utc).date()
+    next_refresh, refresh_reminder = _refresh_dates(plant, today)
     return PlantDetail(
         id=plant.plant_id,
         nickname=plant.nickname,
@@ -983,11 +1036,66 @@ def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
         persona=plant.persona,
         started_at=plant.started_at.isoformat() if plant.started_at else None,
         created_at=plant.created_at.isoformat(),
+        last_refreshed_at=plant.last_refreshed_at.isoformat() if plant.last_refreshed_at else None,
+        next_refresh_date=next_refresh.isoformat(),
+        days_until_refresh=(next_refresh - today).days,
+        next_refresh_reminder_date=refresh_reminder.isoformat(),
         temp_min_c=float(species.temp_min_c) if species and species.temp_min_c is not None else None,
         temp_max_c=float(species.temp_max_c) if species and species.temp_max_c is not None else None,
         humidity_min_pct=float(species.humidity_min_pct) if species and species.humidity_min_pct is not None else None,
         humidity_max_pct=float(species.humidity_max_pct) if species and species.humidity_max_pct is not None else None,
     )
+
+
+@app.post("/api/plants/{plant_id}/refresh", response_model=PlantDetail)
+def refresh_plant(
+    plant_id: int,
+    payload: PlantRefresh,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PlantDetail:
+    """월 1회 갱신 — 개체 정보를 다시 받고, 새로 만든 캐릭터가 있으면 갈아 끼운다.
+
+    PATCH /api/plants/{id} 와 나누어 둔 이유:
+      - 갱신을 마쳤다는 사실(last_refreshed_at)이 함께 기록돼야 다음 알림일이 밀린다.
+        프로필 편집에서 화분 크기를 고친 것과 "이번 달 갱신을 했다"는 다른 일이다.
+      - 정보 갱신과 캐릭터 교체가 한 번에 커밋돼야 한다. 두 요청으로 나누면
+        캐릭터만 바뀌고 정보는 옛 값인 중간 상태가 남는다.
+
+    캐릭터는 새 media_asset 행을 쌓는 방식이다(과거 캐릭터를 지우지 않는다) —
+    조회는 항상 최신 1건을 보므로 교체와 같고, 지난 모습이 남아 나중에 성장 기록으로 쓸 수 있다.
+    """
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+
+    plant.location_name = _enum_or_none(payload.location, LOCATION_NAMES)
+    plant.light_condition = _enum_or_none(payload.lightLevel, LIGHT_CONDITIONS)
+    plant.pot_type = payload.potType or None
+    plant.pot_size = str(payload.potDiameter) if payload.potDiameter else None
+    plant.height = str(payload.plantHeight) if payload.plantHeight else None
+    plant.soil_type = payload.soilNote or None
+
+    if payload.characterImageUrl:
+        object_key = _object_key_from_url(payload.characterImageUrl)
+        # object_key 는 media_asset 에서 UNIQUE — 같은 이미지를 두 번 저장하려 하면
+        # (뒤로 갔다 같은 후보를 다시 고르는 경우) 새 행을 만들지 않고 그대로 둔다.
+        already = db.scalar(select(MediaAsset).where(MediaAsset.object_key == object_key))
+        if already is None:
+            db.add(MediaAsset(
+                user_id=current_user.user_id,
+                plant_id=plant.plant_id,
+                object_key=object_key,
+                file_url=payload.characterImageUrl,
+                bucket_name=bucket_from_url(payload.characterImageUrl),
+                asset_type="CHARACTER_IMAGE",
+                checksum=payload.characterChecksum or None,
+            ))
+
+    # 갱신 완료 시각 — 다음 갱신 알림일의 기준점이 여기서 한 달 뒤로 옮겨간다
+    plant.last_refreshed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    db.commit()
+    db.refresh(plant)
+    return _to_plant_detail(plant, db)
 
 
 @app.patch("/api/plants/{plant_id}/watering-schedule", response_model=CareSummary)

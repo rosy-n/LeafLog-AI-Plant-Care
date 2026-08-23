@@ -38,6 +38,13 @@ export type PlantListItem = {
   watering_interval_days: number | null;
   next_watering_date: string | null;
   days_until_watering: number | null;
+  // 월 1회 갱신(캐릭터 재생성 + 개체 정보 갱신) — 서버가 마지막 갱신(없으면 등록)일
+  // + 1개월로 계산해 함께 보낸다. next_refresh_date 는 지났으면 지난 날짜 그대로여서
+  // days_until_refresh 가 음수가 된다(= 갱신이 밀렸다 → 알림 목록에 남는다).
+  // 기기 알림은 지난 시각에 예약할 수 없으니 오늘 이후로 밀어 잡은 예약용 날짜를 쓴다.
+  next_refresh_date: string | null;
+  days_until_refresh: number | null;
+  next_refresh_reminder_date: string | null;
   // 애정도 — 정원 목록 하트/호감도순 정렬용 (돌봄 기록에서 서버가 계산)
   affinity_score: number;
   affinity_hearts: number;
@@ -319,6 +326,12 @@ export type PlantDetail = {
   persona: string | null;
   started_at: string | null;
   created_at: string;
+  // 월 1회 갱신 — 마지막으로 갱신을 마친 시각(아직 안 했으면 null), 예정일,
+  // 그리고 기기 알림을 잡을 날짜(예정일이 지났으면 다음 달로 밀린 값)
+  last_refreshed_at: string | null;
+  next_refresh_date: string | null;
+  days_until_refresh: number | null;
+  next_refresh_reminder_date: string | null;
   temp_min_c: number | null;
   temp_max_c: number | null;
   humidity_min_pct: number | null;
@@ -349,6 +362,37 @@ export function updatePlant(plantId: number, body: PlantUpdate) {
   return request<PlantDetail>(`/api/plants/${plantId}`, {
     method: "PATCH",
     body: JSON.stringify(body),
+  });
+}
+
+/**
+ * 월 1회 갱신용 payload.
+ *
+ * 등록 4단계(NewPlantPayload)의 개체 정보 항목과 이름을 맞췄다 — 같은 폼 화면
+ * (app/add-plant/info.tsx)이 등록과 갱신에 함께 쓰이므로 payload 를 만드는 코드가 하나다.
+ * 부분 수정(PlantUpdate)이 아니라 폼 전체를 보낸다: 화면이 기존 값을 채워서 보여주고
+ * 사용자가 고친 것만 바뀐 상태로 돌아오기 때문에, 빈 값은 "지웠다"는 뜻이다.
+ */
+export type PlantRefreshPayload = {
+  location: string;
+  lightLevel: string;
+  plantHeight: number;
+  potDiameter: number;
+  potType: string;
+  soilNote: string;
+  // 캐릭터를 다시 만들었을 때만 채운다. 비우면 기존 캐릭터가 유지된다
+  characterImageUrl: string;
+  characterChecksum: string;
+};
+
+/**
+ * 월 1회 갱신 저장 — 개체 정보 + (있으면) 새 캐릭터를 한 번에 커밋하고
+ * 서버가 갱신 시각을 기록한다. 응답의 next_refresh_date 가 한 달 뒤로 밀려 온다.
+ */
+export function refreshPlant(plantId: number, payload: PlantRefreshPayload) {
+  return request<PlantDetail>(`/api/plants/${plantId}/refresh`, {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 

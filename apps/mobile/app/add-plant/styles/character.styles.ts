@@ -193,6 +193,19 @@ export const styles = StyleSheet.create({
     fontSize: FontSizes.bodyLarge,
   },
 
+  // 갱신 모드에서만 보이는 보조 경로 ("캐릭터는 그대로 두기").
+  // 테두리 없이 두어 촬영 버튼과 경쟁하지 않게 한다 — 권하는 쪽은 재생성이다
+  skipBtn: {
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+  },
+  skipBtnText: {
+    color: Colors.textGray,
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.body,
+    textDecorationLine: 'underline',
+  },
+
   // ── Generating ─────────────────────────────────────────────────────────────
 
   generatingContainer: {

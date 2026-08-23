@@ -205,6 +205,13 @@ CREATE TABLE plant (
     -- DDL: apps/api/scripts/add-petting-column.sql
     last_petted_on      DATE,
 
+    -- 월 1회 갱신(캐릭터 재생성 + 개체 정보 갱신)을 마친 시각.
+    -- 다음 갱신일은 저장하지 않는다 — 이 값(없으면 created_at) + 1개월로 계산하고,
+    -- 이미 지났으면 오늘 이후가 될 때까지 1개월씩 밀어서 매달 다시 알림이 잡히게 한다.
+    -- care_schedule 에 넣지 않은 이유: care_type CHECK 이 돌봄 3종이고, 갱신은 돌봄 기록이 아니다.
+    -- DDL: apps/api/scripts/add-monthly-refresh-column.sql
+    last_refreshed_at   TIMESTAMP,
+
     created_at          TIMESTAMP DEFAULT now(),
     updated_at          TIMESTAMP DEFAULT now()
 );

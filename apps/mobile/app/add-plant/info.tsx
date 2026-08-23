@@ -12,10 +12,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
-import { createPlant, getPlantCare } from '../../src/api';
-import { scheduleWateringReminder } from '../../src/notifications';
+import { createPlant, getPlant, getPlantCare, refreshPlant } from '../../src/api';
+import { scheduleRefreshReminder, scheduleWateringReminder } from '../../src/notifications';
 
 import { styles } from './styles/info.styles';
 import type { NewPlantPayload } from '../../types/plant';
@@ -48,6 +48,23 @@ const LIGHT_OPTIONS = [
 const LIGHT_CODE_BY_LABEL: Record<string, string> = Object.fromEntries(
   LIGHT_OPTIONS.map((o) => [o.label, o.code]),
 );
+
+// 저장된 값을 폼에 되돌려 채우기 위한 역방향 표 (갱신 모드).
+// 표를 따로 적지 않고 위 정의에서 뒤집어 만든다 — 손으로 두 번 적으면 어긋난다.
+const LOCATION_LABEL_BY_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(LOCATION_CODES).map(([label, code]) => [code, label]),
+);
+const LIGHT_LABEL_BY_CODE: Record<string, string> = Object.fromEntries(
+  LIGHT_OPTIONS.map((o) => [o.code, o.label]),
+);
+
+// 서버는 화분 지름·식물 길이를 자유 텍스트(VARCHAR)로 들고 있다 —
+// "30", "30cm" 같은 값이 섞일 수 있어 숫자만 남겨 스테퍼에 넣는다
+function toDigits(value: string | null | undefined): string {
+  if (!value) return '';
+  const digits = String(value).replace(/[^0-9]/g, '');
+  return digits;
+}
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const DAYS   = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -164,7 +181,14 @@ export default function InfoScreen() {
     capturedPhotoUri?: string;
     // 종 마스터의 대표 이미지 (plant-detail 단계에서 전달)
     imageUrl?: string;
+    // 월 1회 갱신으로 들어왔을 때만 있다 → 새 개체를 만들지 않고 기존 개체를 갱신한다
+    plantId?: string;
   }>();
+
+  // 갱신 모드 — 기존 값을 채워서 보여주고, 사용자가 고친 것만 바뀐 채로 저장한다.
+  // 등록과 같은 폼을 쓰는 이유: 묻는 항목이 같고, 화면이 두 벌이면 한쪽만 고쳐진다.
+  const isRefresh = Boolean(params.plantId);
+  const plantId = params.plantId ? Number(params.plantId) : null;
 
   // Form state
   const [location, setLocation] = useState<string | null>(null);
@@ -183,6 +207,54 @@ export default function InfoScreen() {
 
   // Picker modal state
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
+
+  // 갱신 모드에서 화면에 보여줄 기존 개체 정보 (헤더의 이름·캐릭터에도 쓴다)
+  const [isPrefilling, setIsPrefilling] = useState(isRefresh);
+  const [saved, setSaved] = useState<{
+    nickname: string;
+    scientificName: string | null;
+    characterImageUrl: string | null;
+  } | null>(null);
+
+  /*
+      갱신 모드 진입 시 저장된 값을 폼에 채운다.
+
+      route params 로 넘겨받지 않고 서버에서 다시 읽는 이유: 알림을 눌러 들어오면
+      들고 있는 개체 정보가 목록 스냅샷뿐이라 화분·크기 같은 항목이 없다.
+      갱신은 "지금 저장된 값"을 보여주는 것이 요점이므로 한 번 조회하는 편이 정확하다.
+  */
+  useEffect(() => {
+    if (plantId === null) return;
+    let alive = true;
+    getPlant(plantId)
+      .then((detail) => {
+        if (!alive) return;
+        setLocation(
+          detail.location_name ? LOCATION_LABEL_BY_CODE[detail.location_name] ?? null : null,
+        );
+        setLightLevel(
+          detail.light_condition ? LIGHT_LABEL_BY_CODE[detail.light_condition] ?? null : null,
+        );
+        setPlantHeight(toDigits(detail.height));
+        setPotDiameter(toDigits(detail.pot_size));
+        setPotType(detail.pot_type ?? null);
+        setSoilNote(detail.soil_type ?? '');
+        setSaved({
+          nickname: detail.nickname,
+          scientificName: detail.scientific_name,
+          characterImageUrl: detail.character_image_url,
+        });
+      })
+      .catch((e: any) =>
+        Alert.alert('불러오기 실패', e?.message ?? '다시 시도해주세요.'),
+      )
+      .finally(() => {
+        if (alive) setIsPrefilling(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [plantId]);
 
   const isValid = Boolean(location && lightLevel);
 
@@ -222,6 +294,59 @@ export default function InfoScreen() {
     const m = String(md.month).padStart(2, '0');
     const d = String(md.day).padStart(2, '0');
     return new Date(`${year}-${m}-${d}T00:00:00.000Z`).toISOString();
+  };
+
+  // 월 1회 갱신 저장 — 개체 정보와 (다시 만들었다면) 새 캐릭터를 한 번에 보낸다.
+  // 등록과 달리 물주기/분갈이 기록은 건드리지 않는다 (아래 날짜 입력을 감추는 이유와 같다).
+  const handleRefresh = async () => {
+    if (!isValid || plantId === null) return;
+    setIsSubmitting(true);
+    try {
+      const updated = await refreshPlant(plantId, {
+        location: LOCATION_CODES[location!] ?? '',
+        lightLevel: LIGHT_CODE_BY_LABEL[lightLevel!] ?? '',
+        plantHeight: Number(plantHeight) || 0,
+        potDiameter: Number(potDiameter) || 0,
+        potType: potType ?? '',
+        soilNote,
+        // 캐릭터를 다시 만들지 않고 건너뛰었으면 비어 있다 → 기존 캐릭터가 유지된다
+        characterImageUrl: params.characterImageUrl ?? '',
+        characterChecksum: params.characterChecksum ?? '',
+      });
+
+      // 다음 달 갱신 알림을 다시 예약한다. 여기서 안 하면 앱을 다시 켤 때
+      // (전체 동기화)까지 기기에는 방금 지나간 예정일이 남는다.
+      try {
+        await scheduleRefreshReminder(
+          updated.id,
+          updated.nickname,
+          updated.next_refresh_reminder_date,
+        );
+      } catch (e: any) {
+        // 알림 예약 실패가 갱신을 되돌리지는 않는다
+        console.warn('갱신 알림 예약 실패:', e?.message);
+      }
+
+      // 갱신을 마치면 개체탭으로 — 방금 바뀐 모습을 바로 확인하는 자리다
+      router.replace({
+        pathname: '/',
+        params: {
+          plant: {
+            id: String(updated.id),
+            name: updated.nickname,
+            favorite: updated.is_favorite,
+            imageUri: updated.character_image_url,
+            memorial: updated.status === 'DEAD',
+            commonNameKo: updated.common_name_ko,
+            persona: updated.persona,
+            createdAt: updated.created_at,
+          },
+        },
+      });
+    } catch (e: any) {
+      Alert.alert('갱신 실패', e.message ?? '다시 시도해주세요.');
+      setIsSubmitting(false);
+    }
   };
 
   const handleSave = async () => {
@@ -283,10 +408,32 @@ export default function InfoScreen() {
     }
   };
 
-  // Plant header image: 종 마스터의 대표 이미지 → 없으면 사용자가 찍은 사진 →
-  // 없으면 2단계에서 고른 도트 캐릭터(그마저 없으면 placeholder)
-  const headerImageUri = params.imageUrl || null;
+  /*
+      헤더 이미지 우선순위.
+        등록: 종 마스터 대표 이미지 → 사용자가 찍은 사진 → 2단계에서 고른 도트 캐릭터
+        갱신: 방금 다시 만든 캐릭터 → 지금 쓰고 있는 캐릭터
+      갱신에서 종 대표 이미지를 쓰지 않는 이유 — 지금 이 개체가 어떻게 보이는지가
+      확인해야 할 정보이고, 종의 표본 사진은 그 판단에 도움이 되지 않는다.
+  */
+  const headerImageUri = isRefresh
+    ? params.characterImageUrl || saved?.characterImageUrl || null
+    : params.imageUrl || null;
   const characterSource = getCharacterImageSource(params.characterId);
+
+  const headerName = isRefresh
+    ? saved?.nickname || params.nickname || '내 식물'
+    : params.nickname || params.commonNameKo || '내 식물';
+  const headerScientific = isRefresh
+    ? saved?.scientificName ?? null
+    : params.scientificName ?? null;
+
+  if (isPrefilling) {
+    return (
+      <View style={styles.loadingWrap}>
+        <ActivityIndicator color={Colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -309,15 +456,22 @@ export default function InfoScreen() {
           )}
           <View style={{ flex: 1 }}>
             <Text style={styles.plantHeaderName} numberOfLines={1}>
-              {params.nickname || params.commonNameKo || '내 식물'}
+              {headerName}
             </Text>
-            {params.scientificName ? (
+            {headerScientific ? (
               <Text style={styles.plantHeaderScientific} numberOfLines={1}>
-                {params.scientificName}
+                {headerScientific}
               </Text>
             ) : null}
           </View>
         </View>
+
+        {isRefresh && (
+          <Text style={styles.refreshHint}>
+            지금 저장된 정보를 그대로 채워 뒀어요.{'\n'}
+            한 달 사이 달라진 것만 고치고 저장하면 돼요.
+          </Text>
+        )}
 
         {/* 위치 */}
         <View style={styles.section}>
@@ -391,7 +545,13 @@ export default function InfoScreen() {
           </View>
         </View>
 
-        {/* 날짜 (두 날짜 나란히) */}
+        {/*
+            날짜 (두 날짜 나란히) — 등록에서만 묻는다.
+            갱신에서 다시 물으면 같은 물주기·분갈이가 care_record 에 한 번 더 쌓여
+            일정과 기록이 어긋난다. 이 두 날짜는 개체탭의 물주기 버튼과 분갈이탭이
+            각각 관리하는 값이고, 갱신이 확인하려는 것은 화분·크기 같은 개체 정보다.
+        */}
+        {!isRefresh && (
         <View style={styles.section}>
           <View style={styles.dateRow}>
             <DatePairPicker
@@ -408,6 +568,7 @@ export default function InfoScreen() {
             />
           </View>
         </View>
+        )}
 
         {/* 흙 정보 */}
         <View style={styles.section}>
@@ -428,7 +589,7 @@ export default function InfoScreen() {
         {/* Save */}
         <TouchableOpacity
           style={[styles.saveBtn, !isValid && styles.saveBtnDisabled]}
-          onPress={handleSave}
+          onPress={isRefresh ? handleRefresh : handleSave}
           disabled={!isValid || isSubmitting}
           activeOpacity={0.8}
         >

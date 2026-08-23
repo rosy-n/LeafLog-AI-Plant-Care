@@ -256,6 +256,14 @@ class PlantDetail(BaseModel):
     persona: str | None = None
     started_at: str | None = None
     created_at: str
+    # 월 1회 갱신 — 마지막으로 갱신을 마친 시각(없으면 아직 한 번도 안 했다는 뜻)과
+    # 서버가 계산한 갱신 예정일. next_refresh_date 는 지난 날짜일 수 있고(그때는
+    # days_until_refresh 가 음수 = 며칠 지남), 기기 알림은 지난 시각에 예약할 수 없어
+    # 오늘 이후로 밀어 잡은 next_refresh_reminder_date 를 쓴다.
+    last_refreshed_at: str | None = None
+    next_refresh_date: str | None = None
+    days_until_refresh: int | None = None
+    next_refresh_reminder_date: str | None = None
     # 종별 적정 범위 (plant_species, 농사로 코드 매핑) — 센서데이터탭 총평 판정에 사용
     temp_min_c: float | None = None
     temp_max_c: float | None = None
@@ -276,6 +284,30 @@ class PlantUpdate(BaseModel):
     # 정원탭의 별 — 앱을 다시 켜도 유지되게 서버가 들고 있는다
     is_favorite: bool | None = None
     persona: str | None = None
+
+
+class PlantRefresh(BaseModel):
+    """월 1회 갱신 — 등록 4단계(개체 정보)에서 받은 항목을 같은 폼으로 다시 받는다.
+
+    필드 이름을 PlantCreate 와 같게 둔 이유: 앱이 등록과 갱신에 같은 화면을 쓰고,
+    payload 를 만드는 코드도 하나뿐이다. 이름이 어긋나면 폼이 갈라진다.
+
+    PlantUpdate(부분 수정)와 달리 폼 전체가 항상 넘어온다 — 화면이 기존 값을 채워서
+    보여주고 사용자가 고친 것만 바뀐 상태로 그대로 돌아오기 때문이다. 그래서 빈 값은
+    "안 보냈다"가 아니라 "지웠다"로 본다.
+
+    닉네임·성격은 갱신 대상이 아니다 (등록의 다른 단계이고, 프로필 편집에서 바꾼다).
+    """
+
+    location: str = ''
+    lightLevel: str = ''
+    plantHeight: int = 0
+    potDiameter: int = 0
+    potType: str = ''
+    soilNote: str = ''
+    # 캐릭터를 다시 만들었을 때만 넘어온다. 비어 있으면 기존 캐릭터를 그대로 쓴다.
+    characterImageUrl: str = ''
+    characterChecksum: str = ''
 
 
 class CareSummary(BaseModel):
@@ -463,6 +495,14 @@ class PlantListItem(BaseModel):
     watering_interval_days: int | None = None
     next_watering_date: str | None = None
     days_until_watering: int | None = None
+
+    # 월 1회 갱신 — 알림 목록·기기 알림 재예약이 개체마다 상세를 조회하지 않도록 함께 싣는다.
+    # next_refresh_date = last_refreshed_at(없으면 created_at) + 1개월. 지났으면 지난 날짜
+    # 그대로여서 days_until_refresh 가 음수가 된다(= 갱신이 밀렸다).
+    # next_refresh_reminder_date 는 그걸 오늘 이후까지 1개월씩 밀어 잡은 날 — 기기 알림 예약용.
+    next_refresh_date: str | None = None
+    days_until_refresh: int | None = None
+    next_refresh_reminder_date: str | None = None
 
     # 애정도 — 정원 목록의 하트/호감도순 정렬용 (개체마다 조회하지 않도록 함께 싣는다).
     # 계산 규칙은 app/affinity.py 참조.

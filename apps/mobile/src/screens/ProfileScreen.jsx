@@ -31,7 +31,7 @@ import {
     getPlantCare,
     updateWateringSchedule,
 } from "../api";
-import { scheduleWateringReminder, cancelWateringReminder } from "../notifications";
+import { scheduleWateringReminder, cancelPlantReminders } from "../notifications";
 import { plantImages } from "../data/plants";
 
 // 서버 enum 코드 → 한글 표시
@@ -275,9 +275,9 @@ export default function ProfileScreen({ navigation, route }) {
                             if (id) {
                                 const updated = await updatePlant(Number(id), { status: "DEAD" });
                                 setDetail(updated);
-                                // 떠나보낸 개체에 물주기 알림이 오면 안 된다
-                                cancelWateringReminder(id).catch((err) =>
-                                    console.warn("물주기 알림 취소 실패:", err?.message),
+                                // 떠나보낸 개체에 물주기·갱신 알림이 오면 안 된다
+                                cancelPlantReminders(id).catch((err) =>
+                                    console.warn("알림 취소 실패:", err?.message),
                                 );
                             }
                             navigation.navigate("MemorialPlant", { plant });

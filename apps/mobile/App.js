@@ -25,9 +25,10 @@ import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
 import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
 import AddPlantNavigator from "./src/screens/AddPlantNavigator";
+import MonthlyRefreshNavigator from "./src/screens/MonthlyRefreshNavigator";
 import { getItems, getPlants } from "./src/api";
 import { DEFAULT_BACKGROUND_KEY } from "./src/data/decor";
-import { syncWateringReminders } from "./src/notifications";
+import { syncReminders } from "./src/notifications";
 import { buildCareNotices } from "./src/careNotices";
 import { preloadBundledImages } from "./src/data/assets";
 import { BackgroundMusicProvider } from "./src/backgroundMusic";
@@ -60,6 +61,10 @@ function toGardenPlant(plant) {
         wateringIntervalDays: plant.watering_interval_days,
         nextWateringDate: plant.next_watering_date,
         daysUntilWatering: plant.days_until_watering,
+        // 월 1회 갱신 — 알림 목록 계산용. nextRefreshDate 는 지났으면 지난 날짜라
+        // daysUntilRefresh 가 음수가 된다(= 갱신이 밀렸다)
+        nextRefreshDate: plant.next_refresh_date,
+        daysUntilRefresh: plant.days_until_refresh,
     };
 }
 
@@ -198,8 +203,8 @@ function MainAppContent({ user, onLogout }) {
             const now = Date.now();
             if (now - lastSyncAt < SYNC_MIN_INTERVAL_MS) return;
             lastSyncAt = now;
-            syncWateringReminders().catch((error) =>
-                console.warn("물주기 알림 동기화 실패:", error?.message),
+            syncReminders().catch((error) =>
+                console.warn("알림 동기화 실패:", error?.message),
             );
         };
 
@@ -210,13 +215,16 @@ function MainAppContent({ user, onLogout }) {
         return () => sub.remove();
     }, []);
 
-    // 알림을 누르면 해당 개체 화면으로 이동
+    // 알림을 누르면 종류에 맞는 화면으로 이동 —
+    // 물주기는 개체탭(물을 주는 곳), 월 1회 갱신은 갱신 흐름(캐릭터 재생성 → 정보 확인)
     useEffect(() => {
         const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-            const plantId = response.notification.request.content.data?.plantId;
-            if (!plantId) return;
-            const target = plantsRef.current.find((p) => p.id === String(plantId));
-            if (target) navigationRef.current?.navigate("PlantDetail", { plant: target });
+            const data = response.notification.request.content.data ?? {};
+            if (!data.plantId) return;
+            const target = plantsRef.current.find((p) => p.id === String(data.plantId));
+            if (!target) return;
+            const screen = data.kind === "MONTHLY_REFRESH" ? "MonthlyRefresh" : "PlantDetail";
+            navigationRef.current?.navigate(screen, { plant: target });
         });
         return () => sub.remove();
     }, []);
@@ -273,7 +281,14 @@ function MainAppContent({ user, onLogout }) {
                             {...props}
                             plants={plants}
                             hasUnread={notices.some((n) => n.urgent)}
-                            urgentCount={notices.filter((n) => n.urgent).length}
+                            /*
+                                홈의 요약 문구는 "물 줄 식물 N개"라서 물주기만 센다.
+                                갱신까지 더하면 숫자와 문구가 어긋난다 — 갱신은 빨간 점으로만
+                                알리고, 무엇인지는 알림 목록에서 보게 한다.
+                            */
+                            urgentCount={
+                                notices.filter((n) => n.urgent && n.kind === "WATERING").length
+                            }
                         />
                     )}
                 </Stack.Screen>
@@ -316,6 +331,13 @@ function MainAppContent({ user, onLogout }) {
                 <Stack.Screen
                     name="AddPlant"
                     component={AddPlantNavigator}
+                    options={{ headerShown: false, animation: "slide_from_bottom" }}
+                />
+
+                {/* 월 1회 갱신 — 등록 흐름의 캐릭터·정보 단계를 갱신 모드로 다시 쓴다 */}
+                <Stack.Screen
+                    name="MonthlyRefresh"
+                    component={MonthlyRefreshNavigator}
                     options={{ headerShown: false, animation: "slide_from_bottom" }}
                 />
 

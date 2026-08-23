@@ -50,7 +50,16 @@ export default function CharacterScreen() {
     plantDetail?: string;
     plantNetResult?: string;
     source?: string;
+    // 월 1회 갱신으로 들어왔을 때만 있다 (등록 흐름에서는 개체가 아직 없다).
+    // 이 값이 있으면 다음 단계는 이름 짓기가 아니라 개체 정보 갱신이다.
+    plantId?: string;
+    nickname?: string;
   }>();
+
+  // 갱신 모드 — 이미 있는 개체의 캐릭터를 다시 만드는 중.
+  // 재생성은 강제가 아니다: 모습이 그대로면 캐릭터를 두고 정보만 고칠 수 있어야 한다.
+  const isRefresh = Boolean(params.plantId);
+  const nextPathname = isRefresh ? '/add-plant/info' : '/add-plant/name';
 
   const [screenState, setScreenState] = useState<ScreenState>('intro');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -178,7 +187,7 @@ export default function CharacterScreen() {
   const handleNext = () => {
     if (!selectedCandidate) return;
     router.push({
-      pathname: '/add-plant/name',
+      pathname: nextPathname,
       params: {
         ...params,
         // characterId: 어느 후보를 골랐는지 (이후 화면에서 같은 캐릭터를 보여주기 위함)
@@ -198,11 +207,16 @@ export default function CharacterScreen() {
   // ── render: intro ─────────────────────────────────────────────────────────
 
   if (screenState === 'intro') {
+    const plantName = params.nickname || '식물';
     return (
       <View style={styles.container}>
-        <Text style={[common.title, { marginBottom: 8 }]}>도트 친구 만들기</Text>
+        <Text style={[common.title, { marginBottom: 8 }]}>
+          {isRefresh ? '한 달 만에 다시 그리기' : '도트 친구 만들기'}
+        </Text>
         <Text style={styles.introSubtitle}>
-          식물의 사진을 찍어{'\n'}나만의 도트 캐릭터를 만들어볼까요?
+          {isRefresh
+            ? `한 달 동안 자란 ${plantName}의 사진을 찍어\n지금 모습으로 다시 그려볼까요?`
+            : `식물의 사진을 찍어\n나만의 도트 캐릭터를 만들어볼까요?`}
         </Text>
 
         <View style={styles.charSampleWrap}>
@@ -221,6 +235,17 @@ export default function CharacterScreen() {
             <Text style={styles.primaryBtnText}>사진 촬영 가이드</Text>
           </View>
         </TouchableOpacity>
+
+        {/* 갱신에서는 캐릭터를 그대로 두는 길도 있어야 한다 — 한 달 사이 모습이 그대로일 수 있다 */}
+        {isRefresh && (
+          <TouchableOpacity
+            style={styles.skipBtn}
+            onPress={() => router.push({ pathname: nextPathname, params: { ...params } })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.skipBtnText}>캐릭터는 그대로 두고 정보만 고치기</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
