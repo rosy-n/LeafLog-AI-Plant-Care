@@ -36,6 +36,13 @@
         {
           "locationWhenInUsePermission": "LeafLog가 내 동네의 날씨와 대기질 정보를 보여주기 위해 위치 정보가 필요해요."
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
       ]
     ]
   }
