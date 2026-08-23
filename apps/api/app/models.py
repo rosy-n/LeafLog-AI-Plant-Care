@@ -286,6 +286,62 @@ class MediaAsset(Base):
     )
 
 
+class GrowthDiary(Base):
+    """성장일지 — 사용자가 하루에 한 건 쓴다 (docs/database-schema.sql "3").
+
+    content 는 정해진 양식에 따라 작성된 텍스트 한 뭉치이고, 양식이 바뀔 수 있어
+    diary_format_version 을 함께 남긴다.
+    """
+
+    __tablename__ = "growth_diary"
+
+    diary_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("app_user.user_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    # 하루 1회 제한을 위해 별도 DATE 컬럼을 쓴다
+    diary_date: Mapped[date] = mapped_column(Date, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    diary_format_version: Mapped[str | None] = mapped_column(String(20), default="v1")
+
+    # 'metadata' 는 SQLAlchemy 예약 속성이라 컬럼명만 그대로 두고 속성명을 바꿔 매핑한다
+    extra_metadata: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "diary_date", name="uq_growth_diary_user_date"),
+    )
+
+
+class GrowthDiaryPhoto(Base):
+    """일지에 붙는 사진 — 슬롯(photo_order) 1~3, 개체 태그는 선택."""
+
+    __tablename__ = "growth_diary_photo"
+
+    diary_photo_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    diary_id: Mapped[int] = mapped_column(
+        ForeignKey("growth_diary.diary_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    asset_id: Mapped[int] = mapped_column(
+        ForeignKey("media_asset.asset_id", ondelete="CASCADE"), nullable=False
+    )
+    tagged_plant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("plant.plant_id", ondelete="SET NULL"), nullable=True
+    )
+    photo_order: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("photo_order BETWEEN 1 AND 3", name="ck_growth_diary_photo_order"),
+        UniqueConstraint("diary_id", "photo_order", name="uq_growth_diary_photo_order"),
+        UniqueConstraint("diary_id", "asset_id", name="uq_growth_diary_photo_asset"),
+    )
+
+
 # =========================================================
 # AI 대화 (docs/database-schema.sql "4. AI 대화")
 # =========================================================

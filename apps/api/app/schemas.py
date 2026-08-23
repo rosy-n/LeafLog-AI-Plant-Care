@@ -367,6 +367,45 @@ class CareRecordCreate(BaseModel):
     completed_at: str | None = None
 
 
+# ── 성장일지 (growth_diary / growth_diary_photo) ─────────────────────────────
+
+
+class DiaryPhotoUpload(BaseModel):
+    """사진 업로드 응답 — 일지를 저장할 때 이 asset_id 를 슬롯에 실어 보낸다."""
+
+    asset_id: int
+    url: str
+
+
+class DiaryPhotoRef(BaseModel):
+    """일지 저장 요청에 실리는 사진 한 장. photo_order 는 화면의 사진 틀 번호."""
+
+    asset_id: int
+    photo_order: int = Field(ge=1, le=3)
+    tagged_plant_id: int | None = None
+
+
+class DiaryPhotoItem(DiaryPhotoRef):
+    """일지 조회 응답의 사진 한 장 — 표시용 URL 이 붙는다."""
+
+    url: str | None = None
+
+
+class DiaryUpsert(BaseModel):
+    """일지 저장(생성/수정). 같은 날짜에 다시 보내면 그 날 일지를 갈아끼운다."""
+
+    content: str = Field(max_length=4000)
+    photos: list[DiaryPhotoRef] = Field(default_factory=list, max_length=3)
+
+
+class DiaryItem(BaseModel):
+    id: int
+    # YYYY-MM-DD — 캘린더 칸 키와 같은 형식
+    diary_date: str
+    content: str
+    photos: list[DiaryPhotoItem] = Field(default_factory=list)
+
+
 class PersonaChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1, max_length=500)

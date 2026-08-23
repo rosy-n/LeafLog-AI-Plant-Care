@@ -515,6 +515,64 @@ export function deleteCareRecord(plantId: number, recordId: number) {
   });
 }
 
+// ── 성장일지 (growth_diary) ─────────────────────────────────────────────────
+
+// 일지에 붙은 사진 한 장. url 은 표시용(비공개 버킷이면 presigned) — 만료되므로 저장하지 않는다
+export type DiaryPhoto = {
+  asset_id: number;
+  // 화면의 사진 틀 번호 (1~3)
+  photo_order: number;
+  tagged_plant_id: number | null;
+  url: string | null;
+};
+
+export type Diary = {
+  id: number;
+  // YYYY-MM-DD — 캘린더 칸 키와 같은 형식
+  diary_date: string;
+  content: string;
+  photos: DiaryPhoto[];
+};
+
+/*
+  내 일지 목록. from/to(YYYY-MM-DD, 양끝 포함)를 주면 그 기간만 — 캘린더가 보는
+  달만 읽을 때 쓴다. 사진 URL 은 서버가 조회 시점에 서명해 주므로 매번 다시 읽어야 한다.
+*/
+export function getDiaries(from?: string, to?: string) {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  const query = params.toString();
+  return request<Diary[]>(`/api/diaries${query ? `?${query}` : ""}`);
+}
+
+/*
+  일지 사진 업로드 — 본문 저장과 분리되어 있다. 사진을 고르는 즉시 올려 두고,
+  저장할 때는 여기서 받은 asset_id 만 슬롯에 실어 보낸다.
+*/
+export function uploadDiaryPhoto(image: UploadableImage, taggedPlantId?: number | null) {
+  const formData = createImageFormData(image);
+  if (taggedPlantId != null) formData.append("tagged_plant_id", String(taggedPlantId));
+  return requestForm<{ asset_id: number; url: string }>("/api/diaries/photos", formData);
+}
+
+/*
+  그날 일지 저장. 하루 한 건이라 같은 날짜로 다시 보내면 갈아끼운다(사진 슬롯도 통째로).
+  date 는 YYYY-MM-DD.
+*/
+export function saveDiary(
+  date: string,
+  body: {
+    content: string;
+    photos: { asset_id: number; photo_order: number; tagged_plant_id?: number | null }[];
+  },
+) {
+  return request<Diary>(`/api/diaries/${date}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
 export function login(payload: { email: string; password: string }) {
   return request<AuthResponse>("/auth/login", {
     method: "POST",
