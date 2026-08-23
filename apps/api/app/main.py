@@ -37,6 +37,7 @@ from .models import (
     PlantSpecies,
     SpeciesSourceLink,
     UserSetting,
+    WeatherLog,
 )
 from .schemas import (
     AffinityAward,
@@ -1819,6 +1820,51 @@ def update_me(
     db.commit()
     db.refresh(current_user)
     return UserRead.model_validate(current_user)
+
+
+@app.delete("/auth/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_me(
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """계정 삭제 — 설정 화면의 "계정 삭제". 사용자와 그가 만든 데이터를 전부 지운다.
+
+    delete_consultation 과 같은 이유로 DB의 ON DELETE CASCADE 에 기대지 않고
+    자식 테이블부터 명시적으로 지운다 — SQLite 기본 설정은 외래키 제약을 강제하지
+    않아 사용자만 지우면 개체·기록이 고아로 남는다.
+    """
+    user_id = current_user.user_id
+
+    plant_ids = list(db.scalars(select(Plant.plant_id).where(Plant.user_id == user_id)))
+    session_ids = list(
+        db.scalars(select(ChatSession.session_id).where(ChatSession.user_id == user_id))
+    )
+
+    # AI 상담 — 메시지가 세션을 참조하므로 메시지부터
+    if session_ids:
+        db.execute(delete(ChatMessage).where(ChatMessage.session_id.in_(session_ids)))
+    db.execute(delete(ChatSession).where(ChatSession.user_id == user_id))
+
+    # 개체에 딸린 것들 — 꾸미기 / 돌봄 기록 / 돌봄 주기
+    if plant_ids:
+        db.execute(delete(PlantDecoration).where(PlantDecoration.plant_id.in_(plant_ids)))
+        db.execute(delete(CareRecord).where(CareRecord.plant_id.in_(plant_ids)))
+        db.execute(delete(CareSchedule).where(CareSchedule.plant_id.in_(plant_ids)))
+
+    # 업로드한 이미지 기록 — 스키마상 user_id/plant_id 가 SET NULL 이라 그냥 두면
+    # 주인 없는 행으로 남는다. 계정 삭제니 행 자체를 지운다.
+    # (S3 객체는 지우지 않는다 — 버킷이 다른 계정 소유라 삭제 권한이 없다.)
+    asset_filter = MediaAsset.user_id == user_id
+    if plant_ids:
+        asset_filter = or_(asset_filter, MediaAsset.plant_id.in_(plant_ids))
+    db.execute(delete(MediaAsset).where(asset_filter))
+
+    db.execute(delete(Plant).where(Plant.user_id == user_id))
+    db.execute(delete(WeatherLog).where(WeatherLog.user_id == user_id))
+    db.execute(delete(UserSetting).where(UserSetting.user_id == user_id))
+
+    db.delete(current_user)
+    db.commit()
 
 
 @app.get("/api/settings", response_model=UserSettingRead)
