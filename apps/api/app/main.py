@@ -30,6 +30,8 @@ from .models import (
     CareSchedule,
     ChatMessage,
     ChatSession,
+    GrowthDiary,
+    GrowthDiaryPhoto,
     Item,
     MediaAsset,
     Plant,
@@ -55,6 +57,10 @@ from .schemas import (
     CurrentEnvironmentResponse,
     DiagnosisResponse,
     DiagnosisSimilarCase,
+    DiaryItem,
+    DiaryPhotoItem,
+    DiaryPhotoUpload,
+    DiaryUpsert,
     EnvironmentHistoryResponse,
     CharacterFaceRemovalResponse,
     CharacterCandidateRead,
@@ -91,7 +97,8 @@ app = FastAPI(title="LeafLog API", version="0.1.0")
 
 MAX_IMAGE_UPLOAD_BYTES = 12 * 1024 * 1024
 
-# 진단 사진 S3 저장용 확장자 매핑 — 모르는 타입은 jpg로 취급 (대부분 카메라/갤러리 사진이라 안전한 기본값)
+# 업로드 사진 S3 저장용 확장자 매핑 — 모르는 타입은 jpg로 취급 (대부분 카메라/갤러리 사진이라 안전한 기본값).
+# 진단 사진과 일지 사진이 같은 표를 쓴다.
 DIAGNOSIS_PHOTO_EXTENSIONS = {
     "image/jpeg": "jpg",
     "image/png": "png",
@@ -1481,6 +1488,211 @@ def delete_care_record(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="기록을 찾을 수 없습니다.")
     db.delete(record)
     db.commit()
+
+
+# =========================================================
+# 성장일지 (growth_diary / growth_diary_photo)
+# =========================================================
+
+
+def _store_upload(
+    image_bytes: bytes,
+    content_type: str,
+    object_key: str,
+    request: Request,
+) -> tuple[str, str | None] | None:
+    """업로드 바이트를 저장소에 올리고 (표시 URL, 버킷명) 을 돌려준다.
+
+    S3(S3_BUCKET 설정 시)를 먼저 시도하고, 없으면 로컬 디스크로 폴백한다 —
+    진단 사진과 같은 경로다(S3 없는 개발 환경 대응). 둘 다 실패하면 None.
+    """
+    file_url = upload_bytes(image_bytes, object_key, content_type)
+    if file_url is not None:
+        return file_url, settings.s3_bucket or None
+
+    local_path = save_local_file(image_bytes, object_key)
+    if local_path is None:
+        return None
+    # request.base_url 을 써야 휴대폰이 실제로 열 수 있는 호스트가 된다
+    return str(request.base_url).rstrip("/") + local_path, None
+
+
+def _diary_photo_items(diary_ids: list[int], db: Session) -> dict[int, list[DiaryPhotoItem]]:
+    """일지들의 사진을 한 번에 모아 일지별로 묶는다 (N+1 방지)."""
+    if not diary_ids:
+        return {}
+
+    rows = db.execute(
+        select(GrowthDiaryPhoto, MediaAsset)
+        .join(MediaAsset, MediaAsset.asset_id == GrowthDiaryPhoto.asset_id)
+        .where(GrowthDiaryPhoto.diary_id.in_(diary_ids))
+        .order_by(GrowthDiaryPhoto.photo_order)
+    ).all()
+
+    by_diary: dict[int, list[DiaryPhotoItem]] = {}
+    for photo, asset in rows:
+        by_diary.setdefault(photo.diary_id, []).append(
+            DiaryPhotoItem(
+                asset_id=photo.asset_id,
+                photo_order=photo.photo_order,
+                tagged_plant_id=photo.tagged_plant_id,
+                url=_asset_url(asset.object_key, asset.file_url, asset.bucket_name),
+            )
+        )
+    return by_diary
+
+
+@app.post("/api/diaries/photos", response_model=DiaryPhotoUpload, status_code=status.HTTP_201_CREATED)
+async def upload_diary_photo(
+    request: Request,
+    file: UploadFile = File(...),
+    tagged_plant_id: int | None = Form(default=None),
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DiaryPhotoUpload:
+    """일지 사진 한 장을 저장소에 올리고 media_asset 을 만든다.
+
+    일지 본문 저장(PUT /api/diaries/{diary_date})과 분리되어 있다 — 사진은 고르는
+    즉시 올려 두고, 저장할 때는 asset_id 만 슬롯에 실어 보낸다.
+    """
+    if tagged_plant_id is not None:
+        _owned_plant_or_404(tagged_plant_id, current_user, db)
+
+    image_bytes = await _read_image_upload(file)
+    content_type = file.content_type or "image/jpeg"
+    extension = DIAGNOSIS_PHOTO_EXTENSIONS.get(content_type.lower(), "jpg")
+    object_key = f"diary/{current_user.user_id}/{uuid4().hex}.{extension}"
+
+    stored = _store_upload(image_bytes, content_type, object_key, request)
+    if stored is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="사진을 저장하지 못했어요."
+        )
+    file_url, bucket_name = stored
+
+    asset = MediaAsset(
+        user_id=current_user.user_id,
+        plant_id=tagged_plant_id,
+        bucket_name=bucket_name,
+        object_key=object_key,
+        file_url=file_url,
+        asset_type="GROWTH_DIARY_PHOTO",
+        mime_type=content_type,
+        file_size=len(image_bytes),
+        checksum=hashlib.sha256(image_bytes).hexdigest(),
+    )
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+
+    return DiaryPhotoUpload(
+        asset_id=asset.asset_id,
+        url=_asset_url(asset.object_key, asset.file_url, asset.bucket_name) or asset.file_url,
+    )
+
+
+@app.get("/api/diaries", response_model=list[DiaryItem])
+def list_diaries(
+    date_from: date | None = Query(default=None, alias="from"),
+    date_to: date | None = Query(default=None, alias="to"),
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[DiaryItem]:
+    """내 일지 목록. from/to 를 주면 그 기간(양끝 포함)만 — 캘린더가 보는 달만 읽을 때 쓴다."""
+    query = select(GrowthDiary).where(GrowthDiary.user_id == current_user.user_id)
+    if date_from is not None:
+        query = query.where(GrowthDiary.diary_date >= date_from)
+    if date_to is not None:
+        query = query.where(GrowthDiary.diary_date <= date_to)
+
+    rows = db.scalars(query.order_by(GrowthDiary.diary_date.desc())).all()
+    photos_by_diary = _diary_photo_items([row.diary_id for row in rows], db)
+
+    return [
+        DiaryItem(
+            id=row.diary_id,
+            diary_date=row.diary_date.isoformat(),
+            content=row.content,
+            photos=photos_by_diary.get(row.diary_id, []),
+        )
+        for row in rows
+    ]
+
+
+@app.put("/api/diaries/{diary_date}", response_model=DiaryItem)
+def upsert_diary(
+    diary_date: date,
+    payload: DiaryUpsert,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DiaryItem:
+    """그날 일지를 저장한다. 하루 한 건(UNIQUE user_id+diary_date)이라 다시 보내면 갈아끼운다."""
+    orders = [photo.photo_order for photo in payload.photos]
+    if len(set(orders)) != len(orders):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="사진 슬롯이 중복됐어요."
+        )
+
+    asset_ids = [photo.asset_id for photo in payload.photos]
+    if len(set(asset_ids)) != len(asset_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="같은 사진을 두 슬롯에 넣을 수 없어요."
+        )
+
+    # 남의 사진·남의 개체를 붙이지 못하게 소유권을 확인한다
+    if asset_ids:
+        owned = db.scalars(
+            select(MediaAsset.asset_id).where(
+                MediaAsset.asset_id.in_(asset_ids),
+                MediaAsset.user_id == current_user.user_id,
+            )
+        ).all()
+        if len(set(owned)) != len(set(asset_ids)):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="사진을 찾을 수 없습니다.")
+    for photo in payload.photos:
+        if photo.tagged_plant_id is not None:
+            _owned_plant_or_404(photo.tagged_plant_id, current_user, db)
+
+    diary = db.scalars(
+        select(GrowthDiary).where(
+            GrowthDiary.user_id == current_user.user_id,
+            GrowthDiary.diary_date == diary_date,
+        )
+    ).first()
+
+    if diary is None:
+        diary = GrowthDiary(
+            user_id=current_user.user_id,
+            diary_date=diary_date,
+            content=payload.content,
+        )
+        db.add(diary)
+        db.flush()
+    else:
+        diary.content = payload.content
+        # 사진은 슬롯 단위로 통째로 갈아끼운다 — 부분 수정보다 화면 상태와 어긋날 일이 적다
+        db.execute(delete(GrowthDiaryPhoto).where(GrowthDiaryPhoto.diary_id == diary.diary_id))
+
+    for photo in payload.photos:
+        db.add(
+            GrowthDiaryPhoto(
+                diary_id=diary.diary_id,
+                asset_id=photo.asset_id,
+                tagged_plant_id=photo.tagged_plant_id,
+                photo_order=photo.photo_order,
+            )
+        )
+
+    db.commit()
+    db.refresh(diary)
+
+    photos_by_diary = _diary_photo_items([diary.diary_id], db)
+    return DiaryItem(
+        id=diary.diary_id,
+        diary_date=diary.diary_date.isoformat(),
+        content=diary.content,
+        photos=photos_by_diary.get(diary.diary_id, []),
+    )
 
 
 @app.get("/api/personas", response_model=list[PersonaOption])

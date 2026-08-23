@@ -25,7 +25,14 @@ import { Colors, GreenTint, Paper, Shadow } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import ScreenHeader from "../components/ScreenHeader";
-import { getCareRecords, type CareRecordItem } from "../api";
+import {
+    getCareRecords,
+    getDiaries,
+    saveDiary,
+    uploadDiaryPhoto,
+    type CareRecordItem,
+    type Diary,
+} from "../api";
 // 캐릭터 이미지 fallback — PlantImage 와 같은 출처
 import { plantImages } from "../data/plants";
 
@@ -50,13 +57,24 @@ type CareDay = {
     fertilizedPlants: string[];
 };
 
-type PhotoSlot = { uri: string | null; plantId: string | null };
+/*
+    사진 슬롯 한 칸.
+
+    assetId 는 서버에 올라간 사진(media_asset)의 id — 있으면 저장할 때 다시 올리지
+    않고 그 id 를 그대로 쓴다. 갤러리에서 막 고른 사진은 로컬 uri 만 있고 assetId 가
+    없으므로, 저장할 때 업로드해서 채운다.
+*/
+type PhotoSlot = { uri: string | null; plantId: string | null; assetId?: number | null };
 type Journal   = { note: string; photoSlots: PhotoSlot[] };
 
-const EMPTY_SLOTS: PhotoSlot[] = [
-    { uri: null, plantId: null },
-    { uri: null, plantId: null },
-];
+// 화면의 사진 틀 개수 = growth_diary_photo.photo_order 로 쓰는 슬롯 수 (스키마 상한 3)
+const SLOT_COUNT = 2;
+
+function emptySlots(): PhotoSlot[] {
+    return Array.from({ length: SLOT_COUNT }, () => ({ uri: null, plantId: null, assetId: null }));
+}
+
+const EMPTY_SLOTS: PhotoSlot[] = emptySlots();
 
 /*
     캘린더에 표시하는 돌봄 종류. 서버 care_type(app/main.py CARE_TYPES)과 같은 값이며,
@@ -128,6 +146,26 @@ function foldCareRecords(
         }
     }
     return byDate;
+}
+
+/*
+    서버 일지 → 화면 상태.
+
+    photo_order(1-base) 를 사진 틀 순서(0-base)로 옮긴다. url 은 조회 시점에 서명된
+    표시용 주소라 오래 들고 있지 않고, 화면에 다시 들어올 때 다시 받는다.
+*/
+function toJournal(row: Diary): Journal {
+    const slots = emptySlots();
+    for (const photo of row.photos) {
+        const idx = photo.photo_order - 1;
+        if (idx < 0 || idx >= slots.length) continue;
+        slots[idx] = {
+            uri: photo.url,
+            plantId: photo.tagged_plant_id != null ? String(photo.tagged_plant_id) : null,
+            assetId: photo.asset_id,
+        };
+    }
+    return { note: row.content, photoSlots: slots };
 }
 
 // 그 날짜가 몇 번째 주에 있는가 — 홈에서 바로 들어왔을 때 주간 보기로 열기 위해
@@ -245,16 +283,20 @@ export default function CalendarScreen({
     const [viewMonth,   setViewMonth]   = useState(TODAY_MONTH);
     const [selected,    setSelected]    = useState<string | null>(openToday ? TODAY : null);
     const [weekViewIdx, setWeekViewIdx] = useState<number | null>(openToday ? weekIndexOf(TODAY) : null);
-    /*
-        일지(글·사진)는 아직 서버에 저장하는 곳이 없어서 화면이 들고 있는다 —
-        캘린더에 그리는 돌봄 기록(물/영양제)만 실제 DB 기록이다.
-    */
+    // 저장된 일지 — 서버(growth_diary)에서 읽어 온다. 저장한 날은 잠긴다.
     const [journals,    setJournals]    = useState<Record<string, Journal>>({});
     const [lockedDays,  setLockedDays]  = useState<Set<string>>(() => new Set());
     const [editNote,    setEditNote]    = useState("");
     const [editSlots,   setEditSlots]   = useState<PhotoSlot[]>(EMPTY_SLOTS);
     const [pickerIdx,   setPickerIdx]   = useState<number | null>(null);
+    const [diaryFailed, setDiaryFailed] = useState(false);
+    const [saving,      setSaving]      = useState(false);
     const noteRef = useRef<TextInput>(null);
+
+    // 일지를 다시 읽을 때 "지금 열려 있는 날짜"를 알아야 한다 — 선택이 바뀔 때마다
+    // 로드 effect 를 다시 돌리지 않으려고 ref 로 본다
+    const selectedRef = useRef(selected);
+    selectedRef.current = selected;
 
     // 날짜별 돌봄 기록 — 서버의 개체별 care-records 를 합쳐 만든다
     const [careByDate, setCareByDate] = useState<Record<string, CareDay>>({});
@@ -316,6 +358,43 @@ export default function CalendarScreen({
         }, [alivePlants, reloadKey]),
     );
 
+    /*
+        저장된 일지 로드.
+
+        사진 URL 은 서버가 조회 시점에 서명하므로(만료된다) 화면에 들어올 때마다
+        다시 읽는다. 아직 저장하지 않은 초안은 덮지 않는다 — 서버에 이미 있는
+        날짜(= 잠긴 날)일 때만 편집 칸을 서버 값으로 맞춘다.
+    */
+    useFocusEffect(
+        useCallback(() => {
+            let cancelled = false;
+
+            getDiaries()
+                .then(rows => {
+                    if (cancelled) return;
+                    const next: Record<string, Journal> = {};
+                    for (const row of rows) next[row.diary_date] = toJournal(row);
+                    setJournals(next);
+                    setLockedDays(new Set(Object.keys(next)));
+                    setDiaryFailed(false);
+
+                    const open = selectedRef.current;
+                    const journal = open ? next[open] : undefined;
+                    if (journal) {
+                        setEditNote(journal.note);
+                        setEditSlots(journal.photoSlots);
+                    }
+                })
+                .catch(() => {
+                    if (!cancelled) setDiaryFailed(true);
+                });
+
+            return () => {
+                cancelled = true;
+            };
+        }, [reloadKey]),
+    );
+
     const weeks        = buildWeeks(viewYear, viewMonth);
     const displayWeeks = weekViewIdx !== null ? [weeks[weekViewIdx]] : weeks;
 
@@ -336,7 +415,7 @@ export default function CalendarScreen({
         setSelected(dateStr);
         const j = journals[dateStr];
         setEditNote(j?.note ?? "");
-        setEditSlots(j?.photoSlots ? [...j.photoSlots] : [...EMPTY_SLOTS]);
+        setEditSlots(j?.photoSlots ? [...j.photoSlots] : emptySlots());
     }
 
     function prevMonth() {
@@ -365,10 +444,54 @@ export default function CalendarScreen({
         setWeekViewIdx(null);
     }
 
-    function saveJournal() {
-        if (!selected || isLocked) return;
-        setJournals(prev => ({ ...prev, [selected]: { note: editNote, photoSlots: editSlots } }));
-        setLockedDays(prev => new Set([...prev, selected]));
+    /*
+        일지 저장 — 사진을 먼저 올리고(media_asset), 받은 asset_id 로 본문을 저장한다.
+
+        이미 서버에 있는 사진(assetId 있음)은 다시 올리지 않는다. 업로드는 됐는데
+        본문 저장이 실패한 경우에도 받은 assetId 를 화면에 남겨서, 다시 누를 때
+        같은 사진이 중복으로 올라가지 않게 한다.
+    */
+    async function saveJournal() {
+        if (!selected || isLocked || saving) return;
+
+        const hasPhoto = editSlots.some(slot => slot.uri);
+        if (!editNote.trim() && !hasPhoto) {
+            Alert.alert("저장할 내용이 없어요", "글을 쓰거나 사진을 한 장 넣어주세요.");
+            return;
+        }
+
+        setSaving(true);
+        const slots = [...editSlots];
+        try {
+            const photos: { asset_id: number; photo_order: number; tagged_plant_id?: number | null }[] = [];
+
+            for (let i = 0; i < slots.length; i++) {
+                const slot = slots[i];
+                if (!slot?.uri) continue;
+                const taggedPlantId = slot.plantId ? Number(slot.plantId) : null;
+
+                let assetId = slot.assetId ?? null;
+                if (assetId == null) {
+                    const uploaded = await uploadDiaryPhoto({ uri: slot.uri }, taggedPlantId);
+                    assetId = uploaded.asset_id;
+                    slots[i] = { ...slot, assetId };
+                }
+                // photo_order 는 1-base (growth_diary_photo CHECK 1~3)
+                photos.push({ asset_id: assetId, photo_order: i + 1, tagged_plant_id: taggedPlantId });
+            }
+
+            const saved = await saveDiary(selected, { content: editNote, photos });
+            const journal = toJournal(saved);
+            setJournals(prev => ({ ...prev, [selected]: journal }));
+            setLockedDays(prev => new Set([...prev, selected]));
+            setEditNote(journal.note);
+            setEditSlots(journal.photoSlots);
+        } catch (e: any) {
+            setEditSlots(slots);
+            Alert.alert("저장 실패", e?.message ?? "일지를 저장하지 못했어요.");
+        } finally {
+            setSaving(false);
+        }
     }
 
     async function pickImage(idx: number) {
@@ -381,7 +504,8 @@ export default function CalendarScreen({
             const uri = result.assets[0].uri;
             setEditSlots(prev => {
                 const next = [...prev];
-                next[idx] = { ...next[idx], uri };
+                // 사진이 바뀌었으니 이전 assetId 는 버린다(저장할 때 새로 올린다)
+                next[idx] = { ...next[idx], uri, assetId: null };
                 return next;
             });
             setPickerIdx(idx);
@@ -406,7 +530,8 @@ export default function CalendarScreen({
     function removePhoto(idx: number) {
         setEditSlots(prev => {
             const next = [...prev];
-            next[idx] = { uri: null, plantId: null };
+            // assetId 까지 비운다 — 다른 사진을 넣으면 새로 업로드해야 한다
+            next[idx] = { uri: null, plantId: null, assetId: null };
             return next;
         });
     }
@@ -593,7 +718,7 @@ export default function CalendarScreen({
                                     <Text style={styles.calStatusText}>돌봄 기록을 불러오는 중…</Text>
                                 </View>
                             )}
-                            {!careLoading && careFailed && (
+                            {!careLoading && (careFailed || diaryFailed) && (
                                 <TouchableOpacity
                                     style={styles.calStatusRow}
                                     onPress={() => setReloadKey(k => k + 1)}
@@ -689,6 +814,7 @@ export default function CalendarScreen({
                                             multiline
                                             scrollEnabled={false}
                                             textAlignVertical="top"
+                                            maxLength={4000}
                                         />
                                     </Pressable>
 
@@ -718,11 +844,14 @@ export default function CalendarScreen({
                                 {/* 저장 (잠긴 날은 숨김) */}
                                 {!isLocked && (
                                     <TouchableOpacity
-                                        style={styles.saveBtn}
+                                        style={[styles.saveBtn, saving && styles.saveBtnBusy]}
                                         onPress={saveJournal}
                                         activeOpacity={0.82}
+                                        disabled={saving}
                                     >
-                                        <Text style={styles.saveBtnText}>저장하기</Text>
+                                        <Text style={styles.saveBtnText}>
+                                            {saving ? "저장 중…" : "저장하기"}
+                                        </Text>
                                     </TouchableOpacity>
                                 )}
                             </View>
@@ -1126,6 +1255,9 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 3 },
         elevation: 3,
+    },
+    saveBtnBusy: {
+        opacity: 0.6,
     },
     saveBtnText: {
         fontFamily: Fonts.neoDunggeunmo,
