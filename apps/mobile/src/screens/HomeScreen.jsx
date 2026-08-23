@@ -11,7 +11,7 @@ import {
     PanResponder,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { hapticImpact, playSfx } from "../feedback";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Fonts, FontSizes } from "../../constants/fonts";
@@ -847,8 +847,9 @@ function WanderingPlant({
             friction: 9,
             useNativeDriver: true,
         }).start();
-        // 길게 누른 게 먹혔다는 걸 손으로 알려준다 (개체탭의 물주기와 같은 방식)
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        // 길게 누른 게 먹혔다는 걸 손과 귀로 알려준다 (개체탭의 물주기와 같은 방식)
+        hapticImpact();
+        playSfx("pickup");
         onPickUp?.(centerOf(spot));
     };
 

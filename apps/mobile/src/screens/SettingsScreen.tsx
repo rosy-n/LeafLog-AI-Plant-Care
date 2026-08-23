@@ -148,10 +148,16 @@ export default function SettingsScreen({
     const [notifMinute, setNotifMinute] = useState(DEFAULT_NOTIFICATION_SETTINGS.minute);
     const [notifLoaded, setNotifLoaded] = useState(false);
 
-    // 사운드&진동 — 볼륨은 앱 전체가 쓰는 플레이어와 공유하고, 바꾸면 기기에 저장된다
-    const { bgmVolume, sfxVolume, setBgmVolume, setSfxVolume } = useBackgroundMusic();
-    // 효과음은 아직 재생 지점이 없어서 값만 저장된다
-    const [vibration, setVibration] = useState(true);
+    // 사운드&진동 — 앱 전체가 쓰는 값과 공유하고, 바꾸면 바로 기기에 저장된다.
+    // 효과음·진동을 실제로 내는 쪽은 feedback.ts (playSfx / hapticImpact)
+    const {
+        bgmVolume,
+        sfxVolume,
+        vibration,
+        setBgmVolume,
+        setSfxVolume,
+        setVibration,
+    } = useBackgroundMusic();
 
     // 도움말
     const [openFaqId, setOpenFaqId] = useState<string | null>(null);
