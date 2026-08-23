@@ -22,8 +22,10 @@ ALTER TABLE inquiry ADD CONSTRAINT ck_inquiry_status
     CHECK (status IN ('OPEN', 'ANSWERED', 'CLOSED'));
 
 -- 관리자 계정 지정 — 이 계정만 답변을 넣을 수 있다.
--- 다른 계정으로 바꾸려면 이메일만 고쳐서 다시 실행하면 된다.
-UPDATE app_user SET role = 'ADMIN' WHERE email = 'aaa@gmail.com';
+-- 다른 계정으로 바꾸려면 아래 두 줄의 이메일만 고쳐 다시 실행하면 된다.
+-- (기존 관리자를 먼저 내려서 관리자가 항상 한 명만 남게 한다)
+UPDATE app_user SET role = 'USER'  WHERE role = 'ADMIN' AND email <> 'bbb@gmail.com';
+UPDATE app_user SET role = 'ADMIN' WHERE email = 'bbb@gmail.com';
 
 -- 결과 확인
 SELECT user_id, email, nickname, role FROM app_user WHERE role = 'ADMIN';
