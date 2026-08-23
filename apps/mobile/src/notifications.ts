@@ -128,35 +128,6 @@ export async function scheduleWateringReminder(
   return true;
 }
 
-/**
- * 알림이 실제로 오는지 확인하는 테스트용 — 몇 초 뒤에 한 번 쏜다.
- *
- * 실제 물주기 알림은 예정일 09:00 에 예약되므로 그날까지 기다려야 확인이 된다.
- * 권한·채널·수신·탭 이동까지 한 번에 점검하려고 둔 경로다.
- * 실제 예약과 섞이지 않도록 identifier 를 따로 쓴다.
- *
- * @returns 예약 성공 여부 (권한이 없으면 false)
- */
-export async function sendTestReminder(seconds = 5): Promise<boolean> {
-  if (!(await ensureNotificationPermission())) return false;
-  await prepareNotifications();
-
-  await Notifications.scheduleNotificationAsync({
-    identifier: "watering-test",
-    content: {
-      title: "알림 테스트",
-      body: `${seconds}초 뒤에 오도록 예약한 알림이에요. 실제 물주기 알림도 이렇게 옵니다.`,
-      data: { kind: "TEST" },
-      ...(Platform.OS === "android" ? { channelId: ANDROID_CHANNEL_ID } : {}),
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds,
-    },
-  });
-  return true;
-}
-
 /** 예약된 물주기 알림 목록 — 무엇이 언제 오도록 잡혀 있는지 확인용 */
 export async function listScheduledReminders(): Promise<
   { plantId: string; title: string; dueDate: string }[]

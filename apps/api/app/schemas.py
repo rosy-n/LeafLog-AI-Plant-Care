@@ -71,6 +71,24 @@ class AccountDeleteRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class InquiryCreate(BaseModel):
+    """설정 화면의 문의하기 — 본문만 받는다.
+
+    보낸 사람 정보는 토큰에서 꺼내므로 클라이언트가 넘기지 않는다
+    (남의 이름으로 문의하는 것을 막는다).
+    """
+
+    content: str = Field(min_length=5, max_length=2000)
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, value: str) -> str:
+        content = value.strip()
+        if len(content) < 5:
+            raise ValueError("문의 내용을 5자 이상 입력해주세요.")
+        return content
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str

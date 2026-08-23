@@ -549,6 +549,16 @@ export function deleteMe(password: string) {
   });
 }
 
+// 설정 화면의 문의하기 — 지원 메일함으로 전달된다.
+// 보낸 사람 정보는 서버가 토큰에서 꺼내므로 본문만 보낸다.
+// 메일 설정이 안 돼 있으면 503, 발송 실패면 502 가 온다.
+export function sendInquiry(content: string) {
+  return request<null>("/api/inquiries", {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+}
+
 export function preprocessPlantImage(
   image: UploadableImage,
   canvasSize = 1024,

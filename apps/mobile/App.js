@@ -368,6 +368,8 @@ function MainAppContent({ user, onLogout }) {
                             {...props}
                             username={username}
                             setUsername={setUsername}
+                            // 문의 답변이 어디로 가는지 화면에 보여주기 위해 필요하다
+                            email={user?.email}
                             onLogout={onLogout}
                         />
                     )}
