@@ -15,23 +15,23 @@
 export const ACCESSORY_IMAGES = {
     level1: {
         card: require("../../assets/items/level1_item.png"),
-        plant: require("../../assets/items/level1_plants.png"),
+        plant: require("../../assets/items/level1_item.png"),
     },
     level2: {
         card: require("../../assets/items/level2_item.png"),
-        plant: require("../../assets/items/level2_plants.png"),
+        plant: require("../../assets/items/level2_item.png"),
     },
     level3: {
         card: require("../../assets/items/level3_item.png"),
-        plant: require("../../assets/items/level3_plants.png"),
+        plant: require("../../assets/items/level3_item.png"),
     },
     level4: {
         card: require("../../assets/items/level4_item.png"),
-        plant: require("../../assets/items/level4_plants.png"),
+        plant: require("../../assets/items/level4_item.png"),
     },
     level5: {
         card: require("../../assets/items/level5_item.png"),
-        plant: require("../../assets/items/level5_plants.png"),
+        plant: require("../../assets/items/level5_item.png"),
     },
 };
 

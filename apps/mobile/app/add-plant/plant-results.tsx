@@ -50,15 +50,13 @@ export default function PlantResultsScreen() {
       const matched = exact ?? matches[0];
 
       router.push({
-        pathname: '/add-plant/character',
+        pathname: '/add-plant/plant-detail',
         params: {
           // 마스터에 없으면 speciesId 없이 진행 — 서버가 학명/국명으로 종을 만든다
           speciesId: matched ? String(matched.species_id) : '',
           commonNameKo:
             matched?.common_name_ko ?? item.commonNames[0] ?? item.scientificName,
           scientificName: item.scientificName,
-          plantNetResult: JSON.stringify(item),
-          source: 'camera',
         },
       });
     } catch (e: any) {

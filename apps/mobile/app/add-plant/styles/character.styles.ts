@@ -227,6 +227,14 @@ export const styles = StyleSheet.create({
     fontSize: FontSizes.body,
     color: Colors.textGray,
   },
+  waitHint: {
+    marginTop: Spacing.xl,
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.small,
+    lineHeight: 18,
+    color: Colors.textFaint,
+    textAlign: 'center',
+  },
 
   // ── Result (후보 3종 선택) ──────────────────────────────────────────────────
 

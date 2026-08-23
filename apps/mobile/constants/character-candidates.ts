@@ -18,6 +18,7 @@ export type CharacterCandidate = {
   /** 서버가 준 이미지 URL. 미연동 상태에서는 빈 문자열 */
   imageUrl: string;
   checksum?: string;
+  faceBounds?: [number, number, number, number] | null;
 };
 
 export const CHARACTER_CANDIDATES: CharacterCandidate[] = [

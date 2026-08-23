@@ -1,5 +1,4 @@
 import {
-  Image,
   Keyboard,
   Platform,
   ScrollView,
@@ -11,20 +10,27 @@ import {
 import { Colors } from '../../constants/colors';
 import { getCharacterImageSource } from '../../constants/character-candidates';
 import { useEffect, useRef, useState } from 'react';
-import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
+import { useRouter } from '../../src/hooks/useAddPlantRouter';
+import { useAddPlantFlow } from '../../src/AddPlantFlowContext';
 
 import { common } from './styles/common.styles';
 import { styles } from './styles/name.styles';
+import PlantImage from '../../src/components/PlantImage';
+import {
+  CHARACTER_EXPRESSIONS,
+  CHARACTER_EXPRESSION_KEYS,
+  getFaceBoundsFromChecksum,
+  hasFaceRemovedChecksum,
+} from '../../src/data/characterExpressions';
 
 const MAX_LENGTH = 8;
 
 export default function NameScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ characterId?: string; characterImageUrl?: string }>();
-  // 2단계에서 고른 후보를 그대로 보여준다 (없으면 기본 placeholder)
-  const characterSource = params.characterImageUrl
-    ? { uri: params.characterImageUrl }
-    : getCharacterImageSource(params.characterId);
+  const { draft, updateDraft } = useAddPlantFlow();
+  const characterSource = draft.characterImageUrl
+    ? { uri: draft.characterImageUrl }
+    : getCharacterImageSource(draft.characterId ?? undefined);
   const [nickname, setNickname] = useState('');
   const scrollRef = useRef<ScrollView>(null);
   const [kbHeight, setKbHeight] = useState(0);
@@ -43,9 +49,9 @@ export default function NameScreen() {
   const isValid = nickname.trim().length > 0;
 
   const handleConfirm = () => {
+    updateDraft({ nickname: nickname.trim() });
     router.push({
-      pathname: '/add-plant/info',
-      params: { ...params, nickname: nickname.trim() },
+      pathname: '/add-plant/persona',
     });
   };
 
@@ -69,10 +75,15 @@ export default function NameScreen() {
         // @ts-ignore — iOS 전용 prop, 타입 정의 누락된 경우 대비
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
-        <Image
+        <PlantImage
           source={characterSource}
+          expressionSource={
+            hasFaceRemovedChecksum(draft.characterChecksum)
+              ? CHARACTER_EXPRESSIONS[CHARACTER_EXPRESSION_KEYS.DEFAULT]
+              : null
+          }
+          expressionBounds={getFaceBoundsFromChecksum(draft.characterChecksum)}
           style={styles.characterImage}
-          resizeMode="contain"
         />
 
         <Text style={common.title} numberOfLines={1}>이름을 붙여주세요</Text>

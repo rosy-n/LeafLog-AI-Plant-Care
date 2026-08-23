@@ -19,9 +19,9 @@ import { Colors, GreenTint, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { getCurrentEnvironment } from "../api";
 // 꾸미기(item_key 기반)로 바뀌는 배경은 개체탭(PlantDetailScreen) 것 — 홈은 날씨로만 바뀐다
-import { BACKGROUND_IMAGES, HOME_BACKGROUND_KEY } from "../data/decor";
-// 캐릭터 이미지가 아직 S3에 없을 때의 번들 fallback (PlantImage 와 같은 출처)
-import { plantImages } from "../data/plants";
+import { accessorySpriteBundle, BACKGROUND_IMAGES, HOME_BACKGROUND_KEY } from "../data/decor";
+import PlantImage from "../components/PlantImage";
+import { getPlantExpressionSource } from "../data/characterExpressions";
 
 const WEATHER_ICONS = {
     "맑음": require("../../assets/icons/sunny_icon.png"),
@@ -239,6 +239,7 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 export default function HomeScreen({
     navigation,
     plants = [],
+    decorations = {},
     hasUnread = false,
     urgentCount = 0,
 }) {
@@ -448,16 +449,12 @@ export default function HomeScreen({
                     {fieldSize.width > 0 &&
                         fieldPlants.map((plant, index) => {
                             const slot = FIELD_SLOTS[index];
+                            const accessory = decorations[String(plant.id)]?.accessory ?? null;
                             return (
                                 <WanderingPlant
                                     key={plant.id}
-                                    // 캐릭터 이미지 해석은 PlantImage 와 같은 규칙 —
-                                    // S3 URL 이 있으면 원격, 없으면 번들 fallback
-                                    source={
-                                        plant.imageUri
-                                            ? { uri: plant.imageUri }
-                                            : plantImages[plant.imageKey ?? "spaghetti"]
-                                    }
+                                    plant={plant}
+                                    accessory={accessory}
                                     width={slot.width}
                                     height={slot.height}
                                     startFx={slot.startFx}
@@ -617,7 +614,8 @@ export default function HomeScreen({
     모든 애니메이션은 네이티브 드라이버로 돌린다.
 */
 function WanderingPlant({
-    source,
+    plant,
+    accessory,
     width,
     height,
     field,
@@ -1083,11 +1081,20 @@ function WanderingPlant({
                     // 캐릭터 상자 가운데 위 — 도트 그림은 상자 안에서 가로 중앙에 놓인다
                     <WaterBubble left={(width - BUBBLE_SIZE) / 2} />
                 )}
-                <Animated.Image
-                    source={source}
-                    resizeMode="contain"
-                    style={{ width, height, transform: bodyTransform }}
-                />
+                <Animated.View style={{ width, height, transform: bodyTransform }}>
+                    <PlantImage
+                        uri={plant?.imageUri}
+                        imageKey={plant?.imageKey ?? "spaghetti"}
+                        expressionSource={
+                            plant?.characterFaceRemoved ? getPlantExpressionSource(plant) : null
+                        }
+                        expressionBounds={plant?.characterFaceBounds}
+                        effectRemote={accessory?.spriteUrl ? { uri: accessory.spriteUrl } : null}
+                        effectFallback={accessorySpriteBundle(accessory?.key)}
+                        width={width}
+                        height={height}
+                    />
+                </Animated.View>
             </Animated.View>
         </Animated.View>
     );

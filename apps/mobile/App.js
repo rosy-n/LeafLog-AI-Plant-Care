@@ -47,6 +47,9 @@ function toGardenPlant(plant) {
         // (FLUX 미구현 fallback. "3호"는 URL 없을 때 test 번들 이미지로 표시 — 테스트용)
         imageUri: plant.character_image_url ?? null,
         imageKey: plant.nickname === "3호" ? "test" : undefined,
+        characterFaceRemoved: plant.character_face_removed ?? false,
+        characterFaceBounds: plant.character_face_bounds ?? null,
+        status: plant.status,
         // 애정도 — 서버가 돌봄 기록(물주기/영양제/분갈이)에서 계산해 목록에 함께 보낸다.
         // hearts 는 0~5(0.5 단위), affinityLevel = 꽉 찬 하트 수 = 꾸미기 아이템 해금 단계
         hearts: plant.affinity_hearts ?? 0,
@@ -272,6 +275,7 @@ function MainAppContent({ user, onLogout }) {
                         <HomeScreen
                             {...props}
                             plants={plants}
+                            decorations={decorations}
                             hasUnread={notices.some((n) => n.urgent)}
                             urgentCount={notices.filter((n) => n.urgent).length}
                         />
@@ -294,6 +298,7 @@ function MainAppContent({ user, onLogout }) {
                             {...props}
                             plants={plants}
                             setPlants={setPlants}
+                            decorations={decorations}
                             username={username}
                             reloadPlants={loadPlants}
                         />
@@ -309,7 +314,11 @@ function MainAppContent({ user, onLogout }) {
                     }}
                 >
                     {(props) => (
-                        <PlantDetailScreen {...props} decorations={decorations} />
+                        <PlantDetailScreen
+                            {...props}
+                            decorations={decorations}
+                            reloadPlants={loadPlants}
+                        />
                     )}
                 </Stack.Screen>
 
@@ -319,11 +328,9 @@ function MainAppContent({ user, onLogout }) {
                     options={{ headerShown: false, animation: "slide_from_bottom" }}
                 />
 
-                <Stack.Screen
-                    name="Profile"
-                    component={ProfileScreen}
-                    options={{ headerShown: false }}
-                />
+                <Stack.Screen name="Profile" options={{ headerShown: false }}>
+                    {(props) => <ProfileScreen {...props} decorations={decorations} />}
+                </Stack.Screen>
                 <Stack.Screen
                     name="CareInfo"
                     component={CareInfoScreen}
@@ -344,11 +351,9 @@ function MainAppContent({ user, onLogout }) {
                     component={ConsultationScreen}
                     options={{ headerShown: false }}
                 />
-                <Stack.Screen
-                    name="SensorData"
-                    component={SensorDataScreen}
-                    options={{ headerShown: false }}
-                />
+                <Stack.Screen name="SensorData" options={{ headerShown: false }}>
+                    {(props) => <SensorDataScreen {...props} decorations={decorations} />}
+                </Stack.Screen>
                 <Stack.Screen
                     name="Repotting"
                     component={RepottingScreen}
@@ -401,6 +406,7 @@ function MainAppContent({ user, onLogout }) {
                             {...props}
                             notices={notices}
                             plants={plants}
+                            decorations={decorations}
                         />
                     )}
                 </Stack.Screen>

@@ -23,6 +23,8 @@ import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint, Gauge, GaugeTint, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
+import { getPlantExpressionSource } from "../data/characterExpressions";
+import { accessorySpriteBundle } from "../data/decor";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -213,7 +215,7 @@ const PERIOD_MAP = { "일": "daily", "주": "weekly", "월": "monthly" };
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function SensorDataScreen({ navigation, route }) {
+export default function SensorDataScreen({ navigation, route, decorations = {} }) {
     const plant = route?.params?.plant;
     const [period, setPeriod] = useState("일");
     const [history, setHistory] = useState(null);
@@ -373,7 +375,22 @@ export default function SensorDataScreen({ navigation, route }) {
                                 style={styles.cardGradient}
                             >
                                 <View style={styles.summaryHeader}>
-                                    <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={48} height={48} />
+                                    <PlantImage
+                                        uri={plant?.imageUri}
+                                        imageKey={plant?.imageKey ?? "spaghetti"}
+                                        expressionSource={plant?.characterFaceRemoved ? getPlantExpressionSource(plant) : null}
+                                        expressionBounds={plant?.characterFaceBounds}
+                                        effectRemote={
+                                            decorations[String(plant?.id)]?.accessory?.spriteUrl
+                                                ? { uri: decorations[String(plant?.id)].accessory.spriteUrl }
+                                                : null
+                                        }
+                                        effectFallback={accessorySpriteBundle(
+                                            decorations[String(plant?.id)]?.accessory?.key,
+                                        )}
+                                        width={48}
+                                        height={48}
+                                    />
                                     <Text style={[styles.cardTitle, styles.summaryTitleText]}>{summaryTitle}</Text>
                                     {comfortTags && !comfortTagsWrap && comfortTags.map((tag, idx) => (
                                         <View

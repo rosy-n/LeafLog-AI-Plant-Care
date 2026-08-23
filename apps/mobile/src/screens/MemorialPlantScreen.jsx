@@ -14,9 +14,9 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { accessorySpriteBundle } from "../data/decor";
-import DecorImage from "../components/DecorImage";
 import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
+import { getPlantExpressionSource } from "../data/characterExpressions";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import { Fonts, FontSizes } from "../../constants/fonts";
@@ -135,15 +135,18 @@ export default function MemorialPlantScreen({ navigation, route, decorations }) 
 
                     {/* Plant — same structure as PlantDetailScreen, no overlay */}
                     <View style={styles.mainPlantArea}>
-                        {decorRemote || decorBundle ? (
-                            <DecorImage
-                                remote={decorRemote}
-                                fallback={decorBundle}
-                                style={{ width: 230, height: 230 }}
-                            />
-                        ) : (
-                            <PlantImage uri={plant?.imageUri} imageKey={plant?.imageKey ?? "spaghetti"} width={230} height={230} />
-                        )}
+                        <PlantImage
+                            uri={plant?.imageUri}
+                            imageKey={plant?.imageKey ?? "spaghetti"}
+                            expressionSource={
+                                plant?.characterFaceRemoved ? getPlantExpressionSource(plant) : null
+                            }
+                            expressionBounds={plant?.characterFaceBounds}
+                            effectRemote={decorRemote}
+                            effectFallback={decorBundle}
+                            width={230}
+                            height={230}
+                        />
 
                         <View style={styles.plantLabelGroup}>
                             <PixelOutlineText style={styles.plantName} strokeWidth={2}>

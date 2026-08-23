@@ -15,9 +15,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { common } from './styles/common.styles';
 import { styles } from './styles/character.styles';
 import { Colors } from '../../constants/colors';
-import { CHARACTER_CANDIDATES } from '../../constants/character-candidates';
 import type { CharacterCandidate } from '../../constants/character-candidates';
-import { getCharacterGeneration, startCharacterGeneration } from '../../src/api';
+import {
+  getCharacterGeneration,
+  startCharacterGeneration,
+  type CharacterGenerationJob,
+} from '../../src/api';
+import { useAddPlantFlow } from '../../src/AddPlantFlowContext';
+import PlantImage from '../../src/components/PlantImage';
+import {
+  CHARACTER_EXPRESSIONS,
+  CHARACTER_EXPRESSION_KEYS,
+  hasFaceRemovedChecksum,
+} from '../../src/data/characterExpressions';
 
 type ScreenState = 'intro' | 'guide' | 'preview' | 'generating' | 'result';
 
@@ -43,34 +53,105 @@ const GUIDE_BAD_ITEMS = [
 
 export default function CharacterScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{
-    cntntsNo?: string;
-    commonNameKo?: string;
-    scientificName?: string;
-    plantDetail?: string;
-    plantNetResult?: string;
-    source?: string;
-  }>();
+  const params = useLocalSearchParams<{ resumeGeneration?: string }>();
+  const { draft, updateDraft } = useAddPlantFlow();
+  const resumeGeneration = params.resumeGeneration === 'true';
 
-  const [screenState, setScreenState] = useState<ScreenState>('intro');
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [screenState, setScreenState] = useState<ScreenState>(
+    resumeGeneration ? 'generating' : 'intro',
+  );
+  const [photoUri, setPhotoUri] = useState<string | null>(draft.capturedPhotoUri);
   const [phase, setPhase] = useState<1 | 2>(1);
   const [generationMessage, setGenerationMessage] = useState('식물 특징을 파악하는 중...');
-  const [candidates, setCandidates] = useState<CharacterCandidate[]>(CHARACTER_CANDIDATES);
+  const [candidates, setCandidates] = useState<CharacterCandidate[]>([]);
   // 후보 3종 중 사용자가 직접 고른 캐릭터. 고르기 전에는 null → 확인 버튼 비활성.
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const generationRunRef = useRef(0);
+  const intentionalRetryRef = useRef(false);
 
   const selectedCandidate =
     candidates.find((candidate) => candidate.id === selectedCandidateId) ?? null;
 
-  useEffect(() => () => {
-    generationRunRef.current += 1;
-  }, []);
+  const pollGeneration = async (initialJob: CharacterGenerationJob, runId: number) => {
+    let job = initialJob;
+    while (generationRunRef.current === runId) {
+      const progress = Math.max(0, Math.min(100, job.progress)) / 100;
+      Animated.timing(progressAnim, {
+        toValue: progress,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+      setPhase(job.status === 'queued' || job.status === 'preprocessing' ? 1 : 2);
+      setGenerationMessage(job.message);
+
+      if (job.status === 'failed') {
+        throw new Error(job.error || '캐릭터 생성에 실패했어요.');
+      }
+      if (job.status === 'completed') {
+        const generatedCandidates: CharacterCandidate[] = job.candidates.map((candidate, index) => ({
+          id: candidate.id,
+          label: `${index + 1}번`,
+          source: { uri: candidate.image_url },
+          imageUrl: candidate.image_url,
+          checksum: candidate.checksum,
+          faceBounds: candidate.face_bounds,
+        }));
+        if (generatedCandidates.length !== 3) {
+          throw new Error('생성된 캐릭터 3개를 모두 불러오지 못했어요.');
+        }
+        setCandidates(generatedCandidates);
+        progressAnim.setValue(1);
+        setScreenState('result');
+        return;
+      }
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+      job = await getCharacterGeneration(job.id);
+    }
+  };
+
+  useEffect(() => {
+    if (!resumeGeneration) return;
+    if (!draft.generationJobId) {
+      setScreenState('guide');
+      if (intentionalRetryRef.current) {
+        intentionalRetryRef.current = false;
+        return;
+      }
+      Alert.alert('생성 작업 확인', '진행 중인 생성 작업이 없어요. 사진을 다시 선택해주세요.');
+      return;
+    }
+
+    const runId = generationRunRef.current + 1;
+    generationRunRef.current = runId;
+    setPhotoUri(draft.capturedPhotoUri);
+    setScreenState('generating');
+    setSelectedCandidateId(null);
+    setCandidates([]);
+
+    getCharacterGeneration(draft.generationJobId)
+      .then((job) => pollGeneration(job, runId))
+      .catch((error: any) => {
+        if (generationRunRef.current !== runId) return;
+        Alert.alert('생성 실패', error?.message ?? '잠시 후 다시 시도해주세요.');
+        setScreenState('guide');
+      });
+
+    return () => {
+      generationRunRef.current += 1;
+    };
+  }, [resumeGeneration, draft.generationJobId]);
 
   const handleRetry = () => {
     generationRunRef.current += 1;
+    intentionalRetryRef.current = true;
+    updateDraft({
+      generationJobId: null,
+      characterId: null,
+      characterImageUrl: null,
+      characterChecksum: '',
+    });
     setPhotoUri(null);
     setSelectedCandidateId(null);
     setCandidates([]);
@@ -99,7 +180,12 @@ export default function CharacterScreen() {
       Alert.alert('권한 필요', '사진 라이브러리 접근 권한이 필요해요.');
       return;
     }
-    const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.9 });
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      quality: 0.9,
+      preferredAssetRepresentationMode:
+        ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+    });
     if (picked.canceled) return;
     const uri = picked.assets[0]?.uri;
     if (!uri) return;
@@ -119,6 +205,7 @@ export default function CharacterScreen() {
 
   const handleGenerate = async () => {
     if (!photoUri) return;
+    intentionalRetryRef.current = false;
     const runId = generationRunRef.current + 1;
     generationRunRef.current = runId;
     progressAnim.setValue(0);
@@ -129,44 +216,23 @@ export default function CharacterScreen() {
     setScreenState('generating');
 
     try {
-      let job = await startCharacterGeneration({
+      const job = await startCharacterGeneration({
         uri: photoUri,
         name: 'plant-photo',
         type: 'application/octet-stream',
       });
+      updateDraft({
+        generationJobId: job.id,
+        capturedPhotoUri: photoUri,
+        characterId: null,
+        characterImageUrl: null,
+        characterChecksum: '',
+      });
 
-      while (generationRunRef.current === runId) {
-        const progress = Math.max(0, Math.min(100, job.progress)) / 100;
-        Animated.timing(progressAnim, {
-          toValue: progress,
-          duration: 300,
-          useNativeDriver: false,
-        }).start();
-        setPhase(job.status === 'queued' || job.status === 'preprocessing' ? 1 : 2);
+      if (resumeGeneration) {
         setGenerationMessage(job.message);
-
-        if (job.status === 'failed') {
-          throw new Error(job.error || '캐릭터 생성에 실패했어요.');
-        }
-        if (job.status === 'completed') {
-          const generatedCandidates: CharacterCandidate[] = job.candidates.map((candidate, index) => ({
-            id: candidate.id,
-            label: `${index + 1}번`,
-            source: { uri: candidate.image_url },
-            imageUrl: candidate.image_url,
-            checksum: candidate.checksum,
-          }));
-          if (generatedCandidates.length !== 3) {
-            throw new Error('생성된 캐릭터 3개를 모두 불러오지 못했어요.');
-          }
-          setCandidates(generatedCandidates);
-          progressAnim.setValue(1);
-          setScreenState('result');
-          return;
-        }
-
-        await new Promise<void>((resolve) => setTimeout(resolve, 2000));
-        job = await getCharacterGeneration(job.id);
+      } else {
+        router.replace('/add-plant');
       }
     } catch (error: any) {
       if (generationRunRef.current !== runId) return;
@@ -177,16 +243,13 @@ export default function CharacterScreen() {
 
   const handleNext = () => {
     if (!selectedCandidate) return;
+    updateDraft({
+      characterId: selectedCandidate.id,
+      characterImageUrl: selectedCandidate.imageUrl ?? null,
+      characterChecksum: selectedCandidate.checksum ?? '',
+    });
     router.push({
       pathname: '/add-plant/name',
-      params: {
-        ...params,
-        // characterId: 어느 후보를 골랐는지 (이후 화면에서 같은 캐릭터를 보여주기 위함)
-        characterId: selectedCandidate.id,
-        characterImageUrl: selectedCandidate.imageUrl,
-        characterChecksum: selectedCandidate.checksum ?? '',
-        capturedPhotoUri: photoUri ?? '',
-      },
     });
   };
 
@@ -323,6 +386,11 @@ export default function CharacterScreen() {
         <Text style={styles.progressLabel}>
           {generationMessage}
         </Text>
+        {resumeGeneration && (
+          <Text style={styles.waitHint}>
+            입력한 식물 정보는 보관되어 있어요.{`\n`}완료될 때까지 이 화면을 유지해주세요.
+          </Text>
+        )}
       </View>
     );
   }
@@ -342,10 +410,15 @@ export default function CharacterScreen() {
         {/* 선택된 후보 크게 보기 — 아직 안 골랐으면 안내 문구 */}
         <View style={styles.selectedPreview}>
           {selectedCandidate ? (
-            <Image
+            <PlantImage
               source={selectedCandidate.source}
+              expressionSource={
+                hasFaceRemovedChecksum(selectedCandidate.checksum)
+                  ? CHARACTER_EXPRESSIONS[CHARACTER_EXPRESSION_KEYS.DEFAULT]
+                  : null
+              }
+              expressionBounds={selectedCandidate.faceBounds ?? null}
               style={styles.selectedPreviewImage}
-              resizeMode="contain"
             />
           ) : (
             <Text style={styles.selectedPreviewHint}>
@@ -367,10 +440,15 @@ export default function CharacterScreen() {
                 accessibilityState={{ selected: isSelected }}
                 accessibilityLabel={`${candidate.label} 도트 캐릭터`}
               >
-                <Image
+                <PlantImage
                   source={candidate.source}
+                  expressionSource={
+                    hasFaceRemovedChecksum(candidate.checksum)
+                      ? CHARACTER_EXPRESSIONS[CHARACTER_EXPRESSION_KEYS.DEFAULT]
+                      : null
+                  }
+                  expressionBounds={candidate.faceBounds ?? null}
                   style={styles.candidateImage}
-                  resizeMode="contain"
                 />
                 {isSelected && (
                   <View style={styles.candidateCheck}>

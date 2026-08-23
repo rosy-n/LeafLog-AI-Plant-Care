@@ -44,6 +44,7 @@ class BackgroundRemovalResult:
 class CharacterFaceRemovalResult:
     width: int
     height: int
+    face_bounds: tuple[int, int, int, int]
     face_removed_png_base64: str
 
 
@@ -101,12 +102,18 @@ def remove_character_face(image_bytes: bytes) -> CharacterFaceRemovalResult:
     if source.width > 2048 or source.height > 2048:
         raise ImagePreprocessingError("Character image dimensions must not exceed 2048 pixels.")
 
-    face_bounds = _detect_face_bounds(source)
-    restored = _inpaint_face_region(source, face_bounds)
+    detected_face_bounds = _detect_face_bounds(source)
+    restored = _inpaint_face_region(source, detected_face_bounds)
+    face_bounds = _constrain_expression_bounds_to_pot(
+        detected_face_bounds,
+        _detect_pot_bounds(source),
+        source.size,
+    )
 
     return CharacterFaceRemovalResult(
         width=restored.width,
         height=restored.height,
+        face_bounds=face_bounds,
         face_removed_png_base64=_image_to_base64_png(restored),
     )
 
@@ -316,6 +323,85 @@ def _detect_face_bounds(image: Image.Image) -> tuple[int, int, int, int]:
         return _face_bounds_from_cheeks(cheek_pair, image.size)
 
     raise ImagePreprocessingError("Could not locate the character face.")
+
+
+def _detect_pot_bounds(image: Image.Image) -> tuple[int, int, int, int] | None:
+    """Estimate the pot body from the longest opaque run in the lower image half."""
+    alpha = np.asarray(image, dtype=np.uint8)[:, :, 3]
+    opaque = alpha >= 128
+    minimum_run = max(24, round(image.width * 0.18))
+    first_row = round(image.height * 0.65)
+    last_row = round(image.height * 0.97)
+
+    qualifying_rows: list[tuple[int, int, int]] = []
+    for y in range(first_row, last_row):
+        run = _longest_opaque_run(opaque[y])
+        if run is not None and run[1] - run[0] >= minimum_run:
+            qualifying_rows.append((y, run[0], run[1]))
+
+    if not qualifying_rows:
+        return None
+
+    groups: list[list[tuple[int, int, int]]] = []
+    for row in qualifying_rows:
+        if not groups or row[0] > groups[-1][-1][0] + 1:
+            groups.append([row])
+        else:
+            groups[-1].append(row)
+
+    body_rows = max(groups, key=len)
+    if len(body_rows) < max(8, round(image.height * 0.04)):
+        return None
+
+    widest = max(body_rows, key=lambda row: row[2] - row[1])
+    return widest[1], body_rows[0][0], widest[2], body_rows[-1][0] + 1
+
+
+def _longest_opaque_run(row: np.ndarray) -> tuple[int, int] | None:
+    padded = np.pad(row.astype(np.int8), (1, 1))
+    changes = np.diff(padded)
+    starts = np.flatnonzero(changes == 1)
+    ends = np.flatnonzero(changes == -1)
+    if starts.size == 0:
+        return None
+    index = int(np.argmax(ends - starts))
+    return int(starts[index]), int(ends[index])
+
+
+def _constrain_expression_bounds_to_pot(
+    face_bounds: tuple[int, int, int, int],
+    pot_bounds: tuple[int, int, int, int] | None,
+    size: tuple[int, int],
+) -> tuple[int, int, int, int]:
+    if pot_bounds is None:
+        return face_bounds
+
+    face_left, face_top, face_right, face_bottom = face_bounds
+    pot_left, _, pot_right, _ = pot_bounds
+    pot_width = pot_right - pot_left
+    if pot_width <= 0:
+        return face_bounds
+
+    face_width = face_right - face_left
+    # The expression templates occupy about half of the pot body. Keep newly
+    # generated faces at that ratio so narrow pots do not get oversized faces.
+    constrained_width = min(face_width, round(pot_width * 0.5))
+    center_x = (face_left + face_right) / 2
+    horizontal_margin = pot_width * 0.05
+    minimum_center = pot_left + horizontal_margin + constrained_width / 2
+    maximum_center = pot_right - horizontal_margin - constrained_width / 2
+    if minimum_center <= maximum_center:
+        center_x = min(max(center_x, minimum_center), maximum_center)
+
+    return _clamp_bounds(
+        (
+            round(center_x - constrained_width / 2),
+            face_top,
+            round(center_x + constrained_width / 2),
+            face_bottom,
+        ),
+        size,
+    )
 
 
 def _eye_components(mask: np.ndarray, width: int, height: int) -> list[FaceComponent]:

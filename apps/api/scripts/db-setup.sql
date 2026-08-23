@@ -1,11 +1,12 @@
 -- LeafLog DB 앱 전용 role 셋업
--- 원격 DB(100.70.205.63)에 슈퍼유저(postgres)로 접속해 실행.
+-- 원격 DB에 슈퍼유저(postgres)로 접속해 실행.
 -- role 비밀번호는 파일에 두지 않고 -v app_pw=... 로 주입한다:
 --   $env:PGPASSWORD='<postgres 비밀번호>'
---   & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h 100.70.205.63 -U postgres -d postgres `
+--   & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h <database-host> -U postgres -d postgres `
 --       -v app_pw='<leaflog_user 비밀번호>' -f apps/api/scripts/db-setup.sql
 --
--- 전제: 데이터베이스 leaflog 와 4개 테이블(app_user, media_asset, plant, plant_species)은 이미 생성됨.
+-- 자동화 환경에서는 -v "app_pw=..." 로 비밀번호를 전달한다.
+-- 전제: 데이터베이스 leaflog 와 앱 테이블은 이미 생성됨.
 
 \if :{?app_pw}
 \else

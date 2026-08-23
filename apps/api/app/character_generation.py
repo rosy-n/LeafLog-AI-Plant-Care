@@ -21,6 +21,7 @@ from .config import settings
 from .image_preprocessing import (
     preprocess_plant_photo,
     release_background_removal_sessions,
+    remove_character_face,
     remove_background_for_sprite,
 )
 
@@ -52,6 +53,7 @@ NEGATIVE_PROMPT = (
 )
 
 logger = logging.getLogger(__name__)
+FACE_REMOVED_CHECKSUM_PREFIX = "face-v1:"
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,7 @@ class CharacterCandidate:
     image_url: str
     checksum: str
     seed: int
+    face_bounds: tuple[int, int, int, int] | None = None
 
 
 @dataclass
@@ -125,6 +128,8 @@ class CharacterGenerationManager:
         with self._lock:
             image_bytes = self._inputs.pop(job_id)
 
+        job_started = time.perf_counter()
+        outcome = "failed"
         sdxl_active = False
         try:
             self._update(
@@ -133,12 +138,14 @@ class CharacterGenerationManager:
                 progress=8,
                 message="식물과 배경을 분리하고 있어요.",
             )
+            stage_started = time.perf_counter()
             preprocessed = preprocess_plant_photo(
                 image_bytes=image_bytes,
                 canvas_size=settings.character_canvas_size,
                 quality_mode=settings.character_preprocess_quality,
             )
             release_background_removal_sessions()
+            _log_timing(job_id, "preprocess", stage_started)
 
             self._update(
                 job_id,
@@ -147,9 +154,14 @@ class CharacterGenerationManager:
                 message="이미지 생성 모델을 준비하고 있어요.",
             )
             if not settings.character_mock_generation:
+                stage_started = time.perf_counter()
                 _switch_gpu_mode("sdxl")
                 sdxl_active = True
+                _log_timing(job_id, "gpu_switch_sdxl", stage_started)
+
+                stage_started = time.perf_counter()
                 _wait_for_forge()
+                _log_timing(job_id, "forge_ready", stage_started)
 
             job_dir = settings.character_output_dir / job_id
             job_dir.mkdir(parents=True, exist_ok=True)
@@ -168,17 +180,22 @@ class CharacterGenerationManager:
                 )
 
                 if settings.character_mock_generation:
+                    stage_started = time.perf_counter()
                     generated_bytes = _mock_generated_image(image_bytes, index)
                 else:
+                    stage_started = time.perf_counter()
                     generated_bytes = _generate_with_forge(
                         input_png_base64=preprocessed.sdxl_input_png_base64,
                         seed=seed,
                     )
+                _log_timing(
+                    job_id,
+                    "generate_candidate",
+                    stage_started,
+                    candidate=index,
+                    seed=seed,
+                )
                 generated_images.append((index, seed, generated_bytes))
-
-            if sdxl_active:
-                _switch_gpu_mode("ollama")
-                sdxl_active = False
 
             for index, seed, generated_bytes in generated_images:
                 progress = 79 + (index - 1) * 6
@@ -186,14 +203,39 @@ class CharacterGenerationManager:
                     job_id,
                     status="postprocessing",
                     progress=progress,
-                    message=f"도트 캐릭터 {index}/3의 배경을 정리하고 있어요.",
+                    message=f"도트 캐릭터 {index}/3의 배경과 표정을 정리하고 있어요.",
                 )
+                stage_started = time.perf_counter()
                 cutout = remove_background_for_sprite(
                     image_bytes=generated_bytes,
                     canvas_size=settings.character_canvas_size,
                     quality_mode=settings.character_postprocess_quality,
                 )
-                png_bytes = base64.b64decode(cutout.transparent_png_base64)
+                _log_timing(
+                    job_id,
+                    "remove_background",
+                    stage_started,
+                    candidate=index,
+                    quality=settings.character_postprocess_quality,
+                )
+                cutout_bytes = base64.b64decode(cutout.transparent_png_base64)
+                if settings.character_mock_generation:
+                    png_bytes = cutout_bytes
+                    checksum_prefix = ""
+                    face_bounds = None
+                else:
+                    stage_started = time.perf_counter()
+                    face_removed = remove_character_face(cutout_bytes)
+                    _log_timing(
+                        job_id,
+                        "remove_face",
+                        stage_started,
+                        candidate=index,
+                    )
+                    png_bytes = base64.b64decode(face_removed.face_removed_png_base64)
+                    face_bounds = face_removed.face_bounds
+                    bounds_text = ",".join(str(value) for value in face_bounds)
+                    checksum_prefix = f"{FACE_REMOVED_CHECKSUM_PREFIX}{bounds_text}:"
                 file_name = f"candidate-{index}.png"
                 (job_dir / file_name).write_bytes(png_bytes)
 
@@ -202,11 +244,18 @@ class CharacterGenerationManager:
                     CharacterCandidate(
                         id=f"{job_id}-{index}",
                         image_url=f"{public_base_url}/generated/characters/{job_id}/{file_name}",
-                        checksum=hashlib.sha256(png_bytes).hexdigest(),
+                        checksum=checksum_prefix + hashlib.sha256(png_bytes).hexdigest(),
                         seed=seed,
+                        face_bounds=face_bounds,
                     ),
                 )
             release_background_removal_sessions()
+
+            if sdxl_active:
+                stage_started = time.perf_counter()
+                _switch_gpu_mode("ollama")
+                sdxl_active = False
+                _log_timing(job_id, "gpu_switch_ollama", stage_started)
 
             self._update(
                 job_id,
@@ -215,6 +264,7 @@ class CharacterGenerationManager:
                 current_candidate=3,
                 message="도트 캐릭터 3명이 준비됐어요.",
             )
+            outcome = "completed"
         except Exception as exc:
             logger.exception("Character generation job %s failed", job_id)
             self._update(
@@ -227,9 +277,12 @@ class CharacterGenerationManager:
             release_background_removal_sessions()
             if sdxl_active and settings.character_restore_ollama:
                 try:
+                    stage_started = time.perf_counter()
                     _switch_gpu_mode("ollama")
+                    _log_timing(job_id, "gpu_switch_ollama_after_failure", stage_started)
                 except Exception:
                     pass
+            _log_timing(job_id, "total", job_started, outcome=outcome)
 
     def _prune_jobs(self) -> None:
         if len(self._jobs) < settings.character_max_jobs:
@@ -309,7 +362,7 @@ def _generate_with_forge(input_png_base64: str, seed: int) -> bytes:
         "negative_prompt": NEGATIVE_PROMPT,
         "init_images": [input_png_base64],
         "sampler_name": "DPM++ 2M Karras",
-        "steps": 25,
+        "steps": settings.character_inference_steps,
         "cfg_scale": 7,
         "denoising_strength": 0.8,
         "width": settings.character_canvas_size,
@@ -360,6 +413,17 @@ def _generate_with_forge(input_png_base64: str, seed: int) -> bytes:
     if not images:
         raise CharacterGenerationError("Forge가 생성 이미지를 반환하지 않았습니다.")
     return _decode_base64_image(images[0])
+
+
+def _log_timing(job_id: str, stage: str, started: float, **details: object) -> None:
+    detail_text = " ".join(f"{name}={value}" for name, value in details.items())
+    logger.info(
+        "Character generation timing job_id=%s stage=%s elapsed_seconds=%.2f%s",
+        job_id,
+        stage,
+        time.perf_counter() - started,
+        f" {detail_text}" if detail_text else "",
+    )
 
 
 def _decode_base64_image(value: str) -> bytes:

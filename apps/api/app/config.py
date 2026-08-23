@@ -75,7 +75,8 @@ class Settings:
     )
     character_canvas_size: int = int(os.getenv("CHARACTER_CANVAS_SIZE", "1024"))
     character_preprocess_quality: str = os.getenv("CHARACTER_PREPROCESS_QUALITY", "quality")
-    character_postprocess_quality: str = os.getenv("CHARACTER_POSTPROCESS_QUALITY", "quality")
+    character_postprocess_quality: str = os.getenv("CHARACTER_POSTPROCESS_QUALITY", "fast")
+    character_inference_steps: int = int(os.getenv("CHARACTER_INFERENCE_STEPS", "20"))
     character_forge_startup_timeout_seconds: int = int(
         os.getenv("CHARACTER_FORGE_STARTUP_TIMEOUT_SECONDS", "180")
     )

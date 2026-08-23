@@ -1,5 +1,4 @@
 import {
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -9,17 +8,13 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { useState } from 'react';
-import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
-import { createPlant, getPlantCare } from '../../src/api';
-import { scheduleWateringReminder } from '../../src/notifications';
+import { useRouter } from '../../src/hooks/useAddPlantRouter';
+import { useAddPlantFlow } from '../../src/AddPlantFlowContext';
 
 import { styles } from './styles/info.styles';
-import type { NewPlantPayload } from '../../types/plant';
-import { getCharacterImageSource } from '../../constants/character-candidates';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -152,19 +147,7 @@ function DatePairPicker({
 
 export default function InfoScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{
-    speciesId?: string;
-    cntntsNo?: string;
-    scientificName?: string;
-    commonNameKo?: string;
-    nickname?: string;
-    characterId?: string;
-    characterImageUrl?: string;
-    characterChecksum?: string;
-    capturedPhotoUri?: string;
-    // 종 마스터의 대표 이미지 (plant-detail 단계에서 전달)
-    imageUrl?: string;
-  }>();
+  const { draft, updateDraft } = useAddPlantFlow();
 
   // Form state
   const [location, setLocation] = useState<string | null>(null);
@@ -179,7 +162,6 @@ export default function InfoScreen() {
   });
   const [lastRepotted, setLastRepotted] = useState<MonthDay>(null);
   const [soilNote, setSoilNote] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Picker modal state
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
@@ -224,69 +206,27 @@ export default function InfoScreen() {
     return new Date(`${year}-${m}-${d}T00:00:00.000Z`).toISOString();
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!isValid) return;
-    setIsSubmitting(true);
-    try {
-      const payload: NewPlantPayload = {
-        // 종 마스터에서 고른 종이면 id 를 그대로 넘긴다.
-        // 없으면(카메라 인식 결과가 마스터에 없는 경우) 서버가 학명/국명으로 종을 만든다.
-        speciesId:         params.speciesId ? Number(params.speciesId) : null,
-        cntntsNo:          params.cntntsNo ?? '',
-        scientificName:    params.scientificName ?? null,
-        commonNameKo:      params.commonNameKo ?? '',
-        nickname:          params.nickname ?? '',
-        characterImageUrl: params.characterImageUrl ?? '',
-        characterChecksum: params.characterChecksum ?? '',
-        capturedPhotoUri:  params.capturedPhotoUri ?? '',
-        location:          LOCATION_CODES[location!] ?? '',
-        lightLevel:        LIGHT_CODE_BY_LABEL[lightLevel!] ?? '',
-        plantHeight:       Number(plantHeight) || 0,
-        potDiameter:       Number(potDiameter) || 0,
-        potType:           potType ?? '',
+    updateDraft({
+      info: {
+        location: LOCATION_CODES[location!] ?? '',
+        lightLevel: LIGHT_CODE_BY_LABEL[lightLevel!] ?? '',
+        plantHeight: Number(plantHeight) || 0,
+        potDiameter: Number(potDiameter) || 0,
+        potType: potType ?? '',
         soilNote,
-        lastWateredAt:     toISODate(lastWatered) ?? new Date().toISOString(),
-        lastRepottedAt:    toISODate(lastRepotted),
-      };
-
-      const created = await createPlant(payload);
-
-      // 물주기 알림 예약 — 등록이 알림의 첫 접점이다.
-      // 여기서 안 하면 앱을 다시 켤 때(전체 동기화)까지 알림이 잡히지 않는다.
-      try {
-        const care = await getPlantCare(created.id);
-        await scheduleWateringReminder(
-          created.id,
-          created.nickname,
-          care.next_watering_date,
-        );
-      } catch (e: any) {
-        // 알림 예약 실패가 등록을 막지 않게 한다
-        console.warn('물주기 알림 예약 실패:', e?.message);
-      }
-
-      // 페르소나(성격)는 plant_id가 있어야 저장 가능 → 식물 생성 후 다음 단계에서 선택
-      router.push({
-        pathname: '/add-plant/persona',
-        params: {
-          plantId: String(created.id),
-          nickname: created.nickname,
-          createdAt: created.created_at,
-          characterId: params.characterId ?? '',
-          characterImageUrl: params.characterImageUrl ?? '',
-        },
-      });
-    } catch (e: any) {
-      Alert.alert('저장 실패', e.message ?? '다시 시도해주세요.');
-    } finally {
-      setIsSubmitting(false);
-    }
+        lastWateredAt: toISODate(lastWatered) ?? new Date().toISOString(),
+        lastRepottedAt: toISODate(lastRepotted),
+      },
+    });
+    router.push({
+      pathname: '/add-plant/character-result',
+      params: { resumeGeneration: 'true' },
+    });
   };
 
-  // Plant header image: 종 마스터의 대표 이미지 → 없으면 사용자가 찍은 사진 →
-  // 없으면 2단계에서 고른 도트 캐릭터(그마저 없으면 placeholder)
-  const headerImageUri = params.imageUrl || null;
-  const characterSource = getCharacterImageSource(params.characterId);
+  const headerImageUri = draft.speciesImageUrl || draft.capturedPhotoUri;
 
   return (
     <KeyboardAvoidingView
@@ -302,18 +242,18 @@ export default function InfoScreen() {
         <View style={styles.plantHeader}>
           {headerImageUri ? (
             <Image source={{ uri: headerImageUri }} style={styles.plantHeaderImage} resizeMode="cover" />
-          ) : params.capturedPhotoUri ? (
-            <Image source={{ uri: params.capturedPhotoUri }} style={styles.plantHeaderImage} resizeMode="cover" />
+          ) : draft.capturedPhotoUri ? (
+            <Image source={{ uri: draft.capturedPhotoUri }} style={styles.plantHeaderImage} resizeMode="cover" />
           ) : (
-            <Image source={characterSource} style={styles.plantHeaderImage} resizeMode="contain" />
+            <View style={styles.plantHeaderImage} />
           )}
           <View style={{ flex: 1 }}>
             <Text style={styles.plantHeaderName} numberOfLines={1}>
-              {params.nickname || params.commonNameKo || '내 식물'}
+              {draft.commonNameKo || '내 식물'}
             </Text>
-            {params.scientificName ? (
+            {draft.scientificName ? (
               <Text style={styles.plantHeaderScientific} numberOfLines={1}>
-                {params.scientificName}
+                {draft.scientificName}
               </Text>
             ) : null}
           </View>
@@ -429,16 +369,12 @@ export default function InfoScreen() {
         <TouchableOpacity
           style={[styles.saveBtn, !isValid && styles.saveBtnDisabled]}
           onPress={handleSave}
-          disabled={!isValid || isSubmitting}
+          disabled={!isValid}
           activeOpacity={0.8}
         >
-          {isSubmitting ? (
-            <ActivityIndicator color={Colors.white} />
-          ) : (
-            <Text style={[styles.saveBtnText, !isValid && styles.saveBtnTextDisabled]}>
-              저장
-            </Text>
-          )}
+          <Text style={[styles.saveBtnText, !isValid && styles.saveBtnTextDisabled]}>
+            다음
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 

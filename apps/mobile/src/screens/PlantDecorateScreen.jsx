@@ -18,7 +18,6 @@ import ScreenHeader from "../components/ScreenHeader";
 import HeartsRow from "../components/HeartsRow";
 import { Colors, GreenTint, Leaf, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
-import { plantImages } from "../data/plants";
 import {
     accessoryCardBundle,
     accessorySpriteBundle,
@@ -27,6 +26,8 @@ import {
     DEFAULT_BACKGROUND_KEY,
 } from "../data/decor";
 import DecorImage from "../components/DecorImage";
+import PlantImage from "../components/PlantImage";
+import { getPlantExpressionSource } from "../data/characterExpressions";
 import { getPlantAffinity, setPlantBackground, setPlantDecoration } from "../api";
 
 /*
@@ -303,19 +304,18 @@ export default function PlantDecorateScreen({
                 {/* Plant Preview */}
                 <View style={styles.plantPreviewArea}>
                     <View style={styles.plantPreviewInner}>
-                        {selectedItem ? (
-                            <DecorImage
-                                remote={selectedItem.spriteUrl ? { uri: selectedItem.spriteUrl } : null}
-                                fallback={selectedItem.spriteBundle}
-                                style={styles.plantPreviewImage}
-                            />
-                        ) : (
-                            <Image
-                                source={plant?.imageUri ? { uri: plant.imageUri } : plantImages[plant?.imageKey ?? "spaghetti"]}
-                                style={styles.plantPreviewImage}
-                                resizeMode="contain"
-                            />
-                        )}
+                        <PlantImage
+                            uri={plant?.imageUri}
+                            imageKey={plant?.imageKey ?? "spaghetti"}
+                            expressionSource={
+                                plant?.characterFaceRemoved ? getPlantExpressionSource(plant) : null
+                            }
+                            expressionBounds={plant?.characterFaceBounds}
+                            effectRemote={selectedItem?.spriteUrl ? { uri: selectedItem.spriteUrl } : null}
+                            effectFallback={selectedItem?.spriteBundle}
+                            width={190}
+                            height={190}
+                        />
                     </View>
 
                     <View style={styles.plantLabelGroup}>
@@ -377,14 +377,17 @@ export default function PlantDecorateScreen({
                                                 end={{ x: 1, y: 1 }}
                                                 style={styles.itemCardGradient}
                                             >
-                                                <Image
-                                                    source={
-                                                        plant?.imageUri
-                                                            ? { uri: plant.imageUri }
-                                                            : plantImages[plant?.imageKey ?? "spaghetti"]
+                                                <PlantImage
+                                                    uri={plant?.imageUri}
+                                                    imageKey={plant?.imageKey ?? "spaghetti"}
+                                                    expressionSource={
+                                                        plant?.characterFaceRemoved
+                                                            ? getPlantExpressionSource(plant)
+                                                            : null
                                                     }
-                                                    style={styles.itemImage}
-                                                    resizeMode="contain"
+                                                    expressionBounds={plant?.characterFaceBounds}
+                                                    width={54}
+                                                    height={54}
                                                 />
 
                                                 {noneSelected && (

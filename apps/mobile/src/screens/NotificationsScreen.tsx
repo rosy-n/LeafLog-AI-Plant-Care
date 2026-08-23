@@ -16,6 +16,8 @@ import PlantImage from "../components/PlantImage";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
+import { getPlantExpressionSource } from "../data/characterExpressions";
+import { accessorySpriteBundle } from "../data/decor";
 
 export type CareNotice = {
     id: string;
@@ -27,6 +29,10 @@ export type CareNotice = {
     urgent: boolean;
     imageUri: string | null;
     imageKey?: string;
+    characterFaceRemoved?: boolean;
+    characterFaceBounds?: [number, number, number, number] | null;
+    status?: string;
+    daysUntilWatering?: number | null;
 };
 
 /**
@@ -40,10 +46,12 @@ export default function NotificationsScreen({
     navigation,
     notices,
     plants,
+    decorations,
 }: {
     navigation: any;
     notices: CareNotice[];
     plants: any[];
+    decorations: Record<string, { accessory?: { key?: string; spriteUrl?: string | null } | null }>;
 }) {
     const openPlant = (plantId: string) => {
         const target = plants?.find((p) => p.id === plantId);
@@ -53,28 +61,34 @@ export default function NotificationsScreen({
     const urgentItems = notices.filter((n) => n.urgent);
     const upcomingItems = notices.filter((n) => !n.urgent);
 
-    const renderCard = (item: CareNotice) => (
-        <TouchableOpacity
-            key={item.id}
-            style={[styles.card, item.urgent && styles.cardUnread]}
-            onPress={() => openPlant(item.plantId)}
-            activeOpacity={0.8}
-        >
-            {item.urgent && <View style={styles.unreadBar} />}
-            <PlantImage
-                uri={item.imageUri ?? undefined}
-                imageKey={item.imageKey}
-                width={56}
-                height={56}
-                style={undefined}
-            />
-            <View style={styles.cardBody}>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.speech}>{`“${item.speech}”`}</Text>
-                <Text style={styles.time}>{item.when}</Text>
-            </View>
-        </TouchableOpacity>
-    );
+    const renderCard = (item: CareNotice) => {
+        const accessory = decorations?.[item.plantId]?.accessory ?? null;
+        return (
+            <TouchableOpacity
+                key={item.id}
+                style={[styles.card, item.urgent && styles.cardUnread]}
+                onPress={() => openPlant(item.plantId)}
+                activeOpacity={0.8}
+            >
+                {item.urgent && <View style={styles.unreadBar} />}
+                <PlantImage
+                    uri={item.imageUri ?? undefined}
+                    imageKey={item.imageKey}
+                    expressionSource={item.characterFaceRemoved ? getPlantExpressionSource(item) : null}
+                    expressionBounds={item.characterFaceBounds ?? null}
+                    effectRemote={accessory?.spriteUrl ? { uri: accessory.spriteUrl } : null}
+                    effectFallback={accessorySpriteBundle(accessory?.key)}
+                    width={56}
+                    height={56}
+                />
+                <View style={styles.cardBody}>
+                    <Text style={styles.title}>{item.title}</Text>
+                    <Text style={styles.speech}>{`“${item.speech}”`}</Text>
+                    <Text style={styles.time}>{item.when}</Text>
+                </View>
+            </TouchableOpacity>
+        );
+    };
 
     return (
         <View style={styles.root}>

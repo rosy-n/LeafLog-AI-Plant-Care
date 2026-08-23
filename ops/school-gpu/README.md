@@ -44,7 +44,7 @@ journalctl -u ollama -f
 Forge는 인증 없이 외부 네트워크에 노출하지 않는다. 다른 PC에서 WebUI를 열 때는 SSH 터널을 사용한다.
 
 ```powershell
-ssh -L 7860:127.0.0.1:7860 admin@100.70.205.63
+ssh -L 7860:127.0.0.1:7860 admin@<school-gpu-host>
 ```
 
 터널을 연 상태에서 `http://127.0.0.1:7860`으로 접속한다.
@@ -67,7 +67,7 @@ FastAPI 캐릭터 생성 작업을 학교 WSL에서 실행할 때 `apps/api/.env
 FORGE_API_URL=http://127.0.0.1:7860
 CHARACTER_GPU_MODE_COMMAND=/usr/local/bin/leaflog-gpu
 CHARACTER_RESTORE_OLLAMA=true
-CHARACTER_PUBLIC_BASE_URL=http://100.70.205.63:8000
+CHARACTER_PUBLIC_BASE_URL=http://<school-gpu-host>:8000
 ```
 
 `CHARACTER_PUBLIC_BASE_URL`은 모바일 기기가 실제로 접근할 수 있는 주소로 바꿔야 한다. 모바일 기기가

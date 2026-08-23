@@ -1,21 +1,35 @@
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useEffect, useState } from 'react';
-import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
-import { getPersonas, updatePlant, type PersonaOption } from '../../src/api';
+import { useRouter } from '../../src/hooks/useAddPlantRouter';
+import {
+  createPlant,
+  getPersonas,
+  getPlantCare,
+  updatePlant,
+  type PersonaOption,
+} from '../../src/api';
+import { scheduleWateringReminder } from '../../src/notifications';
+import { useAddPlantFlow } from '../../src/AddPlantFlowContext';
 import PixelSpeechBubble from '../../src/components/PixelSpeechBubble';
 import { Colors } from '../../constants/colors';
 
 import { common } from './styles/common.styles';
 import { styles, BUBBLE_WIDTH } from './styles/persona.styles';
 import { getCharacterImageSource } from '../../constants/character-candidates';
+import PlantImage from '../../src/components/PlantImage';
+import {
+  CHARACTER_EXPRESSIONS,
+  CHARACTER_EXPRESSION_KEYS,
+  getFaceBoundsFromChecksum,
+  hasFaceRemovedChecksum,
+} from '../../src/data/characterExpressions';
 
 // 페르소나별 말풍선 대사 — slug는 서버 persona_chat.PERSONA_SLUG_TO_FILE과 일치해야 한다.
 // 대사 자체는 서버에 필드가 없어 앱에서만 관리하는 UI 카피.
@@ -32,18 +46,11 @@ const PERSONA_LINES: Record<string, string> = {
 
 export default function PersonaScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{
-    plantId?: string;
-    nickname?: string;
-    createdAt?: string;
-    characterId?: string;
-    characterImageUrl?: string;
-  }>();
+  const { draft, updateDraft } = useAddPlantFlow();
 
-  // 2단계에서 고른 후보를 이어서 보여준다 (없으면 기본 placeholder)
-  const characterSource = params.characterImageUrl
-    ? { uri: params.characterImageUrl }
-    : getCharacterImageSource(params.characterId);
+  const characterSource = draft.characterImageUrl
+    ? { uri: draft.characterImageUrl }
+    : getCharacterImageSource(draft.characterId ?? undefined);
 
   const [personaOptions, setPersonaOptions] = useState<PersonaOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -61,16 +68,57 @@ export default function PersonaScreen() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const nickname = params.nickname || '내 식물';
+  const nickname = draft.nickname || '내 식물';
   const bubbleText = selected
     ? PERSONA_LINES[selected]
     : `"${nickname}"이(가) 어떤 성격일지\n골라주세요!`;
 
   const handleConfirm = async () => {
-    if (!selected || !params.plantId) return;
+    if (!selected) return;
+    if (!draft.info || !draft.characterImageUrl || !draft.nickname) {
+      Alert.alert('등록 정보 확인', '입력한 식물 정보가 부족해요. 이전 단계부터 다시 확인해주세요.');
+      return;
+    }
     setIsSubmitting(true);
     try {
-      const savedPlant = await updatePlant(Number(params.plantId), { persona: selected });
+      let plantId = draft.createdPlantId;
+
+      if (!plantId) {
+        const created = await createPlant({
+          speciesId: draft.speciesId,
+          cntntsNo: draft.cntntsNo,
+          scientificName: draft.scientificName,
+          commonNameKo: draft.commonNameKo,
+          nickname: draft.nickname,
+          characterImageUrl: draft.characterImageUrl,
+          characterChecksum: draft.characterChecksum,
+          capturedPhotoUri: draft.capturedPhotoUri ?? '',
+          location: draft.info.location,
+          lightLevel: draft.info.lightLevel,
+          plantHeight: draft.info.plantHeight,
+          potDiameter: draft.info.potDiameter,
+          potType: draft.info.potType,
+          soilNote: draft.info.soilNote,
+          lastWateredAt: draft.info.lastWateredAt,
+          lastRepottedAt: draft.info.lastRepottedAt,
+        });
+        plantId = created.id;
+        updateDraft({ createdPlantId: created.id });
+
+        try {
+          const care = await getPlantCare(created.id);
+          await scheduleWateringReminder(
+            created.id,
+            created.nickname,
+            care.next_watering_date,
+          );
+        } catch (e: any) {
+          console.warn('물주기 알림 예약 실패:', e?.message);
+        }
+      }
+
+      const savedPlant = await updatePlant(plantId, { persona: selected });
+      const care = await getPlantCare(plantId).catch(() => null);
       router.replace({
         pathname: '/',
         params: {
@@ -79,10 +127,16 @@ export default function PersonaScreen() {
             name: savedPlant.nickname,
             favorite: savedPlant.is_favorite,
             imageUri: savedPlant.character_image_url,
+            characterFaceRemoved: savedPlant.character_face_removed,
+            characterFaceBounds: savedPlant.character_face_bounds,
             memorial: savedPlant.status === 'DEAD',
+            status: savedPlant.status,
             commonNameKo: savedPlant.common_name_ko,
             persona: savedPlant.persona,
             createdAt: savedPlant.created_at,
+            wateringIntervalDays: care?.watering_interval_days ?? null,
+            nextWateringDate: care?.next_watering_date ?? null,
+            daysUntilWatering: care?.days_until_watering ?? null,
           },
         },
       });
@@ -122,10 +176,15 @@ export default function PersonaScreen() {
           {bubbleText}
         </PixelSpeechBubble>
 
-        <Image
+        <PlantImage
           source={characterSource}
+          expressionSource={
+            hasFaceRemovedChecksum(draft.characterChecksum)
+              ? CHARACTER_EXPRESSIONS[CHARACTER_EXPRESSION_KEYS.DEFAULT]
+              : null
+          }
+          expressionBounds={getFaceBoundsFromChecksum(draft.characterChecksum)}
           style={styles.characterImage}
-          resizeMode="contain"
         />
 
         <View style={styles.personaGrid}>

@@ -3,7 +3,6 @@ import {
     View,
     Text,
     StyleSheet,
-    Image,
     TextInput,
     TouchableOpacity,
     TouchableWithoutFeedback,
@@ -32,7 +31,9 @@ import {
     updateWateringSchedule,
 } from "../api";
 import { scheduleWateringReminder, cancelWateringReminder } from "../notifications";
-import { plantImages } from "../data/plants";
+import PlantImage from "../components/PlantImage";
+import { getPlantExpressionSource } from "../data/characterExpressions";
+import { accessorySpriteBundle } from "../data/decor";
 
 // 서버 enum 코드 → 한글 표시
 const LOCATION_LABELS = {
@@ -81,7 +82,7 @@ function InfoLine({ label, value, note }) {
     );
 }
 
-export default function ProfileScreen({ navigation, route }) {
+export default function ProfileScreen({ navigation, route, decorations = {} }) {
     const plant = route?.params?.plant;
     const [detail, setDetail] = useState(null);
     const [care, setCare] = useState(null);
@@ -346,10 +347,20 @@ export default function ProfileScreen({ navigation, route }) {
                 */}
                 <View style={styles.profileRow}>
                     <View style={styles.plantCard}>
-                        <Image
-                            source={plant?.imageUri ? { uri: plant.imageUri } : plantImages[plant?.imageKey ?? "spaghetti"]}
+                        <PlantImage
+                            uri={plant?.imageUri}
+                            imageKey={plant?.imageKey ?? "spaghetti"}
+                            expressionSource={plant?.characterFaceRemoved ? getPlantExpressionSource(plant) : null}
+                            expressionBounds={plant?.characterFaceBounds}
+                            effectRemote={
+                                decorations[String(plant?.id)]?.accessory?.spriteUrl
+                                    ? { uri: decorations[String(plant?.id)].accessory.spriteUrl }
+                                    : null
+                            }
+                            effectFallback={accessorySpriteBundle(
+                                decorations[String(plant?.id)]?.accessory?.key,
+                            )}
                             style={styles.plantImage}
-                            resizeMode="contain"
                         />
                     </View>
 

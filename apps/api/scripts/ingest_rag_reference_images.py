@@ -63,7 +63,7 @@ def main() -> None:
     parser.add_argument(
         "--base-url",
         default=None,
-        help="S3 미설정 시(로컬 폴백) 앱이 접근할 API 호스트, 예: http://100.70.205.63:8000 "
+        help="S3 미설정 시(로컬 폴백) 앱이 접근할 API 호스트, 예: http://<api-host>:8000 "
         "(S3_BUCKET 설정돼 있으면 필요 없음)",
     )
     parser.add_argument("--dry-run", action="store_true", help="실제로 업로드/DB 반영하지 않고 계획만 출력")
