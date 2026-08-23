@@ -339,6 +339,8 @@ export type PlantUpdate = {
   pot_type?: string | null;
   pot_size?: string | null;
   height?: string | null;
+  // 정원탭의 별 — 서버가 원본이라 앱을 다시 켜도 유지된다
+  is_favorite?: boolean;
   persona?: string;
 };
 
