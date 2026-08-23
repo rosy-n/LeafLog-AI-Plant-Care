@@ -89,6 +89,34 @@ class InquiryCreate(BaseModel):
         return content
 
 
+class InquiryAnswer(BaseModel):
+    """관리자 답변 — PATCH /api/admin/inquiries/{id}"""
+
+    answer: str = Field(min_length=1, max_length=4000)
+
+    @field_validator("answer")
+    @classmethod
+    def validate_answer(cls, value: str) -> str:
+        answer = value.strip()
+        if not answer:
+            raise ValueError("답변 내용을 입력해주세요.")
+        return answer
+
+
+class InquiryRead(BaseModel):
+    """내 문의 한 건 — 앱의 문의 내역에서 쓴다."""
+
+    id: int = Field(validation_alias=AliasChoices("inquiry_id", "id"))
+    content: str
+    # OPEN(접수) / ANSWERED(답변함) / CLOSED(종료)
+    status: str
+    answer: str | None = None
+    answered_at: str | None = None
+    created_at: str
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str

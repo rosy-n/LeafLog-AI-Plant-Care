@@ -76,21 +76,33 @@ cd apps/api; .\.venv\Scripts\python.exe scripts\backfill-affinity.py            
 서버 startup 의 `create_all` 은 없는 테이블만 만들고 기존 테이블에 컬럼을 추가하지 못하므로,
 이 스크립트를 돌리지 않으면 `/api/species` 가 없는 컬럼을 조회해 실패한다.
 
-## 문의 확인 (inquiry)
+## 문의 답변 (inquiry)
 
-앱 설정 → 도움말 → 문의하기로 들어온 내용은 `inquiry` 테이블에 쌓인다.
-답변을 앱에서 보여주는 화면은 없다 — 아래로 내용을 확인하고 **메일로 회신**한다.
+앱 설정 → 도움말 → 문의하기로 들어온 내용은 `inquiry` 테이블에 쌓이고,
+**답변을 달면 사용자가 앱의 문의 내역에서 바로 본다** (메일을 보내지 않는다).
+
+관리자 화면은 따로 없다 — **FastAPI 의 `/docs` (Swagger UI)** 를 그대로 쓴다.
+
+1. 관리자 계정으로 `POST /auth/login` → `access_token` 복사
+2. `/docs` 우측 상단 **Authorize** 에 `Bearer <token>` 입력
+3. `GET /api/admin/inquiries` — 미답변 목록 (`only_open=false` 면 전체)
+4. `PATCH /api/admin/inquiries/{inquiry_id}` 에 `{"answer": "..."}` — 상태가
+   자동으로 `ANSWERED` 가 되고 사용자 앱에 즉시 보인다. 다시 호출하면 수정된다.
+
+관리자는 `app_user.role = 'ADMIN'` 인 계정뿐이다. 일반 계정은 403.
+현재 관리자는 `aaa@gmail.com` 이고, 바꾸려면:
 
 ```sql
--- 처리 안 된 문의를 최근 순으로
-SELECT i.inquiry_id, i.created_at, u.nickname, u.email, i.content
-FROM inquiry i
-JOIN app_user u ON u.user_id = i.user_id
-WHERE i.status = 'OPEN'
-ORDER BY i.created_at DESC;
+UPDATE app_user SET role = 'ADMIN' WHERE email = '바꿀주소@example.com';
+UPDATE app_user SET role = 'USER'  WHERE email = 'aaa@gmail.com';
+```
 
--- 회신했으면 닫는다
-UPDATE inquiry SET status = 'CLOSED', updated_at = now() WHERE inquiry_id = 1;
+DB 에서 직접 보고 싶다면:
+
+```sql
+SELECT i.inquiry_id, i.created_at, i.status, u.nickname, u.email, i.content, i.answer
+FROM inquiry i JOIN app_user u ON u.user_id = i.user_id
+ORDER BY i.created_at DESC;
 ```
 
 사용자가 탈퇴하면 그 사람의 문의도 함께 지워진다.

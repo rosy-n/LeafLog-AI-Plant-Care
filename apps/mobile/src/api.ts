@@ -559,6 +559,22 @@ export function sendInquiry(content: string) {
   });
 }
 
+export type Inquiry = {
+  id: number;
+  content: string;
+  /** OPEN(접수) / ANSWERED(답변함) / CLOSED(종료) */
+  status: "OPEN" | "ANSWERED" | "CLOSED";
+  answer: string | null;
+  answered_at: string | null;
+  created_at: string;
+};
+
+// 내 문의 내역 — 관리자가 답변을 달면 answer 에 담겨 온다.
+// 최신순으로 오고, 남의 문의는 서버가 걸러낸다.
+export function getInquiries() {
+  return request<Inquiry[]>("/api/inquiries");
+}
+
 export function preprocessPlantImage(
   image: UploadableImage,
   canvasSize = 1024,
