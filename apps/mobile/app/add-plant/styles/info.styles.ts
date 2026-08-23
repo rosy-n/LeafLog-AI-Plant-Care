@@ -41,6 +41,22 @@ export const styles = StyleSheet.create({
     marginTop: Spacing.xxs,
   },
 
+  // 갱신 모드 — 기존 값이 채워져 있다는 것을 알려주는 안내.
+  // 이 한 줄이 없으면 채워진 값을 "내가 방금 입력한 것"으로 오해해 전부 다시 고치게 된다
+  refreshHint: {
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.small,
+    color: Colors.textGray,
+    lineHeight: 18,
+    marginBottom: Spacing.section,
+  },
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.background,
+  },
+
   // Section
   section: { marginBottom: Spacing.section },
   sectionLabel: {

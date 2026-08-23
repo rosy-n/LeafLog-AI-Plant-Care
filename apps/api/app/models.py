@@ -160,6 +160,13 @@ class Plant(Base):
     # 문지르기는 돌봄 기록이 아니라서 care_record 를 남기지 않는다.
     last_petted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # 월 1회 갱신(캐릭터 재생성 + 개체 정보 갱신)을 마친 시각. NULL 이면 아직 한 번도 안 했다는 뜻이라
+    # created_at(등록 시각)을 기준으로 다음 갱신일을 잡는다. 다음 갱신일은 저장하지 않고
+    # 이 값 + 1개월로 계산한다 — 알림을 무시해도 매달 다시 잡히게 하려면 계산이 더 단순하다.
+    last_refreshed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 

@@ -25,7 +25,8 @@ import { getUserSettings, updateMe } from "../api";
 import {
     sendTestReminder,
     listScheduledReminders,
-    syncWateringReminders,
+    syncReminders,
+    type ReminderKind,
 } from "../notifications";
 import {
     DEFAULT_NOTIFICATION_SETTINGS,
@@ -178,9 +179,9 @@ export default function SettingsScreen({
         }
     };
 
-    // 예약된 물주기 알림 목록 — 알럿은 닫히면 사라져서 확인이 어려우니 화면에 둔다
+    // 예약된 알림 목록(물주기 + 월 1회 갱신) — 알럿은 닫히면 사라져서 확인이 어려우니 화면에 둔다
     const [reminders, setReminders] = useState<
-        { plantId: string; title: string; dueDate: string }[]
+        { plantId: string; kind: ReminderKind; title: string; dueDate: string }[]
     >([]);
 
     const refreshReminders = useCallback(() => {
@@ -216,7 +217,7 @@ export default function SettingsScreen({
             hour: notifHour,
             minute: notifMinute,
         })
-            .then(() => syncWateringReminders())
+            .then(() => syncReminders())
             .then(refreshReminders)
             .catch((e) => console.warn("알림 설정 저장 실패:", e?.message));
     }, [notifLoaded, notifEnabled, notifHour, notifMinute, refreshReminders]);
@@ -475,15 +476,15 @@ export default function SettingsScreen({
                                     <RowDivider />
                                     <View style={styles.reminderBlock}>
                                         <Text style={styles.rowLabel}>
-                                            예약된 물주기 알림 {reminders.length}건
+                                            예약된 알림 {reminders.length}건
                                         </Text>
                                         {reminders.length ? (
                                             reminders.map((item) => (
                                                 <Text
-                                                    key={item.plantId}
+                                                    key={`${item.kind}-${item.plantId}`}
                                                     style={styles.reminderItem}
                                                 >
-                                                    · {item.title} — {item.dueDate} {String(notifHour).padStart(2, "0")}:{String(notifMinute).padStart(2, "0")}
+                                                    · [{item.kind === "MONTHLY_REFRESH" ? "갱신" : "물주기"}] {item.title} — {item.dueDate} {String(notifHour).padStart(2, "0")}:{String(notifMinute).padStart(2, "0")}
                                                 </Text>
                                             ))
                                         ) : (

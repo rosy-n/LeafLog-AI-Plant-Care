@@ -30,7 +30,7 @@ import {
   updateUserLocation,
   type AuthResponse,
 } from "./src/api";
-import { cancelAllWateringReminders } from "./src/notifications";
+import { cancelAllReminders } from "./src/notifications";
 import MainApp from "./App.js";
 import AppButton from "./src/components/AppButton";
 import BackButton from "./src/components/BackButton";
@@ -229,7 +229,7 @@ export default function App() {
   */
   async function handleLogout() {
     try {
-      await cancelAllWateringReminders();
+      await cancelAllReminders();
     } catch (error) {
       console.warn("알림 취소 실패:", (error as Error)?.message);
     }
