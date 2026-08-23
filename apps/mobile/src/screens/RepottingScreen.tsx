@@ -18,6 +18,8 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
+import ActionButton from "../components/ActionButton";
+import PhotoPickerButton from "../components/PhotoPickerButton";
 import { Colors, GreenTint, Soil, Shadow } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
@@ -185,14 +187,15 @@ export default function RepottingScreen({ navigation, route }: { navigation: any
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={styles.scrollContent}
                     >
-                        <TouchableOpacity
-                            style={styles.newRecordButton}
-                            activeOpacity={0.82}
+                        <ActionButton
+                            label="새 분갈이 기록 작성"
+                            icon="add-circle-outline"
+                            color={Colors.white}
+                            borderColor={GreenTint.line}
+                            textColor={GreenTint.deep}
+                            shadow={false}
                             onPress={() => setView("form")}
-                        >
-                            <Ionicons name="add-circle-outline" size={22} color={GreenTint.deep} />
-                            <Text style={styles.newRecordText}>새 분갈이 기록 작성</Text>
-                        </TouchableOpacity>
+                        />
 
                         {records.length === 0 ? (
                             <View style={styles.emptyState}>
@@ -526,19 +529,14 @@ export default function RepottingScreen({ navigation, route }: { navigation: any
                                 <Ionicons name="images-outline" size={18} color={GreenTint.strong} />
                                 <Text style={styles.cardTitle}>사진</Text>
                             </View>
-                            <TouchableOpacity style={styles.photoButton} activeOpacity={0.75}>
-                                <Ionicons name="camera-outline" size={28} color={GreenTint.line} />
-                                <Text style={styles.photoButtonText}>사진 추가</Text>
-                            </TouchableOpacity>
+                            <PhotoPickerButton />
                         </View>
 
-                        <TouchableOpacity
-                            style={styles.saveButton}
-                            activeOpacity={0.82}
+                        <ActionButton
+                            label="저장하기"
+                            color={GreenTint.deep}
                             onPress={saveRecord}
-                        >
-                            <Text style={styles.saveButtonText}>저장하기</Text>
-                        </TouchableOpacity>
+                        />
                     </ScrollView>
                 </KeyboardAvoidingView>
 
@@ -574,21 +572,27 @@ export default function RepottingScreen({ navigation, route }: { navigation: any
                             ) : null}
 
                             <View style={styles.modalButtonRow}>
-                                <TouchableOpacity
-                                    style={[styles.modalButton, styles.modalButtonGray]}
+                                <ActionButton
+                                    label="유지하기"
+                                    color={Colors.separator}
+                                    textColor={Colors.textGray}
+                                    size="md"
+                                    shadow={false}
                                     activeOpacity={0.8}
                                     onPress={handleCharacterChoice}
-                                >
-                                    <Text style={styles.modalButtonGrayText}>유지하기</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.modalButton, styles.modalButtonGreen]}
+                                    style={styles.modalButton}
+                                />
+                                <ActionButton
+                                    label="새로 생성"
+                                    icon="camera"
+                                    iconSize={15}
+                                    color={GreenTint.deep}
+                                    size="md"
+                                    shadow={false}
                                     activeOpacity={0.8}
                                     onPress={handleCharacterChoice}
-                                >
-                                    <Ionicons name="camera" size={15} color={Colors.white} />
-                                    <Text style={styles.modalButtonGreenText}>새로 생성</Text>
-                                </TouchableOpacity>
+                                    style={styles.modalButton}
+                                />
                             </View>
                         </View>
                     </View>
@@ -614,23 +618,6 @@ const styles = StyleSheet.create({
     },
 
     // New Record Button
-    newRecordButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: Spacing.sm,
-        backgroundColor: Colors.white,
-        borderRadius: Radius.lg,
-        borderWidth: 1.5,
-        borderColor: GreenTint.line,
-        paddingVertical: Spacing.lg,
-    },
-    newRecordText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
-        color: GreenTint.deep,
-        includeFontPadding: false,
-    },
 
     // Section Label
     sectionLabel: {
@@ -843,39 +830,6 @@ const styles = StyleSheet.create({
         textAlignVertical: "top",
         paddingTop: Spacing.md,
     },
-    photoButton: {
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: Colors.background,
-        borderRadius: Radius.md,
-        borderWidth: 1,
-        borderColor: GreenTint.soft,
-        height: 88,
-        gap: Spacing.sm,
-    },
-    photoButtonText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: GreenTint.line,
-        includeFontPadding: false,
-    },
-    saveButton: {
-        backgroundColor: GreenTint.deep,
-        borderRadius: Radius.lg,
-        paddingVertical: Spacing.lg,
-        alignItems: "center",
-        shadowColor: GreenTint.deep,
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 4,
-    },
-    saveButtonText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
-        color: Colors.white,
-        includeFontPadding: false,
-    },
 
     // Modal
     modalOverlay: {
@@ -948,29 +902,6 @@ const styles = StyleSheet.create({
     },
     modalButton: {
         flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: Spacing.sm,
-        paddingVertical: Spacing.md,
         borderRadius: Radius.lg,
-    },
-    modalButtonGray: {
-        backgroundColor: Colors.separator,
-    },
-    modalButtonGreen: {
-        backgroundColor: GreenTint.deep,
-    },
-    modalButtonGrayText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.textGray,
-        includeFontPadding: false,
-    },
-    modalButtonGreenText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.white,
-        includeFontPadding: false,
     },
 });
