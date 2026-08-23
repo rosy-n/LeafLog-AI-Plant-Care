@@ -23,9 +23,8 @@ import ActionButton from "../components/ActionButton";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
-import { deleteMe, getUserSettings, updateMe } from "../api";
+import { deleteMe, getUserSettings, sendInquiry, updateMe } from "../api";
 import {
-    sendTestReminder,
     listScheduledReminders,
     syncWateringReminders,
     getNotificationPermission,
@@ -114,11 +113,14 @@ export default function SettingsScreen({
     navigation,
     username,
     setUsername,
+    email,
     onLogout,
 }: {
     navigation: any;
     username: string;
     setUsername: (name: string) => void;
+    /** 문의 답변이 갈 주소 — 가입할 때 쓴 이메일 */
+    email?: string;
     onLogout?: () => void;
 }) {
     // 어카운트
@@ -172,6 +174,7 @@ export default function SettingsScreen({
     const [showInquiry, setShowInquiry] = useState(false);
     const [inquiryContent, setInquiryContent] = useState("");
     const [inquiryDone, setInquiryDone] = useState(false);
+    const [isSendingInquiry, setIsSendingInquiry] = useState(false);
 
     // 이름 변경 — 서버(app_user.nickname)에 저장한 뒤 화면 값을 갱신한다.
     // 실패하면 편집 상태를 유지해서 사용자가 고칠 수 있게 한다.
@@ -287,32 +290,28 @@ export default function SettingsScreen({
         }, [notifEnabled, notifBlocked, refreshReminders]),
     );
 
-    const runNotificationTest = async () => {
-        try {
-            const ok = await sendTestReminder(5);
-            if (!ok) {
-                Alert.alert(
-                    "알림 권한이 없어요",
-                    "기기 설정에서 LeafLog 알림을 허용해 주세요.",
-                );
-                return;
-            }
-            refreshReminders();
-        } catch (e: any) {
-            Alert.alert("알림 테스트 실패", e?.message ?? "다시 시도해주세요.");
-        }
-    };
-
     const adjustHour = (d: number) =>
         setNotifHour((prev) => (prev + d + 24) % 24);
 
     const adjustMinute = (d: number) =>
         setNotifMinute((prev) => (prev + d * 10 + 60) % 60);
 
-    const submitInquiry = () => {
-        if (!inquiryContent.trim()) return;
-        setInquiryDone(true);
-        setInquiryContent("");
+    // 문의하기 — 서버가 지원 메일함으로 보낸다.
+    // 실패하면 완료 화면을 띄우지 않고 입력을 남겨 둔다 (다시 쓰게 하면 안 된다)
+    const submitInquiry = async () => {
+        const content = inquiryContent.trim();
+        if (!content || isSendingInquiry) return;
+
+        setIsSendingInquiry(true);
+        try {
+            await sendInquiry(content);
+            setInquiryContent("");
+            setInquiryDone(true);
+        } catch (e: any) {
+            Alert.alert("문의 전송 실패", e?.message ?? "다시 시도해주세요.");
+        } finally {
+            setIsSendingInquiry(false);
+        }
     };
 
     const logout = () => {
@@ -589,26 +588,6 @@ export default function SettingsScreen({
                                     </View>
 
                                     {/*
-                                        알림 동작 확인용 임시 경로.
-                                        실제 물주기 알림은 예정일 09:00 에 오므로 그날까지
-                                        기다려야 확인이 된다. 권한·채널·수신·탭 이동을
-                                        한 번에 점검하려고 둔 것이고, 확인이 끝나면 지운다.
-                                    */}
-                                    <RowDivider />
-                                    <TouchableOpacity
-                                        style={styles.row}
-                                        onPress={runNotificationTest}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text style={styles.rowLabel}>알림 테스트 (5초 뒤)</Text>
-                                        <Ionicons
-                                            name="chevron-forward"
-                                            size={20}
-                                            color={GreenTint.strong}
-                                        />
-                                    </TouchableOpacity>
-
-                                    {/*
                                         권한이 없으면 스위치가 켜져 있어도 예약이 0건이다.
                                         알럿은 닫히면 사라지므로 상태를 화면에 남겨 둔다.
                                     */}
@@ -770,11 +749,20 @@ export default function SettingsScreen({
                                                 color={GreenTint.medium}
                                             />
                                             <Text style={styles.inquiryDoneText}>
-                                                문의가 접수되었습니다.{"\n"}빠르게 답변 드릴게요!
+                                                문의가 접수되었습니다.{"\n"}{email ?? "가입하신 이메일"} 주소로 답변 드릴게요!
                                             </Text>
                                         </View>
                                     ) : (
                                         <>
+                                            {/*
+                                                답변은 앱이 아니라 메일로 간다.
+                                                어디로 오는지 미리 알려주지 않으면
+                                                앱에서 답을 기다리게 된다.
+                                            */}
+                                            <Text style={styles.inquiryNotice}>
+                                                답변은 {email ?? "가입하신 이메일"} 주소로
+                                                보내드려요.
+                                            </Text>
                                             <TextInput
                                                 style={styles.inquiryInput}
                                                 placeholder="문의 내용을 입력해주세요"
@@ -783,17 +771,28 @@ export default function SettingsScreen({
                                                 onChangeText={setInquiryContent}
                                                 multiline
                                                 textAlignVertical="top"
+                                                editable={!isSendingInquiry}
+                                                // 서버가 5~2000자를 받는다
+                                                maxLength={2000}
                                             />
                                             <ActionButton
-                                                label="제출하기"
+                                                label={
+                                                    isSendingInquiry
+                                                        ? "보내는 중"
+                                                        : "제출하기"
+                                                }
                                                 color={
-                                                    inquiryContent.trim()
+                                                    inquiryContent.trim() && !isSendingInquiry
                                                         ? GreenTint.deep
                                                         : GreenTint.soft
                                                 }
                                                 size="md"
-                                                shadow={!!inquiryContent.trim()}
-                                                disabled={!inquiryContent.trim()}
+                                                shadow={
+                                                    !!inquiryContent.trim() && !isSendingInquiry
+                                                }
+                                                disabled={
+                                                    !inquiryContent.trim() || isSendingInquiry
+                                                }
                                                 onPress={submitInquiry}
                                             />
                                         </>
@@ -811,6 +810,13 @@ export default function SettingsScreen({
 }
 
 const styles = StyleSheet.create({
+    inquiryNotice: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textFaint,
+        lineHeight: 18,
+        includeFontPadding: false,
+    },
     permissionWarning: {
         flexDirection: "row",
         gap: Spacing.sm,
