@@ -12,7 +12,7 @@ from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
-from . import affinity, air_quality, asos, diagnosis, environment, mailer, persona_chat, region_data, weather
+from . import affinity, air_quality, asos, diagnosis, environment, persona_chat, region_data, weather
 from .character_generation import CharacterGenerationJob, character_generation_manager
 from .config import settings
 from .database import Base, engine, get_db
@@ -30,6 +30,7 @@ from .models import (
     CareSchedule,
     ChatMessage,
     ChatSession,
+    Inquiry,
     Item,
     MediaAsset,
     Plant,
@@ -1875,6 +1876,7 @@ def delete_me(
     db.execute(delete(Plant).where(Plant.user_id == user_id))
     db.execute(delete(WeatherLog).where(WeatherLog.user_id == user_id))
     db.execute(delete(UserSetting).where(UserSetting.user_id == user_id))
+    db.execute(delete(Inquiry).where(Inquiry.user_id == user_id))
 
     db.delete(current_user)
     db.commit()
@@ -1886,40 +1888,17 @@ def create_inquiry(
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
-    """설정 화면의 문의하기 — 지원 메일함으로 보낸다.
+    """설정 화면의 문의하기 — inquiry 테이블에 쌓아 둔다.
 
-    DB에 남기지 않는 이유: 운영자가 메일함에서 바로 답장하는 흐름이고,
-    앱에는 문의 내역을 보여주는 화면이 없다. 내역 조회가 필요해지면
-    inquiry 테이블을 만들어 저장까지 함께 하면 된다.
+    운영자는 이 표에서 내용을 보고, 함께 저장된 user_id 로 사용자 이메일을
+    찾아 메일로 회신한다. 처리한 문의는 status 를 'CLOSED' 로 바꾼다.
 
-    보내지 못하면 실패를 그대로 알린다 — 접수된 것처럼 보이고 사라지는 것이
-    사용자에게 가장 나쁘다.
+    답변을 앱에서 보여주지 않으므로 answer 칼럼은 두지 않았다 —
+    값을 넣을 창구가 없는 칼럼은 영영 비어 있게 된다.
+    자세한 배경은 docs/database-schema.sql "8. 고객 문의" 주석 참고.
     """
-    if not mailer.is_configured():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="문의 접수가 아직 준비되지 않았어요. 잠시 후 다시 시도해주세요.",
-        )
-
-    body = f"""보낸 사람: {current_user.nickname} <{current_user.email}>
-user_id: {current_user.user_id}
-----------------------------------------
-{payload.content}
-"""
-
-    try:
-        mailer.send_mail(
-            subject=f"[LeafLog 문의] {current_user.nickname}",
-            body=body,
-            to=settings.support_email,
-            # 답장하면 문의한 사용자에게 바로 간다
-            reply_to=current_user.email,
-        )
-    except mailer.MailSendFailed as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="문의를 보내지 못했어요. 잠시 후 다시 시도해주세요.",
-        ) from exc
+    db.add(Inquiry(user_id=current_user.user_id, content=payload.content))
+    db.commit()
 
 
 @app.get("/api/settings", response_model=UserSettingRead)

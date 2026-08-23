@@ -657,3 +657,37 @@ class WeatherLog(Base):
     raw_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+# =========================================================
+# 고객 문의 (docs/database-schema.sql "8. 고객 문의")
+# =========================================================
+
+
+class Inquiry(Base):
+    __tablename__ = "inquiry"
+
+    inquiry_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("app_user.user_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    # 앱에서 5~2000자로 제한한다 (schemas.InquiryCreate)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # 운영자가 처리 여부를 표시하는 용도 — 지금은 DB에서 직접 바꾼다
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="OPEN", server_default="OPEN"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+    __table_args__ = (
+        CheckConstraint("status IN ('OPEN', 'CLOSED')", name="ck_inquiry_status"),
+    )
+

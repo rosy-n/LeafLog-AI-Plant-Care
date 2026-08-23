@@ -76,6 +76,25 @@ cd apps/api; .\.venv\Scripts\python.exe scripts\backfill-affinity.py            
 서버 startup 의 `create_all` 은 없는 테이블만 만들고 기존 테이블에 컬럼을 추가하지 못하므로,
 이 스크립트를 돌리지 않으면 `/api/species` 가 없는 컬럼을 조회해 실패한다.
 
+## 문의 확인 (inquiry)
+
+앱 설정 → 도움말 → 문의하기로 들어온 내용은 `inquiry` 테이블에 쌓인다.
+답변을 앱에서 보여주는 화면은 없다 — 아래로 내용을 확인하고 **메일로 회신**한다.
+
+```sql
+-- 처리 안 된 문의를 최근 순으로
+SELECT i.inquiry_id, i.created_at, u.nickname, u.email, i.content
+FROM inquiry i
+JOIN app_user u ON u.user_id = i.user_id
+WHERE i.status = 'OPEN'
+ORDER BY i.created_at DESC;
+
+-- 회신했으면 닫는다
+UPDATE inquiry SET status = 'CLOSED', updated_at = now() WHERE inquiry_id = 1;
+```
+
+사용자가 탈퇴하면 그 사람의 문의도 함께 지워진다.
+
 ## 종 마스터 적재 (plant_species)
 
 `plant_species` 는 외부 4개 소스를 배치에서 병합해 미리 채워두는 마스터 테이블이다.

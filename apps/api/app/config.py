@@ -37,20 +37,6 @@ class Settings:
     # 버킷에 GetObject 가능한 자격증명이 있을 때만 true (실서비스/배포 환경).
     # false면 저장된 file_url을 그대로 반환 (예: 콘솔에서 만든 presigned URL로 로컬 테스트).
     s3_presign_enabled: bool = os.getenv("S3_PRESIGN", "false").strip().lower() in ("1", "true", "yes", "on")
-    # 문의하기 메일 발송 (설정 화면 → 지원 메일함)
-    # 비어 있으면 문의 API 가 503 을 돌려준다 — 접수된 것처럼 보이고 사라지면 안 된다
-    smtp_host: str = os.getenv("SMTP_HOST", "")
-    smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user: str = os.getenv("SMTP_USER", "")
-    smtp_password: str = os.getenv("SMTP_PASSWORD", "")
-    # STARTTLS(587) 이 기본. 465(SMTPS)를 쓰면 false 로 두고 SMTP_SSL 을 켠다
-    smtp_use_tls: bool = os.getenv("SMTP_USE_TLS", "true").strip().lower() in ("1", "true", "yes", "on")
-    smtp_use_ssl: bool = os.getenv("SMTP_USE_SSL", "false").strip().lower() in ("1", "true", "yes", "on")
-    # 보내는 주소. 비우면 smtp_user 를 쓴다 (대부분의 제공자가 계정 주소만 허용한다)
-    smtp_from: str = os.getenv("SMTP_FROM", "")
-    # 문의를 받을 주소
-    support_email: str = os.getenv("SUPPORT_EMAIL", "")
-
     # 종 마스터 적재(scripts/ingest) 전용 외부 API 키 — 앱의 EXPO_PUBLIC_* 과 분리해 관리
     # 농사로 OpenAPI (농촌진흥청_실내정원용 식물)
     nongsaro_api_key: str = os.getenv("NONGSARO_API_KEY", "")
