@@ -32,6 +32,8 @@ import {
     loadNotificationSettings,
     saveNotificationSettings,
 } from "../notificationSettings";
+import { useBackgroundMusic } from "../backgroundMusic";
+import { VOLUME_STEPS } from "../audioSettings";
 
 const FAQ_ITEMS = [
     {
@@ -85,7 +87,7 @@ function VolumeControl({
                 <Ionicons name="remove-circle-outline" size={26} color={GreenTint.strong} />
             </TouchableOpacity>
             <View style={styles.volumeTrack}>
-                {Array.from({ length: 10 }, (_, i) => (
+                {Array.from({ length: VOLUME_STEPS }, (_, i) => (
                     <View
                         key={i}
                         style={[
@@ -96,7 +98,7 @@ function VolumeControl({
                 ))}
             </View>
             <TouchableOpacity
-                onPress={() => onChange(Math.min(10, value + 1))}
+                onPress={() => onChange(Math.min(VOLUME_STEPS, value + 1))}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
                 <Ionicons name="add-circle-outline" size={26} color={GreenTint.strong} />
@@ -146,9 +148,9 @@ export default function SettingsScreen({
     const [notifMinute, setNotifMinute] = useState(DEFAULT_NOTIFICATION_SETTINGS.minute);
     const [notifLoaded, setNotifLoaded] = useState(false);
 
-    // 사운드&진동
-    const [bgmVolume, setBgmVolume] = useState(7);
-    const [sfxVolume, setSfxVolume] = useState(8);
+    // 사운드&진동 — 볼륨은 앱 전체가 쓰는 플레이어와 공유하고, 바꾸면 기기에 저장된다
+    const { bgmVolume, sfxVolume, setBgmVolume, setSfxVolume } = useBackgroundMusic();
+    // 효과음은 아직 재생 지점이 없어서 값만 저장된다
     const [vibration, setVibration] = useState(true);
 
     // 도움말
