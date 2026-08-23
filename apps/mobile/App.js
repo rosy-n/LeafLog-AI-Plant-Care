@@ -408,7 +408,8 @@ export default function MainApp({ user, onLogout }) {
                     name="Calendar"
                     options={{ headerShown: false }}
                 >
-                    {(props) => <CalendarScreen {...props} />}
+                    {/* 캘린더는 개체 목록으로 돌봄 기록을 조회하고 캐릭터를 그린다 */}
+                    {(props) => <CalendarScreen {...props} plants={plants} />}
                 </Stack.Screen>
 
                 <Stack.Screen
