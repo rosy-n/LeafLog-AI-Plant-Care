@@ -848,6 +848,8 @@ def update_plant(
         plant.pot_size = (data["pot_size"] or None)
     if "height" in data:
         plant.height = (data["height"] or None)
+    if "is_favorite" in data and data["is_favorite"] is not None:
+        plant.is_favorite = data["is_favorite"]
     if "persona" in data and data["persona"] is not None:
         if data["persona"] not in persona_chat.PERSONA_SLUG_TO_FILE:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="유효하지 않은 페르소나입니다.")
