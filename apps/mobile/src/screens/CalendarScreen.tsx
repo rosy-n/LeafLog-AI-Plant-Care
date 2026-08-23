@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
     View,
     Text,
@@ -13,8 +13,10 @@ import {
     KeyboardAvoidingView,
     Platform,
     Alert,
+    ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
@@ -23,32 +25,27 @@ import { Colors, GreenTint, Paper, Shadow } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import ScreenHeader from "../components/ScreenHeader";
-
-const TODAY = "2026-05-17";
-
-const PLANT_IMAGES: Record<string, any> = {
-    spaghetti:   require("../../assets/plants/spaghetti.png"),
-    rubber:      require("../../assets/plants/rubber.png"),
-    sansevieria: require("../../assets/plants/sansevieria.png"),
-    pachira:     require("../../assets/plants/pachira.png"),
-    myeongrani:  require("../../assets/plants/myeongrani.png"),
-};
-
-const PLANTS = [
-    { id: "1", name: "스파게티",   imageKey: "spaghetti" },
-    { id: "2", name: "고무나무",   imageKey: "rubber" },
-    { id: "3", name: "산세베리아", imageKey: "sansevieria" },
-    { id: "4", name: "파키라",     imageKey: "pachira" },
-    { id: "5", name: "명라니",     imageKey: "myeongrani" },
-];
+import { getCareRecords, type CareRecordItem } from "../api";
+// 캐릭터 이미지 fallback — PlantImage 와 같은 출처
+import { plantImages } from "../data/plants";
 
 const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 const DOW_KO    = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
 
+/*
+    캘린더에 그리는 개체 —
+    App.js 의 toGardenPlant 가 만든 목록을 그대로 받는다(정원·홈과 같은 출처).
+*/
+type Plant = {
+    id: string;
+    name: string;
+    imageUri?: string | null;
+    imageKey?: string;
+    memorial?: boolean;
+};
+
+// 하루치 돌봄 기록 — 그날 물/영양제를 받은 개체 id. 서버 기록에서 채운다.
 type CareDay = {
-    watered: boolean;
-    fertilized: boolean;
-    hasJournal: boolean;
     wateredPlants: string[];
     fertilizedPlants: string[];
 };
@@ -61,25 +58,14 @@ const EMPTY_SLOTS: PhotoSlot[] = [
     { uri: null, plantId: null },
 ];
 
-const MOCK_CARE: Record<string, CareDay> = {
-    "2026-05-03": { watered: true,  fertilized: false, hasJournal: false, wateredPlants: ["1","2"], fertilizedPlants: [] },
-    "2026-05-07": { watered: false, fertilized: true,  hasJournal: false, wateredPlants: [],        fertilizedPlants: ["3"] },
-    "2026-05-10": { watered: true,  fertilized: true,  hasJournal: true,  wateredPlants: ["1","2"], fertilizedPlants: ["3"] },
-    "2026-05-14": { watered: true,  fertilized: false, hasJournal: true,  wateredPlants: ["1","4"], fertilizedPlants: [] },
-    "2026-05-21": { watered: true,  fertilized: false, hasJournal: false, wateredPlants: ["2"],     fertilizedPlants: [] },
-    "2026-05-24": { watered: false, fertilized: true,  hasJournal: false, wateredPlants: [],        fertilizedPlants: ["1"] },
-};
-
-const INIT_JOURNALS: Record<string, Journal> = {
-    "2026-05-10": {
-        note: "오늘은 날씨가 맑아서 모든 식물에 물을 주었어요. 산세베리아에 비료도 줬습니다.",
-        photoSlots: [{ uri: null, plantId: "1" }, { uri: null, plantId: "2" }],
-    },
-    "2026-05-14": {
-        note: "스파게티 잎이 새로 나왔어요! 파키라도 잘 자라고 있습니다.",
-        photoSlots: [{ uri: null, plantId: "1" }, { uri: null, plantId: null }],
-    },
-};
+/*
+    캘린더에 표시하는 돌봄 종류. 서버 care_type(app/main.py CARE_TYPES)과 같은 값이며,
+    분갈이(REPOTTING)는 이 화면의 범례에 없으므로 불러오지 않는다.
+*/
+const CARE_KINDS = [
+    { careType: "WATERING",    field: "wateredPlants" },
+    { careType: "FERTILIZING", field: "fertilizedPlants" },
+] as const;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -103,18 +89,73 @@ function monthLabel(y: number, m: number) {
     return `${y}년 ${m + 1}월`;
 }
 
+/*
+    오늘 — 기기 날짜 기준. 캘린더의 오늘 표시와, 홈 일지 버튼이 바로 여는
+    "당일 일지"가 같은 기준을 쓴다. 모듈이 올라올 때 한 번 계산하므로 앱을
+    자정 넘게 켜 둔 경우에는 다시 진입할 때 갱신된다.
+*/
+const NOW = new Date();
+const TODAY = toKey(NOW.getFullYear(), NOW.getMonth(), NOW.getDate());
+const TODAY_YEAR  = NOW.getFullYear();
+const TODAY_MONTH = NOW.getMonth();
+
+/*
+    기록 시각 → 캘린더 칸 키.
+
+    completed_at 에는 타임존 표기가 없어서 기기 로컬 시각으로 읽힌다.
+    영양제·분갈이 기록 목록(NutrientScreen / RepottingScreen)도 같은 해석을 쓰므로,
+    같은 기록이 두 화면에서 같은 날로 보인다.
+*/
+function recordDateKey(completedAt: string): string | null {
+    const at = new Date(completedAt);
+    if (Number.isNaN(at.getTime())) return null;
+    return toKey(at.getFullYear(), at.getMonth(), at.getDate());
+}
+
+// 개체별 기록을 날짜별로 합친다 — 한 개체가 실패해도 나머지는 그린다
+function foldCareRecords(
+    results: { plant: Plant; field: (typeof CARE_KINDS)[number]["field"]; rows: CareRecordItem[] }[],
+): Record<string, CareDay> {
+    const byDate: Record<string, CareDay> = {};
+    for (const { plant, field, rows } of results) {
+        for (const row of rows) {
+            const key = recordDateKey(row.completed_at);
+            if (!key) continue;
+            const day = byDate[key] ?? { wateredPlants: [], fertilizedPlants: [] };
+            byDate[key] = day;
+            // 같은 날 같은 개체에 두 번 기록해도 캐릭터는 하나만 세운다
+            if (!day[field].includes(plant.id)) day[field].push(plant.id);
+        }
+    }
+    return byDate;
+}
+
+// 그 날짜가 몇 번째 주에 있는가 — 홈에서 바로 들어왔을 때 주간 보기로 열기 위해
+function weekIndexOf(dateStr: string): number | null {
+    const [y, m] = dateStr.split("-").map(Number);
+    const idx = buildWeeks(Number(y), Number(m) - 1).findIndex(w => w.includes(dateStr));
+    return idx >= 0 ? idx : null;
+}
+
 function diaryDateLabel(dateStr: string): string {
     const [y, m, d] = dateStr.split("-").map(Number);
     const dow = new Date(y, m - 1, d).getDay();
     return `${d}일 ${DOW_KO[dow]}`;
 }
 
-type Plant = (typeof PLANTS)[number];
-
-function plantsByIds(ids: string[]): Plant[] {
+function plantsByIds(ids: string[], plants: Plant[]): Plant[] {
     return ids
-        .map(id => PLANTS.find(p => p.id === id))
+        .map(id => plants.find(p => p.id === id))
         .filter((p): p is Plant => !!p);
+}
+
+// 캐릭터 이미지 해석은 PlantImage 와 같은 규칙 — S3 URL 이 있으면 원격, 없으면 번들
+// (plantImages 는 JS 모듈이라 키 타입이 리터럴로 좁혀져 있어서 문자열 조회로 넓힌다)
+const BUNDLED_PLANT_IMAGES = plantImages as Record<string, any>;
+
+function plantSource(plant: Plant) {
+    if (plant.imageUri) return { uri: plant.imageUri };
+    return BUNDLED_PLANT_IMAGES[plant.imageKey ?? "spaghetti"];
 }
 
 // 포스트잇은 3~4줄 높이로 고정이므로, 글자 수에 따라 폰트를 줄여 칸 안에
@@ -128,10 +169,11 @@ function noteFontSize(text: string): number {
 
 // 그날 일지에 함께 세워둘 개체를 랜덤으로 하나 고른다. 리렌더(타이핑 등)마다
 // 캐릭터가 바뀌지 않도록 날짜 문자열을 시드로 쓴 고정 랜덤이다.
-function pickBuddy(dateStr: string): Plant {
+function pickBuddy(dateStr: string, plants: Plant[]): Plant | null {
+    if (plants.length === 0) return null;
     let h = 7;
     for (let i = 0; i < dateStr.length; i++) h = (h * 31 + dateStr.charCodeAt(i)) % 9973;
-    return PLANTS[h % PLANTS.length] as Plant;
+    return plants[h % plants.length] ?? null;
 }
 
 function PlusIcon({ size, color }: { size: number; color: string }) {
@@ -184,30 +226,108 @@ function PhotoFrame({
 
 // ── main screen ───────────────────────────────────────────────────────────────
 
-export default function CalendarScreen({ navigation }: { navigation: any }) {
-    const [viewYear,    setViewYear]    = useState(2026);
-    const [viewMonth,   setViewMonth]   = useState(4); // May
-    const [selected,    setSelected]    = useState<string | null>(null);
-    const [weekViewIdx, setWeekViewIdx] = useState<number | null>(null);
-    const [journals,    setJournals]    = useState<Record<string, Journal>>(INIT_JOURNALS);
-    const [lockedDays,  setLockedDays]  = useState<Set<string>>(() => new Set(Object.keys(INIT_JOURNALS)));
+export default function CalendarScreen({
+    navigation,
+    route,
+    plants = [],
+}: {
+    navigation: any;
+    route?: any;
+    plants?: Plant[];
+}) {
+    /*
+        홈 우측 하단의 일지 버튼은 캘린더를 거치지 않고 바로 당일 일지를 편다.
+        그때는 오늘이 선택된 상태(= 그 주 주간 보기)로 시작한다.
+    */
+    const openToday = route?.params?.openDiary === true;
+
+    const [viewYear,    setViewYear]    = useState(TODAY_YEAR);
+    const [viewMonth,   setViewMonth]   = useState(TODAY_MONTH);
+    const [selected,    setSelected]    = useState<string | null>(openToday ? TODAY : null);
+    const [weekViewIdx, setWeekViewIdx] = useState<number | null>(openToday ? weekIndexOf(TODAY) : null);
+    /*
+        일지(글·사진)는 아직 서버에 저장하는 곳이 없어서 화면이 들고 있는다 —
+        캘린더에 그리는 돌봄 기록(물/영양제)만 실제 DB 기록이다.
+    */
+    const [journals,    setJournals]    = useState<Record<string, Journal>>({});
+    const [lockedDays,  setLockedDays]  = useState<Set<string>>(() => new Set());
     const [editNote,    setEditNote]    = useState("");
     const [editSlots,   setEditSlots]   = useState<PhotoSlot[]>(EMPTY_SLOTS);
     const [pickerIdx,   setPickerIdx]   = useState<number | null>(null);
     const noteRef = useRef<TextInput>(null);
 
+    // 날짜별 돌봄 기록 — 서버의 개체별 care-records 를 합쳐 만든다
+    const [careByDate, setCareByDate] = useState<Record<string, CareDay>>({});
+    const [careLoading, setCareLoading] = useState(false);
+    const [careFailed,  setCareFailed]  = useState(false);
+    const [reloadKey,   setReloadKey]   = useState(0);
+
+    // 떠나보낸 개체는 캘린더에 세우지 않는다 (홈 들판과 같은 기준)
+    const alivePlants = useMemo(() => plants.filter(p => !p.memorial), [plants]);
+
+    /*
+        돌봄 기록 로드.
+
+        서버에 "사용자 전체 기록"을 한 번에 주는 엔드포인트가 없어서 개체별 조회가
+        유일한 창구다 — 개체 × 종류만큼 병렬로 부르고 날짜별로 합친다.
+        개체가 많아지면 여기를 합산 엔드포인트 하나로 바꾸는 게 다음 단계다.
+
+        다른 화면(개체탭 물주기 · 영양제 기록)에서 기록을 추가하고 돌아올 수 있으니
+        진입할 때마다 다시 읽는다.
+    */
+    useFocusEffect(
+        useCallback(() => {
+            let cancelled = false;
+
+            if (alivePlants.length === 0) {
+                setCareByDate({});
+                setCareFailed(false);
+                return;
+            }
+
+            setCareLoading(true);
+            let failed = false;
+
+            Promise.all(
+                alivePlants.flatMap(plant =>
+                    CARE_KINDS.map(kind =>
+                        getCareRecords(Number(plant.id), kind.careType)
+                            .then(rows => ({ plant, field: kind.field, rows }))
+                            .catch(() => {
+                                // 한 개체가 실패해도 나머지는 그린다 — 대신 안내를 남긴다
+                                failed = true;
+                                return { plant, field: kind.field, rows: [] as CareRecordItem[] };
+                            }),
+                    ),
+                ),
+            )
+                .then(results => {
+                    if (cancelled) return;
+                    setCareByDate(foldCareRecords(results));
+                    setCareFailed(failed);
+                })
+                .finally(() => {
+                    if (!cancelled) setCareLoading(false);
+                });
+
+            return () => {
+                cancelled = true;
+            };
+        }, [alivePlants, reloadKey]),
+    );
+
     const weeks        = buildWeeks(viewYear, viewMonth);
     const displayWeeks = weekViewIdx !== null ? [weeks[weekViewIdx]] : weeks;
 
-    const care     = selected ? MOCK_CARE[selected] ?? null : null;
+    const care     = selected ? careByDate[selected] ?? null : null;
     const isLocked = selected ? lockedDays.has(selected) : false;
 
     const slotA = editSlots[0] ?? { uri: null, plantId: null };
     const slotB = editSlots[1] ?? { uri: null, plantId: null };
 
-    const wateredChars    = plantsByIds(care?.wateredPlants ?? []);
-    const fertilizedChars = plantsByIds(care?.fertilizedPlants ?? []);
-    const buddy           = selected ? pickBuddy(selected) : null;
+    const wateredChars    = plantsByIds(care?.wateredPlants ?? [], alivePlants);
+    const fertilizedChars = plantsByIds(care?.fertilizedPlants ?? [], alivePlants);
+    const buddy           = selected ? pickBuddy(selected, alivePlants) : null;
 
     function selectDate(dateStr: string | null) {
         if (!dateStr) return;
@@ -390,11 +510,14 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                             {displayWeeks.map((week, wi) => (
                                 <View key={wi} style={styles.weekRow}>
                                     {week.map((ds, di) => {
-                                        const c       = ds ? MOCK_CARE[ds] ?? null : null;
-                                        const isSel   = ds !== null && ds === selected;
-                                        const isToday = ds === TODAY;
-                                        const both    = c?.watered && c?.fertilized;
-                                        const dayNum  = ds ? parseInt(ds.split("-")[2]) : null;
+                                        const c          = ds ? careByDate[ds] ?? null : null;
+                                        const watered    = (c?.wateredPlants.length ?? 0) > 0;
+                                        const fertilized = (c?.fertilizedPlants.length ?? 0) > 0;
+                                        const hasJournal = ds ? ds in journals : false;
+                                        const isSel      = ds !== null && ds === selected;
+                                        const isToday    = ds === TODAY;
+                                        const both       = watered && fertilized;
+                                        const dayNum     = ds ? parseInt(ds.split("-")[2] ?? "") : null;
 
                                         return (
                                             <TouchableOpacity
@@ -403,10 +526,10 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                                     styles.cell,
                                                     styles.dayCell,
                                                     !ds && styles.cellGhost,
-                                                    c?.watered  && !c.fertilized && !isSel && { backgroundColor: Colors.water },
-                                                    !c?.watered && c?.fertilized && !isSel && { backgroundColor: Colors.fertilizer },
+                                                    watered  && !fertilized && !isSel && { backgroundColor: Colors.water },
+                                                    !watered && fertilized  && !isSel && { backgroundColor: Colors.fertilizer },
                                                     isSel && styles.cellSel,
-                                                    c?.hasJournal && !isSel && styles.cellJournal,
+                                                    hasJournal && !isSel && styles.cellJournal,
                                                 ]}
                                                 onPress={() => selectDate(ds)}
                                                 activeOpacity={ds ? 0.75 : 1}
@@ -421,9 +544,9 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                                             <PlusIcon size={14} color={Colors.fertilizerIcon} />
                                                         </View>
                                                     </View>
-                                                ) : c?.watered && !isSel ? (
+                                                ) : watered && !isSel ? (
                                                     <Ionicons name="water" size={20} color={Colors.waterIcon} />
-                                                ) : c?.fertilized && !isSel ? (
+                                                ) : fertilized && !isSel ? (
                                                     <PlusIcon size={22} color={Colors.fertilizerIcon} />
                                                 ) : (
                                                     <Text style={[
@@ -462,6 +585,26 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                     <Text style={styles.legendText}>일지</Text>
                                 </View>
                             </View>
+
+                            {/* 기록을 읽는 중 · 못 읽었을 때 — 빈 달력을 "기록 없음"으로 오해하지 않게 */}
+                            {careLoading && (
+                                <View style={styles.calStatusRow}>
+                                    <ActivityIndicator size="small" color={GreenTint.strong} />
+                                    <Text style={styles.calStatusText}>돌봄 기록을 불러오는 중…</Text>
+                                </View>
+                            )}
+                            {!careLoading && careFailed && (
+                                <TouchableOpacity
+                                    style={styles.calStatusRow}
+                                    onPress={() => setReloadKey(k => k + 1)}
+                                    activeOpacity={0.75}
+                                >
+                                    <Ionicons name="refresh" size={13} color={Colors.remove} />
+                                    <Text style={[styles.calStatusText, { color: Colors.remove }]}>
+                                        일부 기록을 불러오지 못했어요. 다시 시도
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
 
                         {/* ── Diary card ──────────────────────── */}
@@ -488,7 +631,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                         {wateredChars.map(p => (
                                             <View key={p.id} style={styles.careCircle}>
                                                 <Image
-                                                    source={PLANT_IMAGES[p.imageKey]}
+                                                    source={plantSource(p)}
                                                     style={styles.careCircleImg}
                                                     resizeMode="contain"
                                                 />
@@ -506,7 +649,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                         {fertilizedChars.map(p => (
                                             <View key={p.id} style={styles.careCircle}>
                                                 <Image
-                                                    source={PLANT_IMAGES[p.imageKey]}
+                                                    source={plantSource(p)}
                                                     style={styles.careCircleImg}
                                                     resizeMode="contain"
                                                 />
@@ -522,7 +665,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                     <View style={styles.frameRowRight}>
                                         <PhotoFrame
                                             uri={slotA.uri}
-                                            label={PLANTS.find(p => p.id === slotA.plantId)?.name}
+                                            label={alivePlants.find(p => p.id === slotA.plantId)?.name}
                                             tiltStyle={styles.tiltRight}
                                             onPress={() => handlePhotoSlotTap(0)}
                                             disabled={isLocked}
@@ -554,7 +697,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                         <View style={styles.lowerFrameWrap}>
                                             <PhotoFrame
                                                 uri={slotB.uri}
-                                                label={PLANTS.find(p => p.id === slotB.plantId)?.name}
+                                                label={alivePlants.find(p => p.id === slotB.plantId)?.name}
                                                 tiltStyle={styles.tiltLeft}
                                                 onPress={() => handlePhotoSlotTap(1)}
                                                 disabled={isLocked}
@@ -562,7 +705,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                             {buddy && (
                                                 <View style={styles.buddyWrap} pointerEvents="none">
                                                     <Image
-                                                        source={PLANT_IMAGES[buddy.imageKey]}
+                                                        source={plantSource(buddy)}
                                                         style={styles.buddyImg}
                                                         resizeMode="contain"
                                                     />
@@ -603,7 +746,10 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                     <View style={styles.pickerBox}>
                         <Text style={styles.pickerTitle}>식물 라벨 선택</Text>
                         <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
-                            {PLANTS.map(p => (
+                            {alivePlants.length === 0 && (
+                                <Text style={styles.pickerEmpty}>등록한 개체가 없어요.</Text>
+                            )}
+                            {alivePlants.map(p => (
                                 <TouchableOpacity
                                     key={p.id}
                                     style={styles.pickerRow}
@@ -611,7 +757,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                     activeOpacity={0.8}
                                 >
                                     <Image
-                                        source={PLANT_IMAGES[p.imageKey]}
+                                        source={plantSource(p)}
                                         style={styles.pickerImg}
                                         resizeMode="contain"
                                     />
@@ -837,6 +983,21 @@ const styles = StyleSheet.create({
         height: 30,
     },
 
+    // 캘린더 카드 하단의 로딩·실패 안내
+    calStatusRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: Spacing.xs,
+        marginTop: Spacing.sm,
+    },
+    calStatusText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.medium,
+        includeFontPadding: false,
+    },
+
     // ── 스크랩북 (기운 사진 틀 + 포스트잇) ──
     // 자식마다 음수 마진으로 살짝 겹치고, zIndex 로 포스트잇이 사진 틀 위에
     // 얹히게 쌓는다(글이 가려지면 안 된다).
@@ -1012,6 +1173,14 @@ const styles = StyleSheet.create({
     pickerImg: {
         width: 40,
         height: 40,
+    },
+    pickerEmpty: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textFaint,
+        textAlign: "center",
+        paddingVertical: Spacing.xxl,
+        includeFontPadding: false,
     },
     pickerName: {
         fontFamily: Fonts.neoDunggeunmo,

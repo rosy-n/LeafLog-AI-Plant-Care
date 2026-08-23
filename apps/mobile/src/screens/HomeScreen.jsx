@@ -580,7 +580,11 @@ export default function HomeScreen({
                         />
                     </GlassButton>
 
-                    <GlassButton size={60}>
+                    {/* 일지 — 캘린더를 거치지 않고 당일 일지 작성 화면으로 바로 */}
+                    <GlassButton
+                        size={60}
+                        onPress={() => navigation.navigate("Calendar", { openDiary: true })}
+                    >
                         <Image
                             source={require("../../assets/icons/diary_icon.png")}
                             style={styles.diaryIcon}
