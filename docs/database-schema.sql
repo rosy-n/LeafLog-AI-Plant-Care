@@ -743,5 +743,8 @@ CREATE TABLE inquiry (
     updated_at   TIMESTAMP DEFAULT now()
 );
 
--- 최근 문의부터 훑는 것이 기본 조회라 내림차순 인덱스를 둔다
-CREATE INDEX idx_inquiry_created_at ON inquiry (created_at DESC);
+-- 최근 문의부터 훑는 것이 기본 조회다.
+-- 이름은 SQLAlchemy 가 models.py 의 index=True 로 만드는 것과 맞춘다
+-- (apps/api/scripts/add-inquiry-table.sql 도 같은 이름을 쓴다).
+CREATE INDEX ix_inquiry_created_at ON inquiry (created_at);
+CREATE INDEX ix_inquiry_user_id    ON inquiry (user_id);
