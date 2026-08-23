@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Colors, GreenTint } from "../../constants/colors";
 import { Radius } from "../../constants/spacing";
+import { playTapSfx } from "../feedback";
 
 type Props = {
   /** Ionicons 이름 */
@@ -41,6 +42,10 @@ export default function IconCircleButton({
   activeOpacity = 0.8,
   style,
 }: Props) {
+  const handlePress = () => {
+    playTapSfx();
+    onPress();
+  };
   return (
     <TouchableOpacity
       style={[
@@ -50,7 +55,7 @@ export default function IconCircleButton({
         disabled && color ? { backgroundColor: disabledColor } : null,
         style,
       ]}
-      onPress={onPress}
+      onPress={handlePress}
       activeOpacity={activeOpacity}
       disabled={disabled}
     >

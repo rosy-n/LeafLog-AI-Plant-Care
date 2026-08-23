@@ -22,9 +22,10 @@ export { ImpactFeedbackStyle } from "expo-haptics";
     (지금 들어있는 파일은 전부 무음 placeholder — 실제 음원을 넣기 전에는 소리가 안 난다)
 */
 const SFX_SOURCES = {
-  water: require("../assets/audio/sfx-water.wav"),
+  water: require("../assets/audio/sfx-water.mp3"),
   pet: require("../assets/audio/sfx-pet.wav"),
   pickup: require("../assets/audio/sfx-pickup.wav"),
+  tap: require("../assets/audio/sfx-tap.wav"),
 };
 
 export type SfxName = keyof typeof SFX_SOURCES;
@@ -69,6 +70,33 @@ export function playSfx(name: SfxName): void {
   } catch (e: any) {
     console.warn("효과음 재생 실패:", e?.message);
   }
+}
+
+/**
+ * 재생 중인 효과음을 멈춘다.
+ *
+ * 물소리처럼 애니메이션보다 긴 음원이 있어서, 동작이 끝났거나 화면을 벗어나면
+ * 소리도 같이 끊어줘야 한다. 재생된 적 없는 소리는 그냥 넘어간다.
+ */
+export function stopSfx(name: SfxName): void {
+  const player = players[name];
+  if (!player) return;
+  try {
+    player.pause();
+    player.seekTo(0).catch(() => {});
+  } catch (e: any) {
+    console.warn("효과음 정지 실패:", e?.message);
+  }
+}
+
+/**
+ * 버튼을 눌렀을 때 나는 소리.
+ *
+ * 화면에서 직접 부르지 말고 공용 버튼 컴포넌트(ActionButton 등)에 맡긴다 —
+ * 버튼마다 손으로 넣으면 새 버튼에서 빠뜨리게 된다.
+ */
+export function playTapSfx(): void {
+  playSfx("tap");
 }
 
 /**
