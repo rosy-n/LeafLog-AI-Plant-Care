@@ -51,6 +51,20 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   return asked.granted;
 }
 
+/**
+ * 권한 상태만 확인한다 — 여기서는 요청하지 않는다.
+ *
+ * 화면에 "권한이 없어요" 안내를 띄울지 판단하는 용도라, 설정 화면에 들어올
+ * 때마다 권한 팝업이 뜨면 안 된다. 실제 요청은 ensureNotificationPermission 이 한다.
+ */
+export async function getNotificationPermission(): Promise<{
+  granted: boolean;
+  canAskAgain: boolean;
+}> {
+  const current = await Notifications.getPermissionsAsync();
+  return { granted: current.granted, canAskAgain: current.canAskAgain };
+}
+
 /** 예정일 + 설정된 알림 시각. 이미 지났으면 null */
 function triggerDate(nextWateringDate: string, hour: number, minute: number): Date | null {
   const [year, month, day] = nextWateringDate.split("-").map(Number);
@@ -163,14 +177,25 @@ export async function listScheduledReminders(): Promise<
  * 다른 기기에서 물을 줬거나 주기를 바꾼 경우, 기기에 남은 예약이 어긋나기 때문.
  * 떠나보낸 개체(DEAD)는 예약하지 않는다.
  */
-export async function syncWateringReminders(): Promise<number> {
+export type WateringSyncResult = {
+  scheduled: number;
+  /**
+   * 알림을 켜뒀는데 권한이 없어서 하나도 예약하지 못한 경우 true.
+   * 예약 0건은 "예정일이 다 지났다"로도 나오므로, 원인을 구분하려면 이 값을 봐야 한다.
+   */
+  blockedByPermission: boolean;
+};
+
+export async function syncWateringReminders(): Promise<WateringSyncResult> {
   const settings = await loadNotificationSettings();
   if (!settings.enabled) {
     // 설정을 끈 뒤 남아 있던 예약까지 지운다
     await cancelAllWateringReminders();
-    return 0;
+    return { scheduled: 0, blockedByPermission: false };
   }
-  if (!(await ensureNotificationPermission())) return 0;
+  if (!(await ensureNotificationPermission())) {
+    return { scheduled: 0, blockedByPermission: true };
+  }
   await prepareNotifications();
 
   // 목록 응답에 예정일이 함께 오므로 개체별 조회가 필요 없다 (호출 1회)
@@ -193,5 +218,5 @@ export async function syncWateringReminders(): Promise<number> {
       // 한 개체 실패가 나머지를 막지 않게 한다
     }
   }
-  return scheduled;
+  return { scheduled, blockedByPermission: false };
 }

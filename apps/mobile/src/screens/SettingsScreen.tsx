@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     View,
     Text,
@@ -11,6 +11,7 @@ import {
     Alert,
     KeyboardAvoidingView,
     Platform,
+    Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -27,6 +28,7 @@ import {
     sendTestReminder,
     listScheduledReminders,
     syncWateringReminders,
+    getNotificationPermission,
 } from "../notifications";
 import {
     DEFAULT_NOTIFICATION_SETTINGS,
@@ -148,6 +150,11 @@ export default function SettingsScreen({
     const [notifHour, setNotifHour] = useState(DEFAULT_NOTIFICATION_SETTINGS.hour);
     const [notifMinute, setNotifMinute] = useState(DEFAULT_NOTIFICATION_SETTINGS.minute);
     const [notifLoaded, setNotifLoaded] = useState(false);
+    // 알림을 켜뒀지만 기기 권한이 없어 예약이 막힌 상태.
+    // 예약 0건은 "예정일이 다 지났다"로도 나와서, 원인을 구분해 안내해야 한다.
+    const [notifBlocked, setNotifBlocked] = useState(false);
+    // 사용자가 방금 스위치를 켰는지 — 알럿은 그때만 띄운다(화면 열 때마다 뜨면 성가시다)
+    const justEnabledNotif = useRef(false);
 
     // 사운드&진동 — 앱 전체가 쓰는 값과 공유하고, 바꾸면 바로 기기에 저장된다.
     // 효과음·진동을 실제로 내는 쪽은 feedback.ts (playSfx / hapticImpact)
@@ -217,6 +224,24 @@ export default function SettingsScreen({
         };
     }, []);
 
+    // 권한이 없으면 기기 설정으로 보내준다 — 앱 안에서는 더 할 수 있는 게 없다
+    const openDeviceSettings = () => {
+        Linking.openSettings().catch((e: any) =>
+            console.warn("기기 설정 열기 실패:", e?.message),
+        );
+    };
+
+    const alertPermissionBlocked = () => {
+        Alert.alert(
+            "알림 권한이 없어요",
+            "기기 설정에서 LeafLog 알림을 허용해야 물주기 알림을 받을 수 있어요.",
+            [
+                { text: "나중에", style: "cancel" },
+                { text: "설정 열기", onPress: openDeviceSettings },
+            ],
+        );
+    };
+
     // 설정이 바뀌면 저장하고 예약을 새 시각으로 다시 맞춘다.
     // 불러오기 전에는 실행하지 않는다 (기본값으로 저장해 사용자 설정을 덮어쓰지 않게)
     useEffect(() => {
@@ -227,9 +252,40 @@ export default function SettingsScreen({
             minute: notifMinute,
         })
             .then(() => syncWateringReminders())
-            .then(refreshReminders)
+            .then((result) => {
+                // 권한이 없으면 스위치만 켜지고 실제로는 아무것도 예약되지 않는다.
+                // 그대로 두면 "알림 켰는데 안 온다"가 되므로 화면에 남겨 알린다.
+                setNotifBlocked(result.blockedByPermission);
+                if (result.blockedByPermission && justEnabledNotif.current) {
+                    alertPermissionBlocked();
+                }
+                justEnabledNotif.current = false;
+                refreshReminders();
+            })
             .catch((e) => console.warn("알림 설정 저장 실패:", e?.message));
     }, [notifLoaded, notifEnabled, notifHour, notifMinute, refreshReminders]);
+
+    /*
+        기기 설정에서 권한을 켜고 돌아왔을 수 있으니 화면에 들어올 때마다 다시 본다.
+        막혀 있다가 풀렸으면 그 자리에서 예약까지 다시 맞춘다.
+    */
+    useFocusEffect(
+        useCallback(() => {
+            let cancelled = false;
+            getNotificationPermission()
+                .then(({ granted }) => {
+                    if (cancelled || !notifEnabled) return;
+                    setNotifBlocked(!granted);
+                    if (granted && notifBlocked) {
+                        return syncWateringReminders().then(() => refreshReminders());
+                    }
+                })
+                .catch(() => {});
+            return () => {
+                cancelled = true;
+            };
+        }, [notifEnabled, notifBlocked, refreshReminders]),
+    );
 
     const runNotificationTest = async () => {
         try {
@@ -476,7 +532,10 @@ export default function SettingsScreen({
                                 <Text style={styles.rowLabel}>돌보기 알림</Text>
                                 <Switch
                                     value={notifEnabled}
-                                    onValueChange={setNotifEnabled}
+                                    onValueChange={(next) => {
+                                        justEnabledNotif.current = next;
+                                        setNotifEnabled(next);
+                                    }}
                                     trackColor={{ false: Colors.border, true: GreenTint.line }}
                                     thumbColor={Colors.white}
                                     ios_backgroundColor={Colors.border}
@@ -549,6 +608,40 @@ export default function SettingsScreen({
                                         />
                                     </TouchableOpacity>
 
+                                    {/*
+                                        권한이 없으면 스위치가 켜져 있어도 예약이 0건이다.
+                                        알럿은 닫히면 사라지므로 상태를 화면에 남겨 둔다.
+                                    */}
+                                    {notifBlocked && (
+                                        <>
+                                            <RowDivider />
+                                            <View style={styles.permissionWarning}>
+                                                <Ionicons
+                                                    name="alert-circle-outline"
+                                                    size={18}
+                                                    color={Colors.remove}
+                                                />
+                                                <View style={styles.permissionTextBox}>
+                                                    <Text style={styles.permissionTitle}>
+                                                        알림 권한이 없어요
+                                                    </Text>
+                                                    <Text style={styles.permissionBody}>
+                                                        기기 설정에서 LeafLog 알림을 허용해야
+                                                        물주기 알림이 예약됩니다.
+                                                    </Text>
+                                                    <TouchableOpacity
+                                                        onPress={openDeviceSettings}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={styles.permissionLink}>
+                                                            기기 설정 열기
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        </>
+                                    )}
+
                                     <RowDivider />
                                     <View style={styles.reminderBlock}>
                                         <Text style={styles.rowLabel}>
@@ -565,8 +658,9 @@ export default function SettingsScreen({
                                             ))
                                         ) : (
                                             <Text style={styles.reminderItem}>
-                                                예정일이 이미 지난 개체는 예약하지 않아요.
-                                                물을 주거나 주기를 늘리면 예약됩니다.
+                                                {notifBlocked
+                                                    ? "알림 권한을 허용하면 예약됩니다."
+                                                    : "예정일이 이미 지난 개체는 예약하지 않아요. 물을 주거나 주기를 늘리면 예약됩니다."}
                                             </Text>
                                         )}
                                     </View>
@@ -717,6 +811,36 @@ export default function SettingsScreen({
 }
 
 const styles = StyleSheet.create({
+    permissionWarning: {
+        flexDirection: "row",
+        gap: Spacing.sm,
+        paddingVertical: Spacing.md,
+    },
+    permissionTextBox: {
+        flex: 1,
+        gap: Spacing.xxs,
+    },
+    permissionTitle: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.remove,
+        includeFontPadding: false,
+    },
+    permissionBody: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textFaint,
+        lineHeight: 18,
+        includeFontPadding: false,
+    },
+    permissionLink: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.strong,
+        textDecorationLine: "underline",
+        paddingTop: Spacing.xxs,
+        includeFontPadding: false,
+    },
     root: {
         flex: 1,
         backgroundColor: Colors.background,
