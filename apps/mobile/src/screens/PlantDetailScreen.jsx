@@ -5,7 +5,6 @@ import {
     View,
     Text,
     StyleSheet,
-    TouchableOpacity,
     TextInput,
     KeyboardAvoidingView,
     Platform,
@@ -14,10 +13,7 @@ import {
     Modal,
     PanResponder,
 } from "react-native";
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
 
-import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -26,6 +22,8 @@ import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
+import GlassMenuItem from "../components/GlassMenuItem";
+import IconCircleButton from "../components/IconCircleButton";
 import PixelButton from "../components/PixelButton";
 import PixelSpeechBubble, { WordWrapText } from "../components/PixelSpeechBubble";
 import { scheduleWateringReminder } from "../notifications";
@@ -42,7 +40,7 @@ import {
 import { accessorySpriteBundle, backgroundSource } from "../data/decor";
 import DecorImage from "../components/DecorImage";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Glass, Paper, Pink } from "../../constants/colors";
+import { Colors, GreenTint, Paper, Pink } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { getPersonaGreeting, getPersonaWateringLine } from "../../constants/persona-greetings";
 
@@ -752,30 +750,13 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                                             },
                                         ]}
                                     >
-                                        <TouchableOpacity
-                                            activeOpacity={0.82}
-                                            style={styles.menuItemTouch}
+                                        <GlassMenuItem
+                                            label={item.label}
                                             onPress={() => {
                                                 closeMenu();
                                                 navigation.navigate(item.screen, { plant });
                                             }}
-                                        >
-                                            <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>
-                                                <LinearGradient
-                                                    colors={[
-                                                        Glass.frost72,
-                                                        Glass.mist,
-                                                        Glass.mistSoft,
-                                                    ]}
-                                                    start={{ x: 0.12, y: 0.05 }}
-                                                    end={{ x: 1, y: 1 }}
-                                                    style={styles.menuItemGlass}
-                                                >
-                                                    <View style={styles.menuItemHighlight} />
-                                                    <Text style={styles.menuItemText}>{item.label}</Text>
-                                                </LinearGradient>
-                                            </BlurView>
-                                        </TouchableOpacity>
+                                        />
                                     </Animated.View>
                                 );
                             })}
@@ -888,13 +869,12 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                             {/* 입력 영역 (입력창) */}
                             <View style={styles.chatInputArea}>
                                 <View style={styles.chatInputBar}>
-                                    <TouchableOpacity
-                                        style={styles.chatCloseButton}
+                                    <IconCircleButton
+                                        icon="close"
+                                        iconColor={GreenTint.strong}
                                         onPress={closeChat}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Ionicons name="close" size={20} color={GreenTint.strong} />
-                                    </TouchableOpacity>
+                                        style={styles.chatCloseButton}
+                                    />
                                     <TextInput
                                         style={styles.chatInput}
                                         value={chatInput}
@@ -906,17 +886,13 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                                         textAlignVertical="center"
                                         onSubmitEditing={sendChat}
                                     />
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.chatSendButton,
-                                            (!chatInput.trim() || isSending) && styles.chatSendButtonDisabled,
-                                        ]}
-                                        onPress={sendChat}
-                                        activeOpacity={0.8}
+                                    <IconCircleButton
+                                        icon="arrow-up"
+                                        color={Colors.primary}
                                         disabled={!chatInput.trim() || isSending}
-                                    >
-                                        <Ionicons name="arrow-up" size={20} color={Colors.white} />
-                                    </TouchableOpacity>
+                                        onPress={sendChat}
+                                        style={styles.chatSendButton}
+                                    />
                                 </View>
                             </View>
                         </KeyboardAvoidingView>
@@ -1001,6 +977,14 @@ const pixelShadow = {
 };
 
 const styles = StyleSheet.create({
+    chatCloseButton: {
+        marginRight: Spacing.xs,
+        marginBottom: Spacing.xxs,
+    },
+    chatSendButton: {
+        marginLeft: Spacing.sm,
+        marginBottom: Spacing.xxs,
+    },
     root: {
         flex: 1,
         backgroundColor: GreenTint.line,
@@ -1240,15 +1224,6 @@ const styles = StyleSheet.create({
         paddingRight: Spacing.xs,
         paddingVertical: Spacing.xs,
     },
-    chatCloseButton: {
-        width: 34,
-        height: 34,
-        borderRadius: Radius.pill,
-        alignItems: "center",
-        justifyContent: "center",
-        marginRight: Spacing.xs,
-        marginBottom: Spacing.xxs,
-    },
     chatInput: {
         flex: 1,
         fontFamily: Fonts.neoDunggeunmo,
@@ -1258,19 +1233,6 @@ const styles = StyleSheet.create({
         maxHeight: 90,
         paddingVertical: Spacing.sm,
         includeFontPadding: false,
-    },
-    chatSendButton: {
-        width: 34,
-        height: 34,
-        borderRadius: Radius.pill,
-        backgroundColor: Colors.primary,
-        alignItems: "center",
-        justifyContent: "center",
-        marginLeft: Spacing.sm,
-        marginBottom: Spacing.xxs,
-    },
-    chatSendButtonDisabled: {
-        backgroundColor: GreenTint.line,
     },
 
     // ── 물주기 확인 모달 (픽셀 말풍선 카드) ──────────────
@@ -1362,52 +1324,8 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.sm,
     },
 
-    menuItemTouch: {
-        width: 116,
-        height: 31,
-        borderRadius: Radius.lg,
-        overflow: "hidden",
 
-        shadowColor: Colors.textBlack,
-        shadowOpacity: 0.18,
-        shadowRadius: 7,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 5,
-    },
 
-    menuItemBlur: {
-        flex: 1,
-        borderRadius: Radius.lg,
-        overflow: "hidden",
-        borderWidth: 1,
-        borderColor: Glass.frost72,
-    },
 
-    menuItemGlass: {
-        flex: 1,
-        borderRadius: Radius.lg,
-        alignItems: "center",
-        justifyContent: "center",
-        borderWidth: 1,
-        borderColor: Glass.frost45,
-    },
 
-    menuItemHighlight: {
-        position: "absolute",
-        top: 4,
-        left: 10,
-        width: 34,
-        height: 8,
-        borderRadius: Radius.pill,
-        backgroundColor: Glass.frost60,
-    },
-
-    menuItemText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.textBlack,
-        textShadowColor: Glass.frost60,
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 0,
-    },
 });

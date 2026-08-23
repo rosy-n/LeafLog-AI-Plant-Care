@@ -25,6 +25,7 @@ import { Colors, GreenTint, Paper, Shadow } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import ScreenHeader from "../components/ScreenHeader";
+import ActionButton from "../components/ActionButton";
 import { getCareRecords, type CareRecordItem } from "../api";
 // 캐릭터 이미지 fallback — PlantImage 와 같은 출처
 import { plantImages } from "../data/plants";
@@ -717,13 +718,11 @@ export default function CalendarScreen({
 
                                 {/* 저장 (잠긴 날은 숨김) */}
                                 {!isLocked && (
-                                    <TouchableOpacity
-                                        style={styles.saveBtn}
+                                    <ActionButton
+                                        label="저장하기"
+                                        color={Colors.primary}
                                         onPress={saveJournal}
-                                        activeOpacity={0.82}
-                                    >
-                                        <Text style={styles.saveBtnText}>저장하기</Text>
-                                    </TouchableOpacity>
+                                    />
                                 )}
                             </View>
                         )}
@@ -1116,23 +1115,6 @@ const styles = StyleSheet.create({
         padding: 0,
     },
 
-    saveBtn: {
-        backgroundColor: Colors.primary,
-        borderRadius: Radius.lg,
-        paddingVertical: Spacing.lg,
-        alignItems: "center",
-        shadowColor: Colors.primary,
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: 3,
-    },
-    saveBtnText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
-        color: Colors.white,
-        includeFontPadding: false,
-    },
 
     // ── modal ──
     overlay: {

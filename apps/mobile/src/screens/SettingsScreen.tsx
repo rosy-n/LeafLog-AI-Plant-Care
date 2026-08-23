@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
+import ActionButton from "../components/ActionButton";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
@@ -426,20 +427,18 @@ export default function SettingsScreen({
                                         returnKeyType="done"
                                         onSubmitEditing={deleteAccount}
                                     />
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.deleteSubmitBtn,
-                                            (!deletePassword || isDeletingAccount) &&
-                                                styles.deleteSubmitBtnDisabled,
-                                        ]}
-                                        onPress={deleteAccount}
-                                        activeOpacity={0.82}
+                                    <ActionButton
+                                        label={isDeletingAccount ? "삭제 중" : "계정 삭제하기"}
+                                        color={
+                                            !deletePassword || isDeletingAccount
+                                                ? GreenTint.soft
+                                                : Colors.remove
+                                        }
+                                        size="md"
+                                        shadow={false}
                                         disabled={!deletePassword || isDeletingAccount}
-                                    >
-                                        <Text style={styles.deleteSubmitText}>
-                                            {isDeletingAccount ? "삭제 중" : "계정 삭제하기"}
-                                        </Text>
-                                    </TouchableOpacity>
+                                        onPress={deleteAccount}
+                                    />
                                 </View>
                             )}
                         </View>
@@ -691,20 +690,18 @@ export default function SettingsScreen({
                                                 multiline
                                                 textAlignVertical="top"
                                             />
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.inquirySubmitBtn,
-                                                    !inquiryContent.trim() &&
-                                                        styles.inquirySubmitBtnDisabled,
-                                                ]}
-                                                onPress={submitInquiry}
-                                                activeOpacity={0.82}
+                                            <ActionButton
+                                                label="제출하기"
+                                                color={
+                                                    inquiryContent.trim()
+                                                        ? GreenTint.deep
+                                                        : GreenTint.soft
+                                                }
+                                                size="md"
+                                                shadow={!!inquiryContent.trim()}
                                                 disabled={!inquiryContent.trim()}
-                                            >
-                                                <Text style={styles.inquirySubmitText}>
-                                                    제출하기
-                                                </Text>
-                                            </TouchableOpacity>
+                                                onPress={submitInquiry}
+                                            />
                                         </>
                                     )}
                                 </View>
@@ -859,21 +856,6 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.md,
         includeFontPadding: false,
     },
-    deleteSubmitBtn: {
-        backgroundColor: Colors.remove,
-        borderRadius: Radius.md,
-        paddingVertical: Spacing.md,
-        alignItems: "center",
-    },
-    deleteSubmitBtnDisabled: {
-        backgroundColor: GreenTint.soft,
-    },
-    deleteSubmitText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.white,
-        includeFontPadding: false,
-    },
 
     // 알림 시간
     timePicker: {
@@ -984,28 +966,6 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.md,
         height: 110,
         textAlignVertical: "top",
-        includeFontPadding: false,
-    },
-    inquirySubmitBtn: {
-        backgroundColor: GreenTint.deep,
-        borderRadius: Radius.md,
-        paddingVertical: Spacing.md,
-        alignItems: "center",
-        shadowColor: GreenTint.deep,
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: 3,
-    },
-    inquirySubmitBtnDisabled: {
-        backgroundColor: GreenTint.soft,
-        shadowOpacity: 0,
-        elevation: 0,
-    },
-    inquirySubmitText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.white,
         includeFontPadding: false,
     },
     inquiryDone: {

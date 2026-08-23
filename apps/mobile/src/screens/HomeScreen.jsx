@@ -10,10 +10,9 @@ import {
     Easing,
     PanResponder,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { hapticImpact, playSfx } from "../feedback";
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
+import LiquidGlassButton from "../components/LiquidGlassButton";
+import GlassMenuItem from "../components/GlassMenuItem";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
@@ -368,7 +367,7 @@ export default function HomeScreen({
             >
                 {/* 상단 왼쪽: 날씨, 미세먼지 — 탭하면 데이터 화면으로 이동 */}
                 <View style={styles.topLeftArea}>
-                    <GlassButton size={60} onPress={() => navigation.navigate("SensorData")}>
+                    <LiquidGlassButton size={60} onPress={() => navigation.navigate("SensorData")}>
                         {weatherIconSource && (
                             <Image
                                 source={weatherIconSource}
@@ -376,9 +375,9 @@ export default function HomeScreen({
                                 resizeMode="contain"
                             />
                         )}
-                    </GlassButton>
+                    </LiquidGlassButton>
 
-                    <GlassButton size={60} onPress={() => navigation.navigate("SensorData")}>
+                    <LiquidGlassButton size={60} onPress={() => navigation.navigate("SensorData")}>
                         {airQualityIconSource && (
                             <Image
                                 source={airQualityIconSource}
@@ -386,12 +385,12 @@ export default function HomeScreen({
                                 resizeMode="contain"
                             />
                         )}
-                    </GlassButton>
+                    </LiquidGlassButton>
                 </View>
 
                 {/* 상단 오른쪽: 알림 */}
                 <View style={styles.notificationArea}>
-                    <GlassButton
+                    <LiquidGlassButton
                         size={65}
                         onPress={() => navigation.navigate("Notifications")}
                     >
@@ -403,7 +402,7 @@ export default function HomeScreen({
                             />
                             {hasUnread && <View style={styles.redDot} />}
                         </View>
-                    </GlassButton>
+                    </LiquidGlassButton>
 
                     {/*
                         밀린 물주기 요약 — 정원까지 들어가지 않아도 보이게.
@@ -518,36 +517,15 @@ export default function HomeScreen({
                                             },
                                         ]}
                                     >
-                                        <TouchableOpacity
-                                            activeOpacity={0.82}
-                                            style={styles.menuItemTouch}
+                                        <GlassMenuItem
+                                            label={item.label}
+                                            icon={item.icon}
+                                            width={126}
                                             onPress={() => {
                                                 closeMenu();
                                                 if (item.screen) navigation.navigate(item.screen);
                                             }}
-                                        >
-                                            <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>
-                                                <LinearGradient
-                                                    colors={[
-                                                        Glass.frost72,
-                                                        Glass.mist,
-                                                        Glass.mistSoft,
-                                                    ]}
-                                                    start={{ x: 0.12, y: 0.05 }}
-                                                    end={{ x: 1, y: 1 }}
-                                                    style={styles.menuItemGlass}
-                                                >
-                                                    <View style={styles.menuItemHighlight} />
-                                                    <Ionicons
-                                                        name={item.icon}
-                                                        size={14}
-                                                        color={Colors.textBlack}
-                                                        style={styles.menuItemIcon}
-                                                    />
-                                                    <Text style={styles.menuItemText}>{item.label}</Text>
-                                                </LinearGradient>
-                                            </BlurView>
-                                        </TouchableOpacity>
+                                        />
                                     </Animated.View>
                                 );
                             })}
@@ -557,7 +535,7 @@ export default function HomeScreen({
 
                 {/* 좌측 하단: 햄버거 */}
                 <View style={styles.menuArea}>
-                    <GlassButton size={60} onPress={toggleMenu}>
+                    <LiquidGlassButton size={60} onPress={toggleMenu}>
                         <Image
                             source={
                                 menuOpen
@@ -567,21 +545,21 @@ export default function HomeScreen({
                             style={styles.menuIcon}
                             resizeMode="contain"
                         />
-                    </GlassButton>
+                    </LiquidGlassButton>
                 </View>
 
                 {/* 우측 하단: 캘린더, 메모, 전체개체 */}
                 <View style={styles.rightButtonArea}>
-                    <GlassButton size={60} onPress={() => navigation.navigate("Calendar")}>
+                    <LiquidGlassButton size={60} onPress={() => navigation.navigate("Calendar")}>
                         <Image
                             source={require("../../assets/icons/calendar_icon.png")}
                             style={styles.calendarIcon}
                             resizeMode="contain"
                         />
-                    </GlassButton>
+                    </LiquidGlassButton>
 
                     {/* 일지 — 캘린더를 거치지 않고 당일 일지 작성 화면으로 바로 */}
-                    <GlassButton
+                    <LiquidGlassButton
                         size={60}
                         onPress={() => navigation.navigate("Calendar", { openDiary: true })}
                     >
@@ -590,9 +568,9 @@ export default function HomeScreen({
                             style={styles.diaryIcon}
                             resizeMode="contain"
                         />
-                    </GlassButton>
+                    </LiquidGlassButton>
 
-                    <GlassButton
+                    <LiquidGlassButton
                         size={70}
                         onPress={() => navigation.navigate("Garden")}
                     >
@@ -601,7 +579,7 @@ export default function HomeScreen({
                             style={styles.allIcon}
                             resizeMode="contain"
                         />
-                    </GlassButton>
+                    </LiquidGlassButton>
                 </View>
             </ImageBackground>
         </View>
@@ -1207,53 +1185,6 @@ function WaterBubble({ left }) {
     );
 }
 
-function GlassButton({ children, size = 62, onPress }) {
-    return (
-        <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={onPress}
-            style={[
-                styles.glassTouch,
-                {
-                    width: size,
-                    height: size,
-                    borderRadius: size / 2,
-                },
-            ]}
-        >
-            <BlurView
-                intensity={32}
-                tint="light"
-                style={[
-                    styles.glassBlur,
-                    {
-                        borderRadius: size / 2,
-                    },
-                ]}
-            >
-                <LinearGradient
-                    colors={[
-                        Glass.frost72,
-                        Glass.mist,
-                        Glass.mistSoft,
-                    ]}
-                    start={{ x: 0.15, y: 0.05 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[
-                        styles.glassGradient,
-                        {
-                            borderRadius: size / 2,
-                        },
-                    ]}
-                >
-                    <View style={styles.glassHighlight} />
-                    {children}
-                </LinearGradient>
-            </BlurView>
-        </TouchableOpacity>
-    );
-}
-
 const styles = StyleSheet.create({
     root: {
         flex: 1,
@@ -1484,84 +1415,7 @@ const styles = StyleSheet.create({
     menuItemWrapper: {
         marginBottom: Spacing.sm,
     },
-    menuItemTouch: {
-        width: 126,
-        height: 31,
-        borderRadius: Radius.lg,
-        overflow: "hidden",
-        shadowColor: Colors.textBlack,
-        shadowOpacity: 0.18,
-        shadowRadius: 7,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 5,
-    },
-    menuItemBlur: {
-        flex: 1,
-        borderRadius: Radius.lg,
-        overflow: "hidden",
-        borderWidth: 1,
-        borderColor: Glass.frost72,
-    },
-    menuItemGlass: {
-        flex: 1,
-        borderRadius: Radius.lg,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        borderWidth: 1,
-        borderColor: Glass.frost45,
-    },
-    menuItemHighlight: {
-        position: "absolute",
-        top: 4,
-        left: 10,
-        width: 34,
-        height: 8,
-        borderRadius: Radius.pill,
-        backgroundColor: Glass.frost60,
-    },
-    menuItemIcon: {
-        marginRight: Spacing.xs,
-    },
-    menuItemText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.textBlack,
-        textShadowColor: Glass.frost60,
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 0,
-    },
 
-    glassTouch: {
-        overflow: "hidden",
-        shadowColor: GreenTint.deep,
-        shadowOpacity: 0.2,
-        shadowRadius: 7,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 6,
-    },
-    glassBlur: {
-        flex: 1,
-        overflow: "hidden",
-        borderWidth: 1,
-        borderColor: Glass.frost72,
-    },
-    glassGradient: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        borderWidth: 1,
-        borderColor: Glass.frost45,
-    },
-    glassHighlight: {
-        position: "absolute",
-        top: 9,
-        left: 12,
-        width: "38%",
-        height: "20%",
-        borderRadius: Radius.pill,
-        backgroundColor: Glass.frost60,
-    },
 
     weatherIcon: {
         width: 40,
