@@ -121,6 +121,8 @@ export default function SettingsScreen({
     const [draftName, setDraftName] = useState(username);
     const [isSavingName, setIsSavingName] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deletePassword, setDeletePassword] = useState("");
 
     // 위치 — 위치 변경 화면에서 돌아올 때마다 최신값으로 갱신
     const [homeLocation, setHomeLocation] = useState<string | null>(null);
@@ -271,9 +273,13 @@ export default function SettingsScreen({
         if (isDeletingAccount) return;
         setIsDeletingAccount(true);
         try {
-            await deleteMe();
+            await deleteMe(deletePassword);
+            setDeletePassword("");
+            setShowDeleteConfirm(false);
             onLogout?.();
         } catch (e: any) {
+            // 비밀번호가 틀리면 서버가 401을 준다 — 입력만 비우고 창은 열어 둔다
+            setDeletePassword("");
             Alert.alert("계정 삭제 실패", e?.message ?? "다시 시도해주세요.");
         } finally {
             setIsDeletingAccount(false);
@@ -281,7 +287,7 @@ export default function SettingsScreen({
     };
 
     const deleteAccount = () => {
-        if (isDeletingAccount) return;
+        if (isDeletingAccount || !deletePassword) return;
         Alert.alert(
             "계정 삭제",
             "정말로 계정을 삭제하시겠어요?\n모든 데이터가 삭제되며 복구할 수 없습니다.",
@@ -375,15 +381,59 @@ export default function SettingsScreen({
 
                             <TouchableOpacity
                                 style={styles.row}
-                                onPress={deleteAccount}
+                                onPress={() => {
+                                    setShowDeleteConfirm(!showDeleteConfirm);
+                                    setDeletePassword("");
+                                }}
                                 activeOpacity={0.75}
                                 disabled={isDeletingAccount}
                             >
                                 <Text style={styles.deleteLabel}>
                                     {isDeletingAccount ? "계정 삭제 중" : "계정 삭제"}
                                 </Text>
-                                <Ionicons name="chevron-forward" size={18} color={Colors.remove} />
+                                <Ionicons
+                                    name={showDeleteConfirm ? "chevron-up" : "chevron-down"}
+                                    size={18}
+                                    color={Colors.remove}
+                                />
                             </TouchableOpacity>
+
+                            {/* 되돌릴 수 없는 작업이라 본인 확인으로 비밀번호를 다시 받는다 */}
+                            {showDeleteConfirm && (
+                                <View style={styles.deleteConfirmArea}>
+                                    <Text style={styles.deleteWarning}>
+                                        계정을 삭제하면 등록한 개체와 돌봄 기록,
+                                        상담 내역이 모두 사라지고 되돌릴 수 없어요.
+                                    </Text>
+                                    <TextInput
+                                        style={styles.deleteInput}
+                                        placeholder="비밀번호를 입력해주세요"
+                                        placeholderTextColor={Colors.textFaint}
+                                        value={deletePassword}
+                                        onChangeText={setDeletePassword}
+                                        secureTextEntry
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        editable={!isDeletingAccount}
+                                        returnKeyType="done"
+                                        onSubmitEditing={deleteAccount}
+                                    />
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.deleteSubmitBtn,
+                                            (!deletePassword || isDeletingAccount) &&
+                                                styles.deleteSubmitBtnDisabled,
+                                        ]}
+                                        onPress={deleteAccount}
+                                        activeOpacity={0.82}
+                                        disabled={!deletePassword || isDeletingAccount}
+                                    >
+                                        <Text style={styles.deleteSubmitText}>
+                                            {isDeletingAccount ? "삭제 중" : "계정 삭제하기"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
                         </View>
 
                         {/* ── 위치 ──────────────────────────── */}
@@ -775,6 +825,45 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
         color: Colors.remove,
+        includeFontPadding: false,
+    },
+
+    deleteConfirmArea: {
+        gap: Spacing.md,
+        paddingBottom: Spacing.md,
+    },
+    deleteWarning: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textFaint,
+        lineHeight: 20,
+        includeFontPadding: false,
+    },
+    deleteInput: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        backgroundColor: Colors.background,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: GreenTint.soft,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.md,
+        includeFontPadding: false,
+    },
+    deleteSubmitBtn: {
+        backgroundColor: Colors.remove,
+        borderRadius: Radius.md,
+        paddingVertical: Spacing.md,
+        alignItems: "center",
+    },
+    deleteSubmitBtnDisabled: {
+        backgroundColor: GreenTint.soft,
+    },
+    deleteSubmitText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.white,
         includeFontPadding: false,
     },
 

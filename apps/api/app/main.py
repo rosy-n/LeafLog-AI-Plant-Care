@@ -40,6 +40,7 @@ from .models import (
     WeatherLog,
 )
 from .schemas import (
+    AccountDeleteRequest,
     AffinityAward,
     AffinityStatus,
     AvailabilityResponse,
@@ -1824,15 +1825,26 @@ def update_me(
 
 @app.delete("/auth/me", status_code=status.HTTP_204_NO_CONTENT)
 def delete_me(
+    payload: AccountDeleteRequest,
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
     """계정 삭제 — 설정 화면의 "계정 삭제". 사용자와 그가 만든 데이터를 전부 지운다.
 
-    delete_consultation 과 같은 이유로 DB의 ON DELETE CASCADE 에 기대지 않고
-    자식 테이블부터 명시적으로 지운다 — SQLite 기본 설정은 외래키 제약을 강제하지
+    되돌릴 수 없고 토큰만 있으면 실행되는 요청이라, 로그인 비밀번호를 다시 받아
+    본인임을 확인한 뒤에 지운다.
+
+    삭제는 delete_consultation 과 같은 이유로 DB의 ON DELETE CASCADE 에 기대지 않고
+    자식 테이블부터 명시적으로 한다 — SQLite 기본 설정은 외래키 제약을 강제하지
     않아 사용자만 지우면 개체·기록이 고아로 남는다.
     """
+    # 로그인과 같은 판정 — 비밀번호가 없는 계정(소셜 로그인 등)은 여기서 걸러진다
+    if not current_user.password_hash or not verify_password(payload.password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="비밀번호가 올바르지 않습니다.",
+        )
+
     user_id = current_user.user_id
 
     plant_ids = list(db.scalars(select(Plant.plant_id).where(Plant.user_id == user_id)))

@@ -540,10 +540,12 @@ export function updateMe(body: { nickname: string }) {
 }
 
 // 계정 삭제 — 개체·돌봄 기록·상담 내역까지 서버에서 함께 지워지고 되돌릴 수 없다.
+// 본인 확인용으로 로그인 비밀번호를 다시 보낸다 (틀리면 401).
 // 성공하면 토큰이 가리키는 사용자가 사라지므로 호출한 쪽에서 로그아웃 처리를 해야 한다.
-export function deleteMe() {
+export function deleteMe(password: string) {
   return request<null>("/auth/me", {
     method: "DELETE",
+    body: JSON.stringify({ password }),
   });
 }
 

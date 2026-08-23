@@ -61,6 +61,16 @@ class UserUpdate(BaseModel):
         return nickname
 
 
+class AccountDeleteRequest(BaseModel):
+    """계정 삭제 확인 — 되돌릴 수 없는 작업이라 로그인 비밀번호를 다시 받는다.
+
+    저장된 해시와 대조만 하므로 회원가입 같은 형식 검사는 하지 않는다
+    (규칙이 바뀌기 전에 가입한 비밀번호도 통과해야 한다).
+    """
+
+    password: str = Field(min_length=1, max_length=128)
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str
