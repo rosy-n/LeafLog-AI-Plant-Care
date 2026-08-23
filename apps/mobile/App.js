@@ -270,6 +270,7 @@ export default function MainApp({ user, onLogout }) {
                     {(props) => (
                         <HomeScreen
                             {...props}
+                            plants={plants}
                             hasUnread={notices.some((n) => n.urgent)}
                             urgentCount={notices.filter((n) => n.urgent).length}
                         />

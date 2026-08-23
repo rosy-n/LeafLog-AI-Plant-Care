@@ -18,6 +18,8 @@ import { Spacing, Radius } from "../../constants/spacing";
 import { getCurrentEnvironment } from "../api";
 // 홈 배경은 고정이다 — 꾸미기로 바뀌는 배경은 개체탭(PlantDetailScreen) 것이다
 import { BACKGROUND_IMAGES, HOME_BACKGROUND_KEY } from "../data/decor";
+// 캐릭터 이미지가 아직 S3에 없을 때의 번들 fallback (PlantImage 와 같은 출처)
+import { plantImages } from "../data/plants";
 
 const WEATHER_ICONS = {
     "맑음": require("../../assets/icons/sunny_icon.png"),
@@ -49,57 +51,57 @@ const FIELD_BOUNDS = {
     store_bg2: { top: "36%", bottom: "8%" },
 };
 
+// 들판에 동시에 세울 수 있는 개체 수 — 이보다 많으면 서로 겹쳐서 누가 누군지 알 수 없다
+const MAX_FIELD_PLANTS = 7;
+
 /*
-    들판을 돌아다니는 식물 5개.
+    들판 자리 7개. 개체가 아니라 "자리"라서 어떤 식물이 뽑히든 같은 배치를 쓴다.
     startFx / startFy 는 들판 영역 안에서의 첫 위치(가로/세로 비율) —
     이후에는 무작위 목표 지점을 뽑아 스스로 이동한다.
+    앞의 5자리는 예전 배치를 그대로 둬서, 개체가 5개 이하일 때 보이던 모습이 유지된다.
 */
-const FIELD_PLANTS = [
-    {
-        key: "rubber",
-        source: require("../../assets/plants/rubber.png"),
-        width: 150,
-        height: 150,
-        startFx: 0.04,
-        startFy: 0.06,
-    },
-    {
-        key: "sansevieria",
-        source: require("../../assets/plants/sansevieria.png"),
-        width: 145,
-        height: 165,
-        startFx: 0.36,
-        startFy: 0,
-    },
-    {
-        key: "spaghetti",
-        source: require("../../assets/plants/spaghetti.png"),
-        width: 160,
-        height: 160,
-        startFx: 0.7,
-        startFy: 0.06,
-    },
-    {
-        key: "pachira",
-        source: require("../../assets/plants/pachira.png"),
-        width: 175,
-        height: 175,
-        startFx: 0.14,
-        startFy: 0.55,
-    },
-    {
-        key: "myeongrani",
-        source: require("../../assets/plants/myeongrani.png"),
-        width: 180,
-        height: 180,
-        startFx: 0.55,
-        startFy: 0.5,
-    },
+const FIELD_SLOTS = [
+    { width: 150, height: 150, startFx: 0.04, startFy: 0.06 },
+    { width: 145, height: 165, startFx: 0.36, startFy: 0 },
+    { width: 160, height: 160, startFx: 0.7,  startFy: 0.06 },
+    { width: 175, height: 175, startFx: 0.14, startFy: 0.55 },
+    { width: 180, height: 180, startFx: 0.55, startFy: 0.5 },
+    { width: 150, height: 150, startFx: 0.82, startFy: 0.42 },
+    { width: 150, height: 150, startFx: 0.34, startFy: 0.82 },
 ];
 
 /*
+    들판에 세울 개체를 고른다.
+
+    물 줄 때가 된 개체가 먼저다 — 홈을 열었을 때 손이 필요한 식물이 눈에 들어와야 한다.
+    (기준은 정원탭 배지·알림과 같은 daysUntilWatering <= 0)
+    남는 자리는 즐겨찾기로 채우고, 물 줄 개체가 없으면 즐겨찾기만 보인다.
+    떠나보낸 개체(추모정원)는 들판에 세우지 않는다.
+*/
+function selectFieldPlants(plants) {
+    const alive = plants.filter((plant) => !plant.memorial);
+
+    const needsWater = alive
+        .filter((plant) => plant.daysUntilWatering != null && plant.daysUntilWatering <= 0)
+        // 더 오래 밀린 개체부터
+        .sort((a, b) => a.daysUntilWatering - b.daysUntilWatering);
+
+    const picked = needsWater.slice(0, MAX_FIELD_PLANTS);
+    const pickedIds = new Set(picked.map((plant) => plant.id));
+
+    if (picked.length < MAX_FIELD_PLANTS) {
+        const favorites = alive
+            .filter((plant) => plant.favorite && !pickedIds.has(plant.id))
+            .sort((a, b) => Number(a.id) - Number(b.id));
+        picked.push(...favorites.slice(0, MAX_FIELD_PLANTS - picked.length));
+    }
+
+    return picked;
+}
+
+/*
     한 번의 "통통" — 살짝 떠올라 앞으로 나아가고, 착지할 때 눌린다.
-    5마리가 동시에 움직이면 쉽게 산만해져서, 한 번의 점프를 느리게 하고
+    여러 마리가 동시에 움직이면 쉽게 산만해져서, 한 번의 점프를 느리게 하고
     점프 사이·목표 도착 후에 충분히 쉬게 잡았다. 대부분의 순간에는
     한두 마리만 움직이고 나머지는 제자리에서 숨만 쉬는 상태가 된다.
 */
@@ -120,6 +122,7 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 export default function HomeScreen({
     navigation,
+    plants = [],
     hasUnread = false,
     urgentCount = 0,
 }) {
@@ -127,6 +130,8 @@ export default function HomeScreen({
     const [menuOpen, setMenuOpen] = useState(false);
     const [environment, setEnvironment] = useState(null);
     const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 });
+
+    const fieldPlants = useMemo(() => selectFieldPlants(plants), [plants]);
 
     const menuAnimations = useRef(
         HOME_MENU_ITEMS.map(() => new Animated.Value(0))
@@ -256,7 +261,7 @@ export default function HomeScreen({
                 </View>
 
                 {/*
-                    식물 5개 — 초록 들판 영역 안에서만 통통 뛰어다닌다.
+                    선택된 개체(최대 7개) — 초록 들판 영역 안에서만 통통 뛰어다닌다.
                     영역 크기를 알아야 이동 범위를 정할 수 있어서 onLayout 이후에 렌더한다.
                     pointerEvents="none": 메뉴 열림 상태에서 들판을 탭하면 메뉴가 닫히도록
                     터치를 아래 오버레이로 통과시킨다.
@@ -277,18 +282,27 @@ export default function HomeScreen({
                     }}
                 >
                     {fieldSize.width > 0 &&
-                        FIELD_PLANTS.map((plant, index) => (
-                            <WanderingPlant
-                                key={plant.key}
-                                source={plant.source}
-                                width={plant.width}
-                                height={plant.height}
-                                startFx={plant.startFx}
-                                startFy={plant.startFy}
-                                field={fieldSize}
-                                startDelay={index * 260}
-                            />
-                        ))}
+                        fieldPlants.map((plant, index) => {
+                            const slot = FIELD_SLOTS[index];
+                            return (
+                                <WanderingPlant
+                                    key={plant.id}
+                                    // 캐릭터 이미지 해석은 PlantImage 와 같은 규칙 —
+                                    // S3 URL 이 있으면 원격, 없으면 번들 fallback
+                                    source={
+                                        plant.imageUri
+                                            ? { uri: plant.imageUri }
+                                            : plantImages[plant.imageKey ?? "spaghetti"]
+                                    }
+                                    width={slot.width}
+                                    height={slot.height}
+                                    startFx={slot.startFx}
+                                    startFy={slot.startFy}
+                                    field={fieldSize}
+                                    startDelay={index * 260}
+                                />
+                            );
+                        })}
                 </View>
 
                 {/* 햄버거 메뉴 팝업 */}
@@ -551,7 +565,7 @@ function WanderingPlant({ source, width, height, field, startFx, startFy, startD
             });
         };
 
-        // 5개가 한 박자로 움직이지 않게 시작 시점을 넓게 흩뿌린다
+        // 개체들이 한 박자로 움직이지 않게 시작 시점을 넓게 흩뿌린다
         timer = setTimeout(hop, startDelay + randomBetween(0, 1600));
 
         return () => {
