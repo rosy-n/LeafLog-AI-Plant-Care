@@ -28,6 +28,9 @@ const WEATHER_ICONS = {
     "눈": require("../../assets/icons/snow_icon.png"),
 };
 
+// 말풍선 안에 넣는 물방울 — 앱 전체가 쓰는 도트 물방울 아이콘
+const WATER_DROP_ICON = require("../../assets/icons/water_icon.png");
+
 const AIR_QUALITY_ICONS = {
     "좋음": require("../../assets/icons/air_good_icon.png"),
     "보통": require("../../assets/icons/air_moderate_icon.png"),
@@ -70,11 +73,15 @@ const FIELD_SLOTS = [
     { width: 150, height: 150, startFx: 0.34, startFy: 0.82 },
 ];
 
+// 물 줄 때가 됐는가 — 정원탭 배지·알림(careNotices)과 같은 기준.
+// 들판에 세울 개체를 고를 때와 말풍선을 띄울 때가 어긋나지 않게 한 곳에 둔다.
+const needsWatering = (plant) =>
+    plant.daysUntilWatering != null && plant.daysUntilWatering <= 0;
+
 /*
     들판에 세울 개체를 고른다.
 
     물 줄 때가 된 개체가 먼저다 — 홈을 열었을 때 손이 필요한 식물이 눈에 들어와야 한다.
-    (기준은 정원탭 배지·알림과 같은 daysUntilWatering <= 0)
     남는 자리는 즐겨찾기로 채우고, 물 줄 개체가 없으면 즐겨찾기만 보인다.
     떠나보낸 개체(추모정원)는 들판에 세우지 않는다.
 */
@@ -82,7 +89,7 @@ function selectFieldPlants(plants) {
     const alive = plants.filter((plant) => !plant.memorial);
 
     const needsWater = alive
-        .filter((plant) => plant.daysUntilWatering != null && plant.daysUntilWatering <= 0)
+        .filter(needsWatering)
         // 더 오래 밀린 개체부터
         .sort((a, b) => a.daysUntilWatering - b.daysUntilWatering);
 
@@ -116,6 +123,54 @@ const REST_MIN_MS = 2200;  // 목표 지점 도착 후 쉬는 시간
 const REST_MAX_MS = 5200;
 // 한 번에 멀리 가지 않는다 — 들판을 횡단하듯 오래 뛰는 대신 근처를 어슬렁거린다
 const TRIP_RANGE = 110;
+
+/*
+    물 줄 때가 된 개체 머리 위의 도트 말풍선 치수.
+
+    DOT 한 칸이 도트 하나다 — 모든 치수를 이 배수로 잡아야 각진 모서리가 어긋나지 않는다.
+    말풍선은 이미지 한 장이 아니라 사각형 View 를 쌓아서 만든다(WaterBubble 참고).
+*/
+const BUBBLE_DOT = 4;                                      // 도트 한 칸
+const BUBBLE_SIZE = BUBBLE_DOT * 10;                       // 몸통 10칸 정사각 = 40
+const BUBBLE_DROP = BUBBLE_DOT * 6;                        // 안에 들어가는 물방울 자리
+const BUBBLE_CAP_INSET = BUBBLE_DOT * 2;                   // 위/아래 뚜껑이 들어간 깊이
+const BUBBLE_TAIL_LEFT = BUBBLE_SIZE / 2 - BUBBLE_DOT * 2; // 꼬리를 몸통 가운데 아래에
+const BUBBLE_TAIL_H = BUBBLE_DOT * 3;                      // 꼬리 3칸
+const BUBBLE_H = BUBBLE_SIZE + BUBBLE_TAIL_H;
+
+/*
+    몸통 옆면의 도트 띠 — [들여쓴 칸 수, 띠의 칸 수].
+    위 뚜껑 1칸 + 옆면 8칸 + 아래 뚜껑 1칸 = 10칸.
+    들여쓰기가 1→0 한 단만 풀려서 모서리가 두 칸짜리 계단이 된다 —
+    각진 사각형보다는 둥글고, 원형까지는 가지 않는 중간 정도.
+
+    들여쓰기는 한 칸씩만 줄여야 한다 — 두 칸을 건너뛰면 위 띠의 외곽선이
+    아래 띠의 흰 속을 덮지 못해 모서리에 구멍이 뚫린다(잔디가 비친다).
+*/
+const BUBBLE_BANDS = [
+    { inset: 1, dots: 1 },
+    { inset: 0, dots: 6 },
+    { inset: 1, dots: 1 },
+];
+
+// 띠의 위치·크기는 렌더마다 계산하지 않고 도트 격자에서 미리 잡아 둔다
+const BUBBLE_WALLS = (() => {
+    const walls = [];
+    let dot = 1; // 0번 칸은 위 뚜껑 자리
+    for (const band of BUBBLE_BANDS) {
+        walls.push({
+            top: dot * BUBBLE_DOT,
+            left: band.inset * BUBBLE_DOT,
+            width: BUBBLE_SIZE - band.inset * BUBBLE_DOT * 2,
+            height: band.dots * BUBBLE_DOT,
+        });
+        dot += band.dots;
+    }
+    return walls;
+})();
+// 꼬리 끝이 캐릭터 상자 안으로 이만큼 들어간다 — 도트 그림의 위쪽 투명 여백(12~18%)을
+// 고려한 값이라, 잎에 닿지 않으면서도 머리에서 떠 보이지 않는다
+const BUBBLE_OVERLAP = 12;
 
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
@@ -300,6 +355,7 @@ export default function HomeScreen({
                                     startFy={slot.startFy}
                                     field={fieldSize}
                                     startDelay={index * 260}
+                                    needsWater={needsWatering(plant)}
                                 />
                             );
                         })}
@@ -434,7 +490,16 @@ export default function HomeScreen({
     도착하면 잠깐 쉬었다가 새 목표 지점을 뽑는다.
     모든 애니메이션은 네이티브 드라이버로 돌린다.
 */
-function WanderingPlant({ source, width, height, field, startFx, startFy, startDelay }) {
+function WanderingPlant({
+    source,
+    width,
+    height,
+    field,
+    startFx,
+    startFy,
+    startDelay,
+    needsWater = false,
+}) {
     // 이미지가 들판 밖으로 새지 않도록 크기만큼 뺀 이동 가능 범위
     const maxX = Math.max(0, field.width - width);
     const maxY = Math.max(0, field.height - height);
@@ -596,8 +661,13 @@ function WanderingPlant({ source, width, height, field, startFx, startFy, startD
         return () => loop.stop();
     }, []);
 
-    // transform 노드는 한 번만 만든다 — depth 변경으로 리렌더될 때 애니메이션이 끊기지 않게
-    const transform = useMemo(
+    /*
+        transform 노드는 한 번만 만든다 — depth 변경으로 리렌더될 때 애니메이션이 끊기지 않게.
+
+        이동·점프는 바깥(개체 전체)에, 방향 전환과 눌림은 이미지에만 얹는다.
+        한 덩어리로 두면 말풍선까지 좌우로 뒤집히고 착지할 때 함께 찌그러진다.
+    */
+    const moveTransform = useMemo(
         () => [
             ...position.getTranslateTransform(),
             {
@@ -606,6 +676,12 @@ function WanderingPlant({ source, width, height, field, startFx, startFy, startD
                     outputRange: [0, -HOP_HEIGHT],
                 }),
             },
+        ],
+        []
+    );
+
+    const bodyTransform = useMemo(
+        () => [
             { scaleX: facing },
             { scaleY: squash },
             {
@@ -619,11 +695,62 @@ function WanderingPlant({ source, width, height, field, startFx, startFy, startD
     );
 
     return (
-        <Animated.Image
-            source={source}
-            resizeMode="contain"
-            style={[styles.fieldPlant, { width, height, zIndex: depth, transform }]}
-        />
+        <Animated.View
+            style={[
+                styles.fieldPlant,
+                { width, height, zIndex: depth, transform: moveTransform },
+            ]}
+        >
+            {needsWater && (
+                // 캐릭터 상자 가운데 위 — 도트 그림은 상자 안에서 가로 중앙에 놓인다
+                <WaterBubble left={(width - BUBBLE_SIZE) / 2} />
+            )}
+            <Animated.Image
+                source={source}
+                resizeMode="contain"
+                style={{ width, height, transform: bodyTransform }}
+            />
+        </Animated.View>
+    );
+}
+
+/*
+    도트 말풍선 — "물 주세요".
+
+    이미지 한 장이 아니라 사각형 View 를 도트 격자에 쌓아 만든다.
+    잔디가 비쳐야 하니 모서리를 배경색 사각형으로 덮을 수 없어서, 외곽선을
+    가로 띠로 나눠 그린다 — 각 띠의 좌우 보더가 옆면 외곽선이 되고, 띠마다
+    한 칸씩 들여써서(BUBBLE_BANDS) 모서리가 계단처럼 깎인다.
+    위/아래 뚜껑이 그 띠들의 천장과 바닥을 막고, 아래 뚜껑만 꼬리가 붙는
+    두 칸을 비워서 말풍선 속과 꼬리 속이 이어지게 한다.
+*/
+function WaterBubble({ left }) {
+    return (
+        <View style={[styles.bubble, { left }]} pointerEvents="none">
+            {/* 옆면 띠 — 좌우 외곽선 + 흰 속 */}
+            {BUBBLE_WALLS.map((wall, index) => (
+                <View key={index} style={[styles.bubbleWall, wall]} />
+            ))}
+
+            {/* 위 뚜껑 */}
+            <View style={styles.bubbleCapTop} />
+            {/* 아래 뚜껑 — 꼬리가 붙는 두 칸을 비워 둔 좌·우 토막 */}
+            <View style={styles.bubbleCapBottomLeft} />
+            <View style={styles.bubbleCapBottomRight} />
+            {/* 비워 둔 칸을 흰색으로 이어 준다 — 없으면 몸통과 꼬리 사이로 잔디가 비친다 */}
+            <View style={styles.bubbleMouth} />
+
+            {/* 꼬리 3칸 — 한 칸씩 좁아지며 왼쪽 아래를 가리킨다 */}
+            <View style={styles.bubbleTailTop} />
+            <View style={styles.bubbleTailMid} />
+            <View style={styles.bubbleTailTip} />
+
+            <Image
+                source={WATER_DROP_ICON}
+                style={styles.bubbleDrop}
+                resizeMode="contain"
+            />
+        </View>
     );
 }
 
@@ -740,6 +867,94 @@ const styles = StyleSheet.create({
         position: "absolute",
         left: 0,
         top: 0,
+    },
+
+    /*
+        도트 말풍선. 모든 조각은 말풍선 상자 기준의 절대 위치 —
+        한 칸(BUBBLE_DOT) 격자에 맞춰야 모서리와 꼬리의 단이 어긋나지 않는다.
+    */
+    bubble: {
+        position: "absolute",
+        top: -(BUBBLE_H - BUBBLE_OVERLAP),
+        width: BUBBLE_SIZE,
+        height: BUBBLE_H,
+    },
+    // 위치·크기는 BUBBLE_WALLS 가 도트 격자에서 계산해 얹는다
+    bubbleWall: {
+        position: "absolute",
+        backgroundColor: Colors.white,
+        borderLeftWidth: BUBBLE_DOT,
+        borderRightWidth: BUBBLE_DOT,
+        borderColor: Colors.textBlack,
+    },
+    bubbleDrop: {
+        position: "absolute",
+        top: (BUBBLE_SIZE - BUBBLE_DROP) / 2,
+        left: (BUBBLE_SIZE - BUBBLE_DROP) / 2,
+        width: BUBBLE_DROP,
+        height: BUBBLE_DROP,
+    },
+    bubbleCapTop: {
+        position: "absolute",
+        top: 0,
+        left: BUBBLE_CAP_INSET,
+        width: BUBBLE_SIZE - BUBBLE_CAP_INSET * 2,
+        height: BUBBLE_DOT,
+        backgroundColor: Colors.textBlack,
+    },
+    bubbleCapBottomLeft: {
+        position: "absolute",
+        top: BUBBLE_SIZE - BUBBLE_DOT,
+        left: BUBBLE_CAP_INSET,
+        width: BUBBLE_TAIL_LEFT + BUBBLE_DOT - BUBBLE_CAP_INSET,
+        height: BUBBLE_DOT,
+        backgroundColor: Colors.textBlack,
+    },
+    bubbleCapBottomRight: {
+        position: "absolute",
+        top: BUBBLE_SIZE - BUBBLE_DOT,
+        left: BUBBLE_TAIL_LEFT + BUBBLE_DOT * 3,
+        width: BUBBLE_SIZE - BUBBLE_CAP_INSET - BUBBLE_TAIL_LEFT - BUBBLE_DOT * 3,
+        height: BUBBLE_DOT,
+        backgroundColor: Colors.textBlack,
+    },
+    bubbleMouth: {
+        position: "absolute",
+        top: BUBBLE_SIZE - BUBBLE_DOT,
+        left: BUBBLE_TAIL_LEFT + BUBBLE_DOT,
+        width: BUBBLE_DOT * 2,
+        height: BUBBLE_DOT,
+        backgroundColor: Colors.white,
+    },
+    bubbleTailTop: {
+        position: "absolute",
+        top: BUBBLE_SIZE,
+        left: BUBBLE_TAIL_LEFT,
+        width: BUBBLE_DOT * 4,
+        height: BUBBLE_DOT,
+        backgroundColor: Colors.white,
+        borderLeftWidth: BUBBLE_DOT,
+        borderRightWidth: BUBBLE_DOT,
+        borderColor: Colors.textBlack,
+    },
+    bubbleTailMid: {
+        position: "absolute",
+        top: BUBBLE_SIZE + BUBBLE_DOT,
+        left: BUBBLE_TAIL_LEFT,
+        width: BUBBLE_DOT * 3,
+        height: BUBBLE_DOT,
+        backgroundColor: Colors.white,
+        borderLeftWidth: BUBBLE_DOT,
+        borderRightWidth: BUBBLE_DOT,
+        borderColor: Colors.textBlack,
+    },
+    bubbleTailTip: {
+        position: "absolute",
+        top: BUBBLE_SIZE + BUBBLE_DOT * 2,
+        left: BUBBLE_TAIL_LEFT,
+        width: BUBBLE_DOT * 2,
+        height: BUBBLE_DOT,
+        backgroundColor: Colors.textBlack,
     },
 
     menuArea: {
