@@ -715,3 +715,33 @@ CREATE TABLE notification (
 
     created_at          TIMESTAMP DEFAULT now()
 );
+
+
+-- =========================================================
+-- 8. 고객 문의
+-- =========================================================
+-- 설정 화면의 "문의하기"로 들어온 내용을 쌓아둔다.
+-- 답변은 아직 앱에서 보여주지 않는다 — 운영자가 이 표에서 사용자 이메일을
+-- 확인해 메일로 회신하는 흐름이다. 그래서 answer 칼럼을 두지 않았다.
+-- (앱에서 답변까지 보여주려면 answer / answered_at 을 추가하고, 운영자가
+--  값을 넣을 창구(어드민 API 등)를 함께 만들어야 한다. 쓰는 곳 없이 칼럼만
+--  만들어두면 영영 비어 있는 칸이 된다.)
+CREATE TABLE inquiry (
+    inquiry_id   BIGSERIAL PRIMARY KEY,
+
+    -- 탈퇴하면 문의도 함께 지운다
+    user_id      BIGINT NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+
+    -- 문의 본문. 앱에서 5~2000자로 제한한다
+    content      TEXT NOT NULL,
+
+    -- 운영자가 처리 여부를 표시하는 용도 (지금은 DB에서 직접 바꾼다)
+    status       VARCHAR(20) NOT NULL DEFAULT 'OPEN'
+                 CHECK (status IN ('OPEN', 'CLOSED')),
+
+    created_at   TIMESTAMP DEFAULT now(),
+    updated_at   TIMESTAMP DEFAULT now()
+);
+
+-- 최근 문의부터 훑는 것이 기본 조회라 내림차순 인덱스를 둔다
+CREATE INDEX idx_inquiry_created_at ON inquiry (created_at DESC);
