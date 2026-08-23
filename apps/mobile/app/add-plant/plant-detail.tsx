@@ -11,10 +11,12 @@ import { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
 import { getSpecies, type SpeciesDetail } from '../../src/api';
+import { useAddPlantFlow } from '../../src/AddPlantFlowContext';
 import { styles } from './styles/plant-detail.styles';
 
 export default function PlantDetailScreen() {
   const router = useRouter();
+  const { updateDraft } = useAddPlantFlow();
   const { speciesId, commonNameKo, scientificName } = useLocalSearchParams<{
     speciesId: string;
     commonNameKo: string;
@@ -55,16 +57,14 @@ export default function PlantDetailScreen() {
   const images = detail?.image_url ? [detail.image_url] : [];
 
   const handleConfirm = () => {
+    updateDraft({
+      speciesId: speciesId ? Number(speciesId) : null,
+      commonNameKo: detail?.common_name_ko ?? commonNameKo ?? '',
+      scientificName: detail?.scientific_name ?? scientificName ?? null,
+      speciesImageUrl: detail?.image_url ?? null,
+    });
     router.push({
-      pathname: '/add-plant/character',
-      params: {
-        speciesId: speciesId ?? '',
-        commonNameKo: detail?.common_name_ko ?? commonNameKo ?? '',
-        scientificName: detail?.scientific_name ?? scientificName ?? '',
-        // 뒤 단계(info)의 헤더 이미지로 쓰인다
-        imageUrl: detail?.image_url ?? '',
-        source: 'search',
-      },
+      pathname: '/add-plant/info',
     });
   };
 

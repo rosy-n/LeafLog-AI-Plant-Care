@@ -42,7 +42,7 @@ By default the API uses local SQLite at `apps/api/leaflog.db` so the login flow 
 For PostgreSQL, set `DATABASE_URL`.
 
 ```bash
-DATABASE_URL=postgresql://leaflog_user:비밀번호@100.70.205.63:5432/leaflog
+DATABASE_URL=postgresql://leaflog_user:비밀번호@<database-host>:5432/leaflog
 ```
 
 The code normalizes this to SQLAlchemy's `postgresql+psycopg://` driver internally.

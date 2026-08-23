@@ -32,6 +32,8 @@ export type PlantListItem = {
   is_favorite: boolean;
   status: string;
   character_image_url: string | null;
+  character_face_removed: boolean;
+  character_face_bounds: [number, number, number, number] | null;
   persona: string | null;
   created_at: string;
   // 물주기 일정 요약 — 알림 목록·배지·알림 재예약이 개체마다 조회하지 않도록 함께 온다
@@ -83,6 +85,7 @@ export type CharacterGenerationCandidate = {
   image_url: string;
   checksum: string;
   seed: number;
+  face_bounds: [number, number, number, number] | null;
 };
 
 export type CharacterGenerationJob = {
@@ -316,6 +319,8 @@ export type PlantDetail = {
   height: string | null;
   is_favorite: boolean;
   character_image_url: string | null;
+  character_face_removed: boolean;
+  character_face_bounds: [number, number, number, number] | null;
   persona: string | null;
   started_at: string | null;
   created_at: string;

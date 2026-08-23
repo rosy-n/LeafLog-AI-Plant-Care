@@ -22,6 +22,8 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Paper, Leaf, Accent, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
+import { getPlantExpressionSource } from "../data/characterExpressions";
+import { accessorySpriteBundle } from "../data/decor";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SKY_HEIGHT = 126;
@@ -56,7 +58,7 @@ function applySortFilter(plantList, sort, query) {
     return result;
 }
 
-export default function GardenScreen({ navigation, plants, setPlants, username, reloadPlants }) {
+export default function GardenScreen({ navigation, plants, setPlants, username, reloadPlants, decorations = {} }) {
     const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
     const searchAnim = useRef(new Animated.Value(0)).current;
 
@@ -312,13 +314,24 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
                             </Text>
                         </View>
                     }
-                    renderItem={({ item }) => (
-                        <View style={styles.card}>
-                            <TouchableOpacity
-                                activeOpacity={0.8}
-                                onPress={() => navigation.replace("PlantDetail", { plant: item })}
-                            >
-                                <PlantImage uri={item.imageUri} imageKey={item.imageKey} width={118} height={118} />
+                    renderItem={({ item }) => {
+                        const accessory = decorations[String(item.id)]?.accessory ?? null;
+                        return (
+                            <View style={styles.card}>
+                                <TouchableOpacity
+                                    activeOpacity={0.8}
+                                    onPress={() => navigation.replace("PlantDetail", { plant: item })}
+                                >
+                                    <PlantImage
+                                        uri={item.imageUri}
+                                        imageKey={item.imageKey}
+                                        expressionSource={item.characterFaceRemoved ? getPlantExpressionSource(item) : null}
+                                        expressionBounds={item.characterFaceBounds}
+                                        effectRemote={accessory?.spriteUrl ? { uri: accessory.spriteUrl } : null}
+                                        effectFallback={accessorySpriteBundle(accessory?.key)}
+                                        width={118}
+                                        height={118}
+                                    />
 
                                 {/*
                                     물 줄 때가 지난 개체 표시 — 알림을 놓쳤을 때의 안전망.
@@ -334,26 +347,27 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
                                         </Text>
                                     </View>
                                 ) : null}
-                            </TouchableOpacity>
-
-                            <View style={styles.nameRow}>
-                                <Text style={styles.plantName} numberOfLines={1}>
-                                    {item.name}
-                                </Text>
-                                <TouchableOpacity
-                                    activeOpacity={0.7}
-                                    onPress={() => toggleFavorite(item.id)}
-                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                >
-                                    <Text style={[styles.star, { color: item.favorite ? Leaf.gold : Colors.textFaint }]}>
-                                        ★
-                                    </Text>
                                 </TouchableOpacity>
-                            </View>
 
-                            <HeartsRow count={item.hearts} size={15} />
-                        </View>
-                    )}
+                                <View style={styles.nameRow}>
+                                    <Text style={styles.plantName} numberOfLines={1}>
+                                        {item.name}
+                                    </Text>
+                                    <TouchableOpacity
+                                        activeOpacity={0.7}
+                                        onPress={() => toggleFavorite(item.id)}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    >
+                                        <Text style={[styles.star, { color: item.favorite ? Leaf.gold : Colors.textFaint }]}>
+                                            ★
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                <HeartsRow count={item.hearts} size={15} />
+                            </View>
+                        );
+                    }}
                 />
 
                 <LiquidGlassButton

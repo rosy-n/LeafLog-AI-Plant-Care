@@ -38,13 +38,17 @@ import {
     personaChat,
     getPlantAffinity,
     petPlant,
+    getPlant,
 } from "../api";
 import { accessorySpriteBundle, backgroundSource } from "../data/decor";
-import DecorImage from "../components/DecorImage";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper, Pink } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { getPersonaGreeting, getPersonaWateringLine } from "../../constants/persona-greetings";
+import {
+    CHARACTER_EXPRESSION_KEYS,
+    getPlantExpressionSource,
+} from "../data/characterExpressions";
 
 const MENU_ITEMS = [
     { label: "프로필", screen: "Profile" },
@@ -101,8 +105,12 @@ const CHAT_FALLBACK_REPLY = "음... 지금은 대답하기 어려워. 잠시 후
 
 // 대화창 대사를 한 글자씩 타이핑하듯 보여주는 속도 (ConsultationStartScreen과 동일 값)
 const TYPING_CHAR_INTERVAL_MS = 35;
+const BLINK_CLOSED_MS = 140;
+const DOUBLE_BLINK_GAP_MS = 170;
+const BLINK_INTERVAL_MIN_MS = 3500;
+const BLINK_INTERVAL_MAX_MS = 6000;
 
-export default function PlantDetailScreen({ navigation, route, decorations }) {
+export default function PlantDetailScreen({ navigation, route, decorations, reloadPlants }) {
     const plant = route?.params?.plant;
     // 착용 중인 액세서리 — route 로 받은 식물 스냅샷이 아니라 App.js 의 맵에서 찾는다
     // (꾸미기 탭에서 바꾸고 돌아왔을 때 옛 값이 남지 않게).
@@ -110,7 +118,6 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
     const accessory = decoration?.accessory ?? null;
     const decorRemote = accessory?.spriteUrl ? { uri: accessory.spriteUrl } : null;
     const decorBundle = accessorySpriteBundle(accessory?.key);
-    const hasDecor = Boolean(decorRemote || decorBundle);
     // 개체탭 배경도 개체마다 다르다 — 고르지 않았으면 기본 배경
     const background = decoration?.background ?? null;
     const plantName = plant?.name ?? "스파게티";
@@ -118,6 +125,83 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
 
     // 물 준 후 지난 일수 → 좌측 상단 ResourceCounter(💧 D+N)에 표시
     const [wateringDays, setWateringDays] = useState(null);
+    const [daysUntilWatering, setDaysUntilWatering] = useState(plant?.daysUntilWatering ?? null);
+    const [plantStatus, setPlantStatus] = useState(plant?.status ?? "ALIVE");
+    const [characterPresentation, setCharacterPresentation] = useState(() => ({
+        imageUri: plant?.imageUri ?? null,
+        faceRemoved: plant?.characterFaceRemoved ?? false,
+        faceBounds: plant?.characterFaceBounds ?? null,
+    }));
+
+    useEffect(() => {
+        setCharacterPresentation({
+            imageUri: plant?.imageUri ?? null,
+            faceRemoved: plant?.characterFaceRemoved ?? false,
+            faceBounds: plant?.characterFaceBounds ?? null,
+        });
+        setPlantStatus(plant?.status ?? "ALIVE");
+        setDaysUntilWatering(plant?.daysUntilWatering ?? null);
+    }, [
+        plant?.id,
+        plant?.imageUri,
+        plant?.characterFaceRemoved,
+        plant?.characterFaceBounds,
+        plant?.status,
+        plant?.daysUntilWatering,
+    ]);
+
+    const [idleExpressionKey, setIdleExpressionKey] = useState(
+        CHARACTER_EXPRESSION_KEYS.DEFAULT,
+    );
+    const [transientExpressionKey, setTransientExpressionKey] = useState(null);
+    const petExpressionTimer = useRef(null);
+
+    useEffect(() => {
+        const timers = new Set();
+        let disposed = false;
+        const schedule = (callback, delay) => {
+            const timer = setTimeout(() => {
+                timers.delete(timer);
+                if (!disposed) callback();
+            }, delay);
+            timers.add(timer);
+        };
+        const openExpression = () => (
+            Math.random() < 0.35
+                ? CHARACTER_EXPRESSION_KEYS.IDLE_6
+                : CHARACTER_EXPRESSION_KEYS.DEFAULT
+        );
+        const scheduleNextBlink = () => {
+            const delay = BLINK_INTERVAL_MIN_MS
+                + Math.random() * (BLINK_INTERVAL_MAX_MS - BLINK_INTERVAL_MIN_MS);
+            schedule(playDoubleBlink, delay);
+        };
+        const playDoubleBlink = () => {
+            setIdleExpressionKey(CHARACTER_EXPRESSION_KEYS.IDLE_5);
+            schedule(() => setIdleExpressionKey(CHARACTER_EXPRESSION_KEYS.DEFAULT), BLINK_CLOSED_MS);
+            schedule(
+                () => setIdleExpressionKey(CHARACTER_EXPRESSION_KEYS.IDLE_5),
+                BLINK_CLOSED_MS + DOUBLE_BLINK_GAP_MS,
+            );
+            schedule(() => {
+                setIdleExpressionKey(openExpression());
+                scheduleNextBlink();
+            }, BLINK_CLOSED_MS * 2 + DOUBLE_BLINK_GAP_MS);
+        };
+        scheduleNextBlink();
+        return () => {
+            disposed = true;
+            timers.forEach(clearTimeout);
+        };
+    }, [plant?.id]);
+
+    useEffect(() => () => clearTimeout(petExpressionTimer.current), []);
+
+    const showPettedExpression = () => {
+        clearTimeout(petExpressionTimer.current);
+        setTransientExpressionKey(CHARACTER_EXPRESSION_KEYS.PETTED);
+        petExpressionTimer.current = setTimeout(() => setTransientExpressionKey(null), 2500);
+    };
 
     // 영양제 준 후 지난 일수 → 좌측 상단 ResourceCounter(✚ D+N)에 표시
     const [nutrientDays, setNutrientDays] = useState(null);
@@ -233,6 +317,7 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
             onPanResponderGrant: (event) => {
                 const { locationX, locationY } = event.nativeEvent;
                 spawnRubHeart(locationX, locationY);
+                showPettedExpression();
                 requestPetReward();
             },
             onPanResponderMove: (event) => {
@@ -312,6 +397,7 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                 if (mounted) {
                     setWateringDays(care.days_since_watering);
                     setNutrientDays(care.days_since_fertilizing);
+                    setDaysUntilWatering(care.days_until_watering);
                     pickIdleGreeting(care.days_until_watering);
                 }
             })
@@ -319,6 +405,7 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                 if (mounted) {
                     setWateringDays(null);
                     setNutrientDays(null);
+                    setDaysUntilWatering(plant?.daysUntilWatering ?? null);
                     pickIdleGreeting(null);
                 }
             });
@@ -332,16 +419,36 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
         useCallback(() => {
             const id = plant?.id;
             if (!id) return;
+            reloadPlants?.();
             let active = true;
             getPlantAffinity(Number(id))
                 .then((status) => {
                     if (active) setAffinity(status);
                 })
                 .catch((e) => console.warn("애정도 조회 실패:", e?.message));
+            getPlant(Number(id))
+                .then((detail) => {
+                    if (!active) return;
+                    setPlantStatus(detail.status);
+                    setCharacterPresentation({
+                        imageUri: detail.character_image_url,
+                        faceRemoved: detail.character_face_removed,
+                        faceBounds: detail.character_face_bounds,
+                    });
+                })
+                .catch((e) => console.warn("식물 상태 조회 실패:", e?.message));
+            getPlantCare(Number(id))
+                .then((care) => {
+                    if (!active) return;
+                    setWateringDays(care.days_since_watering);
+                    setNutrientDays(care.days_since_fertilizing);
+                    setDaysUntilWatering(care.days_until_watering);
+                })
+                .catch((e) => console.warn("돌봄 상태 조회 실패:", e?.message));
             return () => {
                 active = false;
             };
-        }, [plant?.id])
+        }, [plant?.id, reloadPlants])
     );
 
     // 얻은 점수를 하트 밑에 띄웠다가 사라지게 (0 = 오늘 이미 채웠거나 만점 → 표시 안 함)
@@ -469,6 +576,7 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                 const care = await getPlantCare(Number(id));
                 setWateringDays(care.days_since_watering);
                 setNutrientDays(care.days_since_fertilizing);
+                setDaysUntilWatering(care.days_until_watering);
                 // 물을 주면 다음 예정일이 밀리므로 알림도 다시 예약한다
                 scheduleWateringReminder(id, plantName, care.next_watering_date).catch(
                     (err) => console.warn("물주기 알림 예약 실패:", err?.message),
@@ -549,6 +657,11 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
         }
     };
 
+    const expressionSource = getPlantExpressionSource(
+        { ...plant, status: plantStatus, daysUntilWatering },
+        { idleKey: idleExpressionKey, transientKey: transientExpressionKey },
+    );
+
     return (
         <View style={styles.root}>
             <ImageBackground
@@ -615,20 +728,18 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                                 style={styles.plantTouchArea}
                                 {...rubResponder.panHandlers}
                             >
-                                {hasDecor ? (
-                                    <DecorImage
-                                        remote={decorRemote}
-                                        fallback={decorBundle}
-                                        style={styles.plantImage}
-                                    />
-                                ) : (
-                                    <PlantImage
-                                        uri={plant?.imageUri}
-                                        imageKey={plant?.imageKey ?? "spaghetti"}
-                                        width={PLANT_SIZE}
-                                        height={PLANT_SIZE}
-                                    />
-                                )}
+                                <PlantImage
+                                    uri={characterPresentation.imageUri}
+                                    imageKey={plant?.imageKey ?? "spaghetti"}
+                                    expressionSource={
+                                        characterPresentation.faceRemoved ? expressionSource : null
+                                    }
+                                    expressionBounds={characterPresentation.faceBounds}
+                                    effectRemote={decorRemote}
+                                    effectFallback={decorBundle}
+                                    width={PLANT_SIZE}
+                                    height={PLANT_SIZE}
+                                />
 
                                 {/* 손가락이 지나간 자리에서 떠오르는 하트 */}
                                 <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -846,20 +957,18 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                         >
                             {/* 캐릭터 — 가운데, 상단 영역 (남는 공간을 채우며 중앙 정렬) */}
                             <View style={styles.chatCharacterArea}>
-                                {hasDecor ? (
-                                    <DecorImage
-                                        remote={decorRemote}
-                                        fallback={decorBundle}
-                                        style={styles.chatCharacterImage}
-                                    />
-                                ) : (
-                                    <PlantImage
-                                        uri={plant?.imageUri}
-                                        imageKey={plant?.imageKey ?? "spaghetti"}
-                                        width={190}
-                                        height={190}
-                                    />
-                                )}
+                                <PlantImage
+                                    uri={characterPresentation.imageUri}
+                                    imageKey={plant?.imageKey ?? "spaghetti"}
+                                    expressionSource={
+                                        characterPresentation.faceRemoved ? expressionSource : null
+                                    }
+                                    expressionBounds={characterPresentation.faceBounds}
+                                    effectRemote={decorRemote}
+                                    effectFallback={decorBundle}
+                                    width={190}
+                                    height={190}
+                                />
                             </View>
 
                             {/* 내가 방금 보낸 말 — 대사창 위쪽에 살짝 겹쳐서(옛 NPC 게임의 대사 스택 느낌) */}

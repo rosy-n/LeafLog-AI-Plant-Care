@@ -137,6 +137,22 @@ def _enum_or_none(value: str | None, allowed: set[str]) -> str | None:
     return value if value in allowed else None
 
 
+def _face_bounds_from_checksum(checksum: str | None) -> tuple[int, int, int, int] | None:
+    if not checksum or not checksum.startswith("face-v1:"):
+        return None
+    try:
+        bounds_text = checksum.split(":", 2)[1]
+        bounds = tuple(int(value) for value in bounds_text.split(","))
+    except (ValueError, IndexError):
+        return None
+    if len(bounds) != 4:
+        return None
+    left, top, right, bottom = bounds
+    if not (0 <= left < right <= 2048 and 0 <= top < bottom <= 2048):
+        return None
+    return left, top, right, bottom
+
+
 def _object_key_from_url(url: str) -> str:
     """업로드된 S3 URL의 경로에서 object_key 추출.
     가상 호스팅 스타일(https://{bucket}.s3.{region}.amazonaws.com/{key}) 및 CDN 도메인 기준 —
@@ -145,17 +161,27 @@ def _object_key_from_url(url: str) -> str:
     return unquote(urlparse(url).path).lstrip("/")
 
 
-def _latest_character_url(plant_id: int, db: Session) -> str | None:
-    """개체의 가장 최근 CHARACTER_IMAGE에 대한 presigned URL (실패 시 raw file_url)."""
+def _latest_character_metadata(
+    plant_id: int,
+    db: Session,
+) -> tuple[str | None, bool, tuple[int, int, int, int] | None]:
+    """개체의 최신 캐릭터 URL과 얼굴 제거 좌표를 함께 반환한다."""
     row = db.execute(
-        select(MediaAsset.object_key, MediaAsset.file_url, MediaAsset.bucket_name)
+        select(
+            MediaAsset.object_key,
+            MediaAsset.file_url,
+            MediaAsset.bucket_name,
+            MediaAsset.checksum,
+        )
         .where(MediaAsset.plant_id == plant_id, MediaAsset.asset_type == "CHARACTER_IMAGE")
         .order_by(MediaAsset.created_at.desc())
         .limit(1)
     ).first()
     if row is None:
-        return None
-    return _asset_url(*row)
+        return None, False, None
+    object_key, file_url, bucket_name, checksum = row
+    bounds = _face_bounds_from_checksum(checksum)
+    return _asset_url(object_key, file_url, bucket_name), bounds is not None, bounds
 
 
 def _asset_url(
@@ -403,6 +429,11 @@ def create_tables() -> None:
     Base.metadata.create_all(bind=engine)
 
 
+@app.on_event("shutdown")
+def shutdown_character_generation() -> None:
+    character_generation_manager.shutdown()
+
+
 def get_current_user(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
@@ -456,6 +487,28 @@ def _image_error_response(exc: Exception) -> HTTPException:
     return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Image preprocessing failed.")
 
 
+def _character_job_response(job: CharacterGenerationJob) -> CharacterGenerationJobRead:
+    return CharacterGenerationJobRead(
+        id=job.id,
+        status=job.status,
+        progress=job.progress,
+        message=job.message,
+        current_candidate=job.current_candidate,
+        candidate_count=job.candidate_count,
+        candidates=[
+            CharacterCandidateRead(
+                id=candidate.id,
+                image_url=candidate.image_url,
+                checksum=candidate.checksum,
+                seed=candidate.seed,
+                face_bounds=candidate.face_bounds,
+            )
+            for candidate in job.candidates
+        ],
+        error=job.error,
+    )
+
+
 @app.post("/images/preprocess-plant", response_model=PlantImagePreprocessResponse)
 async def preprocess_plant_image(
     file: UploadFile = File(...),
@@ -501,6 +554,60 @@ async def remove_image_background(
         canvas_size=result.canvas_size,
         transparent_png_base64=result.transparent_png_base64,
     )
+
+
+@app.post("/images/remove-character-face", response_model=CharacterFaceRemovalResponse)
+async def remove_generated_character_face(
+    file: UploadFile = File(...),
+) -> CharacterFaceRemovalResponse:
+    image_bytes = await _read_image_upload(file)
+
+    try:
+        result = remove_character_face(image_bytes=image_bytes)
+    except Exception as exc:
+        raise _image_error_response(exc) from exc
+
+    return CharacterFaceRemovalResponse(
+        width=result.width,
+        height=result.height,
+        face_bounds=result.face_bounds,
+        face_removed_png_base64=result.face_removed_png_base64,
+    )
+
+
+@app.post(
+    "/api/character-generations",
+    response_model=CharacterGenerationJobRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def create_character_generation(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: AppUser = Depends(get_current_user),
+) -> CharacterGenerationJobRead:
+    image_bytes = await _read_image_upload(file)
+    public_base_url = settings.character_public_base_url or str(request.base_url).rstrip("/")
+    job = character_generation_manager.create_job(
+        user_id=current_user.user_id,
+        image_bytes=image_bytes,
+        public_base_url=public_base_url,
+    )
+    return _character_job_response(job)
+
+
+@app.get("/api/character-generations/{job_id}", response_model=CharacterGenerationJobRead)
+def get_character_generation(
+    job_id: str,
+    current_user: AppUser = Depends(get_current_user),
+) -> CharacterGenerationJobRead:
+    try:
+        job = character_generation_manager.get_job(job_id, current_user.user_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="캐릭터 생성 작업을 찾을 수 없습니다.",
+        ) from None
+    return _character_job_response(job)
 
 
 @app.get("/auth/check-email", response_model=AvailabilityResponse)
@@ -754,6 +861,8 @@ def list_plants(
     # 캐릭터 이미지 URL — 개체별 최신 1건을 한 번의 쿼리로 모아 맵 구성 (N+1 방지)
     plant_ids = [plant.plant_id for plant, _ in rows]
     char_map: dict[int, str] = {}
+    char_face_removed_map: dict[int, bool] = {}
+    char_face_bounds_map: dict[int, tuple[int, int, int, int]] = {}
     if plant_ids:
         char_rows = db.execute(
             select(
@@ -761,6 +870,7 @@ def list_plants(
                 MediaAsset.object_key,
                 MediaAsset.file_url,
                 MediaAsset.bucket_name,
+                MediaAsset.checksum,
             )
             .where(
                 MediaAsset.plant_id.in_(plant_ids),
@@ -768,8 +878,14 @@ def list_plants(
             )
             .order_by(MediaAsset.created_at.desc())
         ).all()
-        for pid, object_key, file_url, bucket_name in char_rows:
-            char_map.setdefault(pid, _asset_url(object_key, file_url, bucket_name))
+        for pid, object_key, file_url, bucket_name, checksum in char_rows:
+            if pid in char_map:
+                continue
+            char_map[pid] = _asset_url(object_key, file_url, bucket_name)
+            bounds = _face_bounds_from_checksum(checksum)
+            char_face_removed_map[pid] = bounds is not None
+            if bounds is not None:
+                char_face_bounds_map[pid] = bounds
 
     # 개체에 적용된 꾸미기(액세서리 + 배경) — 개체마다 조회하지 않도록 한 번에 모은다.
     # 이미지가 S3에 없으면 URL 이 None 이고, 앱은 item_key 로 번들 이미지를 쓴다.
@@ -858,6 +974,8 @@ def list_plants(
                 is_favorite=plant.is_favorite,
                 status=plant.status,
                 character_image_url=char_map.get(plant.plant_id),
+                character_face_removed=char_face_removed_map.get(plant.plant_id, False),
+                character_face_bounds=char_face_bounds_map.get(plant.plant_id),
                 persona=plant.persona,
                 created_at=plant.created_at.isoformat(),
                 watering_interval_days=interval,
@@ -964,6 +1082,10 @@ def update_plant(
 
 def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
     species = db.get(PlantSpecies, plant.species_id) if plant.species_id else None
+    character_url, character_face_removed, character_face_bounds = _latest_character_metadata(
+        plant.plant_id,
+        db,
+    )
     return PlantDetail(
         id=plant.plant_id,
         nickname=plant.nickname,
@@ -979,7 +1101,9 @@ def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
         soil_type=plant.soil_type,
         height=plant.height,
         is_favorite=plant.is_favorite,
-        character_image_url=_latest_character_url(plant.plant_id, db),
+        character_image_url=character_url,
+        character_face_removed=character_face_removed,
+        character_face_bounds=character_face_bounds,
         persona=plant.persona,
         started_at=plant.started_at.isoformat() if plant.started_at else None,
         created_at=plant.created_at.isoformat(),

@@ -171,6 +171,7 @@ class SpeciesDetail(BaseModel):
 class CharacterFaceRemovalResponse(BaseModel):
     width: int
     height: int
+    face_bounds: tuple[int, int, int, int]
     face_removed_png_base64: str
 
 
@@ -179,6 +180,7 @@ class CharacterCandidateRead(BaseModel):
     image_url: str
     checksum: str
     seed: int
+    face_bounds: tuple[int, int, int, int] | None = None
 
 
 class CharacterGenerationJobRead(BaseModel):
@@ -253,6 +255,8 @@ class PlantDetail(BaseModel):
     height: str | None = None
     is_favorite: bool = False
     character_image_url: str | None = None
+    character_face_removed: bool = False
+    character_face_bounds: tuple[int, int, int, int] | None = None
     persona: str | None = None
     started_at: str | None = None
     created_at: str
@@ -457,6 +461,8 @@ class PlantListItem(BaseModel):
     is_favorite: bool = False
     status: str = "ALIVE"
     character_image_url: str | None = None
+    character_face_removed: bool = False
+    character_face_bounds: tuple[int, int, int, int] | None = None
 
     # 물주기 일정 요약 — 알림 목록·배지·기기 알림 재예약이 개체마다 상세를 조회하지 않도록
     # 목록에 함께 싣는다 (N+1 방지). 일정 행이 없으면 계산값이 들어간다.

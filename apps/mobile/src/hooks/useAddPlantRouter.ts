@@ -8,6 +8,7 @@ const PATH_TO_SCREEN: Record<string, string> = {
   '/add-plant/plant-results':  'PlantResults',
   '/add-plant/plant-detail':   'AddPlantPlantDetail',
   '/add-plant/character':      'Character',
+  '/add-plant/character-result': 'CharacterResult',
   '/add-plant/name':           'Name',
   '/add-plant/info':           'Info',
   '/add-plant/persona':        'Persona',

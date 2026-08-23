@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 // 종 검색은 농사로 API 대신 우리 종 마스터(plant_species)를 쓴다.
 // 농사로는 217종뿐이라 산림청·국가생물종지식정보시스템에만 있는 종을 고를 수 없었다.
 import { searchSpecies, type SpeciesListItem } from '../../src/api';
+import { useAddPlantFlow } from '../../src/AddPlantFlowContext';
 import { styles } from './styles/index.styles';
 
 // 'initial': 카메라 + 검색 모두 보임
@@ -26,6 +27,7 @@ type Mode = 'initial' | 'search';
 
 export default function AddPlantIndexScreen() {
   const router = useRouter();
+  const { draft } = useAddPlantFlow();
 
   const [mode, setMode] = useState<Mode>('initial');
   const [searchText, setSearchText] = useState('');
@@ -51,6 +53,8 @@ export default function AddPlantIndexScreen() {
       allowsMultipleSelection: true,
       selectionLimit: 5,
       quality: 0.85,
+      preferredAssetRepresentationMode:
+        ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
     });
     if (result.canceled || result.assets.length === 0) return;
     navigateToOrganSelect(result.assets.map((a) => a.uri));
@@ -64,12 +68,18 @@ export default function AddPlantIndexScreen() {
     }
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.85 });
     if (result.canceled) return;
-    navigateToOrganSelect([result.assets[0].uri]);
+    const uri = result.assets[0]?.uri;
+    if (!uri) return;
+    navigateToOrganSelect([uri]);
   };
 
   // ── camera area tapped ────────────────────────────────────────────────────
 
   const handleCameraPress = () => {
+    if (draft.capturedPhotoUri) {
+      navigateToOrganSelect([draft.capturedPhotoUri]);
+      return;
+    }
     Alert.alert('사진으로 찾기', '', [
       { text: '사진 라이브러리에서 선택', onPress: pickFromLibrary },
       { text: '카메라로 찍기', onPress: takeWithCamera },
@@ -143,7 +153,9 @@ export default function AddPlantIndexScreen() {
             activeOpacity={0.85}
           >
             <Text style={styles.cameraBtnIcon}>📷</Text>
-            <Text style={styles.cameraBtnText}>사진으로 찾기</Text>
+            <Text style={styles.cameraBtnText}>
+              {draft.capturedPhotoUri ? '촬영한 사진으로 찾기' : '사진으로 찾기'}
+            </Text>
           </TouchableOpacity>
         )}
 

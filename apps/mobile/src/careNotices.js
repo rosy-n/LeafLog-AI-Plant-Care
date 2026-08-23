@@ -44,6 +44,10 @@ export function buildCareNotices(plants) {
                 urgent,
                 imageUri: plant.imageUri,
                 imageKey: plant.imageKey,
+                characterFaceRemoved: plant.characterFaceRemoved,
+                characterFaceBounds: plant.characterFaceBounds,
+                status: plant.status,
+                daysUntilWatering: plant.daysUntilWatering,
             };
         })
         .sort((a, b) => Number(b.urgent) - Number(a.urgent));

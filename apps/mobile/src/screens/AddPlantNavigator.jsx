@@ -13,6 +13,7 @@ import CharacterScreen      from '../../app/add-plant/character';
 import NameScreen           from '../../app/add-plant/name';
 import InfoScreen           from '../../app/add-plant/info';
 import PersonaScreen        from '../../app/add-plant/persona';
+import { AddPlantFlowProvider } from '../AddPlantFlowContext';
 
 import BackButton from '../components/BackButton';
 import { Colors } from '../../constants/colors';
@@ -23,14 +24,15 @@ const Stack = createNativeStackNavigator();
 
 const TOTAL = 5;
 const STEP_MAP = {
-  AddPlantIndex:       1,
-  OrganSelect:         1,
-  Analyzing:           1,
-  PlantResults:        1,
-  AddPlantPlantDetail: 1,
-  Character:           2,
-  Name:                3,
-  Info:                4,
+  Character:           1,
+  AddPlantIndex:       2,
+  OrganSelect:         2,
+  Analyzing:           2,
+  PlantResults:        2,
+  AddPlantPlantDetail: 2,
+  Info:                3,
+  CharacterResult:     4,
+  Name:                5,
   Persona:             5,
 };
 
@@ -57,22 +59,26 @@ function AddPlantHeader() {
 
 export default function AddPlantNavigator() {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        header: () => <AddPlantHeader />,
-        contentStyle: { backgroundColor: Colors.background },
-      }}
-    >
-      <Stack.Screen name="AddPlantIndex"       component={AddPlantIndexScreen} />
-      <Stack.Screen name="OrganSelect"         component={OrganSelectScreen} />
-      <Stack.Screen name="Analyzing"           component={AnalyzingScreen} />
-      <Stack.Screen name="PlantResults"        component={PlantResultsScreen} />
-      <Stack.Screen name="AddPlantPlantDetail" component={AddPlantPlantDetail} />
-      <Stack.Screen name="Character"           component={CharacterScreen} />
-      <Stack.Screen name="Name"                component={NameScreen} />
-      <Stack.Screen name="Info"                component={InfoScreen} />
-      <Stack.Screen name="Persona"             component={PersonaScreen} />
-    </Stack.Navigator>
+    <AddPlantFlowProvider>
+      <Stack.Navigator
+        initialRouteName="Character"
+        screenOptions={{
+          header: () => <AddPlantHeader />,
+          contentStyle: { backgroundColor: Colors.background },
+        }}
+      >
+        <Stack.Screen name="Character"           component={CharacterScreen} />
+        <Stack.Screen name="AddPlantIndex"       component={AddPlantIndexScreen} />
+        <Stack.Screen name="OrganSelect"         component={OrganSelectScreen} />
+        <Stack.Screen name="Analyzing"           component={AnalyzingScreen} />
+        <Stack.Screen name="PlantResults"        component={PlantResultsScreen} />
+        <Stack.Screen name="AddPlantPlantDetail" component={AddPlantPlantDetail} />
+        <Stack.Screen name="Info"                component={InfoScreen} />
+        <Stack.Screen name="CharacterResult"     component={CharacterScreen} />
+        <Stack.Screen name="Name"                component={NameScreen} />
+        <Stack.Screen name="Persona"             component={PersonaScreen} />
+      </Stack.Navigator>
+    </AddPlantFlowProvider>
   );
 }
 
