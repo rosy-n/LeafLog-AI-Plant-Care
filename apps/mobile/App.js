@@ -30,6 +30,7 @@ import { DEFAULT_BACKGROUND_KEY } from "./src/data/decor";
 import { syncWateringReminders } from "./src/notifications";
 import { buildCareNotices } from "./src/careNotices";
 import { preloadBundledImages } from "./src/data/assets";
+import { BackgroundMusicProvider } from "./src/backgroundMusic";
 
 const Stack = createNativeStackNavigator();
 
@@ -65,7 +66,7 @@ function toGardenPlant(plant) {
 // 번들 이미지 목록과 preload 는 src/data/assets.js 가 단일 출처 (아이콘까지 포함)
 
 // onLogout — 인증 상태는 App.tsx 가 들고 있어서 여기서는 콜백을 받아 설정 화면까지 내려준다
-export default function MainApp({ user, onLogout }) {
+function MainAppContent({ user, onLogout }) {
     const [plants, setPlants] = useState([]);
     /*
         개체별 꾸미기 —
@@ -427,5 +428,18 @@ export default function MainApp({ user, onLogout }) {
 
             </Stack.Navigator>
         </NavigationContainer>
+    );
+}
+
+/*
+    배경음악 플레이어는 네비게이터보다 바깥에 둔다.
+    화면을 옮길 때마다 플레이어가 다시 만들어지면 음악이 끊기기 때문이다.
+    로그아웃하면 MainApp 이 통째로 사라지면서 음악도 함께 멈춘다.
+*/
+export default function MainApp(props) {
+    return (
+        <BackgroundMusicProvider>
+            <MainAppContent {...props} />
+        </BackgroundMusicProvider>
     );
 }
