@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ImageBackground,
     Image,
@@ -39,7 +39,7 @@ import {
     getPlantAffinity,
     petPlant,
 } from "../api";
-import { accessorySpriteBundle, backgroundSource } from "../data/decor";
+import { accessorySpriteBundle, backgroundSource, plantPlacement } from "../data/decor";
 import DecorImage from "../components/DecorImage";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper, Pink } from "../../constants/colors";
@@ -67,6 +67,17 @@ let dropIdCounter = 0;
 let heartIdCounter = 0;
 
 const PLANT_SIZE = 230;        // 개체탭 캐릭터 크기 (= 문지를 수 있는 영역)
+
+/*
+    말풍선·물방울은 캐릭터 상자를 기준으로 함께 움직인다 — 배경마다 캐릭터가 서는
+    높이가 달라서(카펫 위 vs 선반 위) 고정 top 으로 두면 머리에서 떨어져 보인다.
+    값은 예전 고정 배치(캐릭터 355 / 말풍선 265 / 물방울 360)의 차이를 그대로 옮긴 것.
+    이름 라벨은 mainPlantArea 의 자식이라 저절로 따라온다.
+*/
+const SPEECH_GAP = -90;        // 캐릭터 상자 위로 말풍선이 떨어진 거리
+const DROPS_GAP = 5;           // 물방울이 시작하는 높이
+// 상단 카운터·하트 아래 — 캐릭터가 높이 서는 배경(선반)에서도 말풍선을 여기보다 위로 올리지 않는다
+const SPEECH_MIN_TOP = 120;
 const RUB_HEART_ICON = require("../../assets/icons/fullheart_icon.png");
 
 /*
@@ -113,6 +124,20 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
     const hasDecor = Boolean(decorRemote || decorBundle);
     // 개체탭 배경도 개체마다 다르다 — 고르지 않았으면 기본 배경
     const background = decoration?.background ?? null;
+
+    /*
+        배경이 실제로 차지한 영역. 배경은 cover 로 잘려 들어가서 기기 화면비에 따라
+        확대율이 달라지므로, 캐릭터를 카펫·선반에 맞추려면 이 크기를 재야 한다.
+    */
+    const [bgSize, setBgSize] = useState({ width: 0, height: 0 });
+    const plantSpot = useMemo(
+        () => plantPlacement(background?.key, bgSize, PLANT_SIZE),
+        [background?.key, bgSize],
+    );
+    // 말풍선은 캐릭터를 따라 올라가지만 상단 UI 아래로만
+    const speechTop = plantSpot
+        ? Math.max(SPEECH_MIN_TOP, plantSpot.top + SPEECH_GAP)
+        : null;
     const plantName = plant?.name ?? "스파게티";
     const togetherDays = daysSince(plant?.createdAt);
 
@@ -556,6 +581,14 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                 source={backgroundSource(background)}
                 resizeMode="cover"
                 style={styles.background}
+                onLayout={(event) => {
+                    const { width, height } = event.nativeEvent.layout;
+                    setBgSize((prev) =>
+                        prev.width === width && prev.height === height
+                            ? prev
+                            : { width, height }
+                    );
+                }}
             >
                 <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
                     {!chatMode && (
@@ -596,9 +629,12 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                         </View>
                     )}
 
-                    {!chatMode && !!idleGreeting && (
+                    {!chatMode && !!idleGreeting && speechTop !== null && (
                         <PixelSpeechBubble
-                            style={styles.speechBubble}
+                            style={[
+                                styles.speechBubble,
+                                { top: speechTop, marginLeft: -125 + plantSpot.offsetX },
+                            ]}
                             textStyle={styles.speechText}
                             contentStyle={styles.speechContent}
                             tailOffset={125}
@@ -608,8 +644,13 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                         </PixelSpeechBubble>
                     )}
 
-                    {!chatMode && (
-                        <View style={styles.mainPlantArea}>
+                    {!chatMode && plantSpot && (
+                        <View
+                            style={[
+                                styles.mainPlantArea,
+                                { top: plantSpot.top, transform: [{ translateX: plantSpot.offsetX }] },
+                            ]}
+                        >
                             {/* 캐릭터 — 문지르면 하트가 뜨고 진동한다 (하루 한 번 애정도도 오른다) */}
                             <View
                                 style={styles.plantTouchArea}
@@ -690,7 +731,16 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
                     )}
 
                     {/* 물주기 물방울 애니메이션 — 식물 위로 떨어짐 */}
-                    <View pointerEvents="none" style={styles.wateringDropsOrigin}>
+                    <View
+                        pointerEvents="none"
+                        style={[
+                            styles.wateringDropsOrigin,
+                            plantSpot && {
+                                top: plantSpot.top + DROPS_GAP,
+                                transform: [{ translateX: plantSpot.offsetX }],
+                            },
+                        ]}
+                    >
                         {wateringDrops.map((drop) => (
                             <Animated.View
                                 key={drop.id}
@@ -1033,11 +1083,11 @@ const styles = StyleSheet.create({
         includeFontPadding: false,
     },
 
+    // top/marginLeft 는 캐릭터 위치(plantSpot)에서 얹는다 — 배경마다 캐릭터가 서는
+    // 높이가 달라서 여기에 고정하면 머리에서 떨어져 보인다
     speechBubble: {
         position: "absolute",
-        top: 265,
         left: "50%",
-        marginLeft: -125, // width(250)의 절반 → 화면(=식물) 가로 중앙 정렬
         width: 250,
         height: 70,
         zIndex: 20,
@@ -1065,9 +1115,10 @@ const styles = StyleSheet.create({
         alignItems: "center",
         zIndex: 30,
     },
+    // top/translateX 는 배경별 앵커(decor.js 의 BACKGROUND_ANCHORS)에서 얹는다 —
+    // 카펫 중앙이나 선반 윗면에 발끝이 오도록 배경마다 다르다
     mainPlantArea: {
         position: "absolute",
-        top: 355,
         left: 0,
         right: 0,
         alignItems: "center",
@@ -1091,11 +1142,11 @@ const styles = StyleSheet.create({
     },
 
     // 물주기 물방울 시작점 (식물 상단 부근, 아래로 낙하)
+    // top/translateX 는 캐릭터 위치에서 얹는다 (물방울은 머리 위에서 떨어진다)
     wateringDropsOrigin: {
         position: "absolute",
         left: 0,
         right: 0,
-        top: 360,
         alignItems: "center",
         zIndex: 40,
     },

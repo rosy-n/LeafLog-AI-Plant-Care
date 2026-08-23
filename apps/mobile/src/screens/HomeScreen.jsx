@@ -21,7 +21,7 @@ import { getCurrentEnvironment } from "../api";
 // 꾸미기(item_key 기반)로 바뀌는 배경은 개체탭(PlantDetailScreen) 것 — 홈은 날씨로만 바뀐다
 import { BACKGROUND_IMAGES, HOME_BACKGROUND_KEY } from "../data/decor";
 // 캐릭터 이미지가 아직 S3에 없을 때의 번들 fallback (PlantImage 와 같은 출처)
-import { plantImages } from "../data/plants";
+import { plantImages, PLANT_FEET_RATIO } from "../data/plants";
 
 const WEATHER_ICONS = {
     "맑음": require("../../assets/icons/sunny_icon.png"),
@@ -142,7 +142,6 @@ const TRIP_RANGE = 110;
     상자 크기가 자리마다 달라도(150~180) 같은 높이에 선 개체는 같은 배율이 된다.
 */
 const PERSPECTIVE_FAR = 0.74;    // 가장 멀리(띠 위쪽)에서의 배율. 가장 가까이는 1
-const PLANT_FEET_RATIO = 0.846;  // 도트 그림에서 발끝이 오는 높이 비율 (에셋 5종 실측)
 /*
     배율을 매기는 "발끝 띠" — 들판 높이 대비 비율.
 
