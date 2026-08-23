@@ -21,7 +21,7 @@ import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
-import { getUserSettings, updateMe } from "../api";
+import { deleteMe, getUserSettings, updateMe } from "../api";
 import {
     sendTestReminder,
     listScheduledReminders,
@@ -120,6 +120,7 @@ export default function SettingsScreen({
     const [isEditingName, setIsEditingName] = useState(false);
     const [draftName, setDraftName] = useState(username);
     const [isSavingName, setIsSavingName] = useState(false);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
     // 위치 — 위치 변경 화면에서 돌아올 때마다 최신값으로 갱신
     const [homeLocation, setHomeLocation] = useState<string | null>(null);
@@ -262,7 +263,25 @@ export default function SettingsScreen({
         );
     };
 
+    // 계정 삭제 — 서버에서 개체·돌봄 기록·상담 내역까지 함께 지운다.
+    // 삭제가 끝나면 토큰이 가리키는 사용자가 없어지므로(다음 요청이 401) 로그아웃과
+    // 같은 뒷정리가 필요하다 — 토큰 삭제·예약 알림 취소는 onLogout 이 이미 하고 있어
+    // 그대로 재사용한다.
+    const runAccountDeletion = async () => {
+        if (isDeletingAccount) return;
+        setIsDeletingAccount(true);
+        try {
+            await deleteMe();
+            onLogout?.();
+        } catch (e: any) {
+            Alert.alert("계정 삭제 실패", e?.message ?? "다시 시도해주세요.");
+        } finally {
+            setIsDeletingAccount(false);
+        }
+    };
+
     const deleteAccount = () => {
+        if (isDeletingAccount) return;
         Alert.alert(
             "계정 삭제",
             "정말로 계정을 삭제하시겠어요?\n모든 데이터가 삭제되며 복구할 수 없습니다.",
@@ -271,7 +290,7 @@ export default function SettingsScreen({
                 {
                     text: "삭제",
                     style: "destructive",
-                    onPress: () => navigation.navigate("Home"),
+                    onPress: runAccountDeletion,
                 },
             ]
         );
@@ -358,8 +377,11 @@ export default function SettingsScreen({
                                 style={styles.row}
                                 onPress={deleteAccount}
                                 activeOpacity={0.75}
+                                disabled={isDeletingAccount}
                             >
-                                <Text style={styles.deleteLabel}>계정 삭제</Text>
+                                <Text style={styles.deleteLabel}>
+                                    {isDeletingAccount ? "계정 삭제 중" : "계정 삭제"}
+                                </Text>
                                 <Ionicons name="chevron-forward" size={18} color={Colors.remove} />
                             </TouchableOpacity>
                         </View>

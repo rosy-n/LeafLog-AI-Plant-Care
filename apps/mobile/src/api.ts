@@ -539,6 +539,14 @@ export function updateMe(body: { nickname: string }) {
   });
 }
 
+// 계정 삭제 — 개체·돌봄 기록·상담 내역까지 서버에서 함께 지워지고 되돌릴 수 없다.
+// 성공하면 토큰이 가리키는 사용자가 사라지므로 호출한 쪽에서 로그아웃 처리를 해야 한다.
+export function deleteMe() {
+  return request<null>("/auth/me", {
+    method: "DELETE",
+  });
+}
+
 export function preprocessPlantImage(
   image: UploadableImage,
   canvasSize = 1024,
