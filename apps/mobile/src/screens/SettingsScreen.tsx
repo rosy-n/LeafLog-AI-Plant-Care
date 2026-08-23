@@ -120,11 +120,14 @@ export default function SettingsScreen({
     navigation,
     username,
     setUsername,
+    isAdmin = false,
     onLogout,
 }: {
     navigation: any;
     username: string;
     setUsername: (name: string) => void;
+    /** 관리자면 도움말에 "문의 관리" 항목이 보인다 (실제 차단은 서버가 한다) */
+    isAdmin?: boolean;
     onLogout?: () => void;
 }) {
     // 어카운트
@@ -864,6 +867,28 @@ export default function SettingsScreen({
                                     )}
                                 </View>
                             )}
+
+                            {/* 관리자 전용 — 다른 사용자의 문의에 답변한다 */}
+                            {isAdmin && (
+                                <>
+                                    <RowDivider />
+                                    <TouchableOpacity
+                                        style={styles.row}
+                                        onPress={() => navigation.navigate("InquiryAdmin")}
+                                        activeOpacity={0.75}
+                                    >
+                                        <Text style={styles.rowLabel}>문의 관리</Text>
+                                        <View style={styles.adminRight}>
+                                            <Text style={styles.adminTag}>관리자</Text>
+                                            <Ionicons
+                                                name="chevron-forward"
+                                                size={18}
+                                                color={GreenTint.line}
+                                            />
+                                        </View>
+                                    </TouchableOpacity>
+                                </>
+                            )}
                         </View>
 
                         <Text style={styles.versionText}>LeafLog v1.0.0</Text>
@@ -875,6 +900,22 @@ export default function SettingsScreen({
 }
 
 const styles = StyleSheet.create({
+    adminRight: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: Spacing.sm,
+    },
+    adminTag: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.caption,
+        color: Colors.white,
+        backgroundColor: GreenTint.deep,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xxs,
+        borderRadius: Radius.pill,
+        overflow: "hidden",
+        includeFontPadding: false,
+    },
     historyBlock: {
         gap: Spacing.md,
     },

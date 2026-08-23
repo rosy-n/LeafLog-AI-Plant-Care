@@ -21,6 +21,7 @@ import RepottingScreen from "./src/screens/RepottingScreen";
 import NutrientScreen from "./src/screens/NutrientScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import LocationSettingScreen from "./src/screens/LocationSettingScreen";
+import InquiryAdminScreen from "./src/screens/InquiryAdminScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
 import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
@@ -368,6 +369,8 @@ function MainAppContent({ user, onLogout }) {
                             {...props}
                             username={username}
                             setUsername={setUsername}
+                            // 관리자에게만 문의 관리 항목을 보여준다 (차단은 서버가 한다)
+                            isAdmin={user?.role === "ADMIN"}
                             onLogout={onLogout}
                         />
                     )}
@@ -375,6 +378,11 @@ function MainAppContent({ user, onLogout }) {
                 <Stack.Screen
                     name="LocationSetting"
                     component={LocationSettingScreen}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="InquiryAdmin"
+                    component={InquiryAdminScreen}
                     options={{ headerShown: false }}
                 />
                 <Stack.Screen
