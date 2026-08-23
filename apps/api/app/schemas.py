@@ -273,6 +273,8 @@ class PlantUpdate(BaseModel):
     pot_type: str | None = None
     pot_size: str | None = None
     height: str | None = None
+    # 정원탭의 별 — 앱을 다시 켜도 유지되게 서버가 들고 있는다
+    is_favorite: bool | None = None
     persona: str | None = None
 
 
