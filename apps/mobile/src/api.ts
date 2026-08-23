@@ -9,6 +9,8 @@ export type AuthResponse = {
     id: number;
     email: string;
     nickname: string;
+    /** 'ADMIN' 이면 설정에 문의 관리 화면이 보인다 (권한 검사는 서버가 한다) */
+    role: "USER" | "ADMIN";
   };
 };
 
@@ -573,6 +575,21 @@ export type Inquiry = {
 // 최신순으로 오고, 남의 문의는 서버가 걸러낸다.
 export function getInquiries() {
   return request<Inquiry[]>("/api/inquiries");
+}
+
+// ── 관리자 전용 (role='ADMIN' 아니면 서버가 403) ──────────────
+
+// 전체 문의 목록. onlyOpen 이면 아직 답변하지 않은 것만.
+export function getAllInquiries(onlyOpen = true) {
+  return request<Inquiry[]>(`/api/admin/inquiries?only_open=${onlyOpen}`);
+}
+
+// 답변 달기 — 다시 부르면 답변이 수정된다.
+export function answerInquiry(inquiryId: number, answer: string) {
+  return request<Inquiry>(`/api/admin/inquiries/${inquiryId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ answer }),
+  });
 }
 
 export function preprocessPlantImage(

@@ -12,6 +12,9 @@ class UserRead(BaseModel):
     id: int = Field(validation_alias=AliasChoices("user_id", "id"))
     email: str
     nickname: str
+    # 'USER' / 'ADMIN' — 앱이 관리자 전용 화면을 보여줄지 판단한다.
+    # 화면을 가리는 용도일 뿐 권한 검사는 서버(get_current_admin)가 한다.
+    role: str = "USER"
 
     model_config = {"from_attributes": True, "populate_by_name": True}
 
