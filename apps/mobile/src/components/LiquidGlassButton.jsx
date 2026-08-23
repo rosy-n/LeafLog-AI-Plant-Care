@@ -4,7 +4,7 @@ import { Leaf, Glass } from "../../constants/colors";
 import { Radius } from "../../constants/spacing";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { playTapSfx } from "../feedback";
+import { tapFeedback } from "../feedback";
 
 export default function LiquidGlassButton({
                                               children,
@@ -13,7 +13,7 @@ export default function LiquidGlassButton({
                                               style,
                                           }) {
     const handlePress = () => {
-        playTapSfx();
+        tapFeedback();
         onPress?.();
     };
     return (

@@ -119,7 +119,11 @@ Kenney 공식 배포(kenney.nl)가 바로 이 경우라 **Ogg 만 준다.**
 ## 버튼음은 어디서 나나
 
 `sfx-tap` 은 화면이 아니라 **공용 버튼 컴포넌트**가 낸다. 새 버튼을 만들 때
-아래 컴포넌트를 쓰면 소리가 자동으로 따라온다 (직접 `playSfx` 를 부를 필요 없다).
+아래 컴포넌트를 쓰면 소리와 진동이 자동으로 따라온다
+(`tapFeedback()` 이 둘 다 처리하므로 직접 부를 필요 없다).
+
+버튼 진동은 `selectionAsync` 를 쓴다 — 물주기·집어들기의 `impactAsync` 보다 약하다.
+앱에서 가장 자주 눌리는 곳이라 같은 세기로 울리면 금방 피곤해진다.
 
 `ActionButton` · `IconCircleButton` · `GlassMenuItem` · `PhotoPickerButton` ·
 `LiquidGlassButton` · `BackButton`(=ScreenHeader 뒤로가기) · `PixelButton`(=SocialButton) · `AppButton`

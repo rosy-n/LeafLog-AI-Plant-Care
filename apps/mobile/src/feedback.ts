@@ -90,13 +90,29 @@ export function stopSfx(name: SfxName): void {
 }
 
 /**
- * 버튼을 눌렀을 때 나는 소리.
+ * 버튼을 눌렀을 때의 손맛 — 소리와 진동을 함께 낸다.
  *
  * 화면에서 직접 부르지 말고 공용 버튼 컴포넌트(ActionButton 등)에 맡긴다 —
  * 버튼마다 손으로 넣으면 새 버튼에서 빠뜨리게 된다.
+ *
+ * 소리와 진동은 설정에서 따로 끌 수 있고, 각자 자기 스위치만 본다.
  */
-export function playTapSfx(): void {
+export function tapFeedback(): void {
   playSfx("tap");
+  hapticSelection();
+}
+
+/**
+ * 선택 진동 — 버튼처럼 가볍게 짚고 넘어가는 동작용.
+ *
+ * impactAsync 보다 약하다. 버튼은 앱에서 가장 자주 눌리는 곳이라
+ * 물주기·집어들기와 같은 세기로 울리면 금방 피곤해진다.
+ */
+export function hapticSelection(): void {
+  if (!getAudioSettings().vibration) return;
+  Haptics.selectionAsync().catch((e: any) =>
+    console.warn("진동 실패:", e?.message),
+  );
 }
 
 /**

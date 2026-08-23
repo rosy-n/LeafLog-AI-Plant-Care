@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/colors";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Radius, Spacing } from "../../constants/spacing";
-import { playTapSfx } from "../feedback";
+import { tapFeedback } from "../feedback";
 
 type Props = {
   /** children 을 넘기면 무시된다 */
@@ -70,7 +70,7 @@ export default function ActionButton({
 }: Props) {
   const large = size === "lg";
   const handlePress = () => {
-    playTapSfx();
+    tapFeedback();
     onPress();
   };
   return (
