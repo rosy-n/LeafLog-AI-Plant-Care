@@ -720,12 +720,11 @@ CREATE TABLE notification (
 -- =========================================================
 -- 8. 고객 문의
 -- =========================================================
--- 설정 화면의 "문의하기"로 들어온 내용을 쌓아둔다.
--- 답변은 아직 앱에서 보여주지 않는다 — 운영자가 이 표에서 사용자 이메일을
--- 확인해 메일로 회신하는 흐름이다. 그래서 answer 칼럼을 두지 않았다.
--- (앱에서 답변까지 보여주려면 answer / answered_at 을 추가하고, 운영자가
---  값을 넣을 창구(어드민 API 등)를 함께 만들어야 한다. 쓰는 곳 없이 칼럼만
---  만들어두면 영영 비어 있는 칸이 된다.)
+-- 설정 화면의 "문의하기"로 들어온 내용과 그에 대한 답변을 담는다.
+--
+-- 사용자는 앱의 문의 내역에서 답변을 확인한다 (GET /api/inquiries).
+-- 답변은 role='ADMIN' 인 계정이 PATCH /api/admin/inquiries/{id} 로 넣는다 —
+-- 별도 관리자 화면 없이 FastAPI 의 /docs (Swagger UI) 를 그대로 쓴다.
 CREATE TABLE inquiry (
     inquiry_id   BIGSERIAL PRIMARY KEY,
 
@@ -735,9 +734,14 @@ CREATE TABLE inquiry (
     -- 문의 본문. 앱에서 5~2000자로 제한한다
     content      TEXT NOT NULL,
 
-    -- 운영자가 처리 여부를 표시하는 용도 (지금은 DB에서 직접 바꾼다)
+    -- OPEN(접수) → ANSWERED(답변함) → CLOSED(종료).
+    -- 답변을 넣으면 서버가 ANSWERED 로 바꾼다.
     status       VARCHAR(20) NOT NULL DEFAULT 'OPEN'
-                 CHECK (status IN ('OPEN', 'CLOSED')),
+                 CHECK (status IN ('OPEN', 'ANSWERED', 'CLOSED')),
+
+    -- 관리자 답변. 아직 답하지 않았으면 NULL
+    answer       TEXT,
+    answered_at  TIMESTAMP,
 
     created_at   TIMESTAMP DEFAULT now(),
     updated_at   TIMESTAMP DEFAULT now()

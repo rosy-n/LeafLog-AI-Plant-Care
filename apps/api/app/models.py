@@ -675,9 +675,16 @@ class Inquiry(Base):
     # 앱에서 5~2000자로 제한한다 (schemas.InquiryCreate)
     content: Mapped[str] = mapped_column(Text, nullable=False)
 
-    # 운영자가 처리 여부를 표시하는 용도 — 지금은 DB에서 직접 바꾼다
+    # OPEN(접수) → ANSWERED(답변함) → CLOSED(종료).
+    # 답변을 넣으면 서버가 ANSWERED 로 바꾼다.
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="OPEN", server_default="OPEN"
+    )
+
+    # 관리자 답변 — role='ADMIN' 계정이 PATCH /api/admin/inquiries/{id} 로 넣는다
+    answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    answered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -688,6 +695,8 @@ class Inquiry(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("status IN ('OPEN', 'CLOSED')", name="ck_inquiry_status"),
+        CheckConstraint(
+            "status IN ('OPEN', 'ANSWERED', 'CLOSED')", name="ck_inquiry_status"
+        ),
     )
 

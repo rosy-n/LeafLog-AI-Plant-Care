@@ -23,7 +23,14 @@ import ActionButton from "../components/ActionButton";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
-import { deleteMe, getUserSettings, sendInquiry, updateMe } from "../api";
+import {
+    deleteMe,
+    getInquiries,
+    getUserSettings,
+    sendInquiry,
+    updateMe,
+    type Inquiry,
+} from "../api";
 import {
     listScheduledReminders,
     syncWateringReminders,
@@ -113,14 +120,11 @@ export default function SettingsScreen({
     navigation,
     username,
     setUsername,
-    email,
     onLogout,
 }: {
     navigation: any;
     username: string;
     setUsername: (name: string) => void;
-    /** 문의 답변이 갈 주소 — 가입할 때 쓴 이메일 */
-    email?: string;
     onLogout?: () => void;
 }) {
     // 어카운트
@@ -175,6 +179,24 @@ export default function SettingsScreen({
     const [inquiryContent, setInquiryContent] = useState("");
     const [inquiryDone, setInquiryDone] = useState(false);
     const [isSendingInquiry, setIsSendingInquiry] = useState(false);
+
+    // 문의 내역 — 관리자가 답변을 달면 여기에 함께 실려 온다
+    const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+    const [inquiriesLoaded, setInquiriesLoaded] = useState(false);
+
+    const refreshInquiries = useCallback(() => {
+        getInquiries()
+            .then((rows) => {
+                setInquiries(rows);
+                setInquiriesLoaded(true);
+            })
+            .catch((e) => console.warn("문의 내역 조회 실패:", e?.message));
+    }, []);
+
+    // 문의하기를 펼칠 때만 불러온다 — 설정 화면을 열 때마다 부를 필요가 없다
+    useEffect(() => {
+        if (showInquiry) refreshInquiries();
+    }, [showInquiry, refreshInquiries]);
 
     // 이름 변경 — 서버(app_user.nickname)에 저장한 뒤 화면 값을 갱신한다.
     // 실패하면 편집 상태를 유지해서 사용자가 고칠 수 있게 한다.
@@ -307,6 +329,7 @@ export default function SettingsScreen({
             await sendInquiry(content);
             setInquiryContent("");
             setInquiryDone(true);
+            refreshInquiries();
         } catch (e: any) {
             Alert.alert("문의 전송 실패", e?.message ?? "다시 시도해주세요.");
         } finally {
@@ -749,7 +772,7 @@ export default function SettingsScreen({
                                                 color={GreenTint.medium}
                                             />
                                             <Text style={styles.inquiryDoneText}>
-                                                문의가 접수되었습니다.{"\n"}{email ?? "가입하신 이메일"} 주소로 답변 드릴게요!
+                                                문의가 접수되었습니다.{"\n"}답변이 달리면 문의 내역에 표시됩니다.
                                             </Text>
                                         </View>
                                     ) : (
@@ -760,8 +783,8 @@ export default function SettingsScreen({
                                                 앱에서 답을 기다리게 된다.
                                             */}
                                             <Text style={styles.inquiryNotice}>
-                                                답변은 {email ?? "가입하신 이메일"} 주소로
-                                                보내드려요.
+                                                답변이 달리면 아래 문의 내역에서
+                                                확인하실 수 있어요.
                                             </Text>
                                             <TextInput
                                                 style={styles.inquiryInput}
@@ -797,6 +820,48 @@ export default function SettingsScreen({
                                             />
                                         </>
                                     )}
+
+                                    {/* 문의 내역 — 답변은 여기서 확인한다 */}
+                                    {inquiriesLoaded && inquiries.length > 0 && (
+                                        <View style={styles.historyBlock}>
+                                            <RowDivider />
+                                            <Text style={styles.historyTitle}>
+                                                내 문의 내역
+                                            </Text>
+                                            {inquiries.map((item) => (
+                                                <View key={item.id} style={styles.historyItem}>
+                                                    <View style={styles.historyHead}>
+                                                        <Text style={styles.historyDate}>
+                                                            {item.created_at.slice(0, 10)}
+                                                        </Text>
+                                                        <Text
+                                                            style={[
+                                                                styles.historyBadge,
+                                                                item.answer
+                                                                    ? styles.historyBadgeDone
+                                                                    : styles.historyBadgeWait,
+                                                            ]}
+                                                        >
+                                                            {item.answer ? "답변 완료" : "답변 대기"}
+                                                        </Text>
+                                                    </View>
+                                                    <Text style={styles.historyContent}>
+                                                        {item.content}
+                                                    </Text>
+                                                    {item.answer && (
+                                                        <View style={styles.answerBox}>
+                                                            <Text style={styles.answerLabel}>
+                                                                답변
+                                                            </Text>
+                                                            <Text style={styles.answerText}>
+                                                                {item.answer}
+                                                            </Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
                                 </View>
                             )}
                         </View>
@@ -810,6 +875,78 @@ export default function SettingsScreen({
 }
 
 const styles = StyleSheet.create({
+    historyBlock: {
+        gap: Spacing.md,
+    },
+    historyTitle: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.strong,
+        includeFontPadding: false,
+    },
+    historyItem: {
+        gap: Spacing.xs,
+        backgroundColor: Colors.background,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: GreenTint.soft,
+        padding: Spacing.md,
+    },
+    historyHead: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    historyDate: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textFaint,
+        includeFontPadding: false,
+    },
+    historyBadge: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.caption,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xxs,
+        borderRadius: Radius.pill,
+        overflow: "hidden",
+        includeFontPadding: false,
+    },
+    historyBadgeWait: {
+        backgroundColor: GreenTint.soft,
+        color: GreenTint.strong,
+    },
+    historyBadgeDone: {
+        backgroundColor: GreenTint.deep,
+        color: Colors.white,
+    },
+    historyContent: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        lineHeight: 20,
+        includeFontPadding: false,
+    },
+    answerBox: {
+        marginTop: Spacing.xs,
+        paddingTop: Spacing.sm,
+        borderTopWidth: 1,
+        borderTopColor: GreenTint.soft,
+        gap: Spacing.xxs,
+    },
+    answerLabel: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.strong,
+        includeFontPadding: false,
+    },
+    answerText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        lineHeight: 20,
+        includeFontPadding: false,
+    },
     inquiryNotice: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,

@@ -59,7 +59,9 @@ from .schemas import (
     DiagnosisResponse,
     DiagnosisSimilarCase,
     EnvironmentHistoryResponse,
+    InquiryAnswer,
     InquiryCreate,
+    InquiryRead,
     CharacterFaceRemovalResponse,
     CharacterCandidateRead,
     CharacterGenerationJobRead,
@@ -423,6 +425,23 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="사용자를 찾을 수 없습니다.")
 
     return user
+
+
+def get_current_admin(
+    current_user: AppUser = Depends(get_current_user),
+) -> AppUser:
+    """관리자 전용 — app_user.role 이 'ADMIN' 인 계정만 통과한다.
+
+    관리자 화면을 따로 만들지 않고 FastAPI 의 /docs (Swagger UI) 에서
+    답변을 넣는다. 승격은 DB 에서 한다:
+        UPDATE app_user SET role = 'ADMIN' WHERE email = '...';
+    """
+    if current_user.role != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자만 사용할 수 있습니다.",
+        )
+    return current_user
 
 
 @app.get("/", include_in_schema=False)
@@ -1899,6 +1918,90 @@ def create_inquiry(
     """
     db.add(Inquiry(user_id=current_user.user_id, content=payload.content))
     db.commit()
+
+
+@app.get("/api/inquiries", response_model=list[InquiryRead])
+def list_inquiries(
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[InquiryRead]:
+    """내 문의 내역 — 앱 설정 화면의 문의하기 안에서 보여준다.
+
+    남의 문의는 보이지 않는다 (user_id 로 걸러 조회한다).
+    """
+    rows = db.scalars(
+        select(Inquiry)
+        .where(Inquiry.user_id == current_user.user_id)
+        .order_by(Inquiry.created_at.desc())
+    ).all()
+    return [
+        InquiryRead(
+            id=row.inquiry_id,
+            content=row.content,
+            status=row.status,
+            answer=row.answer,
+            answered_at=row.answered_at.isoformat() if row.answered_at else None,
+            created_at=row.created_at.isoformat(),
+        )
+        for row in rows
+    ]
+
+
+@app.get("/api/admin/inquiries", response_model=list[InquiryRead])
+def list_all_inquiries(
+    only_open: bool = Query(True, description="답변하지 않은 것만 보기"),
+    _admin: AppUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> list[InquiryRead]:
+    """관리자용 문의 목록 — /docs 에서 확인한다."""
+    query = select(Inquiry).order_by(Inquiry.created_at.desc())
+    if only_open:
+        query = query.where(Inquiry.status == "OPEN")
+    rows = db.scalars(query).all()
+    return [
+        InquiryRead(
+            id=row.inquiry_id,
+            content=row.content,
+            status=row.status,
+            answer=row.answer,
+            answered_at=row.answered_at.isoformat() if row.answered_at else None,
+            created_at=row.created_at.isoformat(),
+        )
+        for row in rows
+    ]
+
+
+@app.patch("/api/admin/inquiries/{inquiry_id}", response_model=InquiryRead)
+def answer_inquiry(
+    inquiry_id: int,
+    payload: InquiryAnswer,
+    _admin: AppUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> InquiryRead:
+    """문의에 답변을 단다 — 사용자는 앱의 문의 내역에서 이 답변을 본다.
+
+    다시 호출하면 답변을 고칠 수 있다 (answered_at 도 갱신된다).
+    """
+    inquiry = db.get(Inquiry, inquiry_id)
+    if inquiry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="문의를 찾을 수 없습니다."
+        )
+
+    inquiry.answer = payload.answer
+    inquiry.answered_at = datetime.now(timezone.utc)
+    inquiry.status = "ANSWERED"
+    db.commit()
+    db.refresh(inquiry)
+
+    return InquiryRead(
+        id=inquiry.inquiry_id,
+        content=inquiry.content,
+        status=inquiry.status,
+        answer=inquiry.answer,
+        answered_at=inquiry.answered_at.isoformat(),
+        created_at=inquiry.created_at.isoformat(),
+    )
 
 
 @app.get("/api/settings", response_model=UserSettingRead)
