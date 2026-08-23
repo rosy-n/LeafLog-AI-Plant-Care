@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors, Glass } from "../../constants/colors";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Radius, Spacing } from "../../constants/spacing";
-import { playTapSfx } from "../feedback";
+import { tapFeedback } from "../feedback";
 
 type Props = {
   label: string;
@@ -27,7 +27,7 @@ type Props = {
  */
 export default function GlassMenuItem({ label, onPress, icon, width = 116 }: Props) {
   const handlePress = () => {
-    playTapSfx();
+    tapFeedback();
     onPress();
   };
   return (

@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Colors, GreenTint } from "../../constants/colors";
 import { Radius } from "../../constants/spacing";
-import { playTapSfx } from "../feedback";
+import { tapFeedback } from "../feedback";
 
 type Props = {
   /** Ionicons 이름 */
@@ -43,7 +43,7 @@ export default function IconCircleButton({
   style,
 }: Props) {
   const handlePress = () => {
-    playTapSfx();
+    tapFeedback();
     onPress();
   };
   return (

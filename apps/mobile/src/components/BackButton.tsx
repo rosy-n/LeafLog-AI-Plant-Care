@@ -3,7 +3,7 @@ import { Pressable, StyleProp, StyleSheet, Text, ViewStyle } from "react-native"
 
 import { Colors } from "../../constants/colors";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { playTapSfx } from "../feedback";
+import { tapFeedback } from "../feedback";
 
 type Props = {
   onPress: () => void;
@@ -23,7 +23,7 @@ type Props = {
  */
 export default function BackButton({ onPress, size, style }: Props) {
   const handlePress = () => {
-    playTapSfx();
+    tapFeedback();
     onPress();
   };
   return (

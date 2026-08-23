@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Radius, Spacing } from "../../constants/spacing";
-import { playTapSfx } from "../feedback";
+import { tapFeedback } from "../feedback";
 
 type Props = {
   onPress?: () => void;
@@ -27,7 +27,7 @@ export default function PhotoPickerButton({
   // 아직 핸들러가 안 붙은 화면도 있어서, 실제로 반응할 때만 소리를 낸다
   const handlePress = onPress
     ? () => {
-        playTapSfx();
+        tapFeedback();
         onPress();
       }
     : undefined;

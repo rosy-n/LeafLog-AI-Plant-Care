@@ -10,7 +10,7 @@ import {
 import { Colors } from "../../constants/colors";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Radius } from "../../constants/spacing";
-import { playTapSfx } from "../feedback";
+import { tapFeedback } from "../feedback";
 
 type AppButtonProps = {
   label: string;
@@ -29,7 +29,7 @@ export default function AppButton({
 }: AppButtonProps) {
   const secondary = variant === "secondary";
   const handlePress = () => {
-    playTapSfx();
+    tapFeedback();
     onPress();
   };
   return (
