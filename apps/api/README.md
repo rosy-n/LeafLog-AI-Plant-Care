@@ -90,12 +90,15 @@ cd apps/api; .\.venv\Scripts\python.exe scripts\backfill-affinity.py            
    자동으로 `ANSWERED` 가 되고 사용자 앱에 즉시 보인다. 다시 호출하면 수정된다.
 
 관리자는 `app_user.role = 'ADMIN'` 인 계정뿐이다. 일반 계정은 403.
-현재 관리자는 `aaa@gmail.com` 이고, 바꾸려면:
+현재 관리자는 `bbb@gmail.com` 이다. 바꾸려면 (관리자는 한 명만 두는 것을 권한다):
 
 ```sql
+UPDATE app_user SET role = 'USER'  WHERE role = 'ADMIN' AND email <> '바꿀주소@example.com';
 UPDATE app_user SET role = 'ADMIN' WHERE email = '바꿀주소@example.com';
-UPDATE app_user SET role = 'USER'  WHERE email = 'aaa@gmail.com';
 ```
+
+**답변할 계정과 문의할 계정은 분리하는 편이 낫다** — 관리자 계정으로 문의를 넣으면
+본인이 본인에게 답하는 모양이 된다.
 
 DB 에서 직접 보고 싶다면:
 
