@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
     View,
     Text,
@@ -9,6 +9,7 @@ import {
     StatusBar,
     Modal,
     Image,
+    Pressable,
     KeyboardAvoidingView,
     Platform,
     Alert,
@@ -58,7 +59,6 @@ type Journal   = { note: string; photoSlots: PhotoSlot[] };
 const EMPTY_SLOTS: PhotoSlot[] = [
     { uri: null, plantId: null },
     { uri: null, plantId: null },
-    { uri: null, plantId: null },
 ];
 
 const MOCK_CARE: Record<string, CareDay> = {
@@ -73,11 +73,11 @@ const MOCK_CARE: Record<string, CareDay> = {
 const INIT_JOURNALS: Record<string, Journal> = {
     "2026-05-10": {
         note: "오늘은 날씨가 맑아서 모든 식물에 물을 주었어요. 산세베리아에 비료도 줬습니다.",
-        photoSlots: [{ uri: null, plantId: "1" }, { uri: null, plantId: "2" }, { uri: null, plantId: null }],
+        photoSlots: [{ uri: null, plantId: "1" }, { uri: null, plantId: "2" }],
     },
     "2026-05-14": {
         note: "스파게티 잎이 새로 나왔어요! 파키라도 잘 자라고 있습니다.",
-        photoSlots: [{ uri: null, plantId: "1" }, { uri: null, plantId: null }, { uri: null, plantId: null }],
+        photoSlots: [{ uri: null, plantId: "1" }, { uri: null, plantId: null }],
     },
 };
 
@@ -109,6 +109,31 @@ function diaryDateLabel(dateStr: string): string {
     return `${d}일 ${DOW_KO[dow]}`;
 }
 
+type Plant = (typeof PLANTS)[number];
+
+function plantsByIds(ids: string[]): Plant[] {
+    return ids
+        .map(id => PLANTS.find(p => p.id === id))
+        .filter((p): p is Plant => !!p);
+}
+
+// 포스트잇은 3~4줄 높이로 고정이므로, 글자 수에 따라 폰트를 줄여 칸 안에
+// 들어가게 한다. 단계는 칸 글자 영역(≈228×72px) 기준 수용량으로 잡았다.
+function noteFontSize(text: string): number {
+    const n = text.trim().length;
+    if (n <= 50) return FontSizes.body;
+    if (n <= 76) return FontSizes.small;
+    return FontSizes.caption;
+}
+
+// 그날 일지에 함께 세워둘 개체를 랜덤으로 하나 고른다. 리렌더(타이핑 등)마다
+// 캐릭터가 바뀌지 않도록 날짜 문자열을 시드로 쓴 고정 랜덤이다.
+function pickBuddy(dateStr: string): Plant {
+    let h = 7;
+    for (let i = 0; i < dateStr.length; i++) h = (h * 31 + dateStr.charCodeAt(i)) % 9973;
+    return PLANTS[h % PLANTS.length] as Plant;
+}
+
 function PlusIcon({ size, color }: { size: number; color: string }) {
     const bar = Math.max(2, Math.round(size * 0.2));
     return (
@@ -116,6 +141,44 @@ function PlusIcon({ size, color }: { size: number; color: string }) {
             <View style={{ position: "absolute", width: size * 0.85, height: bar, backgroundColor: color, borderRadius: bar / 2 }} />
             <View style={{ position: "absolute", width: bar, height: size * 0.85, backgroundColor: color, borderRadius: bar / 2 }} />
         </View>
+    );
+}
+
+// 기울어진 폴라로이드 틀 — 눌러서 사진을 넣는다. tiltStyle 로 기울기만 바꿔 쓴다.
+function PhotoFrame({
+    uri,
+    label,
+    tiltStyle,
+    onPress,
+    disabled,
+}: {
+    uri: string | null;
+    label?: string | null;
+    tiltStyle: object;
+    onPress: () => void;
+    disabled: boolean;
+}) {
+    return (
+        <TouchableOpacity
+            style={[styles.photoFrame, tiltStyle]}
+            onPress={onPress}
+            activeOpacity={disabled ? 1 : 0.85}
+            disabled={disabled}
+        >
+            <View style={styles.photoWindow}>
+                {uri ? (
+                    <Image source={{ uri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                ) : (
+                    <View style={styles.photoPlaceholderInner}>
+                        <Ionicons name="camera-outline" size={26} color={Colors.textFaint} />
+                        <Text style={styles.photoAddText}>사진 추가</Text>
+                    </View>
+                )}
+            </View>
+            <Text style={styles.photoCaption} numberOfLines={1}>
+                {label ?? ""}
+            </Text>
+        </TouchableOpacity>
     );
 }
 
@@ -131,12 +194,20 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
     const [editNote,    setEditNote]    = useState("");
     const [editSlots,   setEditSlots]   = useState<PhotoSlot[]>(EMPTY_SLOTS);
     const [pickerIdx,   setPickerIdx]   = useState<number | null>(null);
+    const noteRef = useRef<TextInput>(null);
 
     const weeks        = buildWeeks(viewYear, viewMonth);
     const displayWeeks = weekViewIdx !== null ? [weeks[weekViewIdx]] : weeks;
 
     const care     = selected ? MOCK_CARE[selected] ?? null : null;
     const isLocked = selected ? lockedDays.has(selected) : false;
+
+    const slotA = editSlots[0] ?? { uri: null, plantId: null };
+    const slotB = editSlots[1] ?? { uri: null, plantId: null };
+
+    const wateredChars    = plantsByIds(care?.wateredPlants ?? []);
+    const fertilizedChars = plantsByIds(care?.fertilizedPlants ?? []);
+    const buddy           = selected ? pickBuddy(selected) : null;
 
     function selectDate(dateStr: string | null) {
         if (!dateStr) return;
@@ -397,7 +468,7 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                         {selected && (
                             <View style={styles.diaryPage}>
 
-                                {/* Date + lock badge */}
+                                {/* ① 날짜 — 좌상단 */}
                                 <View style={styles.diaryHeaderRow}>
                                     <Text style={styles.diaryDateText}>{diaryDateLabel(selected)}</Text>
                                     {isLocked && (
@@ -408,122 +479,100 @@ export default function CalendarScreen({ navigation }: { navigation: any }) {
                                     )}
                                 </View>
 
-                                {/* Care icon bubbles */}
-                                {care && (care.watered || care.fertilized) && (
-                                    <View style={styles.diaryIconRow}>
-                                        {care.watered && (
-                                            <View style={[styles.diaryCareIcon, { backgroundColor: Colors.water }]}>
-                                                <Ionicons name="water" size={14} color={Colors.waterIcon} />
+                                {/* ② 물 준 개체 — 없는 날은 이 줄 자체가 사라진다 */}
+                                {wateredChars.length > 0 && (
+                                    <View style={styles.careRow}>
+                                        <View style={[styles.careIcon, { backgroundColor: Colors.water }]}>
+                                            <Ionicons name="water" size={16} color={Colors.waterIcon} />
+                                        </View>
+                                        {wateredChars.map(p => (
+                                            <View key={p.id} style={styles.careCircle}>
+                                                <Image
+                                                    source={PLANT_IMAGES[p.imageKey]}
+                                                    style={styles.careCircleImg}
+                                                    resizeMode="contain"
+                                                />
                                             </View>
-                                        )}
-                                        {care.wateredPlants.map(id => {
-                                            const p = PLANTS.find(x => x.id === id);
-                                            return p ? (
-                                                <View key={id} style={styles.diaryPlantCircle}>
-                                                    <Image source={PLANT_IMAGES[p.imageKey]} style={styles.diaryCircleImg} resizeMode="contain" />
-                                                </View>
-                                            ) : null;
-                                        })}
-                                        {care.fertilized && (
-                                            <View style={[styles.diaryCareIcon, { backgroundColor: Colors.fertilizer }]}>
-                                                <PlusIcon size={16} color={Colors.fertilizerIcon} />
-                                            </View>
-                                        )}
-                                        {care.fertilizedPlants.map(id => {
-                                            const p = PLANTS.find(x => x.id === id);
-                                            return p ? (
-                                                <View key={id} style={styles.diaryPlantCircle}>
-                                                    <Image source={PLANT_IMAGES[p.imageKey]} style={styles.diaryCircleImg} resizeMode="contain" />
-                                                </View>
-                                            ) : null;
-                                        })}
+                                        ))}
                                     </View>
                                 )}
 
-                                {/* Photo section: 1 large + 2 small stacked */}
-                                <View style={styles.photoSection}>
-                                    {/* Main photo */}
-                                    <TouchableOpacity
-                                        style={styles.mainPhotoSlot}
-                                        onPress={() => handlePhotoSlotTap(0)}
-                                        activeOpacity={isLocked ? 1 : 0.85}
+                                {/* ③ 영양제 준 개체 */}
+                                {fertilizedChars.length > 0 && (
+                                    <View style={styles.careRow}>
+                                        <View style={[styles.careIcon, { backgroundColor: Colors.fertilizer }]}>
+                                            <PlusIcon size={16} color={Colors.fertilizerIcon} />
+                                        </View>
+                                        {fertilizedChars.map(p => (
+                                            <View key={p.id} style={styles.careCircle}>
+                                                <Image
+                                                    source={PLANT_IMAGES[p.imageKey]}
+                                                    style={styles.careCircleImg}
+                                                    resizeMode="contain"
+                                                />
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+
+                                {/* ④~⑦ 스크랩북 */}
+                                <View style={styles.scrapbook}>
+
+                                    {/* ④ 우측 — 오른쪽으로 10도 기운 틀 */}
+                                    <View style={styles.frameRowRight}>
+                                        <PhotoFrame
+                                            uri={slotA.uri}
+                                            label={PLANTS.find(p => p.id === slotA.plantId)?.name}
+                                            tiltStyle={styles.tiltRight}
+                                            onPress={() => handlePhotoSlotTap(0)}
+                                            disabled={isLocked}
+                                        />
+                                    </View>
+
+                                    {/* ⑥ 포스트잇 — 눌러서 쓰고, 글자 수에 맞춰 폰트가 줄어든다 */}
+                                    <Pressable
+                                        style={styles.stickyNote}
+                                        onPress={() => !isLocked && noteRef.current?.focus()}
                                         disabled={isLocked}
                                     >
-                                        {editSlots[0].uri ? (
-                                            <>
-                                                <Image
-                                                    source={{ uri: editSlots[0].uri }}
-                                                    style={StyleSheet.absoluteFillObject}
-                                                    resizeMode="cover"
-                                                />
-                                                {editSlots[0].plantId && (() => {
-                                                    const p = PLANTS.find(x => x.id === editSlots[0].plantId);
-                                                    return p ? (
-                                                        <View style={styles.photoBadge}>
-                                                            <Text style={styles.photoBadgeText}>{p.name}</Text>
-                                                        </View>
-                                                    ) : null;
-                                                })()}
-                                            </>
-                                        ) : (
-                                            <View style={styles.photoPlaceholderInner}>
-                                                <Ionicons name="camera-outline" size={30} color={Colors.textFaint} />
-                                                <Text style={styles.photoAddText}>이미지 추가</Text>
-                                            </View>
-                                        )}
-                                    </TouchableOpacity>
+                                        <TextInput
+                                            ref={noteRef}
+                                            style={[styles.stickyNoteInput, { fontSize: noteFontSize(editNote) }]}
+                                            value={editNote}
+                                            onChangeText={setEditNote}
+                                            editable={!isLocked}
+                                            placeholder={"오늘 하루 느낀 생각과 감정을 적어보세요."}
+                                            placeholderTextColor={Colors.textFaint}
+                                            multiline
+                                            scrollEnabled={false}
+                                            textAlignVertical="top"
+                                        />
+                                    </Pressable>
 
-                                    {/* Side photos */}
-                                    <View style={styles.sidePhotos}>
-                                        {[1, 2].map(idx => (
-                                            <TouchableOpacity
-                                                key={idx}
-                                                style={styles.sidePhotoSlot}
-                                                onPress={() => handlePhotoSlotTap(idx)}
-                                                activeOpacity={isLocked ? 1 : 0.85}
+                                    {/* ⑤ 좌측 — 왼쪽으로 15도 기운 틀 + ⑦ 오른쪽에 랜덤 개체 */}
+                                    <View style={styles.frameRowLeft}>
+                                        <View style={styles.lowerFrameWrap}>
+                                            <PhotoFrame
+                                                uri={slotB.uri}
+                                                label={PLANTS.find(p => p.id === slotB.plantId)?.name}
+                                                tiltStyle={styles.tiltLeft}
+                                                onPress={() => handlePhotoSlotTap(1)}
                                                 disabled={isLocked}
-                                            >
-                                                {editSlots[idx].uri ? (
-                                                    <>
-                                                        <Image
-                                                            source={{ uri: editSlots[idx].uri }}
-                                                            style={StyleSheet.absoluteFillObject}
-                                                            resizeMode="cover"
-                                                        />
-                                                        {editSlots[idx].plantId && (() => {
-                                                            const p = PLANTS.find(x => x.id === editSlots[idx].plantId);
-                                                            return p ? (
-                                                                <View style={styles.photoBadge}>
-                                                                    <Text style={styles.photoBadgeText}>{p.name}</Text>
-                                                                </View>
-                                                            ) : null;
-                                                        })()}
-                                                    </>
-                                                ) : (
-                                                    <View style={styles.photoPlaceholderInner}>
-                                                        <Ionicons name="camera-outline" size={20} color={Colors.textFaint} />
-                                                    </View>
-                                                )}
-                                            </TouchableOpacity>
-                                        ))}
+                                            />
+                                            {buddy && (
+                                                <View style={styles.buddyWrap} pointerEvents="none">
+                                                    <Image
+                                                        source={PLANT_IMAGES[buddy.imageKey]}
+                                                        style={styles.buddyImg}
+                                                        resizeMode="contain"
+                                                    />
+                                                </View>
+                                            )}
+                                        </View>
                                     </View>
                                 </View>
 
-                                {/* Sticky note */}
-                                <View style={styles.stickyNote}>
-                                    <TextInput
-                                        style={styles.stickyNoteInput}
-                                        value={editNote}
-                                        onChangeText={setEditNote}
-                                        editable={!isLocked}
-                                        placeholder={"오늘 하루 식물을 돌보며\n느낀 생각과 감정을 써보세요."}
-                                        placeholderTextColor={Colors.textFaint}
-                                        multiline
-                                        textAlignVertical="top"
-                                    />
-                                </View>
-
-                                {/* Save (hidden when locked) */}
+                                {/* 저장 (잠긴 날은 숨김) */}
                                 {!isLocked && (
                                     <TouchableOpacity
                                         style={styles.saveBtn}
@@ -759,60 +808,86 @@ const styles = StyleSheet.create({
         color: GreenTint.strong,
         includeFontPadding: false,
     },
-    diaryIconRow: {
+    careRow: {
         flexDirection: "row",
         alignItems: "center",
         gap: Spacing.sm,
         flexWrap: "wrap",
     },
-    diaryCareIcon: {
-        width: 30,
-        height: 30,
-        borderRadius: Radius.lg,
+    careIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: Radius.pill,
         alignItems: "center",
         justifyContent: "center",
     },
-    diaryPlantCircle: {
-        width: 34,
-        height: 34,
+    careCircle: {
+        width: 36,
+        height: 36,
         borderRadius: Radius.pill,
         backgroundColor: Colors.background,
         alignItems: "center",
         justifyContent: "center",
-        borderWidth: 1,
+        borderWidth: 1.2,
         borderColor: GreenTint.line,
         overflow: "hidden",
     },
-    diaryCircleImg: {
-        width: 28,
-        height: 28,
+    careCircleImg: {
+        width: 30,
+        height: 30,
     },
 
-    // photo section
-    photoSection: {
+    // ── 스크랩북 (기운 사진 틀 + 포스트잇) ──
+    // 자식마다 음수 마진으로 살짝 겹치고, zIndex 로 포스트잇이 사진 틀 위에
+    // 얹히게 쌓는다(글이 가려지면 안 된다).
+    // 단, 위 틀은 아래쪽에 식물 라벨(photoCaption)이 붙는다. 10도 기울면
+    // 라벨 오른쪽 끝이 레이아웃 박스보다 ~10px 더 내려오므로, 포스트잇은
+    // 위 틀과만 양수 마진으로 간격을 둬서 라벨을 덮지 않게 한다.
+    scrapbook: {
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.xl,
+    },
+    frameRowRight: {
         flexDirection: "row",
-        height: 210,
-        gap: Spacing.sm,
+        justifyContent: "flex-end",
+        paddingRight: Spacing.sm,
+        zIndex: 2,
     },
-    mainPhotoSlot: {
-        flex: 3,
-        borderRadius: Radius.lg,
-        overflow: "hidden",
+    frameRowLeft: {
+        flexDirection: "row",
+        paddingLeft: Spacing.xs,
+        marginTop: -Spacing.md,
+        zIndex: 3,
+    },
+    lowerFrameWrap: {
+        position: "relative",
+    },
+    tiltRight: { transform: [{ rotate: "10deg" }] },
+    tiltLeft:  { transform: [{ rotate: "-15deg" }] },
+
+    // 폴라로이드 틀 — 사진 넣는 창 + 아래 라벨 여백
+    photoFrame: {
+        width: 190,
+        backgroundColor: Colors.white,
+        borderRadius: Radius.xs,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        paddingTop: Spacing.sm,
+        paddingHorizontal: Spacing.sm,
+        paddingBottom: Spacing.xs,
+        shadowColor: Shadow.color,
+        shadowOpacity: 0.16,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 4,
+    },
+    photoWindow: {
+        width: "100%",
+        aspectRatio: 1,
         backgroundColor: Colors.background,
-        borderWidth: 1.2,
+        borderWidth: 1,
         borderColor: GreenTint.soft,
-    },
-    sidePhotos: {
-        flex: 2,
-        gap: Spacing.sm,
-    },
-    sidePhotoSlot: {
-        flex: 1,
-        borderRadius: Radius.md,
         overflow: "hidden",
-        backgroundColor: Colors.background,
-        borderWidth: 1.2,
-        borderColor: GreenTint.soft,
     },
     photoPlaceholderInner: {
         flex: 1,
@@ -826,42 +901,58 @@ const styles = StyleSheet.create({
         color: Colors.textFaint,
         includeFontPadding: false,
     },
-    photoBadge: {
-        position: "absolute",
-        bottom: 6,
-        left: 6,
-        backgroundColor: Shadow.medium,
-        borderRadius: Radius.sm,
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: Spacing.xxs,
-    },
-    photoBadgeText: {
+    photoCaption: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
-        color: Colors.white,
+        color: Colors.textGray,
+        textAlign: "center",
+        minHeight: 14,
+        paddingTop: Spacing.xxs,
         includeFontPadding: false,
     },
 
-    // sticky note
+    // ⑦ 랜덤으로 고른 개체 — 아래 틀의 우측 하단에 걸쳐 세워둔다
+    buddyWrap: {
+        position: "absolute",
+        right: -Spacing.section,
+        bottom: -Spacing.md,
+    },
+    buddyImg: {
+        width: 112,
+        height: 112,
+    },
+
+    // ⑥ 포스트잇 — 가로로 긴 3~4줄 높이. 사진 틀과 겹치되 항상 맨 위에 얹혀
+    // 글이 가려지지 않게 한다. 안드로이드는 elevation 이 zIndex 를 이기므로
+    // 틀(elevation 4)보다 큰 값을 함께 줘야 한다.
     stickyNote: {
+        alignSelf: "center",
+        width: "90%",
+        height: 96,
+        marginTop: Spacing.lg,
+        zIndex: 4,
         backgroundColor: Paper.noteBg,
-        borderRadius: Radius.sm,
-        padding: Spacing.lg,
+        borderRadius: Radius.xs,
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.md,
         borderWidth: 1,
         borderColor: Paper.noteBorder,
+        overflow: "hidden",
+        transform: [{ rotate: "-2deg" }],
         shadowColor: Paper.noteAccent,
-        shadowOpacity: 0.12,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 2,
+        shadowOpacity: 0.18,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 6,
     },
     stickyNoteInput: {
+        flex: 1,
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
         color: Paper.noteText,
-        minHeight: 80,
         textAlignVertical: "top",
         includeFontPadding: false,
+        padding: 0,
     },
 
     saveBtn: {
