@@ -9,10 +9,12 @@ import {
     PanResponder,
     Dimensions,
     TextInput,
+    Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { updatePlant } from "../api";
 import PlantImage from "../components/PlantImage";
 import HeartsRow from "../components/HeartsRow";
 import LiquidGlassButton from "../components/LiquidGlassButton";
@@ -154,17 +156,50 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
         })
     ).current;
 
-    const toggleFavorite = (plantId) => {
+    /*
+        즐겨찾기는 서버(plant.is_favorite)가 원본이다 — 앱을 다시 켜도 유지되게.
+
+        별을 누르면 화면을 먼저 바꾸고 저장에 실패하면 되돌린다. 응답을 기다렸다가
+        칠하면 한 박자 늦게 바뀌어 눌리지 않은 것처럼 보인다.
+        같은 개체를 연달아 누르면 응답이 보낸 순서대로 오지 않을 수 있어
+        (먼저 보낸 요청의 응답이 나중에 도착하면 옛 값으로 되돌아간다)
+        개체별로 마지막 요청의 응답만 반영한다.
+    */
+    const favoriteSeq = useRef({});
+
+    const paintFavorite = (plantId, value) => {
         const nextPlants = plantsRef.current.map((plant) =>
-            plant.id === plantId ? { ...plant, favorite: !plant.favorite } : plant
+            plant.id === plantId ? { ...plant, favorite: value } : plant
         );
         plantsRef.current = nextPlants;
         setPlants(nextPlants);
         setDisplayPlants((prev) =>
             prev.map((plant) =>
-                plant.id === plantId ? { ...plant, favorite: !plant.favorite } : plant
+                plant.id === plantId ? { ...plant, favorite: value } : plant
             )
         );
+    };
+
+    const toggleFavorite = async (plantId) => {
+        const target = plantsRef.current.find((plant) => plant.id === plantId);
+        if (!target) return;
+
+        const previous = target.favorite;
+        const next = !previous;
+        const seq = (favoriteSeq.current[plantId] ?? 0) + 1;
+        favoriteSeq.current[plantId] = seq;
+
+        paintFavorite(plantId, next);
+        try {
+            const saved = await updatePlant(Number(plantId), { is_favorite: next });
+            if (seq !== favoriteSeq.current[plantId]) return;
+            // 서버가 준 값으로 한 번 더 맞춘다
+            paintFavorite(plantId, saved.is_favorite);
+        } catch (error) {
+            if (seq !== favoriteSeq.current[plantId]) return;
+            paintFavorite(plantId, previous);
+            Alert.alert("즐겨찾기 저장 실패", error?.message ?? "다시 시도해주세요.");
+        }
     };
 
     const openSearch = () => {
