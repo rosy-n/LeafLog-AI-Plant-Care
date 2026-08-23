@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/colors";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Radius, Spacing } from "../../constants/spacing";
+import { playTapSfx } from "../feedback";
 
 type Props = {
   /** children 을 넘기면 무시된다 */
@@ -68,6 +69,10 @@ export default function ActionButton({
   children,
 }: Props) {
   const large = size === "lg";
+  const handlePress = () => {
+    playTapSfx();
+    onPress();
+  };
   return (
     <TouchableOpacity
       style={[
@@ -79,7 +84,7 @@ export default function ActionButton({
         disabled && styles.disabled,
         style,
       ]}
-      onPress={onPress}
+      onPress={handlePress}
       activeOpacity={activeOpacity}
       disabled={disabled}
     >

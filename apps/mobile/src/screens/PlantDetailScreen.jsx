@@ -27,7 +27,7 @@ import IconCircleButton from "../components/IconCircleButton";
 import PixelButton from "../components/PixelButton";
 import PixelSpeechBubble, { WordWrapText } from "../components/PixelSpeechBubble";
 import { scheduleWateringReminder } from "../notifications";
-import { ImpactFeedbackStyle, hapticImpact, playSfx } from "../feedback";
+import { ImpactFeedbackStyle, hapticImpact, playSfx, stopSfx } from "../feedback";
 import {
     getPlantCare,
     createCareRecord,
@@ -174,8 +174,18 @@ export default function PlantDetailScreen({ navigation, route, decorations }) {
         }
     };
 
-    // 물주기 도중 화면을 벗어나면 예약된 진동을 취소한다 (안 하면 뒤늦게 울린다)
-    useEffect(() => clearDropHaptics, []);
+    /*
+        물주기 도중 화면을 벗어나면 뒷정리를 한다.
+        예약된 진동은 취소하고(안 하면 뒤늦게 울린다), 물소리도 끊는다 —
+        음원이 물주기 애니메이션보다 길어서 그냥 두면 다른 화면까지 따라온다.
+    */
+    useEffect(
+        () => () => {
+            clearDropHaptics();
+            stopSfx("water");
+        },
+        [],
+    );
 
     // ── 캐릭터 문지르기 ──────────────────────────────
     // 손가락을 따라 하트가 뜨고 그때마다 가볍게 진동한다. 애정도는 하루 한 번만 오른다.

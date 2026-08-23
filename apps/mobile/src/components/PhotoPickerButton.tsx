@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Radius, Spacing } from "../../constants/spacing";
+import { playTapSfx } from "../feedback";
 
 type Props = {
   onPress?: () => void;
@@ -23,11 +24,18 @@ export default function PhotoPickerButton({
   label = "사진 추가",
   style,
 }: Props) {
+  // 아직 핸들러가 안 붙은 화면도 있어서, 실제로 반응할 때만 소리를 낸다
+  const handlePress = onPress
+    ? () => {
+        playTapSfx();
+        onPress();
+      }
+    : undefined;
   return (
     <TouchableOpacity
       style={[styles.button, style]}
       activeOpacity={0.75}
-      onPress={onPress}
+      onPress={handlePress}
     >
       <Ionicons name="camera-outline" size={28} color={GreenTint.line} />
       <Text style={styles.label}>{label}</Text>

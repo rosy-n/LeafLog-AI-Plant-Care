@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors, Glass } from "../../constants/colors";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Radius, Spacing } from "../../constants/spacing";
+import { playTapSfx } from "../feedback";
 
 type Props = {
   label: string;
@@ -25,11 +26,15 @@ type Props = {
  * 원을 그리는 구조라 이 알약 모양에는 쓸 수 없어 따로 둔다.
  */
 export default function GlassMenuItem({ label, onPress, icon, width = 116 }: Props) {
+  const handlePress = () => {
+    playTapSfx();
+    onPress();
+  };
   return (
     <TouchableOpacity
       activeOpacity={0.82}
       style={[styles.touch, { width }]}
-      onPress={onPress}
+      onPress={handlePress}
     >
       <BlurView intensity={28} tint="light" style={styles.blur}>
         <LinearGradient
