@@ -171,20 +171,31 @@ const PLANT_SHADOW_H = 10;    // 들려 있을 때 발밑에 남는 그림자 �
     하단 중앙의 돋보기 — 개체를 놓는 자리.
 
     도트 아이콘 안에서 렌즈 구멍이 가운데가 아니라 왼쪽 위로 치우쳐 있어서
-    (손잡이가 오른쪽 아래로 뻗는다) 판정 좌표를 아이콘 실측값으로 잡는다:
-    1254px 캔버스에서 구멍 중심이 (0.447, 0.392), 반지름이 0.243.
-    구멍이 투명해서, 그 자리에 확대상을 따로 그려 넣는다(MagnifierLens).
+    (손잡이가 오른쪽 아래로 뻗는다) 판정 좌표를 아이콘 실측값으로 잡는다.
+    1254px 캔버스의 알파 채널에서 구멍(잉크에 둘러싸인 투명 영역)을 재면
+    x 258..865, y 160..816 — 정원이 아니라 세로로 8% 긴 타원이다.
+    구멍이 투명해서, 그 자리에 확대상을 따로 그려 넣는다(Magnifier).
 */
 const MAGNIFIER_ICON = require("../../assets/icons/magnifier_icon.png");
-const MAG_SIZE = 260;
+const MAG_SIZE = 310;
 const MAG_BOTTOM = 4;                     // 들판 아래 경계에서 띄우는 높이
-const MAG_LENS_X = MAG_SIZE * 0.447;
-const MAG_LENS_Y = MAG_SIZE * 0.392;
-const MAG_LENS_R = MAG_SIZE * 0.243;
-// 구멍보다 넉넉하게 받는다 — 캐릭터가 크고 손가락으로 정확히 겨냥하기는 어렵다
-const MAG_HIT_R = MAG_LENS_R + 30;
-const MAG_Z = 2000;                       // 다른 개체(zIndex = 들판 안 y좌표)보다 앞에
-// 진짜 돋보기처럼 렌즈 안의 캐릭터는 확대되어 보인다 (MagnifierLens 참고)
+const MAG_LENS_X = MAG_SIZE * 0.4478;
+const MAG_LENS_Y = MAG_SIZE * 0.3892;
+const MAG_HOLE_RX = MAG_SIZE * 0.2424;
+const MAG_HOLE_RY = MAG_SIZE * 0.2620;
+/*
+    확대창은 구멍보다 넓은 정원 하나로 오려낸다.
+
+    구멍은 세로로 8% 긴 타원이지만 창을 타원으로 맞출 필요가 없다 — 넘치는 부분은
+    아이콘의 도트 테두리가 덮기 때문이다(Magnifier 참고). 세로 반지름에 맞춘 정원이면
+    사방 어디서도 구멍을 다 채우고, 가장 많이 넘치는 가로 방향에서도 15px 뿐이라
+    가장 얇은 테두리(캔버스 79px ≈ 19.5px)보다 얕게 들어간다.
+*/
+const MAG_LENS_R = MAG_HOLE_RY + MAG_SIZE * 0.03;
+// 판정은 넘치게 그린 창이 아니라 실제 구멍 기준. 구멍보다는 넉넉하게 받는다 —
+// 캐릭터가 크고 손가락으로 정확히 겨냥하기는 어렵다
+const MAG_HIT_R = MAG_HOLE_RY + 30;
+// 진짜 돋보기처럼 렌즈 안의 캐릭터는 확대되어 보인다 (Magnifier 참고)
 const MAG_ZOOM = 1.7;
 /*
     확대창은 들판 안이 아니라 들판과 형제로 둔다.
@@ -281,6 +292,8 @@ export default function HomeScreen({
     const [environment, setEnvironment] = useState(null);
     // x/y 는 들판이 화면에서 시작하는 자리 — 들판 밖에 그리는 확대창의 좌표 변환에 쓴다
     const [fieldSize, setFieldSize] = useState({ x: 0, y: 0, width: 0, height: 0 });
+    // 배경 그림이 깔린 크기 — 렌즈 바닥에 같은 배경을 1:1 로 다시 깔 때 쓴다(Magnifier)
+    const [backgroundSize, setBackgroundSize] = useState({ width: 0, height: 0 });
 
     const fieldPlants = useMemo(() => selectFieldPlants(plants), [plants]);
 
@@ -299,6 +312,23 @@ export default function HomeScreen({
     // 들고 있는 개체가 몇 번째 자리인지 — 확대상을 그리려면 자리 크기(FIELD_SLOTS)도 필요하다
     const heldIndex = fieldPlants.findIndex((plant) => plant.id === heldPlantId);
     const holding = heldIndex >= 0;
+
+    /*
+        돋보기 등장 — 아이콘과 확대창이 하나의 값을 함께 본다.
+        각자 스프링을 돌리면 미세하게 어긋나서, 뜨는 동안 확대상이 구멍 밖으로 샌다.
+    */
+    const magAppear = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (!holding) return;
+        magAppear.setValue(0);
+        Animated.spring(magAppear, {
+            toValue: 1,
+            tension: 130,
+            friction: 9,
+            useNativeDriver: true,
+        }).start();
+    }, [holding]);
 
     // 개체를 들면 양옆 버튼이 좌우로 밀려나며 사라진다
     const sideAway = useRef(new Animated.Value(0)).current;
@@ -442,6 +472,14 @@ export default function HomeScreen({
                 source={homeBackgroundSource}
                 resizeMode="cover"
                 style={styles.background}
+                onLayout={(event) => {
+                    const { width, height } = event.nativeEvent.layout;
+                    setBackgroundSize((prev) =>
+                        prev.width === width && prev.height === height
+                            ? prev
+                            : { width, height }
+                    );
+                }}
             >
                 {/* 상단 왼쪽: 날씨, 미세먼지 — 탭하면 데이터 화면으로 이동 */}
                 <View style={styles.topLeftArea}>
@@ -554,24 +592,29 @@ export default function HomeScreen({
                         들판에 남아 있는지 함께 확인한다 — 그러지 않으면 놓을 일이 없어
                         돋보기만 남는다.
                     */}
-                    {holding && <MagnifierDropTarget active={overLens} />}
                 </View>
 
                 {/*
-                    렌즈 안쪽 — 들고 있는 개체를 확대해 다시 그린다.
-                    들판 안이 아니라 밖에 두어야(MAG_LENS_Z 주석) 들고 있는 개체까지
-                    덮어서, 렌즈 안에 원래 크기의 캐릭터가 겹쳐 보이지 않는다.
+                    돋보기 — 개체를 들고 있는 동안에만. 들판 안이 아니라 밖에 두어야
+                    들고 있는 개체까지 덮어서 확대상이 가려지지 않는다(Magnifier 주석).
+                    들고 있는 개체가 목록에서 사라진 경우(목록 갱신)에도 같이 사라지게
+                    들판에 남아 있는지 함께 확인한다 — 그러지 않으면 놓을 일이 없어
+                    돋보기만 남는다.
                 */}
                 {holding && lens && (
-                    <MagnifierLens
+                    <Magnifier
+                        active={overLens}
                         plant={fieldPlants[heldIndex]}
                         accessory={
                             decorations[String(fieldPlants[heldIndex].id)]?.accessory ?? null
                         }
                         slot={FIELD_SLOTS[heldIndex]}
                         lens={lens}
-                        origin={fieldSize}
+                        field={fieldSize}
                         center={heldCenter}
+                        background={homeBackgroundSource}
+                        backgroundSize={backgroundSize}
+                        appear={magAppear}
                     />
                 )}
 
@@ -1209,145 +1252,143 @@ function WanderingPlant({
 }
 
 /*
-    하단 중앙의 돋보기 — 개체를 들고 있는 동안에만 나타나는 "놓는 자리".
+    하단 중앙의 돋보기 — 개체를 놓는 자리이자, 렌즈 안을 확대해 보여 주는 창.
 
-    렌즈 구멍은 투명하게 비워 두고, 그 안에 보이는 확대상은 MagnifierLens 가 그린다.
-    active(렌즈에 닿음)면 아이콘만 살짝 커진다 — 상자째 키우면 렌즈 중심이 움직여
-    판정 좌표(MAG_LENS_*)와 어긋난다.
+    들판 밖(들판과 형제)에 두고 들판과 같은 자리·크기로 겹쳐 놓는다. zIndex 는 같은
+    부모의 형제끼리만 겨루므로, 들판 안에 두면 아무리 큰 값을 줘도 들고 있는
+    개체(HOLD_Z)를 덮을 수 없다. 정확히 겹쳐 두었으니 안쪽 좌표계는 들판과 같아서
+    렌즈 판정 좌표(lens)를 그대로 쓸 수 있다.
+
+    그리는 순서가 이 화면의 핵심이다 — 확대상이 먼저, 돋보기 아이콘이 그 위에.
+    아이콘은 도트 그림이라 구멍 가장자리가 계단처럼 각져 있다. 매끈한 타원으로
+    오려낸 확대상을 아이콘 위에 얹으면 두 경계가 어긋나 보이지만, 반대로 확대상을
+    구멍보다 조금 넓게(MAG_LENS_BLEED) 그려 놓고 아이콘으로 덮으면 도트 테두리
+    자체가 경계가 되어 어떤 크기에서도 딱 맞는다.
+
+    아이콘은 어떤 이유로도 크기를 바꾸지 않는다 — 구멍이 아이콘 중심에서 벗어나
+    있어서 조금만 키워도 구멍이 딸려 움직이고, 같이 커지지 않는 확대창과 어긋난다.
+    렌즈에 닿았다는 신호는 아래 안내 문구가 맡는다.
 */
-function MagnifierDropTarget({ active }) {
-    const appear = useRef(new Animated.Value(0)).current;
-    const focus = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-        Animated.spring(appear, {
-            toValue: 1,
-            tension: 130,
-            friction: 9,
-            useNativeDriver: true,
-        }).start();
-    }, []);
-
-    useEffect(() => {
-        Animated.timing(focus, {
-            toValue: active ? 1 : 0,
-            duration: 140,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-        }).start();
-    }, [active]);
-
-    return (
-        <Animated.View
-            style={[
-                styles.magnifier,
-                {
-                    opacity: appear,
-                    transform: [
-                        {
-                            translateY: appear.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [18, 0],
-                            }),
-                        },
-                    ],
-                },
-            ]}
-            pointerEvents="none"
-        >
-            <View style={styles.magnifierHint}>
-                <Text style={styles.magnifierHintText}>
-                    {active ? "놓으면 자세히 보기" : "여기에 놓아 자세히 보기"}
-                </Text>
-            </View>
-            <Animated.Image
-                source={MAGNIFIER_ICON}
-                resizeMode="contain"
-                style={[
-                    styles.magnifierIcon,
-                    {
-                        transform: [
-                            {
-                                scale: focus.interpolate({
-                                    inputRange: [0, 1],
-                                    outputRange: [1, 1.14],
-                                }),
-                            },
-                        ],
-                    },
-                ]}
-            />
-        </Animated.View>
-    );
-}
-
-/*
-    렌즈 안쪽 — 들고 있는 개체를 MAG_ZOOM 배로 확대해 다시 그린다.
-
-    원형으로 잘라낸 창(overflow: hidden) 안에 같은 개체를 한 번 더 그리고,
-    렌즈 중심을 기준으로 확대한 자리에 놓는다. 들판의 한 점 P 는 렌즈 안에서
-    중심 + (P - 중심) × 배율 로 옮겨가므로, 개체 중심에 그 식을 그대로 먹인다.
-    개체가 렌즈에서 멀면 확대상이 창 밖으로 밀려나 저절로 잘린다 — 보일 때만
-    따로 켜고 끌 필요가 없다.
-
-    확대상은 들고 있는 개체(HOLD_Z)보다 위에 그린다. 아래에 두면 원래 크기의
-    캐릭터가 렌즈를 통해 겹쳐 보여서 상이 두 겹으로 흐려진다.
-*/
-function MagnifierLens({ plant, accessory, slot, lens, origin, center }) {
+function Magnifier({
+    active,
+    plant,
+    accessory,
+    slot,
+    lens,
+    field,
+    center,
+    background,
+    backgroundSize,
+    appear,
+}) {
     /*
-        center 는 들려 있는 개체의 "눈에 보이는" 중심(WanderingPlant 의 centerOf)이라
-        렌즈 좌표와 같은 계에 있다. 확대상도 HOLD_SCALE 을 얹어야 렌즈 안팎이 이어진다.
+        확대상은 렌즈 중심을 기준으로 벌어진다 — 들판의 한 점 P 는 렌즈 안에서
+        중심 + (P - 중심) × 배율 로 옮겨간다. center 는 들고 있는 개체의 "눈에 보이는"
+        중심(WanderingPlant 의 centerOf)이라 렌즈 좌표와 같은 계에 있고,
+        확대상에도 HOLD_SCALE 을 얹어야 렌즈 안팎이 이어져 보인다.
         (렌즈는 들판 맨 아래라 원근 배율은 1에 가까워 따로 반영하지 않는다.)
     */
     const offsetX = Animated.multiply(Animated.subtract(center.x, lens.x), MAG_ZOOM);
     const offsetY = Animated.multiply(Animated.subtract(center.y, lens.y), MAG_ZOOM);
 
+    // 안내 문구와 아이콘, 확대상이 한 값으로 함께 떠오른다
+    const rise = appear.interpolate({ inputRange: [0, 1], outputRange: [18, 0] });
+
     return (
         <View
             style={[
-                styles.magnifierLens,
+                styles.magnifierLayer,
                 {
-                    // lens 는 들판 안 좌표 — 확대창은 들판 밖이라 들판 원점을 더해 옮긴다
-                    left: origin.x + lens.x - MAG_LENS_R,
-                    top: origin.y + lens.y - MAG_LENS_R,
+                    left: field.x,
+                    top: field.y,
+                    width: field.width,
+                    height: field.height,
                 },
             ]}
             pointerEvents="none"
         >
-            {/* 유리 — 확대상 아래에 깔아서 렌즈 밖 배경과 구분되게 한다 */}
-            <View style={styles.magnifierGlass} />
-
             <Animated.View
-                style={{
-                    position: "absolute",
-                    left: MAG_LENS_R - slot.width / 2,
-                    top: MAG_LENS_R - slot.height / 2,
-                    width: slot.width,
-                    height: slot.height,
-                    // scale 이 먼저(상자 중심 기준), 그 다음 확대된 자리로 옮긴다
-                    transform: [
-                        { translateX: offsetX },
-                        { translateY: offsetY },
-                        { scale: MAG_ZOOM * HOLD_SCALE },
-                    ],
-                }}
+                style={[
+                    styles.magnifierLens,
+                    {
+                        left: lens.x - MAG_LENS_R,
+                        top: lens.y - MAG_LENS_R,
+                        opacity: appear,
+                        transform: [{ translateY: rise }],
+                    },
+                ]}
             >
-                <PlantImage
-                    uri={plant?.imageUri}
-                    imageKey={plant?.imageKey ?? "spaghetti"}
-                    expressionSource={
-                        plant?.characterFaceRemoved ? getPlantExpressionSource(plant) : null
-                    }
-                    expressionBounds={plant?.characterFaceBounds}
-                    effectRemote={accessory?.spriteUrl ? { uri: accessory.spriteUrl } : null}
-                    effectFallback={accessorySpriteBundle(accessory?.key)}
-                    width={slot.width}
-                    height={slot.height}
-                />
+                {/*
+                    렌즈 바닥에 배경을 다시 깐다.
+
+                    구멍이 뚫려 있으면 확대상의 잎 사이로 원래 크기의 캐릭터가 비쳐
+                    같은 개체가 두 겹으로 보인다. 색을 칠하면 렌즈 자리에 동그란 판이
+                    생기니, 화면과 똑같은 배경 그림을 같은 크기·같은 자리에 1:1 로
+                    깔아 뒤를 막는다 — 주변과 이어져서 판이 있는 줄 모른다.
+                    (배경은 화면 좌상단이 원점이라, 창 안에서는 그만큼 되돌려 놓는다.)
+                */}
+                {backgroundSize.width > 0 && (
+                    <Image
+                        source={background}
+                        resizeMode="cover"
+                        style={{
+                            position: "absolute",
+                            left: MAG_LENS_R - (field.x + lens.x),
+                            top: MAG_LENS_R - (field.y + lens.y),
+                            width: backgroundSize.width,
+                            height: backgroundSize.height,
+                        }}
+                    />
+                )}
+
+                <Animated.View
+                    style={{
+                        position: "absolute",
+                        left: MAG_LENS_R - slot.width / 2,
+                        top: MAG_LENS_R - slot.height / 2,
+                        width: slot.width,
+                        height: slot.height,
+                        // 오른쪽부터 적용된다 — 확대한 뒤(scale) 확대된 자리로 옮긴다
+                        transform: [
+                            { translateX: offsetX },
+                            { translateY: offsetY },
+                            { scale: MAG_ZOOM * HOLD_SCALE },
+                        ],
+                    }}
+                >
+                    <PlantImage
+                        uri={plant?.imageUri}
+                        imageKey={plant?.imageKey ?? "spaghetti"}
+                        expressionSource={
+                            plant?.characterFaceRemoved ? getPlantExpressionSource(plant) : null
+                        }
+                        expressionBounds={plant?.characterFaceBounds}
+                        effectRemote={accessory?.spriteUrl ? { uri: accessory.spriteUrl } : null}
+                        effectFallback={accessorySpriteBundle(accessory?.key)}
+                        width={slot.width}
+                        height={slot.height}
+                    />
+                </Animated.View>
             </Animated.View>
 
-            {/* 유리에 비치는 빛 — 상단 왼쪽. 다른 글래스 버튼과 같은 방식 */}
-            <View style={styles.magnifierSheen} />
+            {/* 안내 문구 + 돋보기 — 확대상 위에 덮여 도트 테두리가 렌즈 경계를 만든다 */}
+            <Animated.View
+                style={[
+                    styles.magnifier,
+                    { opacity: appear, transform: [{ translateY: rise }] },
+                ]}
+            >
+                <View style={styles.magnifierHint}>
+                    <Text style={styles.magnifierHintText}>
+                        {active ? "놓으면 자세히 보기" : "여기에 놓아 자세히 보기"}
+                    </Text>
+                </View>
+                <Image
+                    source={MAGNIFIER_ICON}
+                    resizeMode="contain"
+                    style={styles.magnifierIcon}
+                />
+            </Animated.View>
         </View>
     );
 }
@@ -1522,14 +1563,21 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.scrim,
     },
 
-    // 하단 중앙 돋보기 — 들판 안에 두어서 렌즈 판정과 그려지는 자리가 어긋나지 않는다
+    /*
+        돋보기 층 — 들판과 똑같은 자리에 겹쳐 놓는 투명한 판(자리·크기는 Magnifier 가
+        얹는다). 이 안의 좌표계가 들판과 같아지므로 렌즈 판정 좌표를 그대로 쓴다.
+    */
+    magnifierLayer: {
+        position: "absolute",
+        zIndex: MAG_LENS_Z,
+    },
+    // 하단 중앙 돋보기 — 위 판 기준이라 들판 안에 있을 때와 자리가 같다
     magnifier: {
         position: "absolute",
         left: 0,
         right: 0,
         bottom: MAG_BOTTOM,
         alignItems: "center",
-        zIndex: MAG_Z,
     },
     magnifierIcon: {
         width: MAG_SIZE,
@@ -1544,28 +1592,13 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Glass.frost45,
     },
-    // 렌즈 구멍과 같은 자리의 원형 창 — 자리(left/top)는 렌즈 좌표에서 얹는다
+    // 렌즈 구멍 자리의 창 — 자리(left/top)·세로 늘이기는 Magnifier 가 얹는다
     magnifierLens: {
         position: "absolute",
         width: MAG_LENS_R * 2,
         height: MAG_LENS_R * 2,
         borderRadius: MAG_LENS_R,
         overflow: "hidden",
-        zIndex: MAG_LENS_Z,
-    },
-    magnifierGlass: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: Glass.frost45,
-    },
-    magnifierSheen: {
-        position: "absolute",
-        top: MAG_LENS_R * 0.22,
-        left: MAG_LENS_R * 0.3,
-        width: MAG_LENS_R * 0.7,
-        height: MAG_LENS_R * 0.28,
-        borderRadius: Radius.pill,
-        backgroundColor: Glass.frost60,
-        transform: [{ rotate: "-24deg" }],
     },
     magnifierHintText: {
         fontFamily: Fonts.neoDunggeunmo,
