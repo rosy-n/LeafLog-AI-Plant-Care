@@ -15,7 +15,7 @@ import * as Haptics from "expo-haptics";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Accent, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Accent, Glass, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { getCurrentEnvironment } from "../api";
 // 꾸미기(item_key 기반)로 바뀌는 배경은 개체탭(PlantDetailScreen) 것 — 홈은 날씨로만 바뀐다
@@ -171,19 +171,44 @@ const PLANT_SHADOW_H = 10;    // 들려 있을 때 발밑에 남는 그림자 �
     하단 중앙의 돋보기 — 개체를 놓는 자리.
 
     도트 아이콘 안에서 렌즈 구멍이 가운데가 아니라 왼쪽 위로 치우쳐 있어서
-    (손잡이가 오른쪽 아래로 뻗는다) 판정 좌표를 아이콘 실측값으로 잡는다:
-    1254px 캔버스에서 구멍 중심이 (0.447, 0.392), 반지름이 0.243.
-    구멍이 투명해서 캐릭터를 겹치면 렌즈 안에 비쳐 보인다.
+    (손잡이가 오른쪽 아래로 뻗는다) 판정 좌표를 아이콘 실측값으로 잡는다.
+    1254px 캔버스의 알파 채널에서 구멍(잉크에 둘러싸인 투명 영역)을 재면
+    x 258..865, y 160..816 — 정원이 아니라 세로로 8% 긴 타원이다.
+    구멍이 투명해서, 그 자리에 확대상을 따로 그려 넣는다(Magnifier).
 */
 const MAGNIFIER_ICON = require("../../assets/icons/magnifier_icon.png");
-const MAG_SIZE = 168;
+const MAG_SIZE = 310;
 const MAG_BOTTOM = 4;                     // 들판 아래 경계에서 띄우는 높이
-const MAG_LENS_X = MAG_SIZE * 0.447;
-const MAG_LENS_Y = MAG_SIZE * 0.392;
-const MAG_LENS_R = MAG_SIZE * 0.243;
-// 구멍보다 넉넉하게 받는다 — 캐릭터가 크고 손가락으로 정확히 겨냥하기는 어렵다
-const MAG_HIT_R = MAG_LENS_R + 30;
-const MAG_Z = 2000;                       // 다른 개체(zIndex = 들판 안 y좌표)보다 앞에
+const MAG_LENS_X = MAG_SIZE * 0.4478;
+const MAG_LENS_Y = MAG_SIZE * 0.3892;
+const MAG_HOLE_RX = MAG_SIZE * 0.2424;
+const MAG_HOLE_RY = MAG_SIZE * 0.2620;
+/*
+    확대창은 구멍보다 넓은 정원 하나로 오려낸다.
+
+    구멍은 세로로 8% 긴 타원이지만 창을 타원으로 맞출 필요가 없다 — 넘치는 부분은
+    아이콘의 도트 테두리가 덮기 때문이다(Magnifier 참고). 세로 반지름에 맞춘 정원이면
+    사방 어디서도 구멍을 다 채우고, 가장 많이 넘치는 가로 방향에서도 15px 뿐이라
+    가장 얇은 테두리(캔버스 79px ≈ 19.5px)보다 얕게 들어간다.
+*/
+const MAG_LENS_R = MAG_HOLE_RY + MAG_SIZE * 0.03;
+// 판정은 넘치게 그린 창이 아니라 실제 구멍 기준. 구멍보다는 넉넉하게 받는다 —
+// 캐릭터가 크고 손가락으로 정확히 겨냥하기는 어렵다
+const MAG_HIT_R = MAG_HOLE_RY + 30;
+// 진짜 돋보기처럼 렌즈 안의 캐릭터는 확대되어 보인다 (Magnifier 참고)
+const MAG_ZOOM = 1.7;
+/*
+    확대창은 들판 안이 아니라 들판과 형제로 둔다.
+
+    zIndex 는 같은 부모의 형제끼리만 겨룬다 — 확대창을 들판 안에 두면 아무리 큰 값을
+    줘도 들판 내부 순서 싸움일 뿐이라, 들고 있는 개체(HOLD_Z)에 가려 확대상이 보이지
+    않는다. 들판(20) 밖으로 빼서 화면의 다른 층(버튼 50 · 메뉴 80)보다 위에 올린다.
+*/
+const MAG_LENS_Z = 90;
+
+// 개체를 들면 양옆 버튼이 화면 밖으로 비켜난다 — 돋보기가 커져서 겹치기도 하고,
+// 놓을 자리가 하나뿐이라는 게 분명해진다
+const SIDE_SLIDE = 140;
 
 /*
     물 줄 때가 된 개체 머리 위의 도트 말풍선 치수.
@@ -192,25 +217,41 @@ const MAG_Z = 2000;                       // 다른 개체(zIndex = 들판 안 y
     말풍선은 이미지 한 장이 아니라 사각형 View 를 쌓아서 만든다(WaterBubble 참고).
 */
 const BUBBLE_DOT = 4;                                      // 도트 한 칸
-const BUBBLE_SIZE = BUBBLE_DOT * 10;                       // 몸통 10칸 정사각 = 40
-const BUBBLE_DROP = BUBBLE_DOT * 6;                        // 안에 들어가는 물방울 자리
+/*
+    몸통은 9칸 정사각 = 36.
+
+    칸 수는 홀수여야 한다 — 짝수면 가운데에 놓이는 꼬리도 짝수 칸(6→4→2)뿐이라,
+    좌우 외곽선 한 칸씩을 빼고 나면 두 칸짜리 뭉툭한 토막으로 끝난다.
+    홀수면 꼬리가 5→3→1 로 떨어져 한 칸까지 좁혀진다.
+    그 홀수 중 9칸이 예전 10칸에 가장 가깝다(11칸은 눈에 띄게 커진다).
+*/
+const BUBBLE_SIZE = BUBBLE_DOT * 9;
+const BUBBLE_DROP = BUBBLE_DOT * 5;                        // 안에 들어가는 물방울 자리
 const BUBBLE_CAP_INSET = BUBBLE_DOT * 2;                   // 위/아래 뚜껑이 들어간 깊이
-const BUBBLE_TAIL_LEFT = BUBBLE_SIZE / 2 - BUBBLE_DOT * 2; // 꼬리를 몸통 가운데 아래에
-const BUBBLE_TAIL_H = BUBBLE_DOT * 3;                      // 꼬리 3칸
+/*
+    꼬리 — 몸통 정중앙에서 곧게 아래로 내려온다. 칸마다 좌우 대칭이라 휘지 않는다.
+
+    밑동부터 3칸(=좌우 외곽선 한 칸씩 + 속 한 칸)으로 가늘게 시작한다. 몸통에서
+    넓게 벌어져 내려오면 꼬리가 아니라 몸통의 일부처럼 읽힌다 — 아래 뚜껑에 뚫리는
+    구멍도 한 칸이라, 속이 가느다란 관으로 이어지는 모양이 된다.
+    마지막 칸은 폭이 한 칸이라 속 없이 검정만 남아 한 점으로 맺힌다.
+*/
+const BUBBLE_TAIL_DOTS = [3, 3, 1];
+const BUBBLE_TAIL_H = BUBBLE_DOT * BUBBLE_TAIL_DOTS.length;
 const BUBBLE_H = BUBBLE_SIZE + BUBBLE_TAIL_H;
 
 /*
     몸통 옆면의 도트 띠 — [들여쓴 칸 수, 띠의 칸 수].
-    위 뚜껑 1칸 + 옆면 8칸 + 아래 뚜껑 1칸 = 10칸.
+    위 뚜껑 1칸 + 옆면 7칸 + 아래 뚜껑 1칸 = 9칸.
     들여쓰기가 1→0 한 단만 풀려서 모서리가 두 칸짜리 계단이 된다 —
     각진 사각형보다는 둥글고, 원형까지는 가지 않는 중간 정도.
 
     들여쓰기는 한 칸씩만 줄여야 한다 — 두 칸을 건너뛰면 위 띠의 외곽선이
-    아래 띠의 흰 속을 덮지 못해 모서리에 구멍이 뚫린다(잔디가 비친다).
+    아래 띠의 속을 덮지 못해 모서리에 구멍이 뚫린다(잔디가 비친다).
 */
 const BUBBLE_BANDS = [
     { inset: 1, dots: 1 },
-    { inset: 0, dots: 6 },
+    { inset: 0, dots: 5 },
     { inset: 1, dots: 1 },
 ];
 
@@ -229,6 +270,18 @@ const BUBBLE_WALLS = (() => {
     }
     return walls;
 })();
+
+// 꼬리의 각 칸도 같은 도트 격자에서 미리 잡는다 — 가운데 정렬이라 몸통 폭에서 바로 나온다
+const BUBBLE_TAIL = BUBBLE_TAIL_DOTS.map((dots, row) => ({
+    top: BUBBLE_SIZE + row * BUBBLE_DOT,
+    left: (BUBBLE_SIZE - dots * BUBBLE_DOT) / 2,
+    width: dots * BUBBLE_DOT,
+    height: BUBBLE_DOT,
+}));
+// 아래 뚜껑에 뚫는 구멍 — 꼬리 첫 칸의 "속"(좌우 외곽선을 뺀 폭)과 정확히 맞춘다
+const BUBBLE_MOUTH_LEFT = BUBBLE_TAIL[0].left + BUBBLE_DOT;
+const BUBBLE_MOUTH_W = BUBBLE_TAIL[0].width - BUBBLE_DOT * 2;
+
 // 꼬리 끝이 캐릭터 상자 안으로 이만큼 들어간다 — 도트 그림의 위쪽 투명 여백(12~18%)을
 // 고려한 값이라, 잎에 닿지 않으면서도 머리에서 떠 보이지 않는다
 const BUBBLE_OVERLAP = 12;
@@ -246,7 +299,10 @@ export default function HomeScreen({
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [environment, setEnvironment] = useState(null);
-    const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 });
+    // x/y 는 들판이 화면에서 시작하는 자리 — 들판 밖에 그리는 확대창의 좌표 변환에 쓴다
+    const [fieldSize, setFieldSize] = useState({ x: 0, y: 0, width: 0, height: 0 });
+    // 배경 그림이 깔린 크기 — 렌즈 바닥에 같은 배경을 1:1 로 다시 깔 때 쓴다(Magnifier)
+    const [backgroundSize, setBackgroundSize] = useState({ width: 0, height: 0 });
 
     const fieldPlants = useMemo(() => selectFieldPlants(plants), [plants]);
 
@@ -254,6 +310,61 @@ export default function HomeScreen({
     const [heldPlantId, setHeldPlantId] = useState(null);
     // 들고 있는 개체가 렌즈에 닿았는지 (돋보기를 키워 놓아도 되는 순간을 알린다)
     const [overLens, setOverLens] = useState(false);
+
+    /*
+        들고 있는 개체의 중심(들판 좌표). 렌즈 안의 확대상이 이 값을 따라가야 하는데,
+        손가락이 움직일 때마다 state 로 올리면 매 프레임 리렌더가 된다 —
+        Animated.Value 에 setValue 로 흘려보내서 스타일만 갱신되게 한다.
+    */
+    const heldCenter = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+
+    // 들고 있는 개체가 몇 번째 자리인지 — 확대상을 그리려면 자리 크기(FIELD_SLOTS)도 필요하다
+    const heldIndex = fieldPlants.findIndex((plant) => plant.id === heldPlantId);
+    const holding = heldIndex >= 0;
+
+    /*
+        돋보기 등장 — 아이콘과 확대창이 하나의 값을 함께 본다.
+        각자 스프링을 돌리면 미세하게 어긋나서, 뜨는 동안 확대상이 구멍 밖으로 샌다.
+    */
+    const magAppear = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (!holding) return;
+        magAppear.setValue(0);
+        Animated.spring(magAppear, {
+            toValue: 1,
+            tension: 130,
+            friction: 9,
+            useNativeDriver: true,
+        }).start();
+    }, [holding]);
+
+    // 개체를 들면 양옆 버튼이 좌우로 밀려나며 사라진다
+    const sideAway = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        Animated.timing(sideAway, {
+            toValue: holding ? 1 : 0,
+            duration: 220,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+        }).start();
+    }, [holding]);
+
+    // 좌/우가 각자 자기 노드를 가져야 한다 — 하나를 두 View 에 물리면 네이티브 쪽에서 엉킨다
+    const makeSideAway = (direction) => ({
+        opacity: sideAway.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+        transform: [
+            {
+                translateX: sideAway.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, direction * SIDE_SLIDE],
+                }),
+            },
+        ],
+    });
+    const menuAway = useMemo(() => makeSideAway(-1), []);
+    const rightAway = useMemo(() => makeSideAway(1), []);
 
     /*
         렌즈 판정 좌표. 돋보기를 들판 안에 놓기 때문에 개체 좌표와 같은 좌표계에서
@@ -278,12 +389,16 @@ export default function HomeScreen({
     };
 
     const handlePickUp = (plant) => (center) => {
+        heldCenter.setValue(center);
         setHeldPlantId(plant.id);
         setOverLens(isInLens(center));
     };
 
     // 손가락이 움직일 때마다 불리지만, 값이 그대로면 setState 가 리렌더를 만들지 않는다
-    const handleDragMove = (center) => setOverLens(isInLens(center));
+    const handleDragMove = (center) => {
+        heldCenter.setValue(center);
+        setOverLens(isInLens(center));
+    };
 
     // 렌즈에 놓았으면 true — 개체는 집어올린 자리로 돌아간다(WanderingPlant 가 처리)
     const handleDrop = (plant) => (center) => {
@@ -366,6 +481,14 @@ export default function HomeScreen({
                 source={homeBackgroundSource}
                 resizeMode="cover"
                 style={styles.background}
+                onLayout={(event) => {
+                    const { width, height } = event.nativeEvent.layout;
+                    setBackgroundSize((prev) =>
+                        prev.width === width && prev.height === height
+                            ? prev
+                            : { width, height }
+                    );
+                }}
             >
                 {/* 상단 왼쪽: 날씨, 미세먼지 — 탭하면 데이터 화면으로 이동 */}
                 <View style={styles.topLeftArea}>
@@ -438,11 +561,14 @@ export default function HomeScreen({
                     ]}
                     pointerEvents={menuOpen ? "none" : "box-none"}
                     onLayout={(event) => {
-                        const { width, height } = event.nativeEvent.layout;
+                        const { x, y, width, height } = event.nativeEvent.layout;
                         setFieldSize((prev) =>
-                            prev.width === width && prev.height === height
+                            prev.x === x &&
+                            prev.y === y &&
+                            prev.width === width &&
+                            prev.height === height
                                 ? prev
-                                : { width, height }
+                                : { x, y, width, height }
                         );
                     }}
                 >
@@ -475,10 +601,31 @@ export default function HomeScreen({
                         들판에 남아 있는지 함께 확인한다 — 그러지 않으면 놓을 일이 없어
                         돋보기만 남는다.
                     */}
-                    {fieldPlants.some((plant) => plant.id === heldPlantId) && (
-                        <MagnifierDropTarget active={overLens} />
-                    )}
                 </View>
+
+                {/*
+                    돋보기 — 개체를 들고 있는 동안에만. 들판 안이 아니라 밖에 두어야
+                    들고 있는 개체까지 덮어서 확대상이 가려지지 않는다(Magnifier 주석).
+                    들고 있는 개체가 목록에서 사라진 경우(목록 갱신)에도 같이 사라지게
+                    들판에 남아 있는지 함께 확인한다 — 그러지 않으면 놓을 일이 없어
+                    돋보기만 남는다.
+                */}
+                {holding && lens && (
+                    <Magnifier
+                        active={overLens}
+                        plant={fieldPlants[heldIndex]}
+                        accessory={
+                            decorations[String(fieldPlants[heldIndex].id)]?.accessory ?? null
+                        }
+                        slot={FIELD_SLOTS[heldIndex]}
+                        lens={lens}
+                        field={fieldSize}
+                        center={heldCenter}
+                        background={homeBackgroundSource}
+                        backgroundSize={backgroundSize}
+                        appear={magAppear}
+                    />
+                )}
 
                 {/* 햄버거 메뉴 팝업 */}
                 {menuVisible && (
@@ -552,8 +699,11 @@ export default function HomeScreen({
                     </>
                 )}
 
-                {/* 좌측 하단: 햄버거 */}
-                <View style={styles.menuArea}>
+                {/* 좌측 하단: 햄버거 — 개체를 들면 왼쪽으로 밀려나며 사라진다 */}
+                <Animated.View
+                    style={[styles.menuArea, menuAway]}
+                    pointerEvents={holding ? "none" : "auto"}
+                >
                     <GlassButton size={60} onPress={toggleMenu}>
                         <Image
                             source={
@@ -565,10 +715,13 @@ export default function HomeScreen({
                             resizeMode="contain"
                         />
                     </GlassButton>
-                </View>
+                </Animated.View>
 
-                {/* 우측 하단: 캘린더, 메모, 전체개체 */}
-                <View style={styles.rightButtonArea}>
+                {/* 우측 하단: 캘린더, 메모, 전체개체 — 개체를 들면 오른쪽으로 밀려나며 사라진다 */}
+                <Animated.View
+                    style={[styles.rightButtonArea, rightAway]}
+                    pointerEvents={holding ? "none" : "auto"}
+                >
                     <GlassButton size={60} onPress={() => navigation.navigate("Calendar")}>
                         <Image
                             source={require("../../assets/icons/calendar_icon.png")}
@@ -599,7 +752,7 @@ export default function HomeScreen({
                             resizeMode="contain"
                         />
                     </GlassButton>
-                </View>
+                </Animated.View>
             </ImageBackground>
         </View>
     );
@@ -670,8 +823,15 @@ function WanderingPlant({
     const dragBase = useRef({ x: 0, y: 0 });    // 끌기 시작한 자리
     const pickUpSpot = useRef({ x: 0, y: 0 });  // 집어올린 자리 (개체탭으로 넘어가면 여기로 돌린다)
 
-    // 렌즈 판정은 개체의 중심으로 한다 — 손가락이 어디를 잡았든 캐릭터가 렌즈에 오면 된다
-    const centerOf = (at) => ({ x: at.x + width / 2, y: at.y + height / 2 });
+    /*
+        렌즈 판정은 개체의 중심으로 한다 — 손가락이 어디를 잡았든 캐릭터가 렌즈에 오면 된다.
+        상자 중심이 아니라 들려서 HOLD_LIFT 만큼 떠오른 "눈에 보이는" 중심을 쓴다 —
+        확대창도 같은 좌표를 받으므로, 캐릭터를 렌즈에 맞추면 렌즈에도 몸통이 들어온다.
+    */
+    const centerOf = (at) => ({
+        x: at.x + width / 2,
+        y: at.y + height / 2 - HOLD_LIFT,
+    });
 
     useEffect(() => {
         let cancelled = false;
@@ -1101,75 +1261,144 @@ function WanderingPlant({
 }
 
 /*
-    하단 중앙의 돋보기 — 개체를 들고 있는 동안에만 나타나는 "놓는 자리".
+    하단 중앙의 돋보기 — 개체를 놓는 자리이자, 렌즈 안을 확대해 보여 주는 창.
 
-    렌즈 구멍이 투명한 도트 아이콘이라 캐릭터를 겹치면 렌즈 안에 비쳐 보인다.
-    active(렌즈에 닿음)면 아이콘만 살짝 커진다 — 상자째 키우면 렌즈 중심이 움직여
-    판정 좌표(MAG_LENS_*)와 어긋난다.
+    들판 밖(들판과 형제)에 두고 들판과 같은 자리·크기로 겹쳐 놓는다. zIndex 는 같은
+    부모의 형제끼리만 겨루므로, 들판 안에 두면 아무리 큰 값을 줘도 들고 있는
+    개체(HOLD_Z)를 덮을 수 없다. 정확히 겹쳐 두었으니 안쪽 좌표계는 들판과 같아서
+    렌즈 판정 좌표(lens)를 그대로 쓸 수 있다.
+
+    그리는 순서가 이 화면의 핵심이다 — 확대상이 먼저, 돋보기 아이콘이 그 위에.
+    아이콘은 도트 그림이라 구멍 가장자리가 계단처럼 각져 있다. 매끈한 타원으로
+    오려낸 확대상을 아이콘 위에 얹으면 두 경계가 어긋나 보이지만, 반대로 확대상을
+    구멍보다 조금 넓게(MAG_LENS_BLEED) 그려 놓고 아이콘으로 덮으면 도트 테두리
+    자체가 경계가 되어 어떤 크기에서도 딱 맞는다.
+
+    아이콘은 어떤 이유로도 크기를 바꾸지 않는다 — 구멍이 아이콘 중심에서 벗어나
+    있어서 조금만 키워도 구멍이 딸려 움직이고, 같이 커지지 않는 확대창과 어긋난다.
+    렌즈에 닿았다는 신호는 아래 안내 문구가 맡는다.
 */
-function MagnifierDropTarget({ active }) {
-    const appear = useRef(new Animated.Value(0)).current;
-    const focus = useRef(new Animated.Value(0)).current;
+function Magnifier({
+    active,
+    plant,
+    accessory,
+    slot,
+    lens,
+    field,
+    center,
+    background,
+    backgroundSize,
+    appear,
+}) {
+    /*
+        확대상은 렌즈 중심을 기준으로 벌어진다 — 들판의 한 점 P 는 렌즈 안에서
+        중심 + (P - 중심) × 배율 로 옮겨간다. center 는 들고 있는 개체의 "눈에 보이는"
+        중심(WanderingPlant 의 centerOf)이라 렌즈 좌표와 같은 계에 있고,
+        확대상에도 HOLD_SCALE 을 얹어야 렌즈 안팎이 이어져 보인다.
+        (렌즈는 들판 맨 아래라 원근 배율은 1에 가까워 따로 반영하지 않는다.)
+    */
+    const offsetX = Animated.multiply(Animated.subtract(center.x, lens.x), MAG_ZOOM);
+    const offsetY = Animated.multiply(Animated.subtract(center.y, lens.y), MAG_ZOOM);
 
-    useEffect(() => {
-        Animated.spring(appear, {
-            toValue: 1,
-            tension: 130,
-            friction: 9,
-            useNativeDriver: true,
-        }).start();
-    }, []);
-
-    useEffect(() => {
-        Animated.timing(focus, {
-            toValue: active ? 1 : 0,
-            duration: 140,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-        }).start();
-    }, [active]);
+    // 안내 문구와 아이콘, 확대상이 한 값으로 함께 떠오른다
+    const rise = appear.interpolate({ inputRange: [0, 1], outputRange: [18, 0] });
 
     return (
-        <Animated.View
+        <View
             style={[
-                styles.magnifier,
+                styles.magnifierLayer,
                 {
-                    opacity: appear,
-                    transform: [
-                        {
-                            translateY: appear.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [18, 0],
-                            }),
-                        },
-                    ],
+                    left: field.x,
+                    top: field.y,
+                    width: field.width,
+                    height: field.height,
                 },
             ]}
             pointerEvents="none"
         >
-            <View style={styles.magnifierHint}>
-                <Text style={styles.magnifierHintText}>
-                    {active ? "놓으면 자세히 보기" : "여기에 놓아 자세히 보기"}
-                </Text>
-            </View>
-            <Animated.Image
-                source={MAGNIFIER_ICON}
-                resizeMode="contain"
+            <Animated.View
                 style={[
-                    styles.magnifierIcon,
+                    styles.magnifierLens,
                     {
-                        transform: [
-                            {
-                                scale: focus.interpolate({
-                                    inputRange: [0, 1],
-                                    outputRange: [1, 1.14],
-                                }),
-                            },
-                        ],
+                        left: lens.x - MAG_LENS_R,
+                        top: lens.y - MAG_LENS_R,
+                        opacity: appear,
+                        transform: [{ translateY: rise }],
                     },
                 ]}
-            />
-        </Animated.View>
+            >
+                {/*
+                    렌즈 바닥에 배경을 다시 깐다.
+
+                    구멍이 뚫려 있으면 확대상의 잎 사이로 원래 크기의 캐릭터가 비쳐
+                    같은 개체가 두 겹으로 보인다. 색을 칠하면 렌즈 자리에 동그란 판이
+                    생기니, 화면과 똑같은 배경 그림을 같은 크기·같은 자리에 1:1 로
+                    깔아 뒤를 막는다 — 주변과 이어져서 판이 있는 줄 모른다.
+                    (배경은 화면 좌상단이 원점이라, 창 안에서는 그만큼 되돌려 놓는다.)
+                */}
+                {backgroundSize.width > 0 && (
+                    <Image
+                        source={background}
+                        resizeMode="cover"
+                        style={{
+                            position: "absolute",
+                            left: MAG_LENS_R - (field.x + lens.x),
+                            top: MAG_LENS_R - (field.y + lens.y),
+                            width: backgroundSize.width,
+                            height: backgroundSize.height,
+                        }}
+                    />
+                )}
+
+                <Animated.View
+                    style={{
+                        position: "absolute",
+                        left: MAG_LENS_R - slot.width / 2,
+                        top: MAG_LENS_R - slot.height / 2,
+                        width: slot.width,
+                        height: slot.height,
+                        // 오른쪽부터 적용된다 — 확대한 뒤(scale) 확대된 자리로 옮긴다
+                        transform: [
+                            { translateX: offsetX },
+                            { translateY: offsetY },
+                            { scale: MAG_ZOOM * HOLD_SCALE },
+                        ],
+                    }}
+                >
+                    <PlantImage
+                        uri={plant?.imageUri}
+                        imageKey={plant?.imageKey ?? "spaghetti"}
+                        expressionSource={
+                            plant?.characterFaceRemoved ? getPlantExpressionSource(plant) : null
+                        }
+                        expressionBounds={plant?.characterFaceBounds}
+                        effectRemote={accessory?.spriteUrl ? { uri: accessory.spriteUrl } : null}
+                        effectFallback={accessorySpriteBundle(accessory?.key)}
+                        width={slot.width}
+                        height={slot.height}
+                    />
+                </Animated.View>
+            </Animated.View>
+
+            {/* 안내 문구 + 돋보기 — 확대상 위에 덮여 도트 테두리가 렌즈 경계를 만든다 */}
+            <Animated.View
+                style={[
+                    styles.magnifier,
+                    { opacity: appear, transform: [{ translateY: rise }] },
+                ]}
+            >
+                <View style={styles.magnifierHint}>
+                    <Text style={styles.magnifierHintText}>
+                        {active ? "놓으면 자세히 보기" : "여기에 놓아 자세히 보기"}
+                    </Text>
+                </View>
+                <Image
+                    source={MAGNIFIER_ICON}
+                    resizeMode="contain"
+                    style={styles.magnifierIcon}
+                />
+            </Animated.View>
+        </View>
     );
 }
 
@@ -1186,7 +1415,7 @@ function MagnifierDropTarget({ active }) {
 function WaterBubble({ left }) {
     return (
         <View style={[styles.bubble, { left }]} pointerEvents="none">
-            {/* 옆면 띠 — 좌우 외곽선 + 흰 속 */}
+            {/* 옆면 띠 — 좌우 외곽선 + 아이보리 속 */}
             {BUBBLE_WALLS.map((wall, index) => (
                 <View key={index} style={[styles.bubbleWall, wall]} />
             ))}
@@ -1196,13 +1425,21 @@ function WaterBubble({ left }) {
             {/* 아래 뚜껑 — 꼬리가 붙는 두 칸을 비워 둔 좌·우 토막 */}
             <View style={styles.bubbleCapBottomLeft} />
             <View style={styles.bubbleCapBottomRight} />
-            {/* 비워 둔 칸을 흰색으로 이어 준다 — 없으면 몸통과 꼬리 사이로 잔디가 비친다 */}
+            {/* 비워 둔 칸을 속색으로 이어 준다 — 없으면 몸통과 꼬리 사이로 잔디가 비친다 */}
             <View style={styles.bubbleMouth} />
 
-            {/* 꼬리 3칸 — 한 칸씩 좁아지며 왼쪽 아래를 가리킨다 */}
-            <View style={styles.bubbleTailTop} />
-            <View style={styles.bubbleTailMid} />
-            <View style={styles.bubbleTailTip} />
+            {/* 꼬리 — 마지막 칸만 속 없는 검정 끝 */}
+            {BUBBLE_TAIL.map((row, index) => (
+                <View
+                    key={index}
+                    style={[
+                        index === BUBBLE_TAIL.length - 1
+                            ? styles.bubbleTailTip
+                            : styles.bubbleTailRow,
+                        row,
+                    ]}
+                />
+            ))}
 
             <Image
                 source={WATER_DROP_ICON}
@@ -1335,14 +1572,21 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.scrim,
     },
 
-    // 하단 중앙 돋보기 — 들판 안에 두어서 렌즈 판정과 그려지는 자리가 어긋나지 않는다
+    /*
+        돋보기 층 — 들판과 똑같은 자리에 겹쳐 놓는 투명한 판(자리·크기는 Magnifier 가
+        얹는다). 이 안의 좌표계가 들판과 같아지므로 렌즈 판정 좌표를 그대로 쓴다.
+    */
+    magnifierLayer: {
+        position: "absolute",
+        zIndex: MAG_LENS_Z,
+    },
+    // 하단 중앙 돋보기 — 위 판 기준이라 들판 안에 있을 때와 자리가 같다
     magnifier: {
         position: "absolute",
         left: 0,
         right: 0,
         bottom: MAG_BOTTOM,
         alignItems: "center",
-        zIndex: MAG_Z,
     },
     magnifierIcon: {
         width: MAG_SIZE,
@@ -1356,6 +1600,14 @@ const styles = StyleSheet.create({
         backgroundColor: Glass.frost72,
         borderWidth: 1,
         borderColor: Glass.frost45,
+    },
+    // 렌즈 구멍 자리의 창 — 자리(left/top)·세로 늘이기는 Magnifier 가 얹는다
+    magnifierLens: {
+        position: "absolute",
+        width: MAG_LENS_R * 2,
+        height: MAG_LENS_R * 2,
+        borderRadius: MAG_LENS_R,
+        overflow: "hidden",
     },
     magnifierHintText: {
         fontFamily: Fonts.neoDunggeunmo,
@@ -1374,10 +1626,11 @@ const styles = StyleSheet.create({
         width: BUBBLE_SIZE,
         height: BUBBLE_H,
     },
-    // 위치·크기는 BUBBLE_WALLS 가 도트 격자에서 계산해 얹는다
+    // 위치·크기는 BUBBLE_WALLS 가 도트 격자에서 계산해 얹는다.
+    // 속은 앱의 종이/크림 카드와 같은 아이보리 — 순백은 도트 배경 위에서 너무 튄다
     bubbleWall: {
         position: "absolute",
-        backgroundColor: Colors.white,
+        backgroundColor: Paper.cream,
         borderLeftWidth: BUBBLE_DOT,
         borderRightWidth: BUBBLE_DOT,
         borderColor: Colors.textBlack,
@@ -1401,54 +1654,36 @@ const styles = StyleSheet.create({
         position: "absolute",
         top: BUBBLE_SIZE - BUBBLE_DOT,
         left: BUBBLE_CAP_INSET,
-        width: BUBBLE_TAIL_LEFT + BUBBLE_DOT - BUBBLE_CAP_INSET,
+        width: BUBBLE_MOUTH_LEFT - BUBBLE_CAP_INSET,
         height: BUBBLE_DOT,
         backgroundColor: Colors.textBlack,
     },
     bubbleCapBottomRight: {
         position: "absolute",
         top: BUBBLE_SIZE - BUBBLE_DOT,
-        left: BUBBLE_TAIL_LEFT + BUBBLE_DOT * 3,
-        width: BUBBLE_SIZE - BUBBLE_CAP_INSET - BUBBLE_TAIL_LEFT - BUBBLE_DOT * 3,
+        left: BUBBLE_MOUTH_LEFT + BUBBLE_MOUTH_W,
+        width: BUBBLE_SIZE - BUBBLE_CAP_INSET - BUBBLE_MOUTH_LEFT - BUBBLE_MOUTH_W,
         height: BUBBLE_DOT,
         backgroundColor: Colors.textBlack,
     },
     bubbleMouth: {
         position: "absolute",
         top: BUBBLE_SIZE - BUBBLE_DOT,
-        left: BUBBLE_TAIL_LEFT + BUBBLE_DOT,
-        width: BUBBLE_DOT * 2,
+        left: BUBBLE_MOUTH_LEFT,
+        width: BUBBLE_MOUTH_W,
         height: BUBBLE_DOT,
-        backgroundColor: Colors.white,
+        backgroundColor: Paper.cream,
     },
-    bubbleTailTop: {
+    // 위치·크기는 BUBBLE_TAIL 이 얹는다 — 좌우 외곽선 + 아이보리 속
+    bubbleTailRow: {
         position: "absolute",
-        top: BUBBLE_SIZE,
-        left: BUBBLE_TAIL_LEFT,
-        width: BUBBLE_DOT * 4,
-        height: BUBBLE_DOT,
-        backgroundColor: Colors.white,
-        borderLeftWidth: BUBBLE_DOT,
-        borderRightWidth: BUBBLE_DOT,
-        borderColor: Colors.textBlack,
-    },
-    bubbleTailMid: {
-        position: "absolute",
-        top: BUBBLE_SIZE + BUBBLE_DOT,
-        left: BUBBLE_TAIL_LEFT,
-        width: BUBBLE_DOT * 3,
-        height: BUBBLE_DOT,
-        backgroundColor: Colors.white,
+        backgroundColor: Paper.cream,
         borderLeftWidth: BUBBLE_DOT,
         borderRightWidth: BUBBLE_DOT,
         borderColor: Colors.textBlack,
     },
     bubbleTailTip: {
         position: "absolute",
-        top: BUBBLE_SIZE + BUBBLE_DOT * 2,
-        left: BUBBLE_TAIL_LEFT,
-        width: BUBBLE_DOT * 2,
-        height: BUBBLE_DOT,
         backgroundColor: Colors.textBlack,
     },
 
