@@ -570,10 +570,6 @@ class Item(Base):
     asset_id: Mapped[int | None] = mapped_column(
         ForeignKey("media_asset.asset_id", ondelete="SET NULL"), nullable=True
     )
-    # 그 액세서리를 착용한 캐릭터 이미지. 배경은 NULL
-    sprite_asset_id: Mapped[int | None] = mapped_column(
-        ForeignKey("media_asset.asset_id", ondelete="SET NULL"), nullable=True
-    )
     # 해금에 필요한 꽉 찬 하트 수 (0 = 기본 제공, 상한은 affinity.MAX_HEARTS)
     required_level: Mapped[int] = mapped_column(
         SmallInteger, nullable=False, default=0, server_default="0"

@@ -11,7 +11,7 @@
 --     배경도 액세서리와 똑같이 개체별로 적용·해금되므로 plant_decoration 에 함께 넣는다.
 --   - item_key 추가 — 앱 번들 이미지 맵(src/data/decor.js)의 키.
 --     S3 이미지가 없거나 URL 발급이 안 될 때 앱이 이 키로 fallback 한다.
---     (S3 연결용 asset_id/sprite_asset_id 는 add-item-asset-columns.sql 에서 붙인다)
+--     (S3 연결용 asset_id는 add-item-asset-columns.sql에서 붙인다)
 --
 -- 슈퍼유저(postgres)로 실행 — leaflog_user는 db-setup.sql의 ALTER DEFAULT PRIVILEGES로 이미 권한 보유
 --   & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -f apps/api/scripts/add-item-tables.sql
