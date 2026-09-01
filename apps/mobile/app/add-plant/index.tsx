@@ -27,7 +27,7 @@ type Mode = 'initial' | 'search';
 
 export default function AddPlantIndexScreen() {
   const router = useRouter();
-  const { draft } = useAddPlantFlow();
+  const { updateDraft } = useAddPlantFlow();
 
   const [mode, setMode] = useState<Mode>('initial');
   const [searchText, setSearchText] = useState('');
@@ -41,6 +41,7 @@ export default function AddPlantIndexScreen() {
   // ── photo helpers ─────────────────────────────────────────────────────────
 
   const navigateToOrganSelect = (uris: string[]) => {
+    updateDraft({ identificationPhotoUri: uris[0] ?? null });
     router.push({
       pathname: '/add-plant/organ-select',
       params: { photoUris: JSON.stringify(uris) },
@@ -76,10 +77,6 @@ export default function AddPlantIndexScreen() {
   // ── camera area tapped ────────────────────────────────────────────────────
 
   const handleCameraPress = () => {
-    if (draft.capturedPhotoUri) {
-      navigateToOrganSelect([draft.capturedPhotoUri]);
-      return;
-    }
     Alert.alert('사진으로 찾기', '', [
       { text: '사진 라이브러리에서 선택', onPress: pickFromLibrary },
       { text: '카메라로 찍기', onPress: takeWithCamera },
@@ -115,6 +112,7 @@ export default function AddPlantIndexScreen() {
   };
 
   const handleSearchSelect = (species: SpeciesListItem) => {
+    updateDraft({ identificationPhotoUri: null });
     setSearchText(species.common_name_ko);
     setSearchResults([]);
     setIsDetailLoading(true);
@@ -153,9 +151,7 @@ export default function AddPlantIndexScreen() {
             activeOpacity={0.85}
           >
             <Text style={styles.cameraBtnIcon}>📷</Text>
-            <Text style={styles.cameraBtnText}>
-              {draft.capturedPhotoUri ? '촬영한 사진으로 찾기' : '사진으로 찾기'}
-            </Text>
+            <Text style={styles.cameraBtnText}>사진으로 찾기</Text>
           </TouchableOpacity>
         )}
 

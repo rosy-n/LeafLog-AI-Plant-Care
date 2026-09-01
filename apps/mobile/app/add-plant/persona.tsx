@@ -92,7 +92,8 @@ export default function PersonaScreen() {
           nickname: draft.nickname,
           characterImageUrl: draft.characterImageUrl,
           characterChecksum: draft.characterChecksum,
-          capturedPhotoUri: draft.capturedPhotoUri ?? '',
+          capturedPhotoUri:
+            draft.identificationPhotoUri ?? draft.capturedPhotoUri ?? '',
           location: draft.info.location,
           lightLevel: draft.info.lightLevel,
           plantHeight: draft.info.plantHeight,

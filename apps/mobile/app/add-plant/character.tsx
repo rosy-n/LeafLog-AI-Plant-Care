@@ -232,7 +232,7 @@ export default function CharacterScreen() {
       if (resumeGeneration) {
         setGenerationMessage(job.message);
       } else {
-        router.replace('/add-plant');
+        router.replace('/add-plant/info');
       }
     } catch (error: any) {
       if (generationRunRef.current !== runId) return;
