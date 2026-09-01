@@ -217,23 +217,32 @@ const SIDE_SLIDE = 140;
     말풍선은 이미지 한 장이 아니라 사각형 View 를 쌓아서 만든다(WaterBubble 참고).
 */
 const BUBBLE_DOT = 4;                                      // 도트 한 칸
-const BUBBLE_SIZE = BUBBLE_DOT * 10;                       // 몸통 10칸 정사각 = 40
-const BUBBLE_DROP = BUBBLE_DOT * 6;                        // 안에 들어가는 물방울 자리
+/*
+    몸통은 9칸 정사각 = 36.
+
+    칸 수는 홀수여야 한다 — 짝수면 가운데에 놓이는 꼬리도 짝수 칸(6→4→2)뿐이라,
+    좌우 외곽선 한 칸씩을 빼고 나면 두 칸짜리 뭉툭한 토막으로 끝난다.
+    홀수면 꼬리가 5→3→1 로 떨어져 한 칸까지 좁혀진다.
+    그 홀수 중 9칸이 예전 10칸에 가장 가깝다(11칸은 눈에 띄게 커진다).
+*/
+const BUBBLE_SIZE = BUBBLE_DOT * 9;
+const BUBBLE_DROP = BUBBLE_DOT * 5;                        // 안에 들어가는 물방울 자리
 const BUBBLE_CAP_INSET = BUBBLE_DOT * 2;                   // 위/아래 뚜껑이 들어간 깊이
 /*
     꼬리 — 몸통 정중앙에서 곧게 아래로 내려온다. 칸마다 좌우 대칭이라 휘지 않는다.
 
-    밑동은 4칸(=몸통 10칸의 4할)까지만 — 6칸으로 벌리면 좌우 외곽선(1칸씩)을 빼도
-    속이 4칸이나 남아서 꼬리가 아니라 몸통이 흘러내린 것처럼 뭉툭해 보인다.
-    같은 폭으로 두 칸 내려온 뒤 마지막 2칸에서 속 없이 검정만 남겨 끝을 뾰족하게 맺는다.
+    밑동부터 3칸(=좌우 외곽선 한 칸씩 + 속 한 칸)으로 가늘게 시작한다. 몸통에서
+    넓게 벌어져 내려오면 꼬리가 아니라 몸통의 일부처럼 읽힌다 — 아래 뚜껑에 뚫리는
+    구멍도 한 칸이라, 속이 가느다란 관으로 이어지는 모양이 된다.
+    마지막 칸은 폭이 한 칸이라 속 없이 검정만 남아 한 점으로 맺힌다.
 */
-const BUBBLE_TAIL_DOTS = [4, 4, 2];
+const BUBBLE_TAIL_DOTS = [3, 3, 1];
 const BUBBLE_TAIL_H = BUBBLE_DOT * BUBBLE_TAIL_DOTS.length;
 const BUBBLE_H = BUBBLE_SIZE + BUBBLE_TAIL_H;
 
 /*
     몸통 옆면의 도트 띠 — [들여쓴 칸 수, 띠의 칸 수].
-    위 뚜껑 1칸 + 옆면 8칸 + 아래 뚜껑 1칸 = 10칸.
+    위 뚜껑 1칸 + 옆면 7칸 + 아래 뚜껑 1칸 = 9칸.
     들여쓰기가 1→0 한 단만 풀려서 모서리가 두 칸짜리 계단이 된다 —
     각진 사각형보다는 둥글고, 원형까지는 가지 않는 중간 정도.
 
@@ -242,7 +251,7 @@ const BUBBLE_H = BUBBLE_SIZE + BUBBLE_TAIL_H;
 */
 const BUBBLE_BANDS = [
     { inset: 1, dots: 1 },
-    { inset: 0, dots: 6 },
+    { inset: 0, dots: 5 },
     { inset: 1, dots: 1 },
 ];
 
