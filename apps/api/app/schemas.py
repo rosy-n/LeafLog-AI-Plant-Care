@@ -501,7 +501,7 @@ class ItemRead(BaseModel):
     required_level: int
     # 목록 카드 이미지 (액세서리 아이콘 / 배경 미리보기). 미등록이면 null → 앱이 번들로 그린다
     image_url: str | None = None
-    # 그 액세서리를 착용한 캐릭터 이미지. 배경은 항상 null
+    # 캐릭터 위에 얹는 화분 없는 투명 효과 이미지. 배경은 항상 null
     sprite_url: str | None = None
 
 
@@ -513,7 +513,7 @@ class PlantDecorationUpdate(BaseModel):
 class PlantDecorationRead(BaseModel):
     item_id: int | None = None
     item_key: str | None = None
-    # 착용한 캐릭터 이미지 URL — 앱이 즉시 다시 그릴 수 있게 함께 준다
+    # 화분 없는 투명 효과 이미지 URL — 앱이 즉시 다시 그릴 수 있게 함께 준다
     sprite_url: str | None = None
 
 
