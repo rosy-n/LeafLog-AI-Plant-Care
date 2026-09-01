@@ -37,8 +37,11 @@ export default function PlantImage({
     const expressionStyle = expressionSource && expressionBounds
         ? createExpressionStyle(expressionSource, expressionBounds)
         : null;
+    // 번들 효과가 있는 기존 아이템은 화분 없는 PNG가 정본이다.
+    // 예전 서버의 sprite_url은 기본 화분까지 든 통짜 이미지일 수 있으므로 교체하지 않는다.
+    const safeEffectRemote = effectFallback ? null : effectRemote;
 
-    if (expressionStyle || effectSource || effectRemote || effectFallback) {
+    if (expressionStyle || effectSource || safeEffectRemote || effectFallback) {
         return (
             <View style={[styles.layerStack, { width, height }, style]}>
                 <View style={styles.canvasStack}>
@@ -63,9 +66,9 @@ export default function PlantImage({
                             pointerEvents="none"
                         />
                     ) : null}
-                    {effectRemote || effectFallback ? (
+                    {safeEffectRemote || effectFallback ? (
                         <DecorImage
-                            remote={effectRemote}
+                            remote={safeEffectRemote}
                             fallback={effectFallback}
                             style={styles.layerImage}
                         />
