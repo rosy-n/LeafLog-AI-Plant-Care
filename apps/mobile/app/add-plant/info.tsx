@@ -226,7 +226,8 @@ export default function InfoScreen() {
     });
   };
 
-  const headerImageUri = draft.speciesImageUrl || draft.capturedPhotoUri;
+  const headerImageUri =
+    draft.speciesImageUrl || draft.identificationPhotoUri || draft.capturedPhotoUri;
 
   return (
     <KeyboardAvoidingView
@@ -242,8 +243,6 @@ export default function InfoScreen() {
         <View style={styles.plantHeader}>
           {headerImageUri ? (
             <Image source={{ uri: headerImageUri }} style={styles.plantHeaderImage} resizeMode="cover" />
-          ) : draft.capturedPhotoUri ? (
-            <Image source={{ uri: draft.capturedPhotoUri }} style={styles.plantHeaderImage} resizeMode="cover" />
           ) : (
             <View style={styles.plantHeaderImage} />
           )}
