@@ -61,6 +61,16 @@ class Settings:
     )
     character_public_base_url: str = os.getenv("CHARACTER_PUBLIC_BASE_URL", "").rstrip("/")
     character_gpu_mode_command: str = os.getenv("CHARACTER_GPU_MODE_COMMAND", "")
+    # 개발 PC에서 API를 실행할 때 학교 PC의 GPU 전환과 Forge 터널을 SSH로 관리한다.
+    # 비어 있으면 기존처럼 같은 호스트의 CHARACTER_GPU_MODE_COMMAND만 사용한다.
+    character_gpu_ssh_host: str = os.getenv("CHARACTER_GPU_SSH_HOST", "").strip()
+    character_gpu_ssh_user: str = os.getenv("CHARACTER_GPU_SSH_USER", "").strip()
+    character_gpu_ssh_identity_file: str = os.getenv("CHARACTER_GPU_SSH_IDENTITY_FILE", "").strip()
+    character_gpu_ssh_wsl_distro: str = os.getenv("CHARACTER_GPU_SSH_WSL_DISTRO", "Ubuntu").strip()
+    character_gpu_ssh_wsl_user: str = os.getenv("CHARACTER_GPU_SSH_WSL_USER", "leaflog").strip()
+    character_gpu_ssh_connect_timeout_seconds: int = int(
+        os.getenv("CHARACTER_GPU_SSH_CONNECT_TIMEOUT_SECONDS", "15")
+    )
     character_restore_ollama: bool = os.getenv("CHARACTER_RESTORE_OLLAMA", "true").strip().lower() in (
         "1",
         "true",

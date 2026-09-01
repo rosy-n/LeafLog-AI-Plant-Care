@@ -73,6 +73,21 @@ CHARACTER_PUBLIC_BASE_URL=http://<school-gpu-host>:8000
 `CHARACTER_PUBLIC_BASE_URL`은 모바일 기기가 실제로 접근할 수 있는 주소로 바꿔야 한다. 모바일 기기가
 학교 PC의 Tailscale 주소를 직접 사용할 경우 모바일에도 같은 tailnet 연결이 필요하다.
 
+FastAPI를 개발 PC에서 실행하는 경우에는 SSH 키 인증과 다음 설정을 사용한다. 캐릭터 생성 요청이
+학교 PC의 GPU 모드 전환과 Forge 터널 복구를 자동으로 수행하므로 수동으로 `leaflog-gpu sdxl`이나
+`ssh -L`을 먼저 실행할 필요가 없다.
+
+```dotenv
+FORGE_API_URL=http://127.0.0.1:7860
+CHARACTER_GPU_MODE_COMMAND=
+CHARACTER_GPU_SSH_HOST=<school-gpu-host>
+CHARACTER_GPU_SSH_USER=<windows-ssh-user>
+CHARACTER_GPU_SSH_IDENTITY_FILE=~/.ssh/<private-key-file>
+CHARACTER_GPU_SSH_WSL_DISTRO=Ubuntu
+CHARACTER_GPU_SSH_WSL_USER=leaflog
+CHARACTER_RESTORE_OLLAMA=true
+```
+
 ## 고정 경로
 
 - Forge: `/home/leaflog/stable-diffusion-webui-forge-recovered`
