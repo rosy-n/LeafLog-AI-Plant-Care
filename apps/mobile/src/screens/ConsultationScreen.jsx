@@ -40,6 +40,10 @@ const STATUS_LABELS = { ALIVE: "건강", SICK: "아픔", DEAD: "떠나보냄" };
 const markdownItInstance = MarkdownIt({ typographer: true }).use(markdownItMark);
 
 // react-native-markdown-display는 mark 노드에 대한 기본 렌더 규칙이 없어 직접 추가한다.
+// mark를 View로 감싸 border 밑줄을 그려봤지만, 하이라이트 구간이 줄바꿈되는 문단에서는
+// RN이 문단 전체의 텍스트 레이아웃을 깨뜨렸다(줄이 겹쳐 보임) — 여러 줄 문단 안에 View를
+// 인라인으로 넣는 방식은 이 라이브러리 조합에서 쓸 수 없다. 중첩 Text만 안전하게
+// 지원되는 속성(배경색/글자색/밑줄)으로 되돌린다.
 const markdownRules = {
     mark: (node, children, parent, styles) => (
         <Text key={node.key} style={styles.mark}>
@@ -75,9 +79,12 @@ const markdownStyles = {
     strong: {
         color: Colors.primary,
     },
+    // border/View/밑줄(textDecorationLine)은 모두 중첩(nested) Text에서 RN이 지원하지
+    // 않거나(밑줄) 레이아웃을 깨뜨려(View) 쓸 수 없었다 — 중첩 Text에 안전하게 먹는 건
+    // 배경색뿐이라 배경 방식으로 되돌리되, 원래보다 연한 톤(fertilizerFaint)으로 눈에
+    // 덜 튀게 하고 글자색은 건드리지 않는다.
     mark: {
-        backgroundColor: Colors.fertilizer,
-        color: Colors.fertilizerIcon,
+        backgroundColor: Colors.fertilizerFaint,
     },
     paragraph: {
         marginTop: 0,

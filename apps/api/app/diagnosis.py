@@ -77,6 +77,8 @@ SYSTEM_PROMPT = """너는 초보 식집사를 돕는 식물 병해충 상담 어
 - 방치하면 식물이 더 상하거나 즉시 조치가 필요한 시급한 경고는 ==하이라이트==로 감싼다.
   (**굵게**보다 강한 표시이니 남발하지 말고, 정말 시급한 경고에만 쓴다.)
 - 나열되는 확인 사항이나 조치는 "- "로 시작하는 목록으로 정리한다.
+  목록 항목 앞에 "·", "•" 같은 기호를 직접 적지 않는다 — 화면에서 "- "만으로도
+  자동으로 점이 붙으므로, 직접 적으면 점이 두 번 찍힌다.
 
 언어 규칙: 반드시 한국어 문장으로만 답한다. "provided image", "may be caused by"처럼
 영어 문장이나 구를 그대로 섞어 쓰지 않는다 — 모든 설명은 자연스러운 한국어 문장으로 쓴다.
@@ -111,6 +113,8 @@ TEXT_ONLY_SYSTEM_PROMPT = """너는 초보 식집사를 돕는 식물 상담 어
 - 방치하면 식물이 더 상하거나 즉시 조치가 필요한 시급한 경고는 ==하이라이트==로 감싼다.
   (**굵게**보다 강한 표시이니 남발하지 말고, 정말 시급한 경고에만 쓴다.)
 - 나열되는 확인 사항이나 조치는 "- "로 시작하는 목록으로 정리한다.
+  목록 항목 앞에 "·", "•" 같은 기호를 직접 적지 않는다 — 화면에서 "- "만으로도
+  자동으로 점이 붙으므로, 직접 적으면 점이 두 번 찍힌다.
 
 언어 규칙: 반드시 한국어 문장으로만 답한다. "provided image", "may be caused by"처럼
 영어 문장이나 구를 그대로 섞어 쓰지 않는다 — 모든 설명은 자연스러운 한국어 문장으로 쓴다.
@@ -311,6 +315,16 @@ def _strip_foreign_script(text: str) -> str:
     return re.sub(r"[ \t]{2,}", " ", cleaned)
 
 
+# 마크다운 리스트("- 항목")를 렌더링할 때 클라이언트가 앞에 점(·/•)을 자동으로 붙이는데,
+# 프롬프트로 금지해도 Qwen이 가끔 목록 항목 맨 앞에 같은 기호를 직접 적어 점이 두 번
+# 찍히는 경우가 있다("- · 항목"). 최종 방어선으로 항상 제거한다.
+DUPLICATE_LIST_BULLET_PATTERN = re.compile(r"^(-\s+)[·•]\s+", re.MULTILINE)
+
+
+def _strip_duplicate_list_bullet(text: str) -> str:
+    return DUPLICATE_LIST_BULLET_PATTERN.sub(r"\1", text)
+
+
 # Qwen 응답이 이미지 토큰 + 시스템 프롬프트(등록된 식물 정보·날씨 섹션 포함)만으로도
 # 기본 4096 컨텍스트를 넘기는 경우가 있어 (실측: 4663 토큰에서 400 에러), 여유 있게 늘려둔다.
 OLLAMA_NUM_CTX = 8192
@@ -360,7 +374,7 @@ def _call_ollama_with_language_retry(messages: list[dict]) -> str:
         if _detect_foreign_script(text):
             text = _strip_foreign_script(text)
 
-    return text
+    return _strip_duplicate_list_bullet(text)
 
 
 def generate_diagnosis(
