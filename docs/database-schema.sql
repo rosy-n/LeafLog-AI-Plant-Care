@@ -712,3 +712,40 @@ CREATE TABLE notification (
 
     created_at          TIMESTAMP DEFAULT now()
 );
+
+
+-- =========================================================
+-- 8. 고객 문의
+-- =========================================================
+-- 설정 화면의 "문의하기"로 들어온 내용과 그에 대한 답변을 담는다.
+--
+-- 사용자는 앱의 문의 내역에서 답변을 확인한다 (GET /api/inquiries).
+-- 답변은 role='ADMIN' 인 계정이 PATCH /api/admin/inquiries/{id} 로 넣는다 —
+-- 별도 관리자 화면 없이 FastAPI 의 /docs (Swagger UI) 를 그대로 쓴다.
+CREATE TABLE inquiry (
+    inquiry_id   BIGSERIAL PRIMARY KEY,
+
+    -- 탈퇴하면 문의도 함께 지운다
+    user_id      BIGINT NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+
+    -- 문의 본문. 앱에서 5~2000자로 제한한다
+    content      TEXT NOT NULL,
+
+    -- OPEN(접수) → ANSWERED(답변함) → CLOSED(종료).
+    -- 답변을 넣으면 서버가 ANSWERED 로 바꾼다.
+    status       VARCHAR(20) NOT NULL DEFAULT 'OPEN'
+                 CHECK (status IN ('OPEN', 'ANSWERED', 'CLOSED')),
+
+    -- 관리자 답변. 아직 답하지 않았으면 NULL
+    answer       TEXT,
+    answered_at  TIMESTAMP,
+
+    created_at   TIMESTAMP DEFAULT now(),
+    updated_at   TIMESTAMP DEFAULT now()
+);
+
+-- 최근 문의부터 훑는 것이 기본 조회다.
+-- 이름은 SQLAlchemy 가 models.py 의 index=True 로 만드는 것과 맞춘다
+-- (apps/api/scripts/add-inquiry-table.sql 도 같은 이름을 쓴다).
+CREATE INDEX ix_inquiry_created_at ON inquiry (created_at);
+CREATE INDEX ix_inquiry_user_id    ON inquiry (user_id);

@@ -30,6 +30,7 @@ from .models import (
     CareSchedule,
     ChatMessage,
     ChatSession,
+    Inquiry,
     Item,
     MediaAsset,
     Plant,
@@ -37,8 +38,10 @@ from .models import (
     PlantSpecies,
     SpeciesSourceLink,
     UserSetting,
+    WeatherLog,
 )
 from .schemas import (
+    AccountDeleteRequest,
     AffinityAward,
     AffinityStatus,
     AvailabilityResponse,
@@ -56,6 +59,9 @@ from .schemas import (
     DiagnosisResponse,
     DiagnosisSimilarCase,
     EnvironmentHistoryResponse,
+    InquiryAnswer,
+    InquiryCreate,
+    InquiryRead,
     CharacterFaceRemovalResponse,
     CharacterCandidateRead,
     CharacterGenerationJobRead,
@@ -450,6 +456,23 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="사용자를 찾을 수 없습니다.")
 
     return user
+
+
+def get_current_admin(
+    current_user: AppUser = Depends(get_current_user),
+) -> AppUser:
+    """관리자 전용 — app_user.role 이 'ADMIN' 인 계정만 통과한다.
+
+    관리자 화면을 따로 만들지 않고 FastAPI 의 /docs (Swagger UI) 에서
+    답변을 넣는다. 승격은 DB 에서 한다:
+        UPDATE app_user SET role = 'ADMIN' WHERE email = '...';
+    """
+    if current_user.role != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자만 사용할 수 있습니다.",
+        )
+    return current_user
 
 
 @app.get("/", include_in_schema=False)
@@ -1914,6 +1937,166 @@ def update_me(
     db.commit()
     db.refresh(current_user)
     return UserRead.model_validate(current_user)
+
+
+@app.delete("/auth/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_me(
+    payload: AccountDeleteRequest,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """계정 삭제 — 설정 화면의 "계정 삭제". 사용자와 그가 만든 데이터를 전부 지운다.
+
+    되돌릴 수 없고 토큰만 있으면 실행되는 요청이라, 로그인 비밀번호를 다시 받아
+    본인임을 확인한 뒤에 지운다.
+
+    삭제는 delete_consultation 과 같은 이유로 DB의 ON DELETE CASCADE 에 기대지 않고
+    자식 테이블부터 명시적으로 한다 — SQLite 기본 설정은 외래키 제약을 강제하지
+    않아 사용자만 지우면 개체·기록이 고아로 남는다.
+    """
+    # 로그인과 같은 판정 — 비밀번호가 없는 계정(소셜 로그인 등)은 여기서 걸러진다
+    if not current_user.password_hash or not verify_password(payload.password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="비밀번호가 올바르지 않습니다.",
+        )
+
+    user_id = current_user.user_id
+
+    plant_ids = list(db.scalars(select(Plant.plant_id).where(Plant.user_id == user_id)))
+    session_ids = list(
+        db.scalars(select(ChatSession.session_id).where(ChatSession.user_id == user_id))
+    )
+
+    # AI 상담 — 메시지가 세션을 참조하므로 메시지부터
+    if session_ids:
+        db.execute(delete(ChatMessage).where(ChatMessage.session_id.in_(session_ids)))
+    db.execute(delete(ChatSession).where(ChatSession.user_id == user_id))
+
+    # 개체에 딸린 것들 — 꾸미기 / 돌봄 기록 / 돌봄 주기
+    if plant_ids:
+        db.execute(delete(PlantDecoration).where(PlantDecoration.plant_id.in_(plant_ids)))
+        db.execute(delete(CareRecord).where(CareRecord.plant_id.in_(plant_ids)))
+        db.execute(delete(CareSchedule).where(CareSchedule.plant_id.in_(plant_ids)))
+
+    # 업로드한 이미지 기록 — 스키마상 user_id/plant_id 가 SET NULL 이라 그냥 두면
+    # 주인 없는 행으로 남는다. 계정 삭제니 행 자체를 지운다.
+    # (S3 객체는 지우지 않는다 — 버킷이 다른 계정 소유라 삭제 권한이 없다.)
+    asset_filter = MediaAsset.user_id == user_id
+    if plant_ids:
+        asset_filter = or_(asset_filter, MediaAsset.plant_id.in_(plant_ids))
+    db.execute(delete(MediaAsset).where(asset_filter))
+
+    db.execute(delete(Plant).where(Plant.user_id == user_id))
+    db.execute(delete(WeatherLog).where(WeatherLog.user_id == user_id))
+    db.execute(delete(UserSetting).where(UserSetting.user_id == user_id))
+    db.execute(delete(Inquiry).where(Inquiry.user_id == user_id))
+
+    db.delete(current_user)
+    db.commit()
+
+
+@app.post("/api/inquiries", status_code=status.HTTP_204_NO_CONTENT)
+def create_inquiry(
+    payload: InquiryCreate,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """설정 화면의 문의하기 — inquiry 테이블에 쌓아 둔다.
+
+    운영자는 이 표에서 내용을 보고, 함께 저장된 user_id 로 사용자 이메일을
+    찾아 메일로 회신한다. 처리한 문의는 status 를 'CLOSED' 로 바꾼다.
+
+    답변을 앱에서 보여주지 않으므로 answer 칼럼은 두지 않았다 —
+    값을 넣을 창구가 없는 칼럼은 영영 비어 있게 된다.
+    자세한 배경은 docs/database-schema.sql "8. 고객 문의" 주석 참고.
+    """
+    db.add(Inquiry(user_id=current_user.user_id, content=payload.content))
+    db.commit()
+
+
+@app.get("/api/inquiries", response_model=list[InquiryRead])
+def list_inquiries(
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[InquiryRead]:
+    """내 문의 내역 — 앱 설정 화면의 문의하기 안에서 보여준다.
+
+    남의 문의는 보이지 않는다 (user_id 로 걸러 조회한다).
+    """
+    rows = db.scalars(
+        select(Inquiry)
+        .where(Inquiry.user_id == current_user.user_id)
+        .order_by(Inquiry.created_at.desc())
+    ).all()
+    return [
+        InquiryRead(
+            id=row.inquiry_id,
+            content=row.content,
+            status=row.status,
+            answer=row.answer,
+            answered_at=row.answered_at.isoformat() if row.answered_at else None,
+            created_at=row.created_at.isoformat(),
+        )
+        for row in rows
+    ]
+
+
+@app.get("/api/admin/inquiries", response_model=list[InquiryRead])
+def list_all_inquiries(
+    only_open: bool = Query(True, description="답변하지 않은 것만 보기"),
+    _admin: AppUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> list[InquiryRead]:
+    """관리자용 문의 목록 — /docs 에서 확인한다."""
+    query = select(Inquiry).order_by(Inquiry.created_at.desc())
+    if only_open:
+        query = query.where(Inquiry.status == "OPEN")
+    rows = db.scalars(query).all()
+    return [
+        InquiryRead(
+            id=row.inquiry_id,
+            content=row.content,
+            status=row.status,
+            answer=row.answer,
+            answered_at=row.answered_at.isoformat() if row.answered_at else None,
+            created_at=row.created_at.isoformat(),
+        )
+        for row in rows
+    ]
+
+
+@app.patch("/api/admin/inquiries/{inquiry_id}", response_model=InquiryRead)
+def answer_inquiry(
+    inquiry_id: int,
+    payload: InquiryAnswer,
+    _admin: AppUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> InquiryRead:
+    """문의에 답변을 단다 — 사용자는 앱의 문의 내역에서 이 답변을 본다.
+
+    다시 호출하면 답변을 고칠 수 있다 (answered_at 도 갱신된다).
+    """
+    inquiry = db.get(Inquiry, inquiry_id)
+    if inquiry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="문의를 찾을 수 없습니다."
+        )
+
+    inquiry.answer = payload.answer
+    inquiry.answered_at = datetime.now(timezone.utc)
+    inquiry.status = "ANSWERED"
+    db.commit()
+    db.refresh(inquiry)
+
+    return InquiryRead(
+        id=inquiry.inquiry_id,
+        content=inquiry.content,
+        status=inquiry.status,
+        answer=inquiry.answer,
+        answered_at=inquiry.answered_at.isoformat(),
+        created_at=inquiry.created_at.isoformat(),
+    )
 
 
 @app.get("/api/settings", response_model=UserSettingRead)
