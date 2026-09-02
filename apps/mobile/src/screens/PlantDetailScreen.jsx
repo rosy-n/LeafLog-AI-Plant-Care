@@ -91,6 +91,14 @@ const RUB_HEART_SIZE = 26;
 const DROP_COUNT = 8;          // 떨어뜨릴 물방울 개수
 const DROP_INTERVAL_MS = 110;  // 물방울이 하나씩 생기는 간격
 const DROP_FALL_MS = 1100;     // 낙하 애니메이션 길이
+/*
+    물주기 연출이 끝나는 시점 — 마지막 방울이 생기고(DROP_COUNT-1 번째 간격)
+    그것이 다 떨어질 때까지. 물소리를 여기서 끊는다.
+
+    음원(sfx-water.mp3)이 약 5.9초라 그냥 두면 연출이 끝나고도 4초를 더 흐른다.
+    길이를 상수에서 뽑아내므로 방울 개수·간격을 바꿔도 소리가 따라온다.
+*/
+const WATERING_ANIM_MS = (DROP_COUNT - 1) * DROP_INTERVAL_MS + DROP_FALL_MS;
 
 /*
     진동은 RN 내장 Vibration 이 아니라 expo-haptics 를 쓴다.
@@ -232,7 +240,8 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
     const [isWatering, setIsWatering] = useState(false);
     // 물주기 확인 모달
     const [waterConfirmVisible, setWaterConfirmVisible] = useState(false);
-    // 방울마다 예약해 둔 진동 타이머 — 물주기 도중 화면을 벗어나면 취소해야 한다
+    // 물주기 중 예약해 둔 타이머들 — 방울마다의 진동과 물소리 끄기.
+    // 물주기 도중 화면을 벗어나거나 다시 물을 주면 전부 취소해야 한다
     const dropHapticTimers = useRef([]);
 
     const clearDropHaptics = () => {
@@ -258,6 +267,10 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                 setTimeout(tapHaptic, i * DROP_INTERVAL_MS),
             );
         }
+        // 마지막 방울이 다 떨어지면 물소리도 끝낸다 — 음원이 연출보다 길다
+        dropHapticTimers.current.push(
+            setTimeout(() => stopSfx("water"), WATERING_ANIM_MS),
+        );
     };
 
     /*
