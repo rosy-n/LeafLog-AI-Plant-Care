@@ -64,7 +64,6 @@ const assets = {
   landingBg: require("./assets/images/login-bg.png"),
   plant: require("./assets/home-plant.png"),
   meadow: require("./assets/home-meadow.png"),
-  leaf: require("./assets/repot-title-icon.png"),
 };
 
 
@@ -681,8 +680,6 @@ function SignupScreen(props: {
         subtitle="LeafLog와 함께 시작해요!"
         compact
         pixel
-        icon={false}
-        heart={false}
       />
       <View style={styles.signupForm}>
         <Field
@@ -931,30 +928,21 @@ function AuthScaffold({
 }
 
 // pixel: 던근모(픽셀) 글꼴로 렌더 — 로그인·회원가입·닉네임 화면에서 켠다
-// icon: 제목 위 잎사귀 아이콘 · heart: 부제 뒤 하트 (회원가입 화면은 둘 다 끈다)
 function AuthHeader({
   title,
   subtitle,
   compact = false,
   pixel = false,
-  icon = true,
-  heart = true,
 }: {
   title: string;
   subtitle: string;
   compact?: boolean;
   pixel?: boolean;
-  icon?: boolean;
-  heart?: boolean;
 }) {
   return (
     <View style={[styles.authHead, compact && styles.authHeadCompact]}>
-      {icon && <Image source={assets.leaf} style={styles.authLeaf} />}
       <Text style={[styles.authTitle, pixel && styles.pixelText]}>{title}</Text>
-      <Text style={[styles.authSubtitle, pixel && styles.pixelText]}>
-        {subtitle}
-        {heart && <Text style={[styles.heart, pixel && styles.pixelText]}> ♡</Text>}
-      </Text>
+      <Text style={[styles.authSubtitle, pixel && styles.pixelText]}>{subtitle}</Text>
     </View>
   );
 }
@@ -1145,10 +1133,6 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 2 },
     textShadowRadius: 0,
   },
-  heart: {
-    color: Colors.danger,
-    fontFamily: Fonts.nanumSquareNeo.heavy,
-  },
   meadow: {
     left: 0,
     bottom: 0,
@@ -1192,12 +1176,6 @@ const styles = StyleSheet.create({
   },
   authHeadCompact: {
     marginTop: 62,
-  },
-  authLeaf: {
-    width: 31,
-    height: 24,
-    resizeMode: "contain",
-    marginBottom: Spacing.xxs,
   },
   authTitle: {
     color: Colors.primary,
