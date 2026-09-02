@@ -11,6 +11,7 @@ export const Colors = {
   // ── 케어 마커 (지정) ─────────────────────────
   fertilizer: '#FFEDA3',     // 영양제 준 날 (배경)
   fertilizerIcon: '#9A7A10', // 영양제 아이콘 (✚)
+  fertilizerFaint: 'rgba(255, 237, 163, 0.5)', // fertilizer의 연한 버전 (텍스트 하이라이트 배경)
   water: '#E0EDFF',          // 물 준 날 (배경)
   waterIcon: '#3A7ED5',      // 물주기 아이콘
 

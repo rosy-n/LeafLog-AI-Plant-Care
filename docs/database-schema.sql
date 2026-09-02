@@ -617,13 +617,10 @@ CREATE TABLE item (
     item_type        VARCHAR(30) NOT NULL
                      CHECK (item_type IN ('BACKGROUND', 'ACCESSORY')),
 
-    -- 이미지 2종 (asset_type = 'ITEM_IMAGE'). DDL: apps/api/scripts/add-item-asset-columns.sql
-    --   asset_id        목록 카드 이미지 (액세서리 아이콘 / 배경 미리보기)
-    --   sprite_asset_id 그 액세서리를 착용한 캐릭터 이미지. 배경은 NULL.
-    --                   액세서리가 투명 오버레이가 아니라 "아이템을 쓴 캐릭터"
-    --                   통짜 이미지라 카드와 별개 파일이 필요해 컬럼을 하나 더 뒀다.
+    -- 아이템 이미지 (asset_type = 'ITEM_IMAGE'). DDL: apps/api/scripts/add-item-asset-columns.sql
+    -- 액세서리는 화분 없는 투명 효과 이미지, 배경은 배경 이미지를 asset_id에 둔다.
+    -- 액세서리 카드와 캐릭터 레이어가 같은 자산을 사용한다.
     asset_id         BIGINT REFERENCES media_asset(asset_id) ON DELETE SET NULL,
-    sprite_asset_id  BIGINT REFERENCES media_asset(asset_id) ON DELETE SET NULL,
 
     -- 해금에 필요한 꽉 찬 하트 수. 0이면 기본 제공.
     -- 점수(required_affinity_score)가 아니라 단계로 두는 이유:

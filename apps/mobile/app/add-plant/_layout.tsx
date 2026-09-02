@@ -10,9 +10,14 @@ const TOTAL = 5;
 
 const STEP_MAP: Record<string, number> = {
   index: 1,
+  'organ-select': 1,
+  analyzing: 1,
+  'plant-results': 1,
+  'plant-detail': 1,
   character: 2,
-  name: 3,
-  info: 4,
+  info: 3,
+  'character-result': 4,
+  name: 5,
   persona: 5,
 };
 

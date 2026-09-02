@@ -888,45 +888,31 @@ def list_plants(
                 char_face_bounds_map[pid] = bounds
 
     # 개체에 적용된 꾸미기(액세서리 + 배경) — 개체마다 조회하지 않도록 한 번에 모은다.
-    # 이미지가 S3에 없으면 URL 이 None 이고, 앱은 item_key 로 번들 이미지를 쓴다.
-    # 액세서리는 sprite(착용한 캐릭터), 배경은 card(배경 그림) 자산을 쓴다.
+    # 액세서리의 asset_id는 카드 미리보기이므로 캐릭터 위에 얹지 않는다.
+    # 실제 효과는 item_key에 대응하는 앱 번들 레이어를 쓰고, 배경만 asset_id URL을 쓴다.
     accessory_map: dict[int, tuple[str, str | None]] = {}
     background_map: dict[int, tuple[str, str | None]] = {}
     if plant_ids:
-        sprite = aliased(MediaAsset)
-        card = aliased(MediaAsset)
+        asset = aliased(MediaAsset)
         rows_deco = db.execute(
             select(
                 PlantDecoration.plant_id,
                 PlantDecoration.position_key,
                 Item.item_key,
-                sprite.object_key,
-                sprite.file_url,
-                sprite.bucket_name,
-                card.object_key,
-                card.file_url,
-                card.bucket_name,
+                asset.object_key,
+                asset.file_url,
+                asset.bucket_name,
             )
             .join(Item, Item.item_id == PlantDecoration.item_id)
-            .join(sprite, sprite.asset_id == Item.sprite_asset_id, isouter=True)
-            .join(card, card.asset_id == Item.asset_id, isouter=True)
+            .join(asset, asset.asset_id == Item.asset_id, isouter=True)
             .where(PlantDecoration.plant_id.in_(plant_ids))
         ).all()
-        for (
-            pid,
-            position_key,
-            item_key,
-            s_key,
-            s_url,
-            s_bucket,
-            c_key,
-            c_url,
-            c_bucket,
-        ) in rows_deco:
+        for pid, position_key, item_key, object_key, file_url, bucket_name in rows_deco:
+            image_url = _asset_url(object_key, file_url, bucket_name)
             if position_key == BACKGROUND_POSITION_KEY:
-                background_map[pid] = (item_key, _asset_url(c_key, c_url, c_bucket))
+                background_map[pid] = (item_key, image_url)
             else:
-                accessory_map[pid] = (item_key, _asset_url(s_key, s_url, s_bucket))
+                accessory_map[pid] = (item_key, None)
 
     # 물주기 일정 — 개체마다 조회하지 않고 두 번의 쿼리로 모은다
     schedule_map: dict[int, CareSchedule] = {}
@@ -1401,11 +1387,6 @@ def _media_asset_url(asset_id: int | None, db: Session) -> str | None:
     return _asset_url(*row) if row else None
 
 
-def _item_sprite_url(item: Item, db: Session) -> str | None:
-    """액세서리를 착용한 캐릭터 이미지 URL"""
-    return _media_asset_url(item.sprite_asset_id, db)
-
-
 def _item_card_url(item: Item, db: Session) -> str | None:
     """목록 카드 이미지 URL (배경은 이게 곧 배경 그림이다)"""
     return _media_asset_url(item.asset_id, db)
@@ -1439,20 +1420,15 @@ def list_items(
     해금 여부는 내려보내지 않는다 — 액세서리는 개체마다, 배경은 유저 전체 기준이라
     조건이 달라서, 앱이 required_level 과 해당 애정도 단계를 비교한다.
     """
-    card = aliased(MediaAsset)
-    sprite = aliased(MediaAsset)
+    asset = aliased(MediaAsset)
     query = (
         select(
             Item,
-            card.object_key,
-            card.file_url,
-            card.bucket_name,
-            sprite.object_key,
-            sprite.file_url,
-            sprite.bucket_name,
+            asset.object_key,
+            asset.file_url,
+            asset.bucket_name,
         )
-        .join(card, card.asset_id == Item.asset_id, isouter=True)
-        .join(sprite, sprite.asset_id == Item.sprite_asset_id, isouter=True)
+        .join(asset, asset.asset_id == Item.asset_id, isouter=True)
         .where(Item.is_active.is_(True))
     )
     if item_type is not None:
@@ -1465,10 +1441,10 @@ def list_items(
             item_name=item.item_name,
             item_type=item.item_type,
             required_level=item.required_level,
-            image_url=_asset_url(card_key, card_url, card_bucket),
-            sprite_url=_asset_url(sprite_key, sprite_url, sprite_bucket),
+            image_url=_asset_url(object_key, file_url, bucket_name),
+            sprite_url=None,
         )
-        for item, card_key, card_url, card_bucket, sprite_key, sprite_url, sprite_bucket in rows
+        for item, object_key, file_url, bucket_name in rows
     ]
 
 
@@ -1480,17 +1456,12 @@ def get_plant_decoration(
 ) -> PlantDecorationRead:
     """개체가 착용 중인 액세서리. 없으면 두 필드 모두 null."""
     plant = _owned_plant_or_404(plant_id, current_user, db)
-    sprite = aliased(MediaAsset)
     row = db.execute(
         select(
             PlantDecoration.item_id,
             Item.item_key,
-            sprite.object_key,
-            sprite.file_url,
-            sprite.bucket_name,
         )
         .join(Item, Item.item_id == PlantDecoration.item_id)
-        .join(sprite, sprite.asset_id == Item.sprite_asset_id, isouter=True)
         .where(
             PlantDecoration.plant_id == plant.plant_id,
             PlantDecoration.position_key == ACCESSORY_POSITION_KEY,
@@ -1498,11 +1469,11 @@ def get_plant_decoration(
     ).first()
     if row is None:
         return PlantDecorationRead()
-    item_id, item_key, object_key, file_url, bucket_name = row
+    item_id, item_key = row
     return PlantDecorationRead(
         item_id=item_id,
         item_key=item_key,
-        sprite_url=_asset_url(object_key, file_url, bucket_name),
+        sprite_url=None,
     )
 
 
@@ -1528,7 +1499,7 @@ def set_plant_decoration(
     return PlantDecorationRead(
         item_id=item.item_id,
         item_key=item.item_key,
-        sprite_url=_item_sprite_url(item, db),
+        sprite_url=None,
     )
 
 
