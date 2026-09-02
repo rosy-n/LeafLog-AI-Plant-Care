@@ -14,7 +14,7 @@ import {
     Modal,
     PanResponder,
 } from "react-native";
-import * as Haptics from "expo-haptics";
+import { ImpactFeedbackStyle, hapticImpact, playSfx, stopSfx } from "../feedback";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -98,6 +98,9 @@ const DROP_FALL_MS = 1100;     // 낙하 애니메이션 길이
     vibrate() 는 시스템 부저 한 번뿐이어서 방울 리듬을 표현할 수 없다.
     expo-haptics 는 Core Haptics(iOS)·Vibrator(Android)를 써서 두 플랫폼 모두
     가벼운 임팩트를 같은 코드로 낼 수 있다.
+
+    다만 expo-haptics 를 직접 부르지 않고 feedback.ts 의 hapticImpact 를 거친다 —
+    설정의 진동 스위치를 여기서 빠뜨리지 않기 위해서다.
 */
 
 // 캐릭터가 아직 말투 규칙을 못 지켰을 때(서버 502 등) 대화창에 그대로 보여줄 안전 문구
@@ -237,12 +240,8 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
         dropHapticTimers.current = [];
     };
 
-    // 햅틱이 없는 기기(시뮬레이터·태블릿)에서는 조용히 무시된다
-    const tapHaptic = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch((e) =>
-            console.warn("진동 실패:", e?.message),
-        );
-    };
+    // 설정에서 진동을 꺼뒀거나 햅틱이 없는 기기(시뮬레이터·태블릿)면 조용히 넘어간다
+    const tapHaptic = () => hapticImpact();
 
     /*
         물방울이 하나씩 나타나는 리듬에 맞춰 톡톡.
@@ -251,6 +250,8 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
     */
     const startWateringHaptics = () => {
         clearDropHaptics();
+        // 물소리는 방울마다가 아니라 붓기 시작할 때 한 번 — 8번 겹치면 시끄럽다
+        playSfx("water");
         tapHaptic();
         for (let i = 1; i < DROP_COUNT; i++) {
             dropHapticTimers.current.push(
@@ -259,8 +260,18 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
         }
     };
 
-    // 물주기 도중 화면을 벗어나면 예약된 진동을 취소한다 (안 하면 뒤늦게 울린다)
-    useEffect(() => clearDropHaptics, []);
+    /*
+        물주기 도중 화면을 벗어나면 뒷정리를 한다.
+        예약된 진동은 취소하고(안 하면 뒤늦게 울린다), 물소리도 끊는다 —
+        음원이 물주기 애니메이션보다 길어서 그냥 두면 다른 화면까지 따라온다.
+    */
+    useEffect(
+        () => () => {
+            clearDropHaptics();
+            stopSfx("water");
+        },
+        [],
+    );
 
     // ── 캐릭터 문지르기 ──────────────────────────────
     // 손가락을 따라 하트가 뜨고 그때마다 가볍게 진동한다. 애정도는 하루 한 번만 오른다.
@@ -289,10 +300,11 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
             setRubHearts((prev) => prev.filter((heart) => heart.id !== id));
         });
 
-        // 문지르는 느낌이라 물주기(Light)보다 부드러운 임팩트를 쓴다
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch((e) =>
-            console.warn("진동 실패:", e?.message),
-        );
+        // 문지르는 느낌이라 물주기(Light)보다 부드러운 임팩트를 쓴다.
+        // 소리·진동은 하트가 뜨는 지점에서만 낸다 — 문지르는 동안에는
+        // RUB_HEART_INTERVAL_MS 간격으로 걸러지므로 효과음이 촘촘히 겹치지 않는다.
+        hapticImpact(ImpactFeedbackStyle.Soft);
+        playSfx("pet");
     };
 
     // 문지르기 보상 — 서버가 하루 1회만 준다 (이미 받았으면 0점으로 응답)

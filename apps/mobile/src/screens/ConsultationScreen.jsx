@@ -15,6 +15,7 @@ import {
     Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import IconCircleButton from "../components/IconCircleButton";
 import * as ImagePicker from "expo-image-picker";
 import * as Clipboard from "expo-clipboard";
 import Markdown from "react-native-markdown-display";
@@ -488,13 +489,15 @@ export default function ConsultationScreen({ navigation, route }) {
                 )}
 
                 <View style={styles.inputWrapper}>
-                    <TouchableOpacity
-                        style={styles.attachButton}
-                        onPress={pickImage}
+                    <IconCircleButton
+                        icon="add"
+                        iconSize={22}
+                        color={GreenTint.faint}
+                        iconColor={Colors.primary}
                         activeOpacity={0.7}
-                    >
-                        <Ionicons name="add" size={22} color={Colors.primary} />
-                    </TouchableOpacity>
+                        onPress={pickImage}
+                        style={styles.attachButton}
+                    />
 
                     <View style={styles.inputBox}>
                         {pendingImage && (
@@ -523,17 +526,13 @@ export default function ConsultationScreen({ navigation, route }) {
                         />
                     </View>
 
-                    <TouchableOpacity
-                        style={[
-                            styles.sendButton,
-                            !canSend && styles.sendButtonDisabled,
-                        ]}
-                        onPress={sendMessage}
-                        activeOpacity={0.8}
+                    <IconCircleButton
+                        icon="arrow-up"
+                        color={Colors.primary}
                         disabled={!canSend}
-                    >
-                        <Ionicons name="arrow-up" size={20} color={Colors.white} />
-                    </TouchableOpacity>
+                        onPress={sendMessage}
+                        style={styles.sendButton}
+                    />
                 </View>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -541,6 +540,13 @@ export default function ConsultationScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
+    attachButton: {
+        marginRight: Spacing.sm,
+        marginBottom: Spacing.xs,
+    },
+    sendButton: {
+        marginBottom: Spacing.xs,
+    },
     safeArea: {
         flex: 1,
         backgroundColor: Colors.background,
@@ -778,16 +784,6 @@ const styles = StyleSheet.create({
         borderTopColor: GreenTint.veil,
     },
 
-    attachButton: {
-        width: 34,
-        height: 34,
-        borderRadius: Radius.pill,
-        backgroundColor: GreenTint.faint,
-        alignItems: "center",
-        justifyContent: "center",
-        marginRight: Spacing.sm,
-        marginBottom: Spacing.xs,
-    },
 
     inputBox: {
         flex: 1,
@@ -831,17 +827,5 @@ const styles = StyleSheet.create({
         includeFontPadding: false,
     },
 
-    sendButton: {
-        width: 34,
-        height: 34,
-        borderRadius: Radius.pill,
-        backgroundColor: Colors.primary,
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: Spacing.xs,
-    },
 
-    sendButtonDisabled: {
-        backgroundColor: GreenTint.line,
-    },
 });

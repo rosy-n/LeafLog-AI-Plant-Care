@@ -9,7 +9,6 @@ import {
     Modal,
 } from "react-native";
 import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -19,8 +18,10 @@ import PlantImage from "../components/PlantImage";
 import { getPlantExpressionSource } from "../data/characterExpressions";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
+import GlassMenuItem from "../components/GlassMenuItem";
+import ActionButton from "../components/ActionButton";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Paper, Pink, Accent, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Paper, Pink, Accent } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const MENU_ITEMS = [
@@ -215,30 +216,13 @@ export default function MemorialPlantScreen({ navigation, route, decorations }) 
                                             },
                                         ]}
                                     >
-                                        <TouchableOpacity
-                                            activeOpacity={0.82}
-                                            style={styles.menuItemTouch}
+                                        <GlassMenuItem
+                                            label={item.label}
                                             onPress={() => {
                                                 closeMenu();
                                                 navigation.navigate(item.screen);
                                             }}
-                                        >
-                                            <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>
-                                                <LinearGradient
-                                                    colors={[
-                                                        Glass.frost72,
-                                                        Glass.mist,
-                                                        Glass.mistSoft,
-                                                    ]}
-                                                    start={{ x: 0.12, y: 0.05 }}
-                                                    end={{ x: 1, y: 1 }}
-                                                    style={styles.menuItemGlass}
-                                                >
-                                                    <View style={styles.menuItemHighlight} />
-                                                    <Text style={styles.menuItemText}>{item.label}</Text>
-                                                </LinearGradient>
-                                            </BlurView>
-                                        </TouchableOpacity>
+                                        />
                                     </Animated.View>
                                 );
                             })}
@@ -347,24 +331,32 @@ export default function MemorialPlantScreen({ navigation, route, decorations }) 
 
                             {/* 버튼 영역 */}
                             <View style={styles.modalBtnRow}>
-                                <TouchableOpacity
-                                    style={styles.modalBtnSecondary}
+                                <ActionButton
+                                    label="계속 추억하기"
+                                    color={Paper.taupeBg}
+                                    borderColor={Paper.taupeBorder}
+                                    textColor={Paper.taupeText}
+                                    size="md"
+                                    shadow={false}
                                     activeOpacity={0.85}
                                     onPress={() => setGraveModalVisible(false)}
-                                >
-                                    <Text style={styles.modalBtnSecondaryText}>계속 추억하기</Text>
-                                </TouchableOpacity>
+                                    style={styles.modalBtnSecondary}
+                                    textStyle={styles.modalBtnLabel}
+                                />
 
-                                <TouchableOpacity
-                                    style={styles.modalBtnPrimary}
+                                {/* 반짝임·하트가 섞여 라벨 하나로는 안 돼서 내용을 직접 넘긴다 */}
+                                <ActionButton
+                                    color={GreenTint.line}
+                                    size="md"
                                     activeOpacity={0.85}
                                     onPress={handleRevive}
+                                    style={styles.modalBtnPrimary}
                                 >
                                     <Text style={styles.modalSparkle}>✦ </Text>
                                     <Ionicons name="heart" size={12} color={Colors.white} />
                                     <Text style={styles.modalBtnPrimaryText}> 다시 함께하기</Text>
                                     <Text style={styles.modalSparkle}> ✦</Text>
-                                </TouchableOpacity>
+                                </ActionButton>
                             </View>
 
                         </View>
@@ -376,6 +368,9 @@ export default function MemorialPlantScreen({ navigation, route, decorations }) 
 }
 
 const styles = StyleSheet.create({
+    modalBtnLabel: {
+        fontSize: FontSizes.small,
+    },
     root: {
         flex: 1,
         backgroundColor: GreenTint.line,
@@ -498,49 +493,6 @@ const styles = StyleSheet.create({
     menuItemWrapper: {
         marginBottom: Spacing.sm,
     },
-    menuItemTouch: {
-        width: 116,
-        height: 31,
-        borderRadius: Radius.lg,
-        overflow: "hidden",
-        shadowColor: Colors.textBlack,
-        shadowOpacity: 0.18,
-        shadowRadius: 7,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 5,
-    },
-    menuItemBlur: {
-        flex: 1,
-        borderRadius: Radius.lg,
-        overflow: "hidden",
-        borderWidth: 1,
-        borderColor: Glass.frost72,
-    },
-    menuItemGlass: {
-        flex: 1,
-        borderRadius: Radius.lg,
-        alignItems: "center",
-        justifyContent: "center",
-        borderWidth: 1,
-        borderColor: Glass.frost45,
-    },
-    menuItemHighlight: {
-        position: "absolute",
-        top: 4,
-        left: 10,
-        width: 34,
-        height: 8,
-        borderRadius: Radius.pill,
-        backgroundColor: Glass.frost60,
-    },
-    menuItemText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.textBlack,
-        textShadowColor: Glass.frost60,
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 0,
-    },
 
     // ── Modal ──────────────────────────────────────────────
     modalOverlay: {
@@ -602,25 +554,14 @@ const styles = StyleSheet.create({
         flex: 1,
         height: 46,
         borderRadius: Radius.pill,
-        borderWidth: 1.5,
-        borderColor: Paper.taupeBorder,
-        backgroundColor: Paper.taupeBg,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    modalBtnSecondaryText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.small,
-        color: Paper.taupeText,
+        paddingVertical: Spacing.none,
     },
     modalBtnPrimary: {
         flex: 1,
         height: 46,
         borderRadius: Radius.pill,
-        backgroundColor: GreenTint.line,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
+        paddingVertical: Spacing.none,
+        gap: Spacing.none,
         shadowColor: GreenTint.strong,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.35,
