@@ -3,8 +3,10 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
+import os
 import secrets
 import shutil
+import socket
 import subprocess
 import threading
 import time
@@ -14,11 +16,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlparse
 
 import requests
 
 from .config import settings
 from .image_preprocessing import (
+    ImagePreprocessingError,
     preprocess_plant_photo,
     release_background_removal_sessions,
     remove_character_face,
@@ -52,8 +56,10 @@ NEGATIVE_PROMPT = (
     "small detail, small dot, no face"
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 FACE_REMOVED_CHECKSUM_PREFIX = "face-v1:"
+_forge_tunnel_lock = threading.RLock()
+_forge_tunnel_process: subprocess.Popen[bytes] | None = None
 
 
 @dataclass(frozen=True)
@@ -110,6 +116,7 @@ class CharacterGenerationManager:
 
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False, cancel_futures=True)
+        _stop_managed_forge_tunnel()
 
     def _update(self, job_id: str, **changes: object) -> None:
         with self._lock:
@@ -160,17 +167,22 @@ class CharacterGenerationManager:
                 _log_timing(job_id, "gpu_switch_sdxl", stage_started)
 
                 stage_started = time.perf_counter()
+                _ensure_forge_tunnel()
                 _wait_for_forge()
                 _log_timing(job_id, "forge_ready", stage_started)
 
             job_dir = settings.character_output_dir / job_id
             job_dir.mkdir(parents=True, exist_ok=True)
             base_seed = secrets.randbelow(2_000_000_000)
-            generated_images: list[tuple[int, int, bytes]] = []
+            accepted_candidates = 0
+            generation_attempt = 0
+            max_generation_attempts = 6
 
-            for index in range(1, 4):
-                seed = base_seed + index - 1
-                progress = 20 + (index - 1) * 23
+            while accepted_candidates < 3 and generation_attempt < max_generation_attempts:
+                generation_attempt += 1
+                index = accepted_candidates + 1
+                seed = base_seed + generation_attempt - 1
+                progress = 20 + accepted_candidates * 23
                 self._update(
                     job_id,
                     status="generating",
@@ -195,47 +207,60 @@ class CharacterGenerationManager:
                     candidate=index,
                     seed=seed,
                 )
-                generated_images.append((index, seed, generated_bytes))
-
-            for index, seed, generated_bytes in generated_images:
-                progress = 79 + (index - 1) * 6
                 self._update(
                     job_id,
                     status="postprocessing",
-                    progress=progress,
+                    progress=min(94, progress + 14),
                     message=f"도트 캐릭터 {index}/3의 배경과 표정을 정리하고 있어요.",
                 )
-                stage_started = time.perf_counter()
-                cutout = remove_background_for_sprite(
-                    image_bytes=generated_bytes,
-                    canvas_size=settings.character_canvas_size,
-                    quality_mode=settings.character_postprocess_quality,
-                )
-                _log_timing(
-                    job_id,
-                    "remove_background",
-                    stage_started,
-                    candidate=index,
-                    quality=settings.character_postprocess_quality,
-                )
-                cutout_bytes = base64.b64decode(cutout.transparent_png_base64)
-                if settings.character_mock_generation:
-                    png_bytes = cutout_bytes
-                    checksum_prefix = ""
-                    face_bounds = None
-                else:
+                try:
                     stage_started = time.perf_counter()
-                    face_removed = remove_character_face(cutout_bytes)
+                    cutout = remove_background_for_sprite(
+                        image_bytes=generated_bytes,
+                        canvas_size=settings.character_canvas_size,
+                        quality_mode=settings.character_postprocess_quality,
+                    )
                     _log_timing(
                         job_id,
-                        "remove_face",
+                        "remove_background",
                         stage_started,
                         candidate=index,
+                        quality=settings.character_postprocess_quality,
                     )
-                    png_bytes = base64.b64decode(face_removed.face_removed_png_base64)
-                    face_bounds = face_removed.face_bounds
-                    bounds_text = ",".join(str(value) for value in face_bounds)
-                    checksum_prefix = f"{FACE_REMOVED_CHECKSUM_PREFIX}{bounds_text}:"
+                    cutout_bytes = base64.b64decode(cutout.transparent_png_base64)
+                    if settings.character_mock_generation:
+                        png_bytes = cutout_bytes
+                        checksum_prefix = ""
+                        face_bounds = None
+                    else:
+                        stage_started = time.perf_counter()
+                        face_removed = remove_character_face(cutout_bytes)
+                        _log_timing(
+                            job_id,
+                            "remove_face",
+                            stage_started,
+                            candidate=index,
+                        )
+                        png_bytes = base64.b64decode(face_removed.face_removed_png_base64)
+                        face_bounds = face_removed.face_bounds
+                        bounds_text = ",".join(str(value) for value in face_bounds)
+                        checksum_prefix = f"{FACE_REMOVED_CHECKSUM_PREFIX}{bounds_text}:"
+                except ImagePreprocessingError as exc:
+                    logger.warning(
+                        "Rejected character candidate job_id=%s attempt=%s seed=%s reason=%s",
+                        job_id,
+                        generation_attempt,
+                        seed,
+                        exc,
+                    )
+                    release_background_removal_sessions()
+                    self._update(
+                        job_id,
+                        status="generating",
+                        message=f"표정이 선명한 도트 캐릭터 {index}/3을 다시 만들고 있어요.",
+                    )
+                    continue
+
                 file_name = f"candidate-{index}.png"
                 (job_dir / file_name).write_bytes(png_bytes)
 
@@ -248,6 +273,12 @@ class CharacterGenerationManager:
                         seed=seed,
                         face_bounds=face_bounds,
                     ),
+                )
+                accepted_candidates += 1
+
+            if accepted_candidates < 3:
+                raise CharacterGenerationError(
+                    "표정이 선명한 캐릭터 3개를 만들지 못했습니다. 다른 사진으로 다시 시도해주세요."
                 )
             release_background_removal_sessions()
 
@@ -315,6 +346,10 @@ def _copy_job(job: CharacterGenerationJob) -> CharacterGenerationJob:
 
 
 def _switch_gpu_mode(mode: Literal["sdxl", "ollama"]) -> None:
+    if settings.character_gpu_ssh_host:
+        _switch_remote_gpu_mode(mode)
+        return
+
     command = settings.character_gpu_mode_command.strip()
     if not command:
         return
@@ -328,6 +363,119 @@ def _switch_gpu_mode(mode: Literal["sdxl", "ollama"]) -> None:
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise CharacterGenerationError(f"GPU 모드를 {mode}(으)로 전환하지 못했습니다.") from exc
+
+
+def _switch_remote_gpu_mode(mode: Literal["sdxl", "ollama"]) -> None:
+    remote_command = (
+        f'wsl -d {settings.character_gpu_ssh_wsl_distro} '
+        f'-u {settings.character_gpu_ssh_wsl_user} '
+        f'-- bash -lc "leaflog-gpu {mode}"'
+    )
+    try:
+        subprocess.run(
+            [*_ssh_base_command(), remote_command],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=settings.character_gpu_switch_timeout_seconds,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise CharacterGenerationError(f"학교 GPU를 {mode} 모드로 전환하지 못했습니다.") from exc
+
+
+def _ssh_base_command() -> list[str]:
+    command = [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        f"ConnectTimeout={settings.character_gpu_ssh_connect_timeout_seconds}",
+    ]
+    identity_file = settings.character_gpu_ssh_identity_file
+    if identity_file:
+        command.extend(["-i", str(Path(identity_file).expanduser())])
+    target = settings.character_gpu_ssh_host
+    if settings.character_gpu_ssh_user:
+        target = f"{settings.character_gpu_ssh_user}@{target}"
+    command.append(target)
+    return command
+
+
+def _ensure_forge_tunnel() -> None:
+    if not settings.character_gpu_ssh_host:
+        return
+
+    parsed_url = urlparse(settings.forge_api_url)
+    if parsed_url.hostname not in {"127.0.0.1", "localhost", "::1"}:
+        return
+    local_port = parsed_url.port or (443 if parsed_url.scheme == "https" else 80)
+    if _tcp_port_is_open("127.0.0.1", local_port):
+        return
+
+    global _forge_tunnel_process
+    with _forge_tunnel_lock:
+        if _tcp_port_is_open("127.0.0.1", local_port):
+            return
+        if _forge_tunnel_process is not None and _forge_tunnel_process.poll() is None:
+            _forge_tunnel_process.terminate()
+            _forge_tunnel_process.wait(timeout=5)
+
+        command = [
+            *_ssh_base_command()[:-1],
+            "-o",
+            "ExitOnForwardFailure=yes",
+            "-o",
+            "ServerAliveInterval=30",
+            "-o",
+            "ServerAliveCountMax=3",
+            "-N",
+            "-L",
+            f"127.0.0.1:{local_port}:127.0.0.1:7860",
+            _ssh_base_command()[-1],
+        ]
+        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        try:
+            _forge_tunnel_process = subprocess.Popen(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=creation_flags,
+            )
+        except OSError as exc:
+            raise CharacterGenerationError("학교 Forge 연결 터널을 시작하지 못했습니다.") from exc
+
+        deadline = time.monotonic() + settings.character_gpu_ssh_connect_timeout_seconds
+        while time.monotonic() < deadline:
+            if _forge_tunnel_process.poll() is not None:
+                raise CharacterGenerationError("학교 Forge 연결 터널이 즉시 종료됐습니다.")
+            if _tcp_port_is_open("127.0.0.1", local_port):
+                return
+            time.sleep(0.2)
+        _stop_managed_forge_tunnel()
+        raise CharacterGenerationError("학교 Forge 연결 터널 준비 시간이 초과됐습니다.")
+
+
+def _stop_managed_forge_tunnel() -> None:
+    global _forge_tunnel_process
+    with _forge_tunnel_lock:
+        process = _forge_tunnel_process
+        _forge_tunnel_process = None
+        if process is None or process.poll() is not None:
+            return
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+
+
+def _tcp_port_is_open(host: str, port: int) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            return True
+    except OSError:
+        return False
 
 
 def _wait_for_forge() -> None:
