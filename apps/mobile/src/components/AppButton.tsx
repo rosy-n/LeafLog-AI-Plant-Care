@@ -10,6 +10,7 @@ import {
 import { Colors } from "../../constants/colors";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Radius } from "../../constants/spacing";
+import { tapFeedback } from "../feedback";
 
 type AppButtonProps = {
   label: string;
@@ -27,10 +28,14 @@ export default function AppButton({
   style,
 }: AppButtonProps) {
   const secondary = variant === "secondary";
+  const handlePress = () => {
+    tapFeedback();
+    onPress();
+  };
   return (
     <Pressable
       disabled={loading}
-      onPress={onPress}
+      onPress={handlePress}
       style={({ pressed }) => [
         styles.button,
         secondary && styles.buttonSecondary,

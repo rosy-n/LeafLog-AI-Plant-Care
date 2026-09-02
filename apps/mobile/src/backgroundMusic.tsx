@@ -1,5 +1,9 @@
 /**
- * 배경음악 재생 + 소리 설정(볼륨) 공유.
+ * 배경음악 재생 + 사운드&진동 설정 공유.
+ *
+ * 설정 화면이 볼륨·진동을 바로 바꿔 볼 수 있게 값을 여기서 들고 있는다.
+ * 실제로 효과음을 내고 진동을 울리는 쪽은 feedback.ts 이고,
+ * 그쪽은 컨텍스트 대신 audioSettings 의 캐시를 읽는다.
  *
  * 플레이어는 앱 전체에서 하나만 둔다. 화면을 옮겨도 음악이 끊기지 않아야 하므로
  * 네비게이터 바깥(App.js 최상단)에서 Provider 로 감싸고, 볼륨 조절은
@@ -35,6 +39,7 @@ const BGM_SOURCE = require("../assets/audio/bgm-main.mp3");
 type BackgroundMusicValue = AudioSettings & {
     setBgmVolume: (step: number) => void;
     setSfxVolume: (step: number) => void;
+    setVibration: (on: boolean) => void;
 };
 
 const BackgroundMusicContext = createContext<BackgroundMusicValue | null>(null);
@@ -120,10 +125,14 @@ export function BackgroundMusicProvider({ children }: { children: React.ReactNod
         (step: number) => update({ sfxVolume: step }),
         [update],
     );
+    const setVibration = useCallback(
+        (on: boolean) => update({ vibration: on }),
+        [update],
+    );
 
     return (
         <BackgroundMusicContext.Provider
-            value={{ ...settings, setBgmVolume, setSfxVolume }}
+            value={{ ...settings, setBgmVolume, setSfxVolume, setVibration }}
         >
             {children}
         </BackgroundMusicContext.Provider>

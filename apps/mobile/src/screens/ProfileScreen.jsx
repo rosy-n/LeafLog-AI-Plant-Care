@@ -23,6 +23,7 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, Paper, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import ScreenHeader from "../components/ScreenHeader";
+import ActionButton from "../components/ActionButton";
 import {
     getPlant,
     updatePlant,
@@ -521,15 +522,14 @@ export default function ProfileScreen({ navigation, route, decorations = {} }) {
                 </View>
 
                 {/* 추억 이동 버튼 */}
-                <TouchableOpacity
+                <ActionButton
+                    label="나의 정원에서 추억으로 이동"
+                    color={Colors.primary}
+                    shadow={false}
                     activeOpacity={0.85}
-                    style={styles.memoryButton}
                     onPress={moveToMemorial}
-                >
-                    <Text style={styles.memoryButtonText}>
-                        나의 정원에서 추억으로 이동
-                    </Text>
-                </TouchableOpacity>
+                    style={styles.memoryButton}
+                />
 
                 {/* 식물종 다시 고르기 */}
                 <Modal
@@ -796,17 +796,9 @@ const styles = StyleSheet.create({
         width: SCREEN_WIDTH * 0.62,
         height: 46,
         borderRadius: Radius.xl,
-        backgroundColor: Colors.primary,
-        alignItems: "center",
-        justifyContent: "center",
+        paddingVertical: Spacing.none,
     },
 
-    memoryButtonText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
-        color: Colors.white,
-        includeFontPadding: false,
-    },
 
     resetLink: {
         fontFamily: Fonts.neoDunggeunmo,
