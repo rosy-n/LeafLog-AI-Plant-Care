@@ -17,6 +17,7 @@ import {
 import * as Haptics from "expo-haptics";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAudioPlayer } from "expo-audio";
 
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,6 +31,8 @@ import PixelOutlineText from "../components/PixelOutlineText";
 import PixelButton from "../components/PixelButton";
 import PixelSpeechBubble, { WordWrapText } from "../components/PixelSpeechBubble";
 import { scheduleWateringReminder } from "../notifications";
+import { useBackgroundMusic } from "../backgroundMusic";
+import { VOLUME_STEPS } from "../audioSettings";
 import {
     getPlantCare,
     createCareRecord,
@@ -105,6 +108,10 @@ const CHAT_FALLBACK_REPLY = "음... 지금은 대답하기 어려워. 잠시 후
 
 // 대화창 대사를 한 글자씩 타이핑하듯 보여주는 속도 (ConsultationStartScreen과 동일 값)
 const TYPING_CHAR_INTERVAL_MS = 35;
+// 타이핑 효과음은 몇 글자마다 한 번씩 낼지 — 매 글자(35ms)마다 재생하면 소리가 밀려 겹친다
+const TYPING_SFX_CHAR_STEP = 3;
+// 음원 교체 방법은 assets/audio/README.md 참고 (지금 들어있는 파일은 무음 placeholder)
+const TYPING_SFX_SOURCE = require("../../assets/audio/sfx-typing.mp3");
 const BLINK_CLOSED_MS = 140;
 const DOUBLE_BLINK_GAP_MS = 170;
 const BLINK_INTERVAL_MIN_MS = 3500;
@@ -342,6 +349,14 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
     const [userBubble, setUserBubble] = useState(""); // 내가 방금 보낸 말 (대사창 위에 살짝 겹쳐 표시)
     const typingTimerRef = useRef(null);
 
+    // 타이핑 효과음 — 볼륨은 설정 화면과 같은 값을 공유한다 (BackgroundMusicProvider)
+    const typingSfxPlayer = useAudioPlayer(TYPING_SFX_SOURCE);
+    const { sfxVolume } = useBackgroundMusic();
+    const sfxVolumeRef = useRef(sfxVolume);
+    useEffect(() => {
+        sfxVolumeRef.current = sfxVolume;
+    }, [sfxVolume]);
+
     // chatReply가 바뀔 때마다(첫 인사말 포함) 처음부터 한 글자씩 타이핑해서 보여준다
     useEffect(() => {
         clearInterval(typingTimerRef.current);
@@ -353,6 +368,22 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
         typingTimerRef.current = setInterval(() => {
             charCount += 1;
             setTypedReply(chatReply.slice(0, charCount));
+            // 공백에는 효과음을 내지 않는다 — 타이핑 소리가 규칙적으로 끊겨야 자연스럽다
+            const justTyped = chatReply[charCount - 1];
+            if (
+                charCount % TYPING_SFX_CHAR_STEP === 0 &&
+                justTyped &&
+                justTyped.trim() &&
+                sfxVolumeRef.current > 0
+            ) {
+                try {
+                    typingSfxPlayer.volume = sfxVolumeRef.current / VOLUME_STEPS;
+                    typingSfxPlayer.seekTo(0);
+                    typingSfxPlayer.play();
+                } catch (e) {
+                    // 효과음 재생 실패는 무시 — 타이핑 자체는 계속돼야 한다
+                }
+            }
             if (charCount >= chatReply.length) {
                 clearInterval(typingTimerRef.current);
             }
