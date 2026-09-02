@@ -24,12 +24,12 @@ const Stack = createNativeStackNavigator();
 
 const TOTAL = 5;
 const STEP_MAP = {
-  Character:           1,
-  AddPlantIndex:       2,
-  OrganSelect:         2,
-  Analyzing:           2,
-  PlantResults:        2,
-  AddPlantPlantDetail: 2,
+  AddPlantIndex:       1,
+  OrganSelect:         1,
+  Analyzing:           1,
+  PlantResults:        1,
+  AddPlantPlantDetail: 1,
+  Character:           2,
   Info:                3,
   CharacterResult:     4,
   Name:                5,
@@ -61,18 +61,18 @@ export default function AddPlantNavigator() {
   return (
     <AddPlantFlowProvider>
       <Stack.Navigator
-        initialRouteName="Character"
+        initialRouteName="AddPlantIndex"
         screenOptions={{
           header: () => <AddPlantHeader />,
           contentStyle: { backgroundColor: Colors.background },
         }}
       >
-        <Stack.Screen name="Character"           component={CharacterScreen} />
         <Stack.Screen name="AddPlantIndex"       component={AddPlantIndexScreen} />
         <Stack.Screen name="OrganSelect"         component={OrganSelectScreen} />
         <Stack.Screen name="Analyzing"           component={AnalyzingScreen} />
         <Stack.Screen name="PlantResults"        component={PlantResultsScreen} />
         <Stack.Screen name="AddPlantPlantDetail" component={AddPlantPlantDetail} />
+        <Stack.Screen name="Character"           component={CharacterScreen} />
         <Stack.Screen name="Info"                component={InfoScreen} />
         <Stack.Screen name="CharacterResult"     component={CharacterScreen} />
         <Stack.Screen name="Name"                component={NameScreen} />

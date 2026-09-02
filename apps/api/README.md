@@ -128,6 +128,24 @@ CHARACTER_GPU_MODE_COMMAND=/usr/local/bin/leaflog-gpu
 CHARACTER_RESTORE_OLLAMA=true
 ```
 
+FastAPI를 개발 PC에서 실행하고 학교 PC의 Forge를 사용할 때는 비밀번호 대신 SSH 키 인증을 설정한다.
+생성 요청이 들어오면 백엔드가 원격 GPU를 SDXL 모드로 전환하고, Forge용 SSH 터널이 끊겼으면 자동으로
+다시 연다. 작업이 끝나거나 실패하면 원격 GPU를 Ollama 모드로 복구한다.
+
+```dotenv
+FORGE_API_URL=http://127.0.0.1:7860
+CHARACTER_GPU_MODE_COMMAND=
+CHARACTER_GPU_SSH_HOST=<school-gpu-host>
+CHARACTER_GPU_SSH_USER=<windows-ssh-user>
+CHARACTER_GPU_SSH_IDENTITY_FILE=~/.ssh/<private-key-file>
+CHARACTER_GPU_SSH_WSL_DISTRO=Ubuntu
+CHARACTER_GPU_SSH_WSL_USER=leaflog
+CHARACTER_RESTORE_OLLAMA=true
+```
+
+SSH 공개 키는 학교 Windows OpenSSH 계정에 등록돼 있어야 하며, `ssh -o BatchMode=yes ...`가
+비밀번호 입력 없이 성공해야 한다. Forge의 인증 없는 7860 포트를 외부에 직접 공개하지 않는다.
+
 GPU 없이 앱 흐름만 확인할 때는 `CHARACTER_MOCK_GENERATION=true`를 사용한다. 이 모드는 실제 도트
 캐릭터 대신 입력 사진으로 후보 응답 형식만 검증한다.
 
