@@ -182,7 +182,7 @@ export default function ConsultationHistoryScreen({ navigation, route }) {
                     activeOpacity={0.85}
                     onPress={() => navigation.navigate("ConsultationStart", { plant })}
                 >
-                    <Ionicons name="chatbox-outline" size={32} color={Colors.primary} />
+                    <Ionicons name="add" size={32} color={Colors.white} />
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -307,10 +307,13 @@ const styles = StyleSheet.create({
         width: 60,
         height: 60,
         borderRadius: Radius.pill,
-        borderWidth: 2,
-        borderColor: Colors.primary,
-        backgroundColor: Colors.background,
+        backgroundColor: Colors.primary,
         alignItems: "center",
         justifyContent: "center",
+        shadowColor: Colors.textBlack,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 4,
     },
 });
