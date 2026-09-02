@@ -26,7 +26,7 @@ const SFX_SOURCES = {
   pet: require("../assets/audio/sfx-pet.wav"),
   pickup: require("../assets/audio/sfx-pickup.wav"),
   tap: require("../assets/audio/sfx-tap.wav"),
-  typing: require("../assets/audio/sfx-typing.mp3"),
+  typing: require("../assets/audio/sfx-typing.wav"),
 };
 
 export type SfxName = keyof typeof SFX_SOURCES;

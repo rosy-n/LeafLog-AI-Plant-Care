@@ -116,8 +116,11 @@ const CHAT_FALLBACK_REPLY = "음... 지금은 대답하기 어려워. 잠시 후
 
 // 대화창 대사를 한 글자씩 타이핑하듯 보여주는 속도 (ConsultationStartScreen과 동일 값)
 const TYPING_CHAR_INTERVAL_MS = 35;
-// 타이핑 효과음은 몇 글자마다 한 번씩 낼지 — 매 글자(35ms)마다 재생하면 소리가 밀려 겹친다
-const TYPING_SFX_CHAR_STEP = 3;
+// 타이핑 효과음은 "빠르게 4번 재생 → 살짝 쉼"을 반복한다 (동물의숲 말풍선 느낌).
+// 글자당 35ms 이므로 버스트 4글자(140ms) 동안 매 글자마다 내고, 다음 1글자(35ms)는 쉰다
+const TYPING_SFX_BURST_CHARS = 4;
+const TYPING_SFX_PAUSE_CHARS = 1;
+const TYPING_SFX_CYCLE_CHARS = TYPING_SFX_BURST_CHARS + TYPING_SFX_PAUSE_CHARS;
 const BLINK_CLOSED_MS = 140;
 const DOUBLE_BLINK_GAP_MS = 170;
 const BLINK_INTERVAL_MIN_MS = 3500;
@@ -380,9 +383,10 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
         typingTimerRef.current = setInterval(() => {
             charCount += 1;
             setTypedReply(chatReply.slice(0, charCount));
-            // 공백에는 효과음을 내지 않는다 — 타이핑 소리가 규칙적으로 끊겨야 자연스럽다
+            // 공백에는 효과음을 내지 않는다 — 버스트 중이어도 공백에서는 조용히 넘어간다
             const justTyped = chatReply[charCount - 1];
-            if (charCount % TYPING_SFX_CHAR_STEP === 0 && justTyped && justTyped.trim()) {
+            const cyclePos = (charCount - 1) % TYPING_SFX_CYCLE_CHARS;
+            if (cyclePos < TYPING_SFX_BURST_CHARS && justTyped && justTyped.trim()) {
                 playSfx("typing");
             }
             if (charCount >= chatReply.length) {
