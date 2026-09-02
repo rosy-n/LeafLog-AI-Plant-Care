@@ -244,6 +244,10 @@ def split_sentences(text: str) -> list[str]:
     return [sentence.strip() for sentence in sentences if sentence.strip()]
 
 
+def strip_markdown_syntax(text: str) -> str:
+    return MARKDOWN_SYNTAX_PATTERN.sub("", text)
+
+
 def limit_to_max_sentences(text: str) -> str:
     sentences = split_sentences(text)
     if not sentences:
@@ -279,6 +283,10 @@ POLITE_YO_ENDING_PATTERN = re.compile(r"[가-힣]요\s*(?=[.!?~]|$)")
 HONORIFIC_INFIX_PATTERN = re.compile(
     r"(주셔|주셨|하셔|하셨|가셔|가셨|오셔|오셨|보셔|보셨|드셔|드셨|계셔|계셨|되셔|되셨)"
 )
+
+# 대사창은 마크다운 렌더러 없이 텍스트를 그대로 찍으므로, **강조**나 # 제목 같은
+# 마크다운 기호가 그대로 노출되지 않도록 항상 제거한다 (prompt만으로는 100% 막지 못함).
+MARKDOWN_SYNTAX_PATTERN = re.compile(r"(\*\*|__|[*_`#]|^\s*[-•]\s+)", re.MULTILINE)
 
 HANJA_PATTERN = re.compile(r"[一-鿿]")
 
@@ -532,6 +540,7 @@ def chat_with_ollama(
                 else None
             ),
         )
+        answer = strip_markdown_syntax(answer)
 
         sentence_violated = len(split_sentences(answer)) > MAX_RESPONSE_SENTENCES
         speech_violations = detect_speech_rule_violations(answer)
