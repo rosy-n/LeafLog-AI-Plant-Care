@@ -218,6 +218,14 @@ const SIDE_SLIDE = 140;
 */
 const BUBBLE_DOT = 4;                                      // 도트 한 칸
 /*
+    외곽선 두께 — 도트 칸과 분리해 둔다. 말풍선 크기는 그대로 두고 선만 얇게 하려면
+    이 값만 줄이면 된다. 조각들의 위치는 여전히 BUBBLE_DOT 배수라 모서리 단은 안 어긋난다.
+
+    4 의 2/3 은 2.67 이지만 정수가 아니면 화면 배율에 따라 좌우 선이 반 픽셀씩
+    달라져 도트가 흐려진다 — 정수로 떨어지는 3 을 쓴다.
+*/
+const BUBBLE_LINE = 3;
+/*
     몸통은 9칸 정사각 = 36.
 
     칸 수는 홀수여야 한다 — 짝수면 가운데에 놓이는 꼬리도 짝수 칸(6→4→2)뿐이라,
@@ -231,13 +239,17 @@ const BUBBLE_CAP_INSET = BUBBLE_DOT * 2;                   // 위/아래 뚜껑�
 /*
     꼬리 — 몸통 정중앙에서 곧게 아래로 내려온다. 칸마다 좌우 대칭이라 휘지 않는다.
 
-    밑동부터 3칸(=좌우 외곽선 한 칸씩 + 속 한 칸)으로 가늘게 시작한다. 몸통에서
-    넓게 벌어져 내려오면 꼬리가 아니라 몸통의 일부처럼 읽힌다 — 아래 뚜껑에 뚫리는
-    구멍도 한 칸이라, 속이 가느다란 관으로 이어지는 모양이 된다.
+    밑동부터 좌우 외곽선 + 속 한 칸으로 가늘게 시작한다. 몸통에서 넓게 벌어져
+    내려오면 꼬리가 아니라 몸통의 일부처럼 읽힌다 — 아래 뚜껑에 뚫리는 구멍도
+    한 칸이라, 속이 가느다란 관으로 이어지는 모양이 된다.
     마지막 칸은 폭이 한 칸이라 속 없이 검정만 남아 한 점으로 맺힌다.
+
+    폭을 외곽선 두께에서 뽑아내는 게 중요하다 — 고정값으로 두면 선을 얇게 했을 때
+    속이 그만큼 넓어져, 끝점(한 칸)이 관을 다 못 막고 좌우로 새 나간다.
 */
-const BUBBLE_TAIL_DOTS = [3, 3, 1];
-const BUBBLE_TAIL_H = BUBBLE_DOT * BUBBLE_TAIL_DOTS.length;
+const BUBBLE_TAIL_ROWS = 3;
+const BUBBLE_TAIL_W = BUBBLE_LINE * 2 + BUBBLE_DOT;
+const BUBBLE_TAIL_H = BUBBLE_DOT * BUBBLE_TAIL_ROWS;
 const BUBBLE_H = BUBBLE_SIZE + BUBBLE_TAIL_H;
 
 /*
@@ -271,16 +283,20 @@ const BUBBLE_WALLS = (() => {
     return walls;
 })();
 
-// 꼬리의 각 칸도 같은 도트 격자에서 미리 잡는다 — 가운데 정렬이라 몸통 폭에서 바로 나온다
-const BUBBLE_TAIL = BUBBLE_TAIL_DOTS.map((dots, row) => ({
-    top: BUBBLE_SIZE + row * BUBBLE_DOT,
-    left: (BUBBLE_SIZE - dots * BUBBLE_DOT) / 2,
-    width: dots * BUBBLE_DOT,
-    height: BUBBLE_DOT,
-}));
+// 꼬리의 각 칸 — 가운데 정렬이라 몸통 폭에서 바로 나온다.
+// 마지막 칸(끝점)은 속이 없어 한 칸 폭이다.
+const BUBBLE_TAIL = Array.from({ length: BUBBLE_TAIL_ROWS }, (_, row) => {
+    const width = row === BUBBLE_TAIL_ROWS - 1 ? BUBBLE_DOT : BUBBLE_TAIL_W;
+    return {
+        top: BUBBLE_SIZE + row * BUBBLE_DOT,
+        left: (BUBBLE_SIZE - width) / 2,
+        width,
+        height: BUBBLE_DOT,
+    };
+});
 // 아래 뚜껑에 뚫는 구멍 — 꼬리 첫 칸의 "속"(좌우 외곽선을 뺀 폭)과 정확히 맞춘다
-const BUBBLE_MOUTH_LEFT = BUBBLE_TAIL[0].left + BUBBLE_DOT;
-const BUBBLE_MOUTH_W = BUBBLE_TAIL[0].width - BUBBLE_DOT * 2;
+const BUBBLE_MOUTH_LEFT = BUBBLE_TAIL[0].left + BUBBLE_LINE;
+const BUBBLE_MOUTH_W = BUBBLE_TAIL[0].width - BUBBLE_LINE * 2;
 
 // 꼬리 끝이 캐릭터 상자 안으로 이만큼 들어간다 — 도트 그림의 위쪽 투명 여백(12~18%)을
 // 고려한 값이라, 잎에 닿지 않으면서도 머리에서 떠 보이지 않는다
@@ -1631,8 +1647,8 @@ const styles = StyleSheet.create({
     bubbleWall: {
         position: "absolute",
         backgroundColor: Paper.cream,
-        borderLeftWidth: BUBBLE_DOT,
-        borderRightWidth: BUBBLE_DOT,
+        borderLeftWidth: BUBBLE_LINE,
+        borderRightWidth: BUBBLE_LINE,
         borderColor: Colors.textBlack,
     },
     bubbleDrop: {
@@ -1642,13 +1658,23 @@ const styles = StyleSheet.create({
         width: BUBBLE_DROP,
         height: BUBBLE_DROP,
     },
+    /*
+        뚜껑은 칸(BUBBLE_DOT)을 그대로 차지하되 테두리만 검정이다.
+        예전처럼 칸을 검정으로 꽉 채우면 선을 얇게 할 수 없고, 선만 얇게 그리면
+        남는 칸이 비어 잔디가 비친다 — 속을 아이보리로 채워 막는다.
+        바깥쪽 옆면에도 선을 둬야 그 칸에서 외곽선이 끊겨 보이지 않는다.
+    */
     bubbleCapTop: {
         position: "absolute",
         top: 0,
         left: BUBBLE_CAP_INSET,
         width: BUBBLE_SIZE - BUBBLE_CAP_INSET * 2,
         height: BUBBLE_DOT,
-        backgroundColor: Colors.textBlack,
+        backgroundColor: Paper.cream,
+        borderTopWidth: BUBBLE_LINE,
+        borderLeftWidth: BUBBLE_LINE,
+        borderRightWidth: BUBBLE_LINE,
+        borderColor: Colors.textBlack,
     },
     bubbleCapBottomLeft: {
         position: "absolute",
@@ -1656,7 +1682,10 @@ const styles = StyleSheet.create({
         left: BUBBLE_CAP_INSET,
         width: BUBBLE_MOUTH_LEFT - BUBBLE_CAP_INSET,
         height: BUBBLE_DOT,
-        backgroundColor: Colors.textBlack,
+        backgroundColor: Paper.cream,
+        borderBottomWidth: BUBBLE_LINE,
+        borderLeftWidth: BUBBLE_LINE,
+        borderColor: Colors.textBlack,
     },
     bubbleCapBottomRight: {
         position: "absolute",
@@ -1664,7 +1693,10 @@ const styles = StyleSheet.create({
         left: BUBBLE_MOUTH_LEFT + BUBBLE_MOUTH_W,
         width: BUBBLE_SIZE - BUBBLE_CAP_INSET - BUBBLE_MOUTH_LEFT - BUBBLE_MOUTH_W,
         height: BUBBLE_DOT,
-        backgroundColor: Colors.textBlack,
+        backgroundColor: Paper.cream,
+        borderBottomWidth: BUBBLE_LINE,
+        borderRightWidth: BUBBLE_LINE,
+        borderColor: Colors.textBlack,
     },
     bubbleMouth: {
         position: "absolute",
@@ -1678,8 +1710,8 @@ const styles = StyleSheet.create({
     bubbleTailRow: {
         position: "absolute",
         backgroundColor: Paper.cream,
-        borderLeftWidth: BUBBLE_DOT,
-        borderRightWidth: BUBBLE_DOT,
+        borderLeftWidth: BUBBLE_LINE,
+        borderRightWidth: BUBBLE_LINE,
         borderColor: Colors.textBlack,
     },
     bubbleTailTip: {
