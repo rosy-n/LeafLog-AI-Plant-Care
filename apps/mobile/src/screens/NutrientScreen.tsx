@@ -18,6 +18,8 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
+import ActionButton from "../components/ActionButton";
+import PhotoPickerButton from "../components/PhotoPickerButton";
 import { Colors, GreenTint, Shadow } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
@@ -150,14 +152,15 @@ export default function NutrientScreen({ navigation, route }: { navigation: any;
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={styles.scrollContent}
                     >
-                        <TouchableOpacity
-                            style={styles.newRecordButton}
-                            activeOpacity={0.82}
+                        <ActionButton
+                            label="새 영양제 기록 작성"
+                            icon="add-circle-outline"
+                            color={Colors.fertilizer}
+                            borderColor={Colors.fertilizerIcon}
+                            textColor={Colors.fertilizerIcon}
+                            shadow={false}
                             onPress={() => setView("form")}
-                        >
-                            <Ionicons name="add-circle-outline" size={22} color={Colors.fertilizerIcon} />
-                            <Text style={styles.newRecordText}>새 영양제 기록 작성</Text>
-                        </TouchableOpacity>
+                        />
 
                         {records.length === 0 ? (
                             <View style={styles.emptyState}>
@@ -401,19 +404,14 @@ export default function NutrientScreen({ navigation, route }: { navigation: any;
                                 <Ionicons name="images-outline" size={18} color={Colors.fertilizerIcon} />
                                 <Text style={styles.cardTitle}>사진</Text>
                             </View>
-                            <TouchableOpacity style={styles.photoButton} activeOpacity={0.75}>
-                                <Ionicons name="camera-outline" size={28} color={GreenTint.line} />
-                                <Text style={styles.photoButtonText}>사진 추가</Text>
-                            </TouchableOpacity>
+                            <PhotoPickerButton />
                         </View>
 
-                        <TouchableOpacity
-                            style={styles.saveButton}
-                            activeOpacity={0.82}
+                        <ActionButton
+                            label="저장하기"
+                            color={Colors.fertilizerIcon}
                             onPress={saveRecord}
-                        >
-                            <Text style={styles.saveButtonText}>저장하기</Text>
-                        </TouchableOpacity>
+                        />
                     </ScrollView>
                 </KeyboardAvoidingView>
 
@@ -448,13 +446,15 @@ export default function NutrientScreen({ navigation, route }: { navigation: any;
                                 </View>
                             ) : null}
 
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.modalButtonGreen]}
+                            <ActionButton
+                                label="확인"
+                                color={Colors.fertilizerIcon}
+                                size="md"
+                                shadow={false}
                                 activeOpacity={0.8}
                                 onPress={handleCharacterChoice}
-                            >
-                                <Text style={styles.modalButtonGreenText}>확인</Text>
-                            </TouchableOpacity>
+                                style={styles.modalButton}
+                            />
                         </View>
                     </View>
                 </Modal>
@@ -477,23 +477,6 @@ const styles = StyleSheet.create({
     },
 
     // New Record Button
-    newRecordButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: Spacing.sm,
-        backgroundColor: Colors.fertilizer,
-        borderRadius: Radius.lg,
-        borderWidth: 1.5,
-        borderColor: Colors.fertilizerIcon,
-        paddingVertical: Spacing.lg,
-    },
-    newRecordText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
-        color: Colors.fertilizerIcon,
-        includeFontPadding: false,
-    },
 
     // Section Label
     sectionLabel: {
@@ -684,39 +667,6 @@ const styles = StyleSheet.create({
         textAlignVertical: "top",
         paddingTop: Spacing.md,
     },
-    photoButton: {
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: Colors.background,
-        borderRadius: Radius.md,
-        borderWidth: 1,
-        borderColor: GreenTint.soft,
-        height: 88,
-        gap: Spacing.sm,
-    },
-    photoButtonText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: GreenTint.line,
-        includeFontPadding: false,
-    },
-    saveButton: {
-        backgroundColor: Colors.fertilizerIcon,
-        borderRadius: Radius.lg,
-        paddingVertical: Spacing.lg,
-        alignItems: "center",
-        shadowColor: Colors.fertilizerIcon,
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 4,
-    },
-    saveButtonText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.bodyLarge,
-        color: Colors.white,
-        includeFontPadding: false,
-    },
 
     // Modal
     modalOverlay: {
@@ -783,21 +733,7 @@ const styles = StyleSheet.create({
         includeFontPadding: false,
     },
     modalButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: Spacing.sm,
-        paddingVertical: Spacing.md,
         paddingHorizontal: Spacing.huge,
         borderRadius: Radius.lg,
-    },
-    modalButtonGreen: {
-        backgroundColor: Colors.fertilizerIcon,
-    },
-    modalButtonGreenText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.white,
-        includeFontPadding: false,
     },
 });

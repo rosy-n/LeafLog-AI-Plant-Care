@@ -4,6 +4,7 @@ import { Colors, Shadow, Glass } from "../../constants/colors";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Spacing } from "../../constants/spacing";
 import PixelOutlineText from "./PixelOutlineText";
+import { tapFeedback } from "../feedback";
 
 // 픽셀 아트 버튼 구성 단위 (모두 4px 그리드 토큰 기반)
 const STEP = Spacing.xs; // 계단 한 칸 = 픽셀 하나
@@ -78,9 +79,13 @@ export function PixelSurface({
   contentStyle,
   children,
 }: PixelSurfaceProps) {
+  const handlePress = () => {
+    tapFeedback();
+    onPress();
+  };
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       disabled={disabled}
       style={({ pressed }) => [
         styles.wrapper,

@@ -3,6 +3,7 @@ import { Pressable, StyleProp, StyleSheet, Text, ViewStyle } from "react-native"
 
 import { Colors } from "../../constants/colors";
 import { Fonts, FontSizes } from "../../constants/fonts";
+import { tapFeedback } from "../feedback";
 
 type Props = {
   onPress: () => void;
@@ -21,8 +22,12 @@ type Props = {
  * 화면마다 헤더 높이가 달라 박스 크기는 style로 덮어쓸 수 있게 열어둔다.
  */
 export default function BackButton({ onPress, size, style }: Props) {
+  const handlePress = () => {
+    tapFeedback();
+    onPress();
+  };
   return (
-    <Pressable onPress={onPress} style={[styles.button, style]} hitSlop={12}>
+    <Pressable onPress={handlePress} style={[styles.button, style]} hitSlop={12}>
       {/* size 지정 시 lineHeight를 두지 않아 같은 크기의 일반 텍스트와 높이가 같아진다 */}
       <Text style={[styles.glyph, size == null ? styles.glyphDefault : { fontSize: size }]}>
         &lt;

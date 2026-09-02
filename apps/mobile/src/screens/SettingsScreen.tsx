@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     View,
     Text,
@@ -11,6 +11,7 @@ import {
     Alert,
     KeyboardAvoidingView,
     Platform,
+    Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -18,14 +19,22 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
+import ActionButton from "../components/ActionButton";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
-import { getUserSettings, updateMe } from "../api";
 import {
-    sendTestReminder,
+    deleteMe,
+    getInquiries,
+    getUserSettings,
+    sendInquiry,
+    updateMe,
+    type Inquiry,
+} from "../api";
+import {
     listScheduledReminders,
     syncWateringReminders,
+    getNotificationPermission,
 } from "../notifications";
 import {
     DEFAULT_NOTIFICATION_SETTINGS,
@@ -111,17 +120,23 @@ export default function SettingsScreen({
     navigation,
     username,
     setUsername,
+    isAdmin = false,
     onLogout,
 }: {
     navigation: any;
     username: string;
     setUsername: (name: string) => void;
+    /** 관리자면 도움말에 "문의 관리" 항목이 보인다 (실제 차단은 서버가 한다) */
+    isAdmin?: boolean;
     onLogout?: () => void;
 }) {
     // 어카운트
     const [isEditingName, setIsEditingName] = useState(false);
     const [draftName, setDraftName] = useState(username);
     const [isSavingName, setIsSavingName] = useState(false);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deletePassword, setDeletePassword] = useState("");
 
     // 위치 — 위치 변경 화면에서 돌아올 때마다 최신값으로 갱신
     const [homeLocation, setHomeLocation] = useState<string | null>(null);
@@ -144,17 +159,47 @@ export default function SettingsScreen({
     const [notifHour, setNotifHour] = useState(DEFAULT_NOTIFICATION_SETTINGS.hour);
     const [notifMinute, setNotifMinute] = useState(DEFAULT_NOTIFICATION_SETTINGS.minute);
     const [notifLoaded, setNotifLoaded] = useState(false);
+    // 알림을 켜뒀지만 기기 권한이 없어 예약이 막힌 상태.
+    // 예약 0건은 "예정일이 다 지났다"로도 나와서, 원인을 구분해 안내해야 한다.
+    const [notifBlocked, setNotifBlocked] = useState(false);
+    // 사용자가 방금 스위치를 켰는지 — 알럿은 그때만 띄운다(화면 열 때마다 뜨면 성가시다)
+    const justEnabledNotif = useRef(false);
 
-    // 사운드&진동 — 볼륨은 앱 전체가 쓰는 플레이어와 공유하고, 바꾸면 기기에 저장된다
-    const { bgmVolume, sfxVolume, setBgmVolume, setSfxVolume } = useBackgroundMusic();
-    // 효과음은 아직 재생 지점이 없어서 값만 저장된다
-    const [vibration, setVibration] = useState(true);
+    // 사운드&진동 — 앱 전체가 쓰는 값과 공유하고, 바꾸면 바로 기기에 저장된다.
+    // 효과음·진동을 실제로 내는 쪽은 feedback.ts (playSfx / hapticImpact)
+    const {
+        bgmVolume,
+        sfxVolume,
+        vibration,
+        setBgmVolume,
+        setSfxVolume,
+        setVibration,
+    } = useBackgroundMusic();
 
     // 도움말
     const [openFaqId, setOpenFaqId] = useState<string | null>(null);
     const [showInquiry, setShowInquiry] = useState(false);
     const [inquiryContent, setInquiryContent] = useState("");
     const [inquiryDone, setInquiryDone] = useState(false);
+    const [isSendingInquiry, setIsSendingInquiry] = useState(false);
+
+    // 문의 내역 — 관리자가 답변을 달면 여기에 함께 실려 온다
+    const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+    const [inquiriesLoaded, setInquiriesLoaded] = useState(false);
+
+    const refreshInquiries = useCallback(() => {
+        getInquiries()
+            .then((rows) => {
+                setInquiries(rows);
+                setInquiriesLoaded(true);
+            })
+            .catch((e) => console.warn("문의 내역 조회 실패:", e?.message));
+    }, []);
+
+    // 문의하기를 펼칠 때만 불러온다 — 설정 화면을 열 때마다 부를 필요가 없다
+    useEffect(() => {
+        if (showInquiry) refreshInquiries();
+    }, [showInquiry, refreshInquiries]);
 
     // 이름 변경 — 서버(app_user.nickname)에 저장한 뒤 화면 값을 갱신한다.
     // 실패하면 편집 상태를 유지해서 사용자가 고칠 수 있게 한다.
@@ -207,6 +252,24 @@ export default function SettingsScreen({
         };
     }, []);
 
+    // 권한이 없으면 기기 설정으로 보내준다 — 앱 안에서는 더 할 수 있는 게 없다
+    const openDeviceSettings = () => {
+        Linking.openSettings().catch((e: any) =>
+            console.warn("기기 설정 열기 실패:", e?.message),
+        );
+    };
+
+    const alertPermissionBlocked = () => {
+        Alert.alert(
+            "알림 권한이 없어요",
+            "기기 설정에서 LeafLog 알림을 허용해야 물주기 알림을 받을 수 있어요.",
+            [
+                { text: "나중에", style: "cancel" },
+                { text: "설정 열기", onPress: openDeviceSettings },
+            ],
+        );
+    };
+
     // 설정이 바뀌면 저장하고 예약을 새 시각으로 다시 맞춘다.
     // 불러오기 전에는 실행하지 않는다 (기본값으로 저장해 사용자 설정을 덮어쓰지 않게)
     useEffect(() => {
@@ -217,25 +280,40 @@ export default function SettingsScreen({
             minute: notifMinute,
         })
             .then(() => syncWateringReminders())
-            .then(refreshReminders)
+            .then((result) => {
+                // 권한이 없으면 스위치만 켜지고 실제로는 아무것도 예약되지 않는다.
+                // 그대로 두면 "알림 켰는데 안 온다"가 되므로 화면에 남겨 알린다.
+                setNotifBlocked(result.blockedByPermission);
+                if (result.blockedByPermission && justEnabledNotif.current) {
+                    alertPermissionBlocked();
+                }
+                justEnabledNotif.current = false;
+                refreshReminders();
+            })
             .catch((e) => console.warn("알림 설정 저장 실패:", e?.message));
     }, [notifLoaded, notifEnabled, notifHour, notifMinute, refreshReminders]);
 
-    const runNotificationTest = async () => {
-        try {
-            const ok = await sendTestReminder(5);
-            if (!ok) {
-                Alert.alert(
-                    "알림 권한이 없어요",
-                    "기기 설정에서 LeafLog 알림을 허용해 주세요.",
-                );
-                return;
-            }
-            refreshReminders();
-        } catch (e: any) {
-            Alert.alert("알림 테스트 실패", e?.message ?? "다시 시도해주세요.");
-        }
-    };
+    /*
+        기기 설정에서 권한을 켜고 돌아왔을 수 있으니 화면에 들어올 때마다 다시 본다.
+        막혀 있다가 풀렸으면 그 자리에서 예약까지 다시 맞춘다.
+    */
+    useFocusEffect(
+        useCallback(() => {
+            let cancelled = false;
+            getNotificationPermission()
+                .then(({ granted }) => {
+                    if (cancelled || !notifEnabled) return;
+                    setNotifBlocked(!granted);
+                    if (granted && notifBlocked) {
+                        return syncWateringReminders().then(() => refreshReminders());
+                    }
+                })
+                .catch(() => {});
+            return () => {
+                cancelled = true;
+            };
+        }, [notifEnabled, notifBlocked, refreshReminders]),
+    );
 
     const adjustHour = (d: number) =>
         setNotifHour((prev) => (prev + d + 24) % 24);
@@ -243,10 +321,23 @@ export default function SettingsScreen({
     const adjustMinute = (d: number) =>
         setNotifMinute((prev) => (prev + d * 10 + 60) % 60);
 
-    const submitInquiry = () => {
-        if (!inquiryContent.trim()) return;
-        setInquiryDone(true);
-        setInquiryContent("");
+    // 문의하기 — 서버가 지원 메일함으로 보낸다.
+    // 실패하면 완료 화면을 띄우지 않고 입력을 남겨 둔다 (다시 쓰게 하면 안 된다)
+    const submitInquiry = async () => {
+        const content = inquiryContent.trim();
+        if (!content || isSendingInquiry) return;
+
+        setIsSendingInquiry(true);
+        try {
+            await sendInquiry(content);
+            setInquiryContent("");
+            setInquiryDone(true);
+            refreshInquiries();
+        } catch (e: any) {
+            Alert.alert("문의 전송 실패", e?.message ?? "다시 시도해주세요.");
+        } finally {
+            setIsSendingInquiry(false);
+        }
     };
 
     const logout = () => {
@@ -264,7 +355,29 @@ export default function SettingsScreen({
         );
     };
 
+    // 계정 삭제 — 서버에서 개체·돌봄 기록·상담 내역까지 함께 지운다.
+    // 삭제가 끝나면 토큰이 가리키는 사용자가 없어지므로(다음 요청이 401) 로그아웃과
+    // 같은 뒷정리가 필요하다 — 토큰 삭제·예약 알림 취소는 onLogout 이 이미 하고 있어
+    // 그대로 재사용한다.
+    const runAccountDeletion = async () => {
+        if (isDeletingAccount) return;
+        setIsDeletingAccount(true);
+        try {
+            await deleteMe(deletePassword);
+            setDeletePassword("");
+            setShowDeleteConfirm(false);
+            onLogout?.();
+        } catch (e: any) {
+            // 비밀번호가 틀리면 서버가 401을 준다 — 입력만 비우고 창은 열어 둔다
+            setDeletePassword("");
+            Alert.alert("계정 삭제 실패", e?.message ?? "다시 시도해주세요.");
+        } finally {
+            setIsDeletingAccount(false);
+        }
+    };
+
     const deleteAccount = () => {
+        if (isDeletingAccount || !deletePassword) return;
         Alert.alert(
             "계정 삭제",
             "정말로 계정을 삭제하시겠어요?\n모든 데이터가 삭제되며 복구할 수 없습니다.",
@@ -273,7 +386,7 @@ export default function SettingsScreen({
                 {
                     text: "삭제",
                     style: "destructive",
-                    onPress: () => navigation.navigate("Home"),
+                    onPress: runAccountDeletion,
                 },
             ]
         );
@@ -358,12 +471,57 @@ export default function SettingsScreen({
 
                             <TouchableOpacity
                                 style={styles.row}
-                                onPress={deleteAccount}
+                                onPress={() => {
+                                    setShowDeleteConfirm(!showDeleteConfirm);
+                                    setDeletePassword("");
+                                }}
                                 activeOpacity={0.75}
+                                disabled={isDeletingAccount}
                             >
-                                <Text style={styles.deleteLabel}>계정 삭제</Text>
-                                <Ionicons name="chevron-forward" size={18} color={Colors.remove} />
+                                <Text style={styles.deleteLabel}>
+                                    {isDeletingAccount ? "계정 삭제 중" : "계정 삭제"}
+                                </Text>
+                                <Ionicons
+                                    name={showDeleteConfirm ? "chevron-up" : "chevron-down"}
+                                    size={18}
+                                    color={Colors.remove}
+                                />
                             </TouchableOpacity>
+
+                            {/* 되돌릴 수 없는 작업이라 본인 확인으로 비밀번호를 다시 받는다 */}
+                            {showDeleteConfirm && (
+                                <View style={styles.deleteConfirmArea}>
+                                    <Text style={styles.deleteWarning}>
+                                        계정을 삭제하면 등록한 개체와 돌봄 기록,
+                                        상담 내역이 모두 사라지고 되돌릴 수 없어요.
+                                    </Text>
+                                    <TextInput
+                                        style={styles.deleteInput}
+                                        placeholder="비밀번호를 입력해주세요"
+                                        placeholderTextColor={Colors.textFaint}
+                                        value={deletePassword}
+                                        onChangeText={setDeletePassword}
+                                        secureTextEntry
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        editable={!isDeletingAccount}
+                                        returnKeyType="done"
+                                        onSubmitEditing={deleteAccount}
+                                    />
+                                    <ActionButton
+                                        label={isDeletingAccount ? "삭제 중" : "계정 삭제하기"}
+                                        color={
+                                            !deletePassword || isDeletingAccount
+                                                ? GreenTint.soft
+                                                : Colors.remove
+                                        }
+                                        size="md"
+                                        shadow={false}
+                                        disabled={!deletePassword || isDeletingAccount}
+                                        onPress={deleteAccount}
+                                    />
+                                </View>
+                            )}
                         </View>
 
                         {/* ── 위치 ──────────────────────────── */}
@@ -399,7 +557,10 @@ export default function SettingsScreen({
                                 <Text style={styles.rowLabel}>돌보기 알림</Text>
                                 <Switch
                                     value={notifEnabled}
-                                    onValueChange={setNotifEnabled}
+                                    onValueChange={(next) => {
+                                        justEnabledNotif.current = next;
+                                        setNotifEnabled(next);
+                                    }}
                                     trackColor={{ false: Colors.border, true: GreenTint.line }}
                                     thumbColor={Colors.white}
                                     ios_backgroundColor={Colors.border}
@@ -453,24 +614,38 @@ export default function SettingsScreen({
                                     </View>
 
                                     {/*
-                                        알림 동작 확인용 임시 경로.
-                                        실제 물주기 알림은 예정일 09:00 에 오므로 그날까지
-                                        기다려야 확인이 된다. 권한·채널·수신·탭 이동을
-                                        한 번에 점검하려고 둔 것이고, 확인이 끝나면 지운다.
+                                        권한이 없으면 스위치가 켜져 있어도 예약이 0건이다.
+                                        알럿은 닫히면 사라지므로 상태를 화면에 남겨 둔다.
                                     */}
-                                    <RowDivider />
-                                    <TouchableOpacity
-                                        style={styles.row}
-                                        onPress={runNotificationTest}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text style={styles.rowLabel}>알림 테스트 (5초 뒤)</Text>
-                                        <Ionicons
-                                            name="chevron-forward"
-                                            size={20}
-                                            color={GreenTint.strong}
-                                        />
-                                    </TouchableOpacity>
+                                    {notifBlocked && (
+                                        <>
+                                            <RowDivider />
+                                            <View style={styles.permissionWarning}>
+                                                <Ionicons
+                                                    name="alert-circle-outline"
+                                                    size={18}
+                                                    color={Colors.remove}
+                                                />
+                                                <View style={styles.permissionTextBox}>
+                                                    <Text style={styles.permissionTitle}>
+                                                        알림 권한이 없어요
+                                                    </Text>
+                                                    <Text style={styles.permissionBody}>
+                                                        기기 설정에서 LeafLog 알림을 허용해야
+                                                        물주기 알림이 예약됩니다.
+                                                    </Text>
+                                                    <TouchableOpacity
+                                                        onPress={openDeviceSettings}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={styles.permissionLink}>
+                                                            기기 설정 열기
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        </>
+                                    )}
 
                                     <RowDivider />
                                     <View style={styles.reminderBlock}>
@@ -488,8 +663,9 @@ export default function SettingsScreen({
                                             ))
                                         ) : (
                                             <Text style={styles.reminderItem}>
-                                                예정일이 이미 지난 개체는 예약하지 않아요.
-                                                물을 주거나 주기를 늘리면 예약됩니다.
+                                                {notifBlocked
+                                                    ? "알림 권한을 허용하면 예약됩니다."
+                                                    : "예정일이 이미 지난 개체는 예약하지 않아요. 물을 주거나 주기를 늘리면 예약됩니다."}
                                             </Text>
                                         )}
                                     </View>
@@ -599,11 +775,20 @@ export default function SettingsScreen({
                                                 color={GreenTint.medium}
                                             />
                                             <Text style={styles.inquiryDoneText}>
-                                                문의가 접수되었습니다.{"\n"}빠르게 답변 드릴게요!
+                                                문의가 접수되었습니다.{"\n"}답변이 달리면 문의 내역에 표시됩니다.
                                             </Text>
                                         </View>
                                     ) : (
                                         <>
+                                            {/*
+                                                답변은 앱이 아니라 메일로 간다.
+                                                어디로 오는지 미리 알려주지 않으면
+                                                앱에서 답을 기다리게 된다.
+                                            */}
+                                            <Text style={styles.inquiryNotice}>
+                                                답변이 달리면 아래 문의 내역에서
+                                                확인하실 수 있어요.
+                                            </Text>
                                             <TextInput
                                                 style={styles.inquiryInput}
                                                 placeholder="문의 내용을 입력해주세요"
@@ -612,24 +797,97 @@ export default function SettingsScreen({
                                                 onChangeText={setInquiryContent}
                                                 multiline
                                                 textAlignVertical="top"
+                                                editable={!isSendingInquiry}
+                                                // 서버가 5~2000자를 받는다
+                                                maxLength={2000}
                                             />
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.inquirySubmitBtn,
-                                                    !inquiryContent.trim() &&
-                                                        styles.inquirySubmitBtnDisabled,
-                                                ]}
+                                            <ActionButton
+                                                label={
+                                                    isSendingInquiry
+                                                        ? "보내는 중"
+                                                        : "제출하기"
+                                                }
+                                                color={
+                                                    inquiryContent.trim() && !isSendingInquiry
+                                                        ? GreenTint.deep
+                                                        : GreenTint.soft
+                                                }
+                                                size="md"
+                                                shadow={
+                                                    !!inquiryContent.trim() && !isSendingInquiry
+                                                }
+                                                disabled={
+                                                    !inquiryContent.trim() || isSendingInquiry
+                                                }
                                                 onPress={submitInquiry}
-                                                activeOpacity={0.82}
-                                                disabled={!inquiryContent.trim()}
-                                            >
-                                                <Text style={styles.inquirySubmitText}>
-                                                    제출하기
-                                                </Text>
-                                            </TouchableOpacity>
+                                            />
                                         </>
                                     )}
+
+                                    {/* 문의 내역 — 답변은 여기서 확인한다 */}
+                                    {inquiriesLoaded && inquiries.length > 0 && (
+                                        <View style={styles.historyBlock}>
+                                            <RowDivider />
+                                            <Text style={styles.historyTitle}>
+                                                내 문의 내역
+                                            </Text>
+                                            {inquiries.map((item) => (
+                                                <View key={item.id} style={styles.historyItem}>
+                                                    <View style={styles.historyHead}>
+                                                        <Text style={styles.historyDate}>
+                                                            {item.created_at.slice(0, 10)}
+                                                        </Text>
+                                                        <Text
+                                                            style={[
+                                                                styles.historyBadge,
+                                                                item.answer
+                                                                    ? styles.historyBadgeDone
+                                                                    : styles.historyBadgeWait,
+                                                            ]}
+                                                        >
+                                                            {item.answer ? "답변 완료" : "답변 대기"}
+                                                        </Text>
+                                                    </View>
+                                                    <Text style={styles.historyContent}>
+                                                        {item.content}
+                                                    </Text>
+                                                    {item.answer && (
+                                                        <View style={styles.answerBox}>
+                                                            <Text style={styles.answerLabel}>
+                                                                답변
+                                                            </Text>
+                                                            <Text style={styles.answerText}>
+                                                                {item.answer}
+                                                            </Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
                                 </View>
+                            )}
+
+                            {/* 관리자 전용 — 다른 사용자의 문의에 답변한다 */}
+                            {isAdmin && (
+                                <>
+                                    <RowDivider />
+                                    <TouchableOpacity
+                                        style={styles.row}
+                                        onPress={() => navigation.navigate("InquiryAdmin")}
+                                        activeOpacity={0.75}
+                                    >
+                                        <Text style={styles.rowLabel}>문의 관리</Text>
+                                        <View style={styles.adminRight}>
+                                            <Text style={styles.adminTag}>관리자</Text>
+                                            <Ionicons
+                                                name="chevron-forward"
+                                                size={18}
+                                                color={GreenTint.line}
+                                            />
+                                        </View>
+                                    </TouchableOpacity>
+                                </>
                             )}
                         </View>
 
@@ -642,6 +900,131 @@ export default function SettingsScreen({
 }
 
 const styles = StyleSheet.create({
+    adminRight: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: Spacing.sm,
+    },
+    adminTag: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.caption,
+        color: Colors.white,
+        backgroundColor: GreenTint.deep,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xxs,
+        borderRadius: Radius.pill,
+        overflow: "hidden",
+        includeFontPadding: false,
+    },
+    historyBlock: {
+        gap: Spacing.md,
+    },
+    historyTitle: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.strong,
+        includeFontPadding: false,
+    },
+    historyItem: {
+        gap: Spacing.xs,
+        backgroundColor: Colors.background,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: GreenTint.soft,
+        padding: Spacing.md,
+    },
+    historyHead: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    historyDate: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textFaint,
+        includeFontPadding: false,
+    },
+    historyBadge: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.caption,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xxs,
+        borderRadius: Radius.pill,
+        overflow: "hidden",
+        includeFontPadding: false,
+    },
+    historyBadgeWait: {
+        backgroundColor: GreenTint.soft,
+        color: GreenTint.strong,
+    },
+    historyBadgeDone: {
+        backgroundColor: GreenTint.deep,
+        color: Colors.white,
+    },
+    historyContent: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        lineHeight: 20,
+        includeFontPadding: false,
+    },
+    answerBox: {
+        marginTop: Spacing.xs,
+        paddingTop: Spacing.sm,
+        borderTopWidth: 1,
+        borderTopColor: GreenTint.soft,
+        gap: Spacing.xxs,
+    },
+    answerLabel: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.strong,
+        includeFontPadding: false,
+    },
+    answerText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        lineHeight: 20,
+        includeFontPadding: false,
+    },
+    inquiryNotice: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textFaint,
+        lineHeight: 18,
+        includeFontPadding: false,
+    },
+    permissionWarning: {
+        flexDirection: "row",
+        gap: Spacing.sm,
+        paddingVertical: Spacing.md,
+    },
+    permissionTextBox: {
+        flex: 1,
+        gap: Spacing.xxs,
+    },
+    permissionTitle: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.remove,
+        includeFontPadding: false,
+    },
+    permissionBody: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textFaint,
+        lineHeight: 18,
+        includeFontPadding: false,
+    },
+    permissionLink: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.strong,
+        textDecorationLine: "underline",
+        paddingTop: Spacing.xxs,
+        includeFontPadding: false,
+    },
     root: {
         flex: 1,
         backgroundColor: Colors.background,
@@ -758,6 +1141,30 @@ const styles = StyleSheet.create({
         includeFontPadding: false,
     },
 
+    deleteConfirmArea: {
+        gap: Spacing.md,
+        paddingBottom: Spacing.md,
+    },
+    deleteWarning: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.textFaint,
+        lineHeight: 20,
+        includeFontPadding: false,
+    },
+    deleteInput: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textBlack,
+        backgroundColor: Colors.background,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: GreenTint.soft,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.md,
+        includeFontPadding: false,
+    },
+
     // 알림 시간
     timePicker: {
         flexDirection: "row",
@@ -867,28 +1274,6 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.md,
         height: 110,
         textAlignVertical: "top",
-        includeFontPadding: false,
-    },
-    inquirySubmitBtn: {
-        backgroundColor: GreenTint.deep,
-        borderRadius: Radius.md,
-        paddingVertical: Spacing.md,
-        alignItems: "center",
-        shadowColor: GreenTint.deep,
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: 3,
-    },
-    inquirySubmitBtnDisabled: {
-        backgroundColor: GreenTint.soft,
-        shadowOpacity: 0,
-        elevation: 0,
-    },
-    inquirySubmitText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.white,
         includeFontPadding: false,
     },
     inquiryDone: {
