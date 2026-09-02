@@ -32,19 +32,40 @@ const SFX_SOURCES = {
 export type SfxName = keyof typeof SFX_SOURCES;
 
 /*
-    소리마다 플레이어를 하나씩 만들어 두고 계속 재사용한다.
-    누를 때마다 새로 만들면 첫 소리가 눈에 띄게 늦고, 앱을 쓰는 동안
-    다 쓴 플레이어가 계속 쌓인다.
-*/
-const players: Partial<Record<SfxName, AudioPlayer>> = {};
+    소리마다 재생기를 몇 개 돌려쓸지. 기본은 1개(누를 때마다 재사용) — 새로
+    만들면 첫 소리가 눈에 띄게 늦고, 앱을 쓰는 동안 다 쓴 플레이어가 계속 쌓인다.
 
-function playerFor(name: SfxName): AudioPlayer {
-  let player = players[name];
-  if (!player) {
-    player = createAudioPlayer(SFX_SOURCES[name]);
-    players[name] = player;
+    "typing" 은 예외다. 타이핑 버스트가 35ms 간격으로 재생을 걸어대는데,
+    재생기가 1개뿐이면 seekTo(0)→play() 가 겹쳐서 경합한다 — 앞소리가 채
+    play() 되기도 전에 다음 호출이 다시 seekTo(0) 로 되감아버려 소리가
+    씹히거나 밀린다. 재생기를 여러 개 두고 돌려쓰면 호출마다 서로 다른
+    재생기를 쓰게 되어 이 경합이 사라진다.
+*/
+const POOL_SIZES: Partial<Record<SfxName, number>> = {
+  typing: 4,
+};
+const DEFAULT_POOL_SIZE = 1;
+
+const pools: Partial<Record<SfxName, AudioPlayer[]>> = {};
+const poolCursors: Partial<Record<SfxName, number>> = {};
+
+function poolFor(name: SfxName): AudioPlayer[] {
+  let pool = pools[name];
+  if (!pool) {
+    const size = POOL_SIZES[name] ?? DEFAULT_POOL_SIZE;
+    pool = Array.from({ length: size }, () => createAudioPlayer(SFX_SOURCES[name]));
+    pools[name] = pool;
   }
-  return player;
+  return pool;
+}
+
+/** 다음에 쓸 재생기 — 풀 안에서 순서대로 돌아가며 고른다(라운드로빈). */
+function nextPlayer(name: SfxName): AudioPlayer {
+  const pool = poolFor(name);
+  const cursor = (poolCursors[name] ?? 0) % pool.length;
+  poolCursors[name] = cursor + 1;
+  // pool은 항상 최소 1개 이상이라 cursor는 늘 유효한 인덱스다
+  return pool[cursor]!;
 }
 
 /**
@@ -58,7 +79,7 @@ export function playSfx(name: SfxName): void {
   if (sfxVolume <= 0) return;
 
   try {
-    const player = playerFor(name);
+    const player = nextPlayer(name);
     player.volume = sfxVolume / VOLUME_STEPS;
     /*
         재생이 끝난 플레이어는 커서가 끝에 멈춰 있어서 play() 만으로는
@@ -78,13 +99,19 @@ export function playSfx(name: SfxName): void {
  *
  * 물소리처럼 애니메이션보다 긴 음원이 있어서, 동작이 끝났거나 화면을 벗어나면
  * 소리도 같이 끊어줘야 한다. 재생된 적 없는 소리는 그냥 넘어간다.
+ *
+ * 재생기가 여러 개인 소리(typing)는 어느 재생기가 지금 울리는지 알 수 없어
+ * 풀 전체를 멈춘다 — 다만 그런 소리는 stopSfx 로 끊을 일이 없다(끝까지 짧게
+ * 재생되고 끝난다).
  */
 export function stopSfx(name: SfxName): void {
-  const player = players[name];
-  if (!player) return;
+  const pool = pools[name];
+  if (!pool) return;
   try {
-    player.pause();
-    player.seekTo(0).catch(() => {});
+    pool.forEach((player) => {
+      player.pause();
+      player.seekTo(0).catch(() => {});
+    });
   } catch (e: any) {
     console.warn("효과음 정지 실패:", e?.message);
   }

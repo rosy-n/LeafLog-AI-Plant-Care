@@ -114,10 +114,12 @@ const WATERING_ANIM_MS = (DROP_COUNT - 1) * DROP_INTERVAL_MS + DROP_FALL_MS;
 // 캐릭터가 아직 말투 규칙을 못 지켰을 때(서버 502 등) 대화창에 그대로 보여줄 안전 문구
 const CHAT_FALLBACK_REPLY = "음... 지금은 대답하기 어려워. 잠시 후 다시 말해줄래?";
 
-// 대화창 대사를 한 글자씩 타이핑하듯 보여주는 속도 (ConsultationStartScreen과 동일 값)
-const TYPING_CHAR_INTERVAL_MS = 35;
+// 대화창 대사를 한 글자씩 타이핑하듯 보여주는 속도.
+// ConsultationStartScreen(상담탭)은 별도 값(35ms)을 쓴다 — 이 화면(페르소나 대화창)만
+// 아주 살짝 늦춰서 40ms로 뗀다.
+const TYPING_CHAR_INTERVAL_MS = 40;
 // 타이핑 효과음은 "빠르게 4번 재생 → 살짝 쉼"을 반복한다 (동물의숲 말풍선 느낌).
-// 글자당 35ms 이므로 버스트 4글자(140ms) 동안 매 글자마다 내고, 다음 1글자(35ms)는 쉰다
+// 글자당 40ms 이므로 버스트 4글자(160ms) 동안 매 글자마다 내고, 다음 1글자(40ms)는 쉰다
 const TYPING_SFX_BURST_CHARS = 4;
 const TYPING_SFX_PAUSE_CHARS = 1;
 const TYPING_SFX_CYCLE_CHARS = TYPING_SFX_BURST_CHARS + TYPING_SFX_PAUSE_CHARS;
