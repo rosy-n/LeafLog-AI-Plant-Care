@@ -14,10 +14,9 @@ import {
     Modal,
     PanResponder,
 } from "react-native";
-import * as Haptics from "expo-haptics";
+import { ImpactFeedbackStyle, hapticImpact, playSfx, stopSfx } from "../feedback";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { useAudioPlayer } from "expo-audio";
 
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -31,8 +30,6 @@ import PixelOutlineText from "../components/PixelOutlineText";
 import PixelButton from "../components/PixelButton";
 import PixelSpeechBubble, { WordWrapText } from "../components/PixelSpeechBubble";
 import { scheduleWateringReminder } from "../notifications";
-import { useBackgroundMusic } from "../backgroundMusic";
-import { VOLUME_STEPS } from "../audioSettings";
 import {
     getPlantCare,
     createCareRecord,
@@ -94,6 +91,14 @@ const RUB_HEART_SIZE = 26;
 const DROP_COUNT = 8;          // 떨어뜨릴 물방울 개수
 const DROP_INTERVAL_MS = 110;  // 물방울이 하나씩 생기는 간격
 const DROP_FALL_MS = 1100;     // 낙하 애니메이션 길이
+/*
+    물주기 연출이 끝나는 시점 — 마지막 방울이 생기고(DROP_COUNT-1 번째 간격)
+    그것이 다 떨어질 때까지. 물소리를 여기서 끊는다.
+
+    음원(sfx-water.mp3)이 약 5.9초라 그냥 두면 연출이 끝나고도 4초를 더 흐른다.
+    길이를 상수에서 뽑아내므로 방울 개수·간격을 바꿔도 소리가 따라온다.
+*/
+const WATERING_ANIM_MS = (DROP_COUNT - 1) * DROP_INTERVAL_MS + DROP_FALL_MS;
 
 /*
     진동은 RN 내장 Vibration 이 아니라 expo-haptics 를 쓴다.
@@ -101,6 +106,9 @@ const DROP_FALL_MS = 1100;     // 낙하 애니메이션 길이
     vibrate() 는 시스템 부저 한 번뿐이어서 방울 리듬을 표현할 수 없다.
     expo-haptics 는 Core Haptics(iOS)·Vibrator(Android)를 써서 두 플랫폼 모두
     가벼운 임팩트를 같은 코드로 낼 수 있다.
+
+    다만 expo-haptics 를 직접 부르지 않고 feedback.ts 의 hapticImpact 를 거친다 —
+    설정의 진동 스위치를 여기서 빠뜨리지 않기 위해서다.
 */
 
 // 캐릭터가 아직 말투 규칙을 못 지켰을 때(서버 502 등) 대화창에 그대로 보여줄 안전 문구
@@ -110,8 +118,6 @@ const CHAT_FALLBACK_REPLY = "음... 지금은 대답하기 어려워. 잠시 후
 const TYPING_CHAR_INTERVAL_MS = 35;
 // 타이핑 효과음은 몇 글자마다 한 번씩 낼지 — 매 글자(35ms)마다 재생하면 소리가 밀려 겹친다
 const TYPING_SFX_CHAR_STEP = 3;
-// 음원 교체 방법은 assets/audio/README.md 참고 (지금 들어있는 파일은 무음 placeholder)
-const TYPING_SFX_SOURCE = require("../../assets/audio/sfx-typing.mp3");
 const BLINK_CLOSED_MS = 140;
 const DOUBLE_BLINK_GAP_MS = 170;
 const BLINK_INTERVAL_MIN_MS = 3500;
@@ -236,7 +242,8 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
     const [isWatering, setIsWatering] = useState(false);
     // 물주기 확인 모달
     const [waterConfirmVisible, setWaterConfirmVisible] = useState(false);
-    // 방울마다 예약해 둔 진동 타이머 — 물주기 도중 화면을 벗어나면 취소해야 한다
+    // 물주기 중 예약해 둔 타이머들 — 방울마다의 진동과 물소리 끄기.
+    // 물주기 도중 화면을 벗어나거나 다시 물을 주면 전부 취소해야 한다
     const dropHapticTimers = useRef([]);
 
     const clearDropHaptics = () => {
@@ -244,12 +251,8 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
         dropHapticTimers.current = [];
     };
 
-    // 햅틱이 없는 기기(시뮬레이터·태블릿)에서는 조용히 무시된다
-    const tapHaptic = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch((e) =>
-            console.warn("진동 실패:", e?.message),
-        );
-    };
+    // 설정에서 진동을 꺼뒀거나 햅틱이 없는 기기(시뮬레이터·태블릿)면 조용히 넘어간다
+    const tapHaptic = () => hapticImpact();
 
     /*
         물방울이 하나씩 나타나는 리듬에 맞춰 톡톡.
@@ -258,16 +261,32 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
     */
     const startWateringHaptics = () => {
         clearDropHaptics();
+        // 물소리는 방울마다가 아니라 붓기 시작할 때 한 번 — 8번 겹치면 시끄럽다
+        playSfx("water");
         tapHaptic();
         for (let i = 1; i < DROP_COUNT; i++) {
             dropHapticTimers.current.push(
                 setTimeout(tapHaptic, i * DROP_INTERVAL_MS),
             );
         }
+        // 마지막 방울이 다 떨어지면 물소리도 끝낸다 — 음원이 연출보다 길다
+        dropHapticTimers.current.push(
+            setTimeout(() => stopSfx("water"), WATERING_ANIM_MS),
+        );
     };
 
-    // 물주기 도중 화면을 벗어나면 예약된 진동을 취소한다 (안 하면 뒤늦게 울린다)
-    useEffect(() => clearDropHaptics, []);
+    /*
+        물주기 도중 화면을 벗어나면 뒷정리를 한다.
+        예약된 진동은 취소하고(안 하면 뒤늦게 울린다), 물소리도 끊는다 —
+        음원이 물주기 애니메이션보다 길어서 그냥 두면 다른 화면까지 따라온다.
+    */
+    useEffect(
+        () => () => {
+            clearDropHaptics();
+            stopSfx("water");
+        },
+        [],
+    );
 
     // ── 캐릭터 문지르기 ──────────────────────────────
     // 손가락을 따라 하트가 뜨고 그때마다 가볍게 진동한다. 애정도는 하루 한 번만 오른다.
@@ -296,10 +315,11 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
             setRubHearts((prev) => prev.filter((heart) => heart.id !== id));
         });
 
-        // 문지르는 느낌이라 물주기(Light)보다 부드러운 임팩트를 쓴다
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch((e) =>
-            console.warn("진동 실패:", e?.message),
-        );
+        // 문지르는 느낌이라 물주기(Light)보다 부드러운 임팩트를 쓴다.
+        // 소리·진동은 하트가 뜨는 지점에서만 낸다 — 문지르는 동안에는
+        // RUB_HEART_INTERVAL_MS 간격으로 걸러지므로 효과음이 촘촘히 겹치지 않는다.
+        hapticImpact(ImpactFeedbackStyle.Soft);
+        playSfx("pet");
     };
 
     // 문지르기 보상 — 서버가 하루 1회만 준다 (이미 받았으면 0점으로 응답)
@@ -349,14 +369,6 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
     const [userBubble, setUserBubble] = useState(""); // 내가 방금 보낸 말 (대사창 위에 살짝 겹쳐 표시)
     const typingTimerRef = useRef(null);
 
-    // 타이핑 효과음 — 볼륨은 설정 화면과 같은 값을 공유한다 (BackgroundMusicProvider)
-    const typingSfxPlayer = useAudioPlayer(TYPING_SFX_SOURCE);
-    const { sfxVolume } = useBackgroundMusic();
-    const sfxVolumeRef = useRef(sfxVolume);
-    useEffect(() => {
-        sfxVolumeRef.current = sfxVolume;
-    }, [sfxVolume]);
-
     // chatReply가 바뀔 때마다(첫 인사말 포함) 처음부터 한 글자씩 타이핑해서 보여준다
     useEffect(() => {
         clearInterval(typingTimerRef.current);
@@ -370,19 +382,8 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
             setTypedReply(chatReply.slice(0, charCount));
             // 공백에는 효과음을 내지 않는다 — 타이핑 소리가 규칙적으로 끊겨야 자연스럽다
             const justTyped = chatReply[charCount - 1];
-            if (
-                charCount % TYPING_SFX_CHAR_STEP === 0 &&
-                justTyped &&
-                justTyped.trim() &&
-                sfxVolumeRef.current > 0
-            ) {
-                try {
-                    typingSfxPlayer.volume = sfxVolumeRef.current / VOLUME_STEPS;
-                    typingSfxPlayer.seekTo(0);
-                    typingSfxPlayer.play();
-                } catch (e) {
-                    // 효과음 재생 실패는 무시 — 타이핑 자체는 계속돼야 한다
-                }
+            if (charCount % TYPING_SFX_CHAR_STEP === 0 && justTyped && justTyped.trim()) {
+                playSfx("typing");
             }
             if (charCount >= chatReply.length) {
                 clearInterval(typingTimerRef.current);

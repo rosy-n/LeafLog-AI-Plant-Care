@@ -9,6 +9,8 @@ export type AuthResponse = {
     id: number;
     email: string;
     nickname: string;
+    /** 'ADMIN' 이면 설정에 문의 관리 화면이 보인다 (권한 검사는 서버가 한다) */
+    role: "USER" | "ADMIN";
   };
 };
 
@@ -541,6 +543,57 @@ export function updateMe(body: { nickname: string }) {
   return request<CurrentUser>("/auth/me", {
     method: "PATCH",
     body: JSON.stringify(body),
+  });
+}
+
+// 계정 삭제 — 개체·돌봄 기록·상담 내역까지 서버에서 함께 지워지고 되돌릴 수 없다.
+// 본인 확인용으로 로그인 비밀번호를 다시 보낸다 (틀리면 401).
+// 성공하면 토큰이 가리키는 사용자가 사라지므로 호출한 쪽에서 로그아웃 처리를 해야 한다.
+export function deleteMe(password: string) {
+  return request<null>("/auth/me", {
+    method: "DELETE",
+    body: JSON.stringify({ password }),
+  });
+}
+
+// 설정 화면의 문의하기 — 지원 메일함으로 전달된다.
+// 보낸 사람 정보는 서버가 토큰에서 꺼내므로 본문만 보낸다.
+// 메일 설정이 안 돼 있으면 503, 발송 실패면 502 가 온다.
+export function sendInquiry(content: string) {
+  return request<null>("/api/inquiries", {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+}
+
+export type Inquiry = {
+  id: number;
+  content: string;
+  /** OPEN(접수) / ANSWERED(답변함) / CLOSED(종료) */
+  status: "OPEN" | "ANSWERED" | "CLOSED";
+  answer: string | null;
+  answered_at: string | null;
+  created_at: string;
+};
+
+// 내 문의 내역 — 관리자가 답변을 달면 answer 에 담겨 온다.
+// 최신순으로 오고, 남의 문의는 서버가 걸러낸다.
+export function getInquiries() {
+  return request<Inquiry[]>("/api/inquiries");
+}
+
+// ── 관리자 전용 (role='ADMIN' 아니면 서버가 403) ──────────────
+
+// 전체 문의 목록. onlyOpen 이면 아직 답변하지 않은 것만.
+export function getAllInquiries(onlyOpen = true) {
+  return request<Inquiry[]>(`/api/admin/inquiries?only_open=${onlyOpen}`);
+}
+
+// 답변 달기 — 다시 부르면 답변이 수정된다.
+export function answerInquiry(inquiryId: number, answer: string) {
+  return request<Inquiry>(`/api/admin/inquiries/${inquiryId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ answer }),
   });
 }
 
