@@ -43,10 +43,8 @@ function toGardenPlant(plant) {
         id: String(plant.id),
         name: plant.nickname,
         favorite: plant.is_favorite,
-        // 캐릭터 이미지: S3 URL이 있으면 원격 사용, 없으면 번들 fallback
-        // (FLUX 미구현 fallback. "3호"는 URL 없을 때 test 번들 이미지로 표시 — 테스트용)
+        // 캐릭터 이미지: S3 URL이 있으면 원격 사용, 없으면 PlantImage 의 번들 fallback
         imageUri: plant.character_image_url ?? null,
-        imageKey: plant.nickname === "3호" ? "test" : undefined,
         characterFaceRemoved: plant.character_face_removed ?? false,
         characterFaceBounds: plant.character_face_bounds ?? null,
         status: plant.status,
