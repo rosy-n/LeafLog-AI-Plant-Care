@@ -11,7 +11,7 @@ import {
     PanResponder,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { hapticImpact, playSfx, tapFeedback } from "../feedback";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Fonts, FontSizes } from "../../constants/fonts";
@@ -682,6 +682,7 @@ export default function HomeScreen({
                                             activeOpacity={0.82}
                                             style={styles.menuItemTouch}
                                             onPress={() => {
+                                                tapFeedback();
                                                 closeMenu();
                                                 if (item.screen) navigation.navigate(item.screen);
                                             }}
@@ -1021,8 +1022,9 @@ function WanderingPlant({
             friction: 9,
             useNativeDriver: true,
         }).start();
-        // 길게 누른 게 먹혔다는 걸 손으로 알려준다 (개체탭의 물주기와 같은 방식)
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        // 길게 누른 게 먹혔다는 걸 손과 귀로 알려준다 (개체탭의 물주기와 같은 방식)
+        hapticImpact();
+        playSfx("pickup");
         onPickUp?.(centerOf(spot));
     };
 
@@ -1470,7 +1472,11 @@ function GlassButton({ children, size = 62, onPress }) {
     return (
         <TouchableOpacity
             activeOpacity={0.8}
-            onPress={onPress}
+            // 손맛은 버튼 안에서 낸다 — 호출하는 쪽마다 넣으면 새 버튼에서 빠뜨린다
+            onPress={() => {
+                tapFeedback();
+                onPress?.();
+            }}
             style={[
                 styles.glassTouch,
                 {

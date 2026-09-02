@@ -12,6 +12,9 @@ class UserRead(BaseModel):
     id: int = Field(validation_alias=AliasChoices("user_id", "id"))
     email: str
     nickname: str
+    # 'USER' / 'ADMIN' — 앱이 관리자 전용 화면을 보여줄지 판단한다.
+    # 화면을 가리는 용도일 뿐 권한 검사는 서버(get_current_admin)가 한다.
+    role: str = "USER"
 
     model_config = {"from_attributes": True, "populate_by_name": True}
 
@@ -59,6 +62,62 @@ class UserUpdate(BaseModel):
         if not NICKNAME_PATTERN.match(nickname):
             raise ValueError("닉네임은 2~10자, 한글/영문/숫자만 사용할 수 있습니다.")
         return nickname
+
+
+class AccountDeleteRequest(BaseModel):
+    """계정 삭제 확인 — 되돌릴 수 없는 작업이라 로그인 비밀번호를 다시 받는다.
+
+    저장된 해시와 대조만 하므로 회원가입 같은 형식 검사는 하지 않는다
+    (규칙이 바뀌기 전에 가입한 비밀번호도 통과해야 한다).
+    """
+
+    password: str = Field(min_length=1, max_length=128)
+
+
+class InquiryCreate(BaseModel):
+    """설정 화면의 문의하기 — 본문만 받는다.
+
+    보낸 사람 정보는 토큰에서 꺼내므로 클라이언트가 넘기지 않는다
+    (남의 이름으로 문의하는 것을 막는다).
+    """
+
+    content: str = Field(min_length=5, max_length=2000)
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, value: str) -> str:
+        content = value.strip()
+        if len(content) < 5:
+            raise ValueError("문의 내용을 5자 이상 입력해주세요.")
+        return content
+
+
+class InquiryAnswer(BaseModel):
+    """관리자 답변 — PATCH /api/admin/inquiries/{id}"""
+
+    answer: str = Field(min_length=1, max_length=4000)
+
+    @field_validator("answer")
+    @classmethod
+    def validate_answer(cls, value: str) -> str:
+        answer = value.strip()
+        if not answer:
+            raise ValueError("답변 내용을 입력해주세요.")
+        return answer
+
+
+class InquiryRead(BaseModel):
+    """내 문의 한 건 — 앱의 문의 내역에서 쓴다."""
+
+    id: int = Field(validation_alias=AliasChoices("inquiry_id", "id"))
+    content: str
+    # OPEN(접수) / ANSWERED(답변함) / CLOSED(종료)
+    status: str
+    answer: str | None = None
+    answered_at: str | None = None
+    created_at: str
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class LoginRequest(BaseModel):

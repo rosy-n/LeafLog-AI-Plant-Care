@@ -4,6 +4,7 @@ import { Leaf, Glass } from "../../constants/colors";
 import { Radius } from "../../constants/spacing";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
+import { tapFeedback } from "../feedback";
 
 export default function LiquidGlassButton({
                                               children,
@@ -11,10 +12,14 @@ export default function LiquidGlassButton({
                                               size = 54,
                                               style,
                                           }) {
+    const handlePress = () => {
+        tapFeedback();
+        onPress?.();
+    };
     return (
         <TouchableOpacity
             activeOpacity={0.78}
-            onPress={onPress}
+            onPress={handlePress}
             style={[
                 styles.touch,
                 {
