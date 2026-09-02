@@ -212,91 +212,87 @@ const SIDE_SLIDE = 140;
 
 /*
     물 줄 때가 된 개체 머리 위의 도트 말풍선 치수.
+    이미지 한 장이 아니라 사각형 View 를 쌓아서 만든다(WaterBubble 참고).
 
-    DOT 한 칸이 도트 하나다 — 모든 치수를 이 배수로 잡아야 각진 모서리가 어긋나지 않는다.
-    말풍선은 이미지 한 장이 아니라 사각형 View 를 쌓아서 만든다(WaterBubble 참고).
+    격자가 둘이다 — 몸통 크기나 물방울 자리처럼 "칸 수"로 잡는 값은 BUBBLE_DOT,
+    선·모서리 계단·꼬리가 좁아지는 폭처럼 선을 따라가는 값은 BUBBLE_LINE 이 단위다.
+    선 두께만 바꿔도 모서리와 꼬리가 같이 따라오게 하려는 것.
 */
-const BUBBLE_DOT = 4;                                      // 도트 한 칸
-/*
-    외곽선 두께 — 도트 칸과 분리해 둔다. 말풍선 크기는 그대로 두고 선만 얇게 하려면
-    이 값만 줄이면 된다. 조각들의 위치는 여전히 BUBBLE_DOT 배수라 모서리 단은 안 어긋난다.
-
-    4 의 2/3 은 2.67 이지만 정수가 아니면 화면 배율에 따라 좌우 선이 반 픽셀씩
-    달라져 도트가 흐려진다 — 정수로 떨어지는 3 을 쓴다.
-*/
-const BUBBLE_LINE = 3;
+const BUBBLE_DOT = 4;    // 도트 한 칸 — 몸통 크기·물방울 자리
+const BUBBLE_LINE = 3;   // 외곽선 두께 = 모서리 계단 한 단 = 몸통 가로 한 줄
 /*
     몸통은 9칸 정사각 = 36.
-
-    칸 수는 홀수여야 한다 — 짝수면 가운데에 놓이는 꼬리도 짝수 칸(6→4→2)뿐이라,
-    좌우 외곽선 한 칸씩을 빼고 나면 두 칸짜리 뭉툭한 토막으로 끝난다.
-    홀수면 꼬리가 5→3→1 로 떨어져 한 칸까지 좁혀진다.
-    그 홀수 중 9칸이 예전 10칸에 가장 가깝다(11칸은 눈에 띄게 커진다).
+    선 기준으로는 12줄(36/3)이라 위아래 뚜껑과 모서리 단을 한 줄씩 떼어 써도
+    딱 떨어진다. 짝수 칸이면 가운데 정렬한 꼬리의 폭이 정수로 안 떨어진다.
 */
 const BUBBLE_SIZE = BUBBLE_DOT * 9;
 const BUBBLE_DROP = BUBBLE_DOT * 5;                        // 안에 들어가는 물방울 자리
-const BUBBLE_CAP_INSET = BUBBLE_DOT * 2;                   // 위/아래 뚜껑이 들어간 깊이
+const BUBBLE_CAP_INSET = BUBBLE_LINE * 2;                  // 위/아래 뚜껑이 들어간 깊이
 /*
-    꼬리 — 몸통 정중앙에서 곧게 아래로 내려온다. 칸마다 좌우 대칭이라 휘지 않는다.
+    꼬리 — 몸통 정중앙에서 내려오며 한 줄마다 좌우로 STEP 씩 좁아진다.
+    좌우 대칭이라 휘지 않는다. 밑동 세 칸에서 한 칸까지 좁아지고, 좌우 외곽선이
+    맞닿아 속이 사라지는 줄부터는 검정으로 꽉 차서 끝이 뾰족하게 맺힌다.
 
-    밑동부터 좌우 외곽선 + 속 한 칸으로 가늘게 시작한다. 몸통에서 넓게 벌어져
-    내려오면 꼬리가 아니라 몸통의 일부처럼 읽힌다 — 아래 뚜껑에 뚫리는 구멍도
-    한 칸이라, 속이 가느다란 관으로 이어지는 모양이 된다.
-    마지막 칸은 폭이 한 칸이라 속 없이 검정만 남아 한 점으로 맺힌다.
-
-    폭을 외곽선 두께에서 뽑아내는 게 중요하다 — 고정값으로 두면 선을 얇게 했을 때
-    속이 그만큼 넓어져, 끝점(한 칸)이 관을 다 못 막고 좌우로 새 나간다.
+    STEP 은 선 두께보다 작아야 한다 — 한 줄에 그보다 많이 좁히면 위아래 줄의
+    외곽선이 서로 겹치지 못해 꼬리 옆선이 계단째로 끊긴다.
 */
-const BUBBLE_TAIL_ROWS = 3;
-const BUBBLE_TAIL_W = BUBBLE_LINE * 2 + BUBBLE_DOT;
-const BUBBLE_TAIL_H = BUBBLE_DOT * BUBBLE_TAIL_ROWS;
+const BUBBLE_TAIL_W = BUBBLE_DOT * 3;                      // 밑동 폭
+const BUBBLE_TAIL_TIP_W = BUBBLE_DOT;                      // 끝점 폭
+const BUBBLE_TAIL_STEP = 1;                                // 한 줄에 한쪽이 좁아지는 폭
+const BUBBLE_TAIL_ROWS =
+    (BUBBLE_TAIL_W - BUBBLE_TAIL_TIP_W) / (BUBBLE_TAIL_STEP * 2) + 1;
+const BUBBLE_TAIL_H = BUBBLE_TAIL_ROWS * BUBBLE_LINE;
 const BUBBLE_H = BUBBLE_SIZE + BUBBLE_TAIL_H;
 
 /*
-    몸통 옆면의 도트 띠 — [들여쓴 칸 수, 띠의 칸 수].
-    위 뚜껑 1칸 + 옆면 7칸 + 아래 뚜껑 1칸 = 9칸.
-    들여쓰기가 1→0 한 단만 풀려서 모서리가 두 칸짜리 계단이 된다 —
+    몸통 옆면의 띠 — [들여쓴 단 수, 줄 수]. 한 단도 한 줄도 BUBBLE_LINE 이다.
+    12줄 = 위 뚜껑 1 + 모서리 1 + 옆면 8 + 모서리 1 + 아래 뚜껑 1.
+    들여쓰기가 1→0 한 단만 풀려서 모서리가 두 단짜리 계단이 된다 —
     각진 사각형보다는 둥글고, 원형까지는 가지 않는 중간 정도.
 
-    들여쓰기는 한 칸씩만 줄여야 한다 — 두 칸을 건너뛰면 위 띠의 외곽선이
+    들여쓰기는 한 단씩만 줄여야 한다 — 두 단을 건너뛰면 위 띠의 외곽선이
     아래 띠의 속을 덮지 못해 모서리에 구멍이 뚫린다(잔디가 비친다).
+    뚜껑 줄은 옆선이 아니라 위/아래 선이라 여기 넣지 않고 따로 그린다.
 */
 const BUBBLE_BANDS = [
-    { inset: 1, dots: 1 },
-    { inset: 0, dots: 5 },
-    { inset: 1, dots: 1 },
+    { inset: 1, rows: 1 },
+    { inset: 0, rows: 8 },
+    { inset: 1, rows: 1 },
 ];
 
-// 띠의 위치·크기는 렌더마다 계산하지 않고 도트 격자에서 미리 잡아 둔다
+// 띠의 위치·크기는 렌더마다 계산하지 않고 미리 잡아 둔다
 const BUBBLE_WALLS = (() => {
     const walls = [];
-    let dot = 1; // 0번 칸은 위 뚜껑 자리
+    let row = 1; // 0번 줄은 위 뚜껑 자리
     for (const band of BUBBLE_BANDS) {
         walls.push({
-            top: dot * BUBBLE_DOT,
-            left: band.inset * BUBBLE_DOT,
-            width: BUBBLE_SIZE - band.inset * BUBBLE_DOT * 2,
-            height: band.dots * BUBBLE_DOT,
+            top: row * BUBBLE_LINE,
+            left: band.inset * BUBBLE_LINE,
+            width: BUBBLE_SIZE - band.inset * BUBBLE_LINE * 2,
+            height: band.rows * BUBBLE_LINE,
         });
-        dot += band.dots;
+        row += band.rows;
     }
     return walls;
 })();
 
-// 꼬리의 각 칸 — 가운데 정렬이라 몸통 폭에서 바로 나온다.
-// 마지막 칸(끝점)은 속이 없어 한 칸 폭이다.
+// 꼬리의 각 줄 — 가운데 정렬이라 몸통 폭에서 바로 나온다.
+// 속(좌우 외곽선을 뺀 폭)이 남지 않는 줄부터 solid — 검정으로 꽉 채워 끝을 맺는다.
 const BUBBLE_TAIL = Array.from({ length: BUBBLE_TAIL_ROWS }, (_, row) => {
-    const width = row === BUBBLE_TAIL_ROWS - 1 ? BUBBLE_DOT : BUBBLE_TAIL_W;
+    const width = BUBBLE_TAIL_W - row * BUBBLE_TAIL_STEP * 2;
     return {
-        top: BUBBLE_SIZE + row * BUBBLE_DOT,
-        left: (BUBBLE_SIZE - width) / 2,
-        width,
-        height: BUBBLE_DOT,
+        solid: width - BUBBLE_LINE * 2 <= 0,
+        box: {
+            top: BUBBLE_SIZE + row * BUBBLE_LINE,
+            left: (BUBBLE_SIZE - width) / 2,
+            width,
+            height: BUBBLE_LINE,
+        },
     };
 });
-// 아래 뚜껑에 뚫는 구멍 — 꼬리 첫 칸의 "속"(좌우 외곽선을 뺀 폭)과 정확히 맞춘다
-const BUBBLE_MOUTH_LEFT = BUBBLE_TAIL[0].left + BUBBLE_LINE;
-const BUBBLE_MOUTH_W = BUBBLE_TAIL[0].width - BUBBLE_LINE * 2;
+// 아래 뚜껑에 뚫는 구멍 — 꼬리 첫 줄의 "속"(좌우 외곽선을 뺀 폭)과 정확히 맞춘다
+const BUBBLE_MOUTH_LEFT = BUBBLE_TAIL[0].box.left + BUBBLE_LINE;
+const BUBBLE_MOUTH_W = BUBBLE_TAIL[0].box.width - BUBBLE_LINE * 2;
 
 // 꼬리 끝이 캐릭터 상자 안으로 이만큼 들어간다 — 도트 그림의 위쪽 투명 여백(12~18%)을
 // 고려한 값이라, 잎에 닿지 않으면서도 머리에서 떠 보이지 않는다
@@ -1446,15 +1442,13 @@ function WaterBubble({ left }) {
             {/* 비워 둔 칸을 속색으로 이어 준다 — 없으면 몸통과 꼬리 사이로 잔디가 비친다 */}
             <View style={styles.bubbleMouth} />
 
-            {/* 꼬리 — 마지막 칸만 속 없는 검정 끝 */}
+            {/* 꼬리 — 속이 닫히는 줄부터는 검정으로 꽉 차 뾰족한 끝이 된다 */}
             {BUBBLE_TAIL.map((row, index) => (
                 <View
                     key={index}
                     style={[
-                        index === BUBBLE_TAIL.length - 1
-                            ? styles.bubbleTailTip
-                            : styles.bubbleTailRow,
-                        row,
+                        row.solid ? styles.bubbleTailTip : styles.bubbleTailRow,
+                        row.box,
                     ]}
                 />
             ))}
@@ -1640,7 +1634,7 @@ const styles = StyleSheet.create({
 
     /*
         도트 말풍선. 모든 조각은 말풍선 상자 기준의 절대 위치 —
-        한 칸(BUBBLE_DOT) 격자에 맞춰야 모서리와 꼬리의 단이 어긋나지 않는다.
+        선 두께(BUBBLE_LINE) 격자에 맞춰야 모서리와 꼬리의 단이 어긋나지 않는다.
     */
     bubble: {
         position: "absolute",
@@ -1664,55 +1658,41 @@ const styles = StyleSheet.create({
         width: BUBBLE_DROP,
         height: BUBBLE_DROP,
     },
-    /*
-        뚜껑은 칸(BUBBLE_DOT)을 그대로 차지하되 테두리만 검정이다.
-        예전처럼 칸을 검정으로 꽉 채우면 선을 얇게 할 수 없고, 선만 얇게 그리면
-        남는 칸이 비어 잔디가 비친다 — 속을 아이보리로 채워 막는다.
-        바깥쪽 옆면에도 선을 둬야 그 칸에서 외곽선이 끊겨 보이지 않는다.
-    */
+    // 뚜껑은 한 줄이 통째로 선이라 검정 막대 하나로 그린다
     bubbleCapTop: {
         position: "absolute",
         top: 0,
         left: BUBBLE_CAP_INSET,
         width: BUBBLE_SIZE - BUBBLE_CAP_INSET * 2,
-        height: BUBBLE_DOT,
-        backgroundColor: Paper.cream,
-        borderTopWidth: BUBBLE_LINE,
-        borderLeftWidth: BUBBLE_LINE,
-        borderRightWidth: BUBBLE_LINE,
-        borderColor: Colors.textBlack,
+        height: BUBBLE_LINE,
+        backgroundColor: Colors.textBlack,
     },
     bubbleCapBottomLeft: {
         position: "absolute",
-        top: BUBBLE_SIZE - BUBBLE_DOT,
+        top: BUBBLE_SIZE - BUBBLE_LINE,
         left: BUBBLE_CAP_INSET,
         width: BUBBLE_MOUTH_LEFT - BUBBLE_CAP_INSET,
-        height: BUBBLE_DOT,
-        backgroundColor: Paper.cream,
-        borderBottomWidth: BUBBLE_LINE,
-        borderLeftWidth: BUBBLE_LINE,
-        borderColor: Colors.textBlack,
+        height: BUBBLE_LINE,
+        backgroundColor: Colors.textBlack,
     },
     bubbleCapBottomRight: {
         position: "absolute",
-        top: BUBBLE_SIZE - BUBBLE_DOT,
+        top: BUBBLE_SIZE - BUBBLE_LINE,
         left: BUBBLE_MOUTH_LEFT + BUBBLE_MOUTH_W,
         width: BUBBLE_SIZE - BUBBLE_CAP_INSET - BUBBLE_MOUTH_LEFT - BUBBLE_MOUTH_W,
-        height: BUBBLE_DOT,
-        backgroundColor: Paper.cream,
-        borderBottomWidth: BUBBLE_LINE,
-        borderRightWidth: BUBBLE_LINE,
-        borderColor: Colors.textBlack,
+        height: BUBBLE_LINE,
+        backgroundColor: Colors.textBlack,
     },
     bubbleMouth: {
         position: "absolute",
-        top: BUBBLE_SIZE - BUBBLE_DOT,
+        top: BUBBLE_SIZE - BUBBLE_LINE,
         left: BUBBLE_MOUTH_LEFT,
         width: BUBBLE_MOUTH_W,
-        height: BUBBLE_DOT,
+        height: BUBBLE_LINE,
         backgroundColor: Paper.cream,
     },
-    // 위치·크기는 BUBBLE_TAIL 이 얹는다 — 좌우 외곽선 + 아이보리 속
+    // 위치·크기는 BUBBLE_TAIL 이 얹는다 — 좌우 외곽선 + 아이보리 속.
+    // solid 인 줄은 아래 bubbleTailTip 으로 그려 검정으로 꽉 찬다.
     bubbleTailRow: {
         position: "absolute",
         backgroundColor: Paper.cream,
