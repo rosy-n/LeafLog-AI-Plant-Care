@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import {
+    Alert,
     ImageBackground,
     View,
     Text,
@@ -12,6 +13,7 @@ import { BlurView } from "expo-blur";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { updatePlant } from "../api";
 import { accessorySpriteBundle } from "../data/decor";
 import HeartsRow from "../components/HeartsRow";
 import PlantImage from "../components/PlantImage";
@@ -33,9 +35,17 @@ const MENU_ITEMS = [
     { label: "영양제", screen: "Nutrient" },
 ];
 
+// 등록일 기준 함께한 일수 (중앙 D+N) — PlantDetailScreen 과 같은 계산
+function daysSince(iso) {
+    if (!iso) return 0;
+    const created = new Date(iso).getTime();
+    if (Number.isNaN(created)) return 0;
+    return Math.max(0, Math.floor((Date.now() - created) / 86400000));
+}
+
 let heartIdCounter = 0;
 
-export default function MemorialPlantScreen({ navigation, route, decorations }) {
+export default function MemorialPlantScreen({ navigation, route, decorations, reloadPlants }) {
     const plant = route?.params?.plant;
     // 착용 중인 액세서리 — App.js 의 맵에서 찾는다 (PlantDetailScreen 과 같은 방식)
     const accessory = decorations?.[String(plant?.id)]?.accessory ?? null;
@@ -45,6 +55,9 @@ export default function MemorialPlantScreen({ navigation, route, decorations }) 
     const [menuOpen, setMenuOpen] = useState(false);
     const [graveModalVisible, setGraveModalVisible] = useState(false);
     const [floatingHearts, setFloatingHearts] = useState([]);
+
+    const plantName = plant?.name ?? "-";
+    const togetherDays = daysSince(plant?.createdAt);
 
     const menuAnimations = useRef(
         MENU_ITEMS.map(() => new Animated.Value(0))
@@ -110,9 +123,23 @@ export default function MemorialPlantScreen({ navigation, route, decorations }) 
         }
     };
 
-    const handleRevive = () => {
-        setGraveModalVisible(false);
-        navigation.navigate("PlantDetail");
+    /*
+        다시 함께하기 — 상태를 ALIVE 로 되돌려 정원의 일반 정렬에 다시 나오게 하고
+        살아있는 개체의 개체탭으로 옮긴다. 상태를 바꾸지 않고 화면만 옮기면
+        정원에서는 여전히 추모정원에만 남는다.
+    */
+    const handleRevive = async () => {
+        const id = plant?.id;
+        try {
+            if (id) await updatePlant(Number(id), { status: "ALIVE" });
+            reloadPlants?.();
+            setGraveModalVisible(false);
+            navigation.replace("PlantDetail", {
+                plant: { ...plant, status: "ALIVE", memorial: false },
+            });
+        } catch (e) {
+            Alert.alert("이동 실패", e?.message ?? "다시 시도해주세요.");
+        }
     };
 
     return (
@@ -151,10 +178,10 @@ export default function MemorialPlantScreen({ navigation, route, decorations }) 
 
                         <View style={styles.plantLabelGroup}>
                             <PixelOutlineText style={styles.plantName} strokeWidth={2}>
-                                스파게티
+                                {plantName}
                             </PixelOutlineText>
                             <PixelOutlineText style={styles.dayText} strokeWidth={2}>
-                                D+45
+                                D+{togetherDays}
                             </PixelOutlineText>
                         </View>
                     </View>
@@ -220,7 +247,7 @@ export default function MemorialPlantScreen({ navigation, route, decorations }) 
                                             label={item.label}
                                             onPress={() => {
                                                 closeMenu();
-                                                navigation.navigate(item.screen);
+                                                navigation.navigate(item.screen, { plant });
                                             }}
                                         />
                                     </Animated.View>
@@ -326,7 +353,7 @@ export default function MemorialPlantScreen({ navigation, route, decorations }) 
 
                             {/* 설명 */}
                             <Text style={styles.modalDesc}>
-                                스파게티를 추억공간에서{"\n"}다시 정원으로 옮길 수 있어요.
+                                {plantName}을(를) 추억공간에서{"\n"}다시 정원으로 옮길 수 있어요.
                             </Text>
 
                             {/* 버튼 영역 */}

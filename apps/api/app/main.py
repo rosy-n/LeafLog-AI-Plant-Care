@@ -1123,6 +1123,44 @@ def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
     )
 
 
+@app.delete("/api/plants/{plant_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_plant(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """개체 삭제 — 추모정원 개체의 프로필 화면에서 부르는 "완전히 삭제".
+
+    되돌릴 수 없다. 상태를 DEAD 로 바꾸는 "추억으로 이동"(PATCH status)과 달리
+    개체와 그에 딸린 기록을 전부 지운다.
+
+    삭제는 delete_me 와 같은 이유로 DB의 ON DELETE CASCADE 에 기대지 않고
+    자식 테이블부터 명시적으로 한다 — SQLite 기본 설정은 외래키 제약을 강제하지
+    않아 개체만 지우면 기록이 고아로 남는다.
+    """
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+
+    # 이 개체의 AI 상담 — 메시지가 세션을 참조하므로 메시지부터
+    session_ids = list(
+        db.scalars(select(ChatSession.session_id).where(ChatSession.plant_id == plant_id))
+    )
+    if session_ids:
+        db.execute(delete(ChatMessage).where(ChatMessage.session_id.in_(session_ids)))
+        db.execute(delete(ChatSession).where(ChatSession.session_id.in_(session_ids)))
+
+    # 개체에 딸린 것들 — 꾸미기 / 돌봄 기록 / 돌봄 주기
+    db.execute(delete(PlantDecoration).where(PlantDecoration.plant_id == plant_id))
+    db.execute(delete(CareRecord).where(CareRecord.plant_id == plant_id))
+    db.execute(delete(CareSchedule).where(CareSchedule.plant_id == plant_id))
+
+    # 업로드한 이미지 기록 — plant_id 가 SET NULL 이라 그냥 두면 주인 없는 행으로 남는다.
+    # (S3 객체는 지우지 않는다 — 버킷이 다른 계정 소유라 삭제 권한이 없다.)
+    db.execute(delete(MediaAsset).where(MediaAsset.plant_id == plant_id))
+
+    db.delete(plant)
+    db.commit()
+
+
 @app.patch("/api/plants/{plant_id}/watering-schedule", response_model=CareSummary)
 def update_watering_schedule(
     plant_id: int,
