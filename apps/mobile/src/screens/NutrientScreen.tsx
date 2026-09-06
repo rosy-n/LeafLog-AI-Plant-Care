@@ -24,6 +24,7 @@ import { Colors, GreenTint, Shadow } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import { getCareRecords, createCareRecord, deleteCareRecord } from "../api";
+import { isMemorialPlant } from "../plantStatus";
 
 type NutrientRecord = {
     id: string;
@@ -35,6 +36,9 @@ type NutrientRecord = {
 };
 
 type ScreenView = "list" | "form" | "detail";
+
+// 추모정원 개체에서 작성 버튼 대신 놓는 안내 (서버도 같은 규칙으로 막는다)
+const MEMORIAL_NOTICE = "추모정원의 식물이라 새 기록을 남길 수 없어요";
 
 // 영양제 기록은 care_record(care_type=FERTILIZING)에 저장.
 // 전용 컬럼이 없는 영양제 종류/용량/주기/메모는 note(TEXT)에 JSON으로 함께 보관.
@@ -73,6 +77,8 @@ function toRecord(item: { id: number; completed_at: string; note: string | null 
 export default function NutrientScreen({ navigation, route }: { navigation: any; route?: any }) {
     const plant = route?.params?.plant;
     const plantId = plant?.id ? Number(plant.id) : null;
+    // 떠나보낸 개체는 지난 기록을 읽기만 한다 — 새 기록은 남기지 않는다
+    const memorial = isMemorialPlant(plant);
 
     const [view, setView] = useState<ScreenView>("list");
     const [records, setRecords] = useState<NutrientRecord[]>([]);
@@ -108,6 +114,11 @@ export default function NutrientScreen({ navigation, route }: { navigation: any;
     const saveRecord = async () => {
         if (!plantId) {
             Alert.alert("저장 실패", "식물 정보를 찾을 수 없어요.");
+            return;
+        }
+        // 작성 화면 자체를 열지 않지만, 서버도 막는 규칙이라 여기서도 한 번 더 본다
+        if (memorial) {
+            Alert.alert("기록할 수 없어요", MEMORIAL_NOTICE);
             return;
         }
         if (!fertilizerType.trim()) {
@@ -152,15 +163,26 @@ export default function NutrientScreen({ navigation, route }: { navigation: any;
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={styles.scrollContent}
                     >
-                        <ActionButton
-                            label="새 영양제 기록 작성"
-                            icon="add-circle-outline"
-                            color={Colors.fertilizer}
-                            borderColor={Colors.fertilizerIcon}
-                            textColor={Colors.fertilizerIcon}
-                            shadow={false}
-                            onPress={() => setView("form")}
-                        />
+                        {memorial ? (
+                            <View style={styles.memorialNotice}>
+                                <Ionicons
+                                    name="lock-closed-outline"
+                                    size={16}
+                                    color={Colors.textGray}
+                                />
+                                <Text style={styles.memorialNoticeText}>{MEMORIAL_NOTICE}</Text>
+                            </View>
+                        ) : (
+                            <ActionButton
+                                label="새 영양제 기록 작성"
+                                icon="add-circle-outline"
+                                color={Colors.fertilizer}
+                                borderColor={Colors.fertilizerIcon}
+                                textColor={Colors.fertilizerIcon}
+                                shadow={false}
+                                onPress={() => setView("form")}
+                            />
+                        )}
 
                         {records.length === 0 ? (
                             <View style={styles.emptyState}>
@@ -559,6 +581,28 @@ const styles = StyleSheet.create({
         includeFontPadding: false,
     },
 
+    /*
+        추모정원 개체의 목록 맨 위 — "새 기록 작성" 버튼 자리에 놓인다.
+        버튼만 지우면 왜 못 쓰는지 알 수 없어 같은 자리에 이유를 남긴다.
+    */
+    memorialNotice: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: Spacing.sm,
+        paddingVertical: Spacing.md,
+        paddingHorizontal: Spacing.lg,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        backgroundColor: Colors.separator,
+    },
+    memorialNoticeText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: Colors.textGray,
+        includeFontPadding: false,
+    },
     // Empty
     emptyState: {
         paddingTop: 60,

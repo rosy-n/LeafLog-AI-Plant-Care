@@ -296,6 +296,19 @@ def _owned_plant_or_404(plant_id: int, current_user: "AppUser", db: Session) -> 
     return plant
 
 
+def _reject_if_memorial(plant: Plant) -> None:
+    """떠나보낸 개체(추모정원)에 새 돌봄 데이터를 쓰려는 요청을 막는다.
+
+    분갈이·영양제·물주기는 앞으로 할 일이 없어 앱에서도 입력 화면을 닫아 두지만,
+    원본은 서버라 여기서 한 번 더 걸러낸다.
+    """
+    if plant.status == "DEAD":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="추모정원의 식물에는 새 기록을 남길 수 없습니다.",
+        )
+
+
 def _owned_chat_session_or_404(session_id: int, current_user: AppUser, db: Session) -> ChatSession:
     session = db.get(ChatSession, session_id)
     if session is None or session.user_id != current_user.user_id:
@@ -1174,6 +1187,8 @@ def update_watering_schedule(
     다음 예정일은 마지막 물준 기록(없으면 지금) + 새 주기로 다시 계산한다.
     """
     plant = _owned_plant_or_404(plant_id, current_user, db)
+    # 떠나보낸 개체는 앞으로 물 줄 일이 없다 — 예정일을 새로 잡지 않는다
+    _reject_if_memorial(plant)
 
     if payload.interval_days is None:
         interval, source = _initial_interval(plant, db)
@@ -1305,6 +1320,7 @@ def create_care_record(
     db: Session = Depends(get_db),
 ) -> CareRecordCreated:
     plant = _owned_plant_or_404(plant_id, current_user, db)
+    _reject_if_memorial(plant)
     if payload.care_type not in CARE_TYPES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="지원하지 않는 관리 유형입니다.")
 
