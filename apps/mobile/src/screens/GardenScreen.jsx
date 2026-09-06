@@ -36,12 +36,20 @@ const SORT_OPTIONS = [
     { key: "memorial", label: "추모정원" },
 ];
 
+/*
+    떠나보낸 개체(memorial)는 '추모정원' 정렬에서만 보인다 —
+    다른 정렬은 살아있는 개체만 남기고 거른다.
+*/
 function applySortFilter(plantList, sort, query) {
     let result = [...plantList];
 
     if (sort === "memorial") {
         result = result.filter((p) => p.memorial);
-    } else if (sort === "favorite") {
+    } else {
+        result = result.filter((p) => !p.memorial);
+    }
+
+    if (sort === "favorite") {
         result.sort((a, b) => {
             if (a.favorite === b.favorite) return Number(a.id) - Number(b.id);
             return a.favorite ? -1 : 1;
@@ -320,7 +328,13 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
                             <View style={styles.card}>
                                 <TouchableOpacity
                                     activeOpacity={0.8}
-                                    onPress={() => navigation.replace("PlantDetail", { plant: item })}
+                                    /* 떠나보낸 개체는 살아있는 개체와 다른 화면으로 간다 */
+                                    onPress={() =>
+                                        navigation.replace(
+                                            item.memorial ? "MemorialPlant" : "PlantDetail",
+                                            { plant: item },
+                                        )
+                                    }
                                 >
                                     <PlantImage
                                         uri={item.imageUri}
@@ -353,15 +367,18 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
                                     <Text style={styles.plantName} numberOfLines={1}>
                                         {item.name}
                                     </Text>
-                                    <TouchableOpacity
-                                        activeOpacity={0.7}
-                                        onPress={() => toggleFavorite(item.id)}
-                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                    >
-                                        <Text style={[styles.star, { color: item.favorite ? Leaf.gold : Colors.textFaint }]}>
-                                            ★
-                                        </Text>
-                                    </TouchableOpacity>
+                                    {/* 떠나보낸 개체는 즐겨찾기를 지정할 수 없어 별을 두지 않는다 */}
+                                    {!item.memorial && (
+                                        <TouchableOpacity
+                                            activeOpacity={0.7}
+                                            onPress={() => toggleFavorite(item.id)}
+                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                        >
+                                            <Text style={[styles.star, { color: item.favorite ? Leaf.gold : Colors.textFaint }]}>
+                                                ★
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
 
                                 <HeartsRow count={item.hearts} size={15} />

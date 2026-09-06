@@ -60,8 +60,6 @@ const HOME_MENU_ITEMS = [
 */
 const FIELD_BOUNDS = {
     "home-bg": { top: "37%", bottom: "8%" },
-    store_bg1: { top: "44%", bottom: "8%" },
-    store_bg2: { top: "36%", bottom: "8%" },
 };
 
 // 들판에 동시에 세울 수 있는 개체 수 — 이보다 많으면 서로 겹쳐서 누가 누군지 알 수 없다
@@ -89,30 +87,43 @@ const needsWatering = (plant) =>
     plant.daysUntilWatering != null && plant.daysUntilWatering <= 0;
 
 /*
-    들판에 세울 개체를 고른다.
+    들판에 세울 개체를 고른다 — 최대 MAX_FIELD_PLANTS 마리.
 
-    물 줄 때가 된 개체가 먼저다 — 홈을 열었을 때 손이 필요한 식물이 눈에 들어와야 한다.
-    남는 자리는 즐겨찾기로 채우고, 물 줄 개체가 없으면 즐겨찾기만 보인다.
+    우선순위는 물주기 > 즐겨찾기 > 일반. 홈을 열었을 때 손이 필요한 식물이 먼저
+    눈에 들어와야 하고, 그 다음이 아끼는 개체다.
+
+    마지막 층이 "나머지 전부"라서, 기르는 개체가 7마리 이하면 물 줄 개체나
+    즐겨찾기가 하나도 없어도 결국 모두 들판에 선다. (앞 층에서 이미 뽑힌 개체는
+    pickedIds 로 걸러지므로 마지막 층에 전체를 넣어도 중복되지 않는다.)
+
     떠나보낸 개체(추모정원)는 들판에 세우지 않는다.
 */
 function selectFieldPlants(plants) {
     const alive = plants.filter((plant) => !plant.memorial);
+    const byRegistered = (a, b) => Number(a.id) - Number(b.id);
 
-    const needsWater = alive
-        .filter(needsWatering)
-        // 더 오래 밀린 개체부터
-        .sort((a, b) => a.daysUntilWatering - b.daysUntilWatering);
+    // 위 층부터 채우고, 자리가 남으면 다음 층으로 내려간다
+    const tiers = [
+        // 1) 물 줄 때가 된 개체 — 더 오래 밀린 개체부터
+        alive
+            .filter(needsWatering)
+            .sort((a, b) => a.daysUntilWatering - b.daysUntilWatering),
+        // 2) 즐겨찾기
+        alive.filter((plant) => plant.favorite).sort(byRegistered),
+        // 3) 나머지 — 자리가 남는 만큼 등록 순으로 채운다
+        alive.slice().sort(byRegistered),
+    ];
 
-    const picked = needsWater.slice(0, MAX_FIELD_PLANTS);
-    const pickedIds = new Set(picked.map((plant) => plant.id));
-
-    if (picked.length < MAX_FIELD_PLANTS) {
-        const favorites = alive
-            .filter((plant) => plant.favorite && !pickedIds.has(plant.id))
-            .sort((a, b) => Number(a.id) - Number(b.id));
-        picked.push(...favorites.slice(0, MAX_FIELD_PLANTS - picked.length));
+    const picked = [];
+    const pickedIds = new Set();
+    for (const tier of tiers) {
+        for (const plant of tier) {
+            if (picked.length >= MAX_FIELD_PLANTS) return picked;
+            if (pickedIds.has(plant.id)) continue;
+            pickedIds.add(plant.id);
+            picked.push(plant);
+        }
     }
-
     return picked;
 }
 
@@ -177,9 +188,25 @@ const PLANT_SHADOW_H = 10;    // 들려 있을 때 발밑에 남는 그림자 �
     구멍이 투명해서, 그 자리에 확대상을 따로 그려 넣는다(Magnifier).
 */
 const MAGNIFIER_ICON = require("../../assets/icons/magnifier_icon.png");
-const MAG_SIZE = 310;
-const MAG_BOTTOM = 4;                     // 들판 아래 경계에서 띄우는 높이
+const MAG_SIZE = 380;
+/*
+    아이콘 바닥을 들판 아래 경계에서 얼마나 띄울지. 음수면 경계 아래로 내려간다.
+
+    렌즈 구멍은 아이콘 위쪽(세로 38.9% 지점)에 있고 아이콘은 바닥 기준으로 놓이므로,
+    크기만 키우면 렌즈가 위로 딸려 올라간다. 손잡이 끝을 화면 밖으로 조금 내보내
+    렌즈를 원하는 높이까지 내린다 — 렌즈 중심은 들판 바닥에서 위로
+    MAG_BOTTOM + MAG_SIZE × (1 - 0.3892) 만큼 떨어진 자리다.
+*/
+const MAG_BOTTOM = -64;
 const MAG_LENS_X = MAG_SIZE * 0.4478;
+/*
+    아이콘을 오른쪽으로 이 만큼 밀면 렌즈 구멍이 화면 한가운데에 온다.
+
+    구멍이 아이콘 가로 44.78% 지점(중심보다 왼쪽)에 있어서, 아이콘 자체를 가운데
+    두면 정작 개체를 놓는 자리인 구멍은 중심에서 왼쪽으로 벗어난다.
+    배치의 기준은 아이콘 사각형이 아니라 동그란 렌즈다.
+*/
+const MAG_LENS_DX = MAG_SIZE * (0.5 - 0.4478);
 const MAG_LENS_Y = MAG_SIZE * 0.3892;
 const MAG_HOLE_RX = MAG_SIZE * 0.2424;
 const MAG_HOLE_RY = MAG_SIZE * 0.2620;
@@ -188,8 +215,9 @@ const MAG_HOLE_RY = MAG_SIZE * 0.2620;
 
     구멍은 세로로 8% 긴 타원이지만 창을 타원으로 맞출 필요가 없다 — 넘치는 부분은
     아이콘의 도트 테두리가 덮기 때문이다(Magnifier 참고). 세로 반지름에 맞춘 정원이면
-    사방 어디서도 구멍을 다 채우고, 가장 많이 넘치는 가로 방향에서도 15px 뿐이라
-    가장 얇은 테두리(캔버스 79px ≈ 19.5px)보다 얕게 들어간다.
+    사방 어디서도 구멍을 다 채우고, 가장 많이 넘치는 가로 방향에서도 아이콘의
+    4.97%(=0.2620+0.03-0.2424)만 넘쳐 가장 얇은 테두리(캔버스 79px = 6.30%)보다
+    얕게 들어간다. 전부 MAG_SIZE 비율이라 크기를 바꿔도 이 관계는 유지된다.
 */
 const MAG_LENS_R = MAG_HOLE_RY + MAG_SIZE * 0.03;
 // 판정은 넘치게 그린 창이 아니라 실제 구멍 기준. 구멍보다는 넉넉하게 받는다 —
@@ -218,6 +246,19 @@ const SIDE_SLIDE = 140;
     선·모서리 계단·꼬리가 좁아지는 폭처럼 선을 따라가는 값은 BUBBLE_LINE 이 단위다.
     선 두께만 바꿔도 모서리와 꼬리가 같이 따라오게 하려는 것.
 */
+/*
+    읽지 않은 알림 표시 — 종 버튼 모서리의 도트 배지.
+
+    매끈한 원은 이 화면의 도트 그림(캐릭터·말풍선·픽셀 버튼)과 결이 다르다.
+    모서리를 계단으로 깎아 도트로 그린 원이다.
+
+    한 단만 깎으면 작은 크기에서 잘린 면이 너무 커져 십자처럼 보인다.
+    PixelButton·PixelSpeechBubble 과 같은 2단 계단(세 겹)을 써야 둥글게 읽힌다.
+*/
+const DOT_STEP = 2;      // 계단 한 칸
+const DOT_LINE = 2;      // 검정 외곽선 두께
+const DOT_SIZE = DOT_STEP * 8;
+
 const BUBBLE_DOT = 4;    // 도트 한 칸 — 몸통 크기·물방울 자리
 const BUBBLE_LINE = 3;   // 외곽선 두께 = 모서리 계단 한 단 = 몸통 가로 한 줄
 /*
@@ -385,7 +426,8 @@ export default function HomeScreen({
     const lens = useMemo(() => {
         if (fieldSize.width === 0) return null;
         return {
-            x: (fieldSize.width - MAG_SIZE) / 2 + MAG_LENS_X,
+            // 아이콘을 MAG_LENS_DX 만큼 밀어 둔 결과 — 구멍 중심이 정확히 들판 가운데다
+            x: fieldSize.width / 2,
             y: fieldSize.height - MAG_BOTTOM - MAG_SIZE + MAG_LENS_Y,
         };
     }, [fieldSize]);
@@ -527,19 +569,30 @@ export default function HomeScreen({
 
                 {/* 상단 오른쪽: 알림 */}
                 <View style={styles.notificationArea}>
-                    <GlassButton
-                        size={65}
-                        onPress={() => navigation.navigate("Notifications")}
-                    >
-                        <View>
+                    {/*
+                        읽지 않은 알림 표시(빨간 점)는 GlassButton 밖에 둔다 —
+                        버튼은 유리 효과를 동그랗게 오려내려고 overflow: hidden 이라,
+                        안에 넣으면 원 밖으로 나간 점이 버튼 모양대로 잘린다.
+                        버튼을 감싸는 상자에 얹어야 모서리 위에 온전히 뜬다.
+                    */}
+                    <View style={styles.notificationBell}>
+                        <GlassButton
+                            size={65}
+                            onPress={() => navigation.navigate("Notifications")}
+                        >
                             <Image
                                 source={require("../../assets/icons/notification_icon.png")}
                                 style={styles.notificationIcon}
                                 resizeMode="contain"
                             />
-                            {hasUnread && <View style={styles.redDot} />}
-                        </View>
-                    </GlassButton>
+                        </GlassButton>
+                        {hasUnread && (
+                            <View style={styles.unreadDot} pointerEvents="none">
+                                <PixelDotShape color={Colors.textBlack} inset={0} />
+                                <PixelDotShape color={Accent.alert} inset={DOT_LINE} />
+                            </View>
+                        )}
+                    </View>
 
                     {/*
                         밀린 물주기 요약 — 정원까지 들어가지 않아도 보이게.
@@ -1288,9 +1341,11 @@ function WanderingPlant({
     구멍보다 조금 넓게(MAG_LENS_BLEED) 그려 놓고 아이콘으로 덮으면 도트 테두리
     자체가 경계가 되어 어떤 크기에서도 딱 맞는다.
 
-    아이콘은 어떤 이유로도 크기를 바꾸지 않는다 — 구멍이 아이콘 중심에서 벗어나
-    있어서 조금만 키워도 구멍이 딸려 움직이고, 같이 커지지 않는 확대창과 어긋난다.
-    렌즈에 닿았다는 신호는 아래 안내 문구가 맡는다.
+    아이콘에 런타임 스케일(닿았을 때 커지는 연출 등)을 걸지 않는다 — 구멍이 아이콘
+    중심에서 벗어나 있어서 조금만 키워도 구멍이 딸려 움직이는데, 확대창과 판정 좌표는
+    MAG_SIZE 로 미리 계산돼 있어 함께 커지지 않는다. 렌즈에 닿았다는 신호는 아래 안내
+    문구가 맡는다. (전체 크기를 바꾸고 싶으면 MAG_SIZE 를 고치면 된다 — 구멍·확대창·
+    판정 반지름이 모두 그 값의 비율이라 함께 따라온다.)
 */
 function Magnifier({
     active,
@@ -1402,6 +1457,15 @@ function Magnifier({
                 ]}
             >
                 <View style={styles.magnifierHint}>
+                    {/*
+                        들고 있는 개체의 이름 — 렌즈 안은 잎만 크게 보일 때가 많아
+                        확대상만으로는 어떤 아이를 집었는지 알기 어렵다.
+                    */}
+                    {plant?.name ? (
+                        <Text style={styles.magnifierHintName} numberOfLines={1}>
+                            {plant.name}
+                        </Text>
+                    ) : null}
                     <Text style={styles.magnifierHintText}>
                         {active ? "놓으면 자세히 보기" : "여기에 놓아 자세히 보기"}
                     </Text>
@@ -1413,6 +1477,56 @@ function Magnifier({
                 />
             </Animated.View>
         </View>
+    );
+}
+
+/*
+    도트 배지의 한 겹 — 폭이 다른 사각형 셋을 겹쳐 2단 계단 모서리를 만든다.
+    가장 넓은 판을 가운데 두고, 위아래로 갈수록 한 칸씩 좁아진다.
+    같은 도형을 검정(바깥)·빨강(안쪽)으로 두 번 겹쳐 그리면 검정이 외곽선으로 남는다.
+    (PixelButton 의 PixelShape 와 같은 계산)
+*/
+function PixelDotShape({ color, inset }) {
+    const s = DOT_STEP;
+    return (
+        <>
+            <View
+                style={[
+                    styles.unreadDotLayer,
+                    {
+                        backgroundColor: color,
+                        left: inset,
+                        right: inset,
+                        top: inset + 2 * s,
+                        bottom: inset + 2 * s,
+                    },
+                ]}
+            />
+            <View
+                style={[
+                    styles.unreadDotLayer,
+                    {
+                        backgroundColor: color,
+                        left: inset + s,
+                        right: inset + s,
+                        top: inset + s,
+                        bottom: inset + s,
+                    },
+                ]}
+            />
+            <View
+                style={[
+                    styles.unreadDotLayer,
+                    {
+                        backgroundColor: color,
+                        left: inset + 2 * s,
+                        right: inset + 2 * s,
+                        top: inset,
+                        bottom: inset,
+                    },
+                ]}
+            />
+        </>
     );
 }
 
@@ -1535,6 +1649,12 @@ const styles = StyleSheet.create({
         top: 72,
         right: 20,
         zIndex: 50,
+        // 아래 "물 줄 식물 N개" 칩이 종보다 넓어져도 종은 오른쪽 끝에 붙어 있게
+        alignItems: "flex-end",
+    },
+    // 빨간 점의 기준이 되는 상자 — 버튼과 같은 크기로 잡혀 모서리 좌표가 정확해진다
+    notificationBell: {
+        position: "relative",
     },
 
     // 밀린 물주기 요약 (알림 버튼 아래)
@@ -1558,14 +1678,23 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
     },
-    redDot: {
+    /*
+        종(지름 65)의 오른쪽 위 45° 테두리에 배지 중심이 오도록 잡은 자리.
+        top/right 2 면 중심이 (55, 10) — 원 중심에서 31.8 로 반지름 32.5 와 거의 같아
+        배지가 테두리에 걸터앉는다. 0 이나 음수로 더 빼면 원에서 떨어져 붕 뜬다.
+    */
+    unreadDot: {
         position: "absolute",
-        top: -5,
-        right: -5,
-        width: 22,
-        height: 22,
-        borderRadius: Radius.md,
-        backgroundColor: Accent.alert,
+        top: 2,
+        right: 2,
+        width: DOT_SIZE,
+        height: DOT_SIZE,
+        // Android 는 elevation 이 형제 간 그리기 순서를 이긴다 — 유리 버튼(6)보다 위로
+        zIndex: 1,
+        elevation: 8,
+    },
+    unreadDotLayer: {
+        position: "absolute",
     },
 
     // 식물이 돌아다닐 수 있는 영역 — 위/아래 경계는 배경별로 FIELD_BOUNDS 에서 얹는다
@@ -1607,15 +1736,32 @@ const styles = StyleSheet.create({
     magnifierIcon: {
         width: MAG_SIZE,
         height: MAG_SIZE,
+        /*
+            렌즈 구멍을 화면 중앙에 맞추는 보정.
+            레이아웃이 아니라 transform 으로 미는 이유는 위쪽 안내 문구까지 따라
+            밀리지 않게 하기 위해서다 — 문구는 화면 기준으로 가운데 있어야 한다.
+        */
+        transform: [{ translateX: MAG_LENS_DX }],
     },
     magnifierHint: {
         marginBottom: Spacing.sm,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.xs,
-        borderRadius: Radius.pill,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.sm,
+        borderRadius: Radius.lg,
         backgroundColor: Glass.frost72,
         borderWidth: 1,
         borderColor: Glass.frost45,
+        alignItems: "center",
+        // 이름이 길어도 돋보기 폭을 넘지 않게 (넘으면 말줄임)
+        maxWidth: MAG_SIZE - Spacing.huge,
+    },
+    // 이름이 주인공이고 안내 문구는 그 아래 보조 — 크기와 색으로 층을 나눈다
+    magnifierHintName: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        lineHeight: 20,
+        color: GreenTint.deep,
+        includeFontPadding: false,
     },
     // 렌즈 구멍 자리의 창 — 자리(left/top)·세로 늘이기는 Magnifier 가 얹는다
     magnifierLens: {
@@ -1628,7 +1774,8 @@ const styles = StyleSheet.create({
     magnifierHintText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: Colors.textBlack,
+        lineHeight: 15,
+        color: Colors.textGray,
         includeFontPadding: false,
     },
 
