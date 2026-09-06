@@ -89,30 +89,43 @@ const needsWatering = (plant) =>
     plant.daysUntilWatering != null && plant.daysUntilWatering <= 0;
 
 /*
-    들판에 세울 개체를 고른다.
+    들판에 세울 개체를 고른다 — 최대 MAX_FIELD_PLANTS 마리.
 
-    물 줄 때가 된 개체가 먼저다 — 홈을 열었을 때 손이 필요한 식물이 눈에 들어와야 한다.
-    남는 자리는 즐겨찾기로 채우고, 물 줄 개체가 없으면 즐겨찾기만 보인다.
+    우선순위는 물주기 > 즐겨찾기 > 일반. 홈을 열었을 때 손이 필요한 식물이 먼저
+    눈에 들어와야 하고, 그 다음이 아끼는 개체다.
+
+    마지막 층이 "나머지 전부"라서, 기르는 개체가 7마리 이하면 물 줄 개체나
+    즐겨찾기가 하나도 없어도 결국 모두 들판에 선다. (앞 층에서 이미 뽑힌 개체는
+    pickedIds 로 걸러지므로 마지막 층에 전체를 넣어도 중복되지 않는다.)
+
     떠나보낸 개체(추모정원)는 들판에 세우지 않는다.
 */
 function selectFieldPlants(plants) {
     const alive = plants.filter((plant) => !plant.memorial);
+    const byRegistered = (a, b) => Number(a.id) - Number(b.id);
 
-    const needsWater = alive
-        .filter(needsWatering)
-        // 더 오래 밀린 개체부터
-        .sort((a, b) => a.daysUntilWatering - b.daysUntilWatering);
+    // 위 층부터 채우고, 자리가 남으면 다음 층으로 내려간다
+    const tiers = [
+        // 1) 물 줄 때가 된 개체 — 더 오래 밀린 개체부터
+        alive
+            .filter(needsWatering)
+            .sort((a, b) => a.daysUntilWatering - b.daysUntilWatering),
+        // 2) 즐겨찾기
+        alive.filter((plant) => plant.favorite).sort(byRegistered),
+        // 3) 나머지 — 자리가 남는 만큼 등록 순으로 채운다
+        alive.slice().sort(byRegistered),
+    ];
 
-    const picked = needsWater.slice(0, MAX_FIELD_PLANTS);
-    const pickedIds = new Set(picked.map((plant) => plant.id));
-
-    if (picked.length < MAX_FIELD_PLANTS) {
-        const favorites = alive
-            .filter((plant) => plant.favorite && !pickedIds.has(plant.id))
-            .sort((a, b) => Number(a.id) - Number(b.id));
-        picked.push(...favorites.slice(0, MAX_FIELD_PLANTS - picked.length));
+    const picked = [];
+    const pickedIds = new Set();
+    for (const tier of tiers) {
+        for (const plant of tier) {
+            if (picked.length >= MAX_FIELD_PLANTS) return picked;
+            if (pickedIds.has(plant.id)) continue;
+            pickedIds.add(plant.id);
+            picked.push(plant);
+        }
     }
-
     return picked;
 }
 
