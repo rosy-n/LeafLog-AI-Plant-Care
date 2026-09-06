@@ -11,16 +11,14 @@ API 응답(AffinityStatus)을 그대로 표시한다.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date, datetime, timezone
-from zoneinfo import ZoneInfo
+from datetime import date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .korea_time import korea_day, today_in_korea
 from .models import CareRecord, Plant
 from .schemas import AffinityStatus
-
-KOREA_TIMEZONE = ZoneInfo("Asia/Seoul")
 
 # 상호작용 1회당 애정도 — 손이 더 많이 가는 돌봄에 더 많은 점수.
 # care_record.care_type 과 같은 값이어야 한다.
@@ -117,20 +115,6 @@ def status_for_plant(plant: Plant) -> AffinityStatus:
 # 점수 적립
 # ---------------------------------------------------------------------------
 
-def _korea_day(completed_at: datetime) -> date:
-    """기록 시각을 한국 날짜로. care_record.completed_at 은 naive UTC로 저장된다."""
-    aware = (
-        completed_at.replace(tzinfo=timezone.utc)
-        if completed_at.tzinfo is None
-        else completed_at
-    )
-    return aware.astimezone(KOREA_TIMEZONE).date()
-
-
-def today_in_korea() -> date:
-    return datetime.now(timezone.utc).astimezone(KOREA_TIMEZONE).date()
-
-
 def initial_score(care_types: Iterable[str]) -> int:
     """개체 등록 시 함께 남기는 최초 기록(마지막 물준 날/분갈이한 날)의 점수."""
     return min(MAX_SCORE, sum(CARE_POINTS.get(care_type, 0) for care_type in care_types))
@@ -152,9 +136,9 @@ def award_for_care(
     if points == 0 or current >= MAX_SCORE:
         return 0
 
-    day = _korea_day(completed_at)
+    day = korea_day(completed_at)
     already_today = any(
-        _korea_day(recorded_at) == day
+        korea_day(recorded_at) == day
         for recorded_at in db.scalars(
             select(CareRecord.completed_at).where(
                 CareRecord.plant_id == plant.plant_id,
