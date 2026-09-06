@@ -24,6 +24,7 @@ from .image_preprocessing import (
     remove_background_for_sprite,
     remove_character_face,
 )
+from .korea_time import korea_day, today_in_korea
 from .models import (
     AppUser,
     CareRecord,
@@ -217,11 +218,19 @@ def _parse_dt(value: str | None) -> datetime | None:
 
 
 def _days_since(moment: datetime | None) -> int | None:
+    """저장된 시각이 며칠 전인지 — 사용자가 달력에서 세는 하루 기준(korea_time 참고)."""
     if moment is None:
         return None
-    # 저장·조회 모두 naive UTC 기준 — 캘린더 일수 차이로 "며칠 전" 계산
-    aware = moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
-    return max(0, (datetime.now(timezone.utc).date() - aware.date()).days)
+    return max(0, (today_in_korea() - korea_day(moment)).days)
+
+
+def _watering_base_day(last_watered: datetime | None) -> date:
+    """다음 예정일을 세는 기준 날짜 — 마지막으로 물 준 날, 없으면 오늘.
+
+    달력의 하루라서 한국 날짜로 센다. UTC로 세면 밤 9시 이후(= UTC 다음날)에
+    물을 준 경우 예정일이 하루 앞당겨지고, 새벽에는 하루 늦게 잡힌다.
+    """
+    return korea_day(last_watered) if last_watered else today_in_korea()
 
 
 def _species_interval_days(plant: Plant, db: Session) -> int | None:
@@ -277,14 +286,13 @@ def _upsert_watering_schedule(
             care_type="WATERING",
             interval_days=interval,
             interval_source=source,
-            next_due_date=(last_watered or datetime.now(timezone.utc)).date()
-            + timedelta(days=interval),
+            next_due_date=_watering_base_day(last_watered) + timedelta(days=interval),
         )
         db.add(schedule)
         return schedule
 
     # 이미 있는 일정은 주기·출처를 건드리지 않고 다음 예정일만 밀어준다
-    base = (last_watered or datetime.now(timezone.utc)).date()
+    base = _watering_base_day(last_watered)
     schedule.next_due_date = base + timedelta(days=schedule.interval_days)
     return schedule
 
@@ -967,7 +975,7 @@ def list_plants(
         ).all():
             last_watered_map[pid] = completed_at
 
-    today = datetime.now(timezone.utc).date()
+    today = today_in_korea()
     default_background = _default_background(db)
 
     def watering_summary(plant: Plant) -> tuple[int | None, date | None]:
@@ -979,7 +987,7 @@ def list_plants(
         base = last_watered_map.get(plant.plant_id) or plant.created_at
         if not interval or base is None:
             return interval, None
-        return interval, base.date() + timedelta(days=interval)
+        return interval, korea_day(base) + timedelta(days=interval)
 
     items: list[PlantListItem] = []
     for plant, common_name_ko in rows:
@@ -1064,7 +1072,7 @@ def update_plant(
                 .order_by(CareRecord.completed_at.desc())
                 .limit(1)
             )
-            base = (last or datetime.now(timezone.utc)).date()
+            base = _watering_base_day(last)
             schedule.next_due_date = base + timedelta(days=interval)
 
     if "nickname" in data and data["nickname"] is not None:
@@ -1206,7 +1214,7 @@ def update_watering_schedule(
         .order_by(CareRecord.completed_at.desc())
         .limit(1)
     )
-    next_due = (last_watered or datetime.now(timezone.utc)).date() + timedelta(days=interval)
+    next_due = _watering_base_day(last_watered) + timedelta(days=interval)
 
     if schedule is None:
         # 일정이 없던 개체(마스터 도입 전 등록분)는 이 시점에 만들어진다
@@ -1265,11 +1273,12 @@ def plant_care_summary(
     else:
         # 일정 행이 아직 없는 개체(마스터 도입 전 등록분) — 만들지 않고 계산만 한다
         interval, source = _initial_interval(plant, db)
-        base = (watered or plant.created_at).date() if (watered or plant.created_at) else None
+        base_moment = watered or plant.created_at
+        base = korea_day(base_moment) if base_moment else None
         next_due = base + timedelta(days=interval) if (interval and base) else None
         saved = False
 
-    today = datetime.now(timezone.utc).date()
+    today = today_in_korea()
     return CareSummary(
         last_watered_at=watered.isoformat() if watered else None,
         days_since_watering=_days_since(watered),
@@ -1689,7 +1698,7 @@ def persona_chat_reply(
                 {"role": message.role, "content": message.content} for message in payload.history
             ],
             user_message=payload.message,
-            reference_date=persona_chat.today_in_korea(),
+            reference_date=today_in_korea(),
             plant_context=plant_context,
         )
     except RuntimeError as exc:
@@ -1748,7 +1757,7 @@ async def diagnose_plant_photo(
                 _diagnosis_species_care(plant_species),
                 _persona_watering_schedule(effective_plant_id, db),
                 plant_name=plant.nickname,
-                reference_date=persona_chat.today_in_korea(),
+                reference_date=today_in_korea(),
             )
 
     weather_air_quality = _persona_weather_air_quality(current_user, db)
@@ -2277,10 +2286,11 @@ def get_environment_history(
     # 주/월도 우리 DB 누적치가 아니라, ASOS 일자료(하루 평균)를 그 자리에서 라이브
     # 조회한다 — 사용자가 그동안 앱을 몇 번 열었는지와 무관하게 항상 완전한 그래프.
     # ASOS는 전일(D-1)까지만 제공하므로 endDt는 어제로 고정한다.
+    # (ASOS 일자료는 한국 날짜 기준이라 서버 로컬 날짜가 아니라 한국 날짜로 센다)
     region = _region_for_current_user(current_user, db)
     stn_id = asos.nearest_station_id(region.lat, region.lng)
     days = 7 if period == "week" else 30
-    end = date.today() - timedelta(days=1)
+    end = today_in_korea() - timedelta(days=1)
     start = end - timedelta(days=days - 1)
 
     try:
