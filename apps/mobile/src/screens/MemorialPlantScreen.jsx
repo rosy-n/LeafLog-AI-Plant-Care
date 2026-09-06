@@ -322,8 +322,8 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                                     plant?.characterFaceRemoved ? getPlantExpressionSource(plant) : null
                                 }
                                 expressionBounds={plant?.characterFaceBounds}
-                                width={72}
-                                height={72}
+                                width={60}
+                                height={60}
                                 style={styles.confirmPlant}
                             />
 
@@ -495,33 +495,41 @@ const styles = StyleSheet.create({
     },
     confirmCardTouch: {
         width: "100%",
-        maxWidth: 340,
+        maxWidth: 320,
     },
     confirmCard: {
         width: "100%",
         backgroundColor: Paper.cream,
         borderWidth: 3,
         borderColor: Accent.mauve,
-        paddingVertical: Spacing.xxl,
-        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.lg,
+        paddingHorizontal: Spacing.lg,
         alignItems: "center",
     },
     confirmPlant: {
-        marginBottom: Spacing.md,
+        marginBottom: Spacing.xs,
     },
+    /*
+        도트 폰트는 글자 위아래로 빈 줄 상자가 넓게 잡힌다.
+        lineHeight 를 글자 크기에 맞춰 조이고 includeFontPadding 을 꺼야
+        marginBottom 을 줄인 만큼 실제로 붙는다.
+    */
     confirmTitle: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.title,
+        lineHeight: 26,
+        includeFontPadding: false,
         color: Accent.mauve,
-        marginBottom: Spacing.sm,
+        marginBottom: Spacing.xs,
     },
     confirmMessage: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.bodyLarge,
-        lineHeight: 26,
+        lineHeight: 22,
+        includeFontPadding: false,
         color: Colors.textBlack,
         textAlign: "center",
-        marginBottom: Spacing.xl,
+        marginBottom: Spacing.lg,
     },
     confirmButtonRow: {
         flexDirection: "row",
@@ -531,8 +539,12 @@ const styles = StyleSheet.create({
     confirmButton: {
         flex: 1,
     },
-    // "계속 추억하기"가 좁은 칸에서 줄바꿈되지 않게 기본 좌우 패딩보다 줄인다
+    /*
+        좌우: "계속 추억하기"가 좁은 칸에서 줄바꿈되지 않게 기본값보다 줄인다.
+        상하: 버튼 두 줄만으로 카드가 길어지지 않게 한 단계 낮춘다.
+    */
     confirmButtonContent: {
         paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.sm,
     },
 });
