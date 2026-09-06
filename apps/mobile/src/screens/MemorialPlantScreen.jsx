@@ -9,7 +9,6 @@ import {
     Animated,
     Modal,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -20,11 +19,11 @@ import PlantImage from "../components/PlantImage";
 import { getPlantExpressionSource } from "../data/characterExpressions";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
+import PixelButton from "../components/PixelButton";
 import GlassMenuItem from "../components/GlassMenuItem";
-import ActionButton from "../components/ActionButton";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Paper, Pink, Accent } from "../../constants/colors";
-import { Spacing, Radius } from "../../constants/spacing";
+import { Spacing } from "../../constants/spacing";
 
 const MENU_ITEMS = [
     { label: "프로필", screen: "Profile" },
@@ -300,7 +299,7 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                 </SafeAreaView>
             </ImageBackground>
 
-            {/* Revive modal */}
+            {/* ── 다시 함께하기 확인 모달 (앱 픽셀 확인창 디자인) ── */}
             <Modal
                 visible={graveModalVisible}
                 transparent
@@ -308,84 +307,47 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                 onRequestClose={() => setGraveModalVisible(false)}
             >
                 <TouchableOpacity
-                    style={styles.modalOverlay}
+                    style={styles.confirmBackdrop}
                     activeOpacity={1}
                     onPress={() => setGraveModalVisible(false)}
                 >
-                    <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
-                    <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-                        <View style={styles.modalBox}>
+                    {/* 카드 안쪽 탭이 바깥 닫기로 새지 않게 한 겹 감싼다 */}
+                    <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.confirmCardTouch}>
+                        <View style={styles.confirmCard}>
+                            {/* 아이콘 자리에 그 개체를 세운다 — 누구를 되돌리는지 한눈에 */}
+                            <PlantImage
+                                uri={plant?.imageUri}
+                                imageKey={plant?.imageKey ?? "spaghetti"}
+                                expressionSource={
+                                    plant?.characterFaceRemoved ? getPlantExpressionSource(plant) : null
+                                }
+                                expressionBounds={plant?.characterFaceBounds}
+                                width={72}
+                                height={72}
+                                style={styles.confirmPlant}
+                            />
 
-                            {/* X 닫기 버튼 */}
-                            <TouchableOpacity
-                                style={styles.modalCloseBtn}
-                                onPress={() => setGraveModalVisible(false)}
-                            >
-                                <Ionicons name="close" size={20} color={Colors.textFaint} />
-                            </TouchableOpacity>
-
-                            {/* 상단 장식 아이콘 */}
-                            <View style={styles.modalTopDecor}>
-                                <MaterialCommunityIcons
-                                    name="leaf"
-                                    size={15}
-                                    color={GreenTint.medium}
-                                    style={{ transform: [{ rotate: "-35deg" }], marginBottom: 2 }}
-                                />
-                                <MaterialCommunityIcons
-                                    name="butterfly"
-                                    size={26}
-                                    color={GreenTint.medium}
-                                />
-                                <MaterialCommunityIcons
-                                    name="leaf"
-                                    size={15}
-                                    color={GreenTint.medium}
-                                    style={{ transform: [{ rotate: "35deg" }], marginBottom: 2 }}
-                                />
-                            </View>
-
-                            {/* 타이틀 */}
-                            <Text style={styles.modalTitle}>다시 함께할까요?</Text>
-
-                            {/* 하트 구분자 */}
-                            <Ionicons name="heart" size={13} color={Pink.light} style={styles.modalHeart} />
-
-                            {/* 설명 */}
-                            <Text style={styles.modalDesc}>
-                                {plantName}을(를) 추억공간에서{"\n"}다시 정원으로 옮길 수 있어요.
+                            <Text style={styles.confirmTitle}>다시 함께하기</Text>
+                            <Text style={styles.confirmMessage}>
+                                {plantName}을(를) 추억공간에서{"\n"}다시 정원으로 옮길까요?
                             </Text>
 
-                            {/* 버튼 영역 */}
-                            <View style={styles.modalBtnRow}>
-                                <ActionButton
+                            <View style={styles.confirmButtonRow}>
+                                <PixelButton
                                     label="계속 추억하기"
-                                    color={Paper.taupeBg}
-                                    borderColor={Paper.taupeBorder}
-                                    textColor={Paper.taupeText}
-                                    size="md"
-                                    shadow={false}
-                                    activeOpacity={0.85}
+                                    color={Colors.textGray}
                                     onPress={() => setGraveModalVisible(false)}
-                                    style={styles.modalBtnSecondary}
-                                    textStyle={styles.modalBtnLabel}
+                                    contentStyle={styles.confirmButtonContent}
+                                    style={styles.confirmButton}
                                 />
-
-                                {/* 반짝임·하트가 섞여 라벨 하나로는 안 돼서 내용을 직접 넘긴다 */}
-                                <ActionButton
-                                    color={GreenTint.line}
-                                    size="md"
-                                    activeOpacity={0.85}
+                                <PixelButton
+                                    label="다시 함께하기"
+                                    color={Colors.primary}
                                     onPress={handleRevive}
-                                    style={styles.modalBtnPrimary}
-                                >
-                                    <Text style={styles.modalSparkle}>✦ </Text>
-                                    <Ionicons name="heart" size={12} color={Colors.white} />
-                                    <Text style={styles.modalBtnPrimaryText}> 다시 함께하기</Text>
-                                    <Text style={styles.modalSparkle}> ✦</Text>
-                                </ActionButton>
+                                    contentStyle={styles.confirmButtonContent}
+                                    style={styles.confirmButton}
+                                />
                             </View>
-
                         </View>
                     </TouchableOpacity>
                 </TouchableOpacity>
@@ -395,9 +357,6 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
 }
 
 const styles = StyleSheet.create({
-    modalBtnLabel: {
-        fontSize: FontSizes.small,
-    },
     root: {
         flex: 1,
         backgroundColor: GreenTint.line,
@@ -521,88 +480,59 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.sm,
     },
 
-    // ── Modal ──────────────────────────────────────────────
-    modalOverlay: {
+    /*
+        ── 다시 함께하기 확인 모달 ──────────────────────────
+        PlantDetailScreen 의 물주기 확인창과 같은 뼈대(크림 카드 + 3px 각진
+        테두리 + 픽셀 버튼)를 쓴다. 색만 추모 화면의 mauve 로 바꿔
+        같은 앱의 확인창이면서 이 화면의 결을 잃지 않게 했다.
+    */
+    confirmBackdrop: {
         flex: 1,
+        backgroundColor: Colors.scrim,
         alignItems: "center",
         justifyContent: "center",
+        paddingHorizontal: Spacing.xl,
     },
-    modalBox: {
-        width: 300,
-        backgroundColor: Colors.separator,
-        borderRadius: Radius.xl,
-        borderWidth: 1.5,
-        borderColor: Paper.taupe,
-        paddingTop: Spacing.section,
-        paddingBottom: Spacing.xxl,
+    confirmCardTouch: {
+        width: "100%",
+        maxWidth: 340,
+    },
+    confirmCard: {
+        width: "100%",
+        backgroundColor: Paper.cream,
+        borderWidth: 3,
+        borderColor: Accent.mauve,
+        paddingVertical: Spacing.xxl,
         paddingHorizontal: Spacing.xl,
         alignItems: "center",
-        shadowColor: Colors.textBlack,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.18,
-        shadowRadius: 16,
-        elevation: 12,
     },
-    modalCloseBtn: {
-        position: "absolute",
-        top: 12,
-        right: 14,
-    },
-    modalTopDecor: {
-        flexDirection: "row",
-        alignItems: "flex-end",
-        gap: Spacing.xs,
-        marginBottom: Spacing.lg,
-    },
-    modalTitle: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.title,
-        color: Colors.textBlack,
-        textAlign: "center",
-        marginBottom: Spacing.sm,
-    },
-    modalHeart: {
+    confirmPlant: {
         marginBottom: Spacing.md,
     },
-    modalDesc: {
+    confirmTitle: {
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.textFaint,
-        textAlign: "center",
-        lineHeight: 21,
-        marginBottom: Spacing.xxl,
+        fontSize: FontSizes.title,
+        color: Accent.mauve,
+        marginBottom: Spacing.sm,
     },
-    modalBtnRow: {
+    confirmMessage: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        lineHeight: 26,
+        color: Colors.textBlack,
+        textAlign: "center",
+        marginBottom: Spacing.xl,
+    },
+    confirmButtonRow: {
         flexDirection: "row",
         gap: Spacing.md,
         width: "100%",
     },
-    modalBtnSecondary: {
+    confirmButton: {
         flex: 1,
-        height: 46,
-        borderRadius: Radius.pill,
-        paddingVertical: Spacing.none,
     },
-    modalBtnPrimary: {
-        flex: 1,
-        height: 46,
-        borderRadius: Radius.pill,
-        paddingVertical: Spacing.none,
-        gap: Spacing.none,
-        shadowColor: GreenTint.strong,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.35,
-        shadowRadius: 6,
-        elevation: 4,
-    },
-    modalBtnPrimaryText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.small,
-        color: Colors.white,
-    },
-    modalSparkle: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.caption,
-        color: Colors.white,
+    // "계속 추억하기"가 좁은 칸에서 줄바꿈되지 않게 기본 좌우 패딩보다 줄인다
+    confirmButtonContent: {
+        paddingHorizontal: Spacing.sm,
     },
 });
