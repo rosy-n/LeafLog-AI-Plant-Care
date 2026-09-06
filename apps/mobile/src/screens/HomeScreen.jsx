@@ -1422,6 +1422,15 @@ function Magnifier({
                 ]}
             >
                 <View style={styles.magnifierHint}>
+                    {/*
+                        들고 있는 개체의 이름 — 렌즈 안은 잎만 크게 보일 때가 많아
+                        확대상만으로는 어떤 아이를 집었는지 알기 어렵다.
+                    */}
+                    {plant?.name ? (
+                        <Text style={styles.magnifierHintName} numberOfLines={1}>
+                            {plant.name}
+                        </Text>
+                    ) : null}
                     <Text style={styles.magnifierHintText}>
                         {active ? "놓으면 자세히 보기" : "여기에 놓아 자세히 보기"}
                     </Text>
@@ -1636,12 +1645,23 @@ const styles = StyleSheet.create({
     },
     magnifierHint: {
         marginBottom: Spacing.sm,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.xs,
-        borderRadius: Radius.pill,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.sm,
+        borderRadius: Radius.lg,
         backgroundColor: Glass.frost72,
         borderWidth: 1,
         borderColor: Glass.frost45,
+        alignItems: "center",
+        // 이름이 길어도 돋보기 폭을 넘지 않게 (넘으면 말줄임)
+        maxWidth: MAG_SIZE - Spacing.huge,
+    },
+    // 이름이 주인공이고 안내 문구는 그 아래 보조 — 크기와 색으로 층을 나눈다
+    magnifierHintName: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        lineHeight: 20,
+        color: GreenTint.deep,
+        includeFontPadding: false,
     },
     // 렌즈 구멍 자리의 창 — 자리(left/top)·세로 늘이기는 Magnifier 가 얹는다
     magnifierLens: {
@@ -1654,7 +1674,8 @@ const styles = StyleSheet.create({
     magnifierHintText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.small,
-        color: Colors.textBlack,
+        lineHeight: 15,
+        color: Colors.textGray,
         includeFontPadding: false,
     },
 
