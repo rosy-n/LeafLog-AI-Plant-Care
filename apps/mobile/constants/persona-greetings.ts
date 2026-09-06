@@ -115,11 +115,12 @@ export const PERSONA_GREETINGS: Record<string, string[]> = {
 };
 
 // 페르소나를 아직 선택하지 않은 식물(persona === null)을 위한 기본값
-const DEFAULT_GREETINGS = ['안녕! 좋은 아침이야'];
+const DEFAULT_GREETING = '안녕! 좋은 아침이야';
+const DEFAULT_GREETINGS = [DEFAULT_GREETING];
 
 export function getPersonaGreeting(persona: string | null | undefined): string {
   const lines = (persona && PERSONA_GREETINGS[persona]) || DEFAULT_GREETINGS;
-  return lines[Math.floor(Math.random() * lines.length)];
+  return lines[Math.floor(Math.random() * lines.length)] ?? DEFAULT_GREETING;
 }
 
 // 페르소나별 "물줘" 대사 — 물주기 예정일이거나 지난 경우, 개체탭 말풍선에서
@@ -169,5 +170,5 @@ export const PERSONA_WATERING_LINES: Record<string, string[]> = {
 
 export function getPersonaWateringLine(persona: string | null | undefined): string {
   const lines = (persona && PERSONA_WATERING_LINES[persona]) || DEFAULT_GREETINGS;
-  return lines[Math.floor(Math.random() * lines.length)];
+  return lines[Math.floor(Math.random() * lines.length)] ?? DEFAULT_GREETING;
 }

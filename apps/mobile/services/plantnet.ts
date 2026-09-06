@@ -1,4 +1,5 @@
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import { File } from 'expo-file-system';
 import type { PlantNetResult } from '../types/plant';
 
 const API_KEY = process.env.EXPO_PUBLIC_PLANTNET_API_KEY ?? '';
@@ -25,7 +26,7 @@ export async function identifyPlant(
 
   const formData = new FormData();
   uriList.forEach((uri, i) => {
-    formData.append('images', { uri, type: 'image/jpeg', name: `plant_${i}.jpg` } as any);
+    formData.append('images', new File(uri));
     formData.append('organs', organList[i] ?? 'auto');
   });
 

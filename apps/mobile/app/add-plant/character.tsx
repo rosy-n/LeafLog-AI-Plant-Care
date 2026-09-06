@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -68,6 +69,8 @@ export default function CharacterScreen() {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const generationRunRef = useRef(0);
+  const submittingRef = useRef(false);
+  const completedJobRef = useRef<string | null>(null);
   const intentionalRetryRef = useRef(false);
 
   const selectedCandidate =
@@ -101,26 +104,33 @@ export default function CharacterScreen() {
           throw new Error('생성된 캐릭터 3개를 모두 불러오지 못했어요.');
         }
         setCandidates(generatedCandidates);
+        completedJobRef.current = job.id;
         progressAnim.setValue(1);
         setScreenState('result');
         return;
       }
 
       await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+      if (generationRunRef.current !== runId) return;
       job = await getCharacterGeneration(job.id);
     }
   };
 
-  useEffect(() => {
-    if (!resumeGeneration) return;
+  useFocusEffect(useCallback(() => {
+    const stopWatching = () => {
+      generationRunRef.current += 1;
+      submittingRef.current = false;
+    };
+    if (!resumeGeneration) return stopWatching;
+    if (draft.generationJobId && completedJobRef.current === draft.generationJobId) return stopWatching;
     if (!draft.generationJobId) {
       setScreenState('guide');
       if (intentionalRetryRef.current) {
         intentionalRetryRef.current = false;
-        return;
+        return stopWatching;
       }
       Alert.alert('생성 작업 확인', '진행 중인 생성 작업이 없어요. 사진을 다시 선택해주세요.');
-      return;
+      return stopWatching;
     }
 
     const runId = generationRunRef.current + 1;
@@ -138,13 +148,12 @@ export default function CharacterScreen() {
         setScreenState('guide');
       });
 
-    return () => {
-      generationRunRef.current += 1;
-    };
-  }, [resumeGeneration, draft.generationJobId]);
+    return stopWatching;
+  }, [resumeGeneration, draft.generationJobId, draft.capturedPhotoUri]));
 
   const handleRetry = () => {
     generationRunRef.current += 1;
+    completedJobRef.current = null;
     intentionalRetryRef.current = true;
     updateDraft({
       generationJobId: null,
@@ -204,7 +213,8 @@ export default function CharacterScreen() {
   // ── generation ────────────────────────────────────────────────────────────
 
   const handleGenerate = async () => {
-    if (!photoUri) return;
+    if (!photoUri || submittingRef.current) return;
+    submittingRef.current = true;
     intentionalRetryRef.current = false;
     const runId = generationRunRef.current + 1;
     generationRunRef.current = runId;
@@ -221,6 +231,7 @@ export default function CharacterScreen() {
         name: 'plant-photo',
         type: 'application/octet-stream',
       });
+      if (generationRunRef.current !== runId) return;
       updateDraft({
         generationJobId: job.id,
         capturedPhotoUri: photoUri,
@@ -238,6 +249,8 @@ export default function CharacterScreen() {
       if (generationRunRef.current !== runId) return;
       Alert.alert('생성 실패', error?.message ?? '잠시 후 다시 시도해주세요.');
       setScreenState('preview');
+    } finally {
+      if (generationRunRef.current === runId) submittingRef.current = false;
     }
   };
 

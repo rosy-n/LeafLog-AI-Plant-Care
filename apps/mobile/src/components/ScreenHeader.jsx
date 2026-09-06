@@ -11,6 +11,9 @@ import { HEADER_HEIGHT, headerTitle } from "../../constants/layout";
  * - right:      우측 커스텀 노드 (미지정 시 44×44 스페이서로 균형)
  * - center:     중앙 커스텀 노드 (지정 시 title 대신 렌더)
  * - titleStyle: 제목 스타일 오버라이드 — 크기는 화면끼리 어긋나므로 바꾸지 말 것
+ * @param {{ title?: string, onBack: () => void, right?: import('react').ReactNode,
+ * center?: import('react').ReactNode,
+ * titleStyle?: import('react-native').StyleProp<import('react-native').TextStyle> }} props
  */
 export default function ScreenHeader({ title, onBack, right = null, center = null, titleStyle = null }) {
     return (

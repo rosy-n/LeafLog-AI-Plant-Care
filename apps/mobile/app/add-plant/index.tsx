@@ -11,7 +11,8 @@ import {
   View,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from '../../src/hooks/useAddPlantRouter';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -36,7 +37,20 @@ export default function AddPlantIndexScreen() {
   const [isDetailLoading, setIsDetailLoading] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRunRef = useRef(0);
   const inputRef = useRef<TextInput>(null);
+
+  const invalidateSearch = useCallback(() => {
+    searchRunRef.current += 1;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = null;
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    setIsDetailLoading(false);
+    setIsSearchLoading(false);
+    return invalidateSearch;
+  }, [invalidateSearch]));
 
   // ── photo helpers ─────────────────────────────────────────────────────────
 
@@ -89,6 +103,8 @@ export default function AddPlantIndexScreen() {
   const handleSearchFocus = () => setMode('search');
 
   const handleCancel = () => {
+    invalidateSearch();
+    setIsSearchLoading(false);
     setMode('initial');
     setSearchText('');
     setSearchResults([]);
@@ -96,22 +112,31 @@ export default function AddPlantIndexScreen() {
   };
 
   const handleSearchChange = (text: string) => {
+    invalidateSearch();
     setSearchText(text);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!text.trim()) { setSearchResults([]); return; }
+    setSearchResults([]);
+    setIsSearchLoading(false);
+    if (!text.trim()) return;
+    const runId = searchRunRef.current;
     debounceRef.current = setTimeout(async () => {
+      debounceRef.current = null;
       setIsSearchLoading(true);
       try {
-        setSearchResults(await searchSpecies(text));
+        const results = await searchSpecies(text.trim());
+        if (searchRunRef.current === runId) setSearchResults(results);
       } catch (e: any) {
-        Alert.alert('오류', e.message ?? '식물 검색 중 문제가 발생했어요.');
+        if (searchRunRef.current === runId) {
+          Alert.alert('오류', e.message ?? '식물 검색 중 문제가 발생했어요.');
+        }
       } finally {
-        setIsSearchLoading(false);
+        if (searchRunRef.current === runId) setIsSearchLoading(false);
       }
     }, 500);
   };
 
   const handleSearchSelect = (species: SpeciesListItem) => {
+    invalidateSearch();
+    setIsSearchLoading(false);
     updateDraft({ identificationPhotoUri: null });
     setSearchText(species.common_name_ko);
     setSearchResults([]);
@@ -124,7 +149,6 @@ export default function AddPlantIndexScreen() {
         scientificName: species.scientific_name ?? '',
       },
     });
-    setTimeout(() => setIsDetailLoading(false), 300);
   };
 
   const showDropdown = searchResults.length > 0 && searchText.trim().length > 0;
