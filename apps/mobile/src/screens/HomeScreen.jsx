@@ -235,6 +235,19 @@ const SIDE_SLIDE = 140;
     선·모서리 계단·꼬리가 좁아지는 폭처럼 선을 따라가는 값은 BUBBLE_LINE 이 단위다.
     선 두께만 바꿔도 모서리와 꼬리가 같이 따라오게 하려는 것.
 */
+/*
+    읽지 않은 알림 표시 — 종 버튼 모서리의 도트 배지.
+
+    매끈한 원은 이 화면의 도트 그림(캐릭터·말풍선·픽셀 버튼)과 결이 다르다.
+    모서리를 계단으로 깎아 도트로 그린 원이다.
+
+    한 단만 깎으면 작은 크기에서 잘린 면이 너무 커져 십자처럼 보인다.
+    PixelButton·PixelSpeechBubble 과 같은 2단 계단(세 겹)을 써야 둥글게 읽힌다.
+*/
+const DOT_STEP = 2;      // 계단 한 칸
+const DOT_LINE = 2;      // 검정 외곽선 두께
+const DOT_SIZE = DOT_STEP * 8;
+
 const BUBBLE_DOT = 4;    // 도트 한 칸 — 몸통 크기·물방울 자리
 const BUBBLE_LINE = 3;   // 외곽선 두께 = 모서리 계단 한 단 = 몸통 가로 한 줄
 /*
@@ -563,7 +576,10 @@ export default function HomeScreen({
                             />
                         </GlassButton>
                         {hasUnread && (
-                            <View style={styles.redDot} pointerEvents="none" />
+                            <View style={styles.unreadDot} pointerEvents="none">
+                                <PixelDotShape color={Colors.textBlack} inset={0} />
+                                <PixelDotShape color={Accent.alert} inset={DOT_LINE} />
+                            </View>
                         )}
                     </View>
 
@@ -1454,6 +1470,56 @@ function Magnifier({
 }
 
 /*
+    도트 배지의 한 겹 — 폭이 다른 사각형 셋을 겹쳐 2단 계단 모서리를 만든다.
+    가장 넓은 판을 가운데 두고, 위아래로 갈수록 한 칸씩 좁아진다.
+    같은 도형을 검정(바깥)·빨강(안쪽)으로 두 번 겹쳐 그리면 검정이 외곽선으로 남는다.
+    (PixelButton 의 PixelShape 와 같은 계산)
+*/
+function PixelDotShape({ color, inset }) {
+    const s = DOT_STEP;
+    return (
+        <>
+            <View
+                style={[
+                    styles.unreadDotLayer,
+                    {
+                        backgroundColor: color,
+                        left: inset,
+                        right: inset,
+                        top: inset + 2 * s,
+                        bottom: inset + 2 * s,
+                    },
+                ]}
+            />
+            <View
+                style={[
+                    styles.unreadDotLayer,
+                    {
+                        backgroundColor: color,
+                        left: inset + s,
+                        right: inset + s,
+                        top: inset + s,
+                        bottom: inset + s,
+                    },
+                ]}
+            />
+            <View
+                style={[
+                    styles.unreadDotLayer,
+                    {
+                        backgroundColor: color,
+                        left: inset + 2 * s,
+                        right: inset + 2 * s,
+                        top: inset,
+                        bottom: inset,
+                    },
+                ]}
+            />
+        </>
+    );
+}
+
+/*
     도트 말풍선 — "물 주세요".
 
     이미지 한 장이 아니라 사각형 View 를 도트 격자에 쌓아 만든다.
@@ -1601,17 +1667,23 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
     },
-    redDot: {
+    /*
+        종(지름 65)의 오른쪽 위 45° 테두리에 배지 중심이 오도록 잡은 자리.
+        top/right 2 면 중심이 (55, 10) — 원 중심에서 31.8 로 반지름 32.5 와 거의 같아
+        배지가 테두리에 걸터앉는다. 0 이나 음수로 더 빼면 원에서 떨어져 붕 뜬다.
+    */
+    unreadDot: {
         position: "absolute",
-        top: -2,
-        right: -2,
-        width: 18,
-        height: 18,
-        borderRadius: Radius.pill,
-        backgroundColor: Accent.alert,
-        // 흰 테두리 — 종 아이콘·유리 배경 어디에 걸쳐도 점이 묻히지 않는다
-        borderWidth: 2,
-        borderColor: Colors.white,
+        top: 2,
+        right: 2,
+        width: DOT_SIZE,
+        height: DOT_SIZE,
+        // Android 는 elevation 이 형제 간 그리기 순서를 이긴다 — 유리 버튼(6)보다 위로
+        zIndex: 1,
+        elevation: 8,
+    },
+    unreadDotLayer: {
+        position: "absolute",
     },
 
     // 식물이 돌아다닐 수 있는 영역 — 위/아래 경계는 배경별로 FIELD_BOUNDS 에서 얹는다
