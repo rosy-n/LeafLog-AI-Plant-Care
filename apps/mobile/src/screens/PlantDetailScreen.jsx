@@ -95,7 +95,7 @@ const DROP_FALL_MS = 1100;     // 낙하 애니메이션 길이
     물주기 연출이 끝나는 시점 — 마지막 방울이 생기고(DROP_COUNT-1 번째 간격)
     그것이 다 떨어질 때까지. 물소리를 여기서 끊는다.
 
-    음원(sfx-water.mp3)이 약 5.9초라 그냥 두면 연출이 끝나고도 4초를 더 흐른다.
+    음원(sfx-water.mp3)이 약 4초라 그냥 두면 연출이 끝나고도 2초를 더 흐른다.
     길이를 상수에서 뽑아내므로 방울 개수·간격을 바꿔도 소리가 따라온다.
 */
 const WATERING_ANIM_MS = (DROP_COUNT - 1) * DROP_INTERVAL_MS + DROP_FALL_MS;
