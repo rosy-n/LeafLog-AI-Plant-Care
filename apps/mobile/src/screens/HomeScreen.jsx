@@ -60,8 +60,6 @@ const HOME_MENU_ITEMS = [
 */
 const FIELD_BOUNDS = {
     "home-bg": { top: "37%", bottom: "8%" },
-    store_bg1: { top: "44%", bottom: "8%" },
-    store_bg2: { top: "36%", bottom: "8%" },
 };
 
 // 들판에 동시에 세울 수 있는 개체 수 — 이보다 많으면 서로 겹쳐서 누가 누군지 알 수 없다
