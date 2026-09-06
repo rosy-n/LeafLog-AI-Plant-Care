@@ -328,7 +328,13 @@ function MainAppContent({ user, onLogout }) {
                 />
 
                 <Stack.Screen name="Profile" options={{ headerShown: false }}>
-                    {(props) => <ProfileScreen {...props} decorations={decorations} />}
+                    {(props) => (
+                        <ProfileScreen
+                            {...props}
+                            decorations={decorations}
+                            reloadPlants={loadPlants}
+                        />
+                    )}
                 </Stack.Screen>
                 <Stack.Screen
                     name="CareInfo"
@@ -434,7 +440,11 @@ function MainAppContent({ user, onLogout }) {
                     }}
                 >
                     {(props) => (
-                        <MemorialPlantScreen {...props} decorations={decorations} />
+                        <MemorialPlantScreen
+                            {...props}
+                            decorations={decorations}
+                            reloadPlants={loadPlants}
+                        />
                     )}
                 </Stack.Screen>
 

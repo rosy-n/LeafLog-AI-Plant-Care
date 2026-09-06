@@ -27,6 +27,7 @@ import ActionButton from "../components/ActionButton";
 import {
     getPlant,
     updatePlant,
+    deletePlant,
     searchSpecies,
     getPlantCare,
     updateWateringSchedule,
@@ -83,13 +84,14 @@ function InfoLine({ label, value, note }) {
     );
 }
 
-export default function ProfileScreen({ navigation, route, decorations = {} }) {
+export default function ProfileScreen({ navigation, route, decorations = {}, reloadPlants }) {
     const plant = route?.params?.plant;
     const [detail, setDetail] = useState(null);
     const [care, setCare] = useState(null);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     // 식물종 다시 고르기 — 인식이 어긋났거나 종 마스터 도입 전에 등록한 개체용
     const [pickerOpen, setPickerOpen] = useState(false);
@@ -289,6 +291,53 @@ export default function ProfileScreen({ navigation, route, decorations = {} }) {
                     },
                 },
             ]
+        );
+    };
+
+    /*
+        추모정원 개체인지 — 서버 상태가 원본이고, 상세를 아직 못 받았으면
+        정원에서 넘겨준 스냅샷으로 판단한다.
+    */
+    const isMemorial = (detail?.status ?? (plant?.memorial ? "DEAD" : null)) === "DEAD";
+
+    /*
+        완전 삭제 — 추모정원 개체에서만. 상태만 DEAD 로 바꾸는 "추억으로 이동"과 달리
+        돌봄 기록·꾸미기·상담까지 서버에서 함께 지워지고 되돌릴 수 없어,
+        경고를 보여주고 한 번 더 확인받는다.
+    */
+    const deleteForever = () => {
+        if (deleting) return;
+        Alert.alert(
+            "식물 완전히 삭제",
+            `${name}을(를) 완전히 삭제할까요?\n\n` +
+                "함께한 기록·사진·돌봄 기록·상담 내용까지\n" +
+                "이 식물에 대한 모든 정보가 지워지며, 되돌릴 수 없습니다.",
+            [
+                { text: "취소", style: "cancel" },
+                {
+                    text: "삭제",
+                    style: "destructive",
+                    onPress: async () => {
+                        const id = plant?.id;
+                        if (!id) return;
+                        setDeleting(true);
+                        try {
+                            await deletePlant(Number(id));
+                            // 지운 개체에 물주기 알림이 남아 울리면 안 된다
+                            cancelWateringReminder(id).catch((err) =>
+                                console.warn("물주기 알림 취소 실패:", err?.message),
+                            );
+                            reloadPlants?.();
+                            // 개체가 사라졌으니 되돌아갈 개체탭도 없다 — 홈으로 보낸다
+                            navigation.navigate("Home");
+                        } catch (e) {
+                            Alert.alert("삭제 실패", e?.message ?? "다시 시도해주세요.");
+                        } finally {
+                            setDeleting(false);
+                        }
+                    },
+                },
+            ],
         );
     };
 
@@ -521,15 +570,35 @@ export default function ProfileScreen({ navigation, route, decorations = {} }) {
                         )}
                 </View>
 
-                {/* 추억 이동 버튼 */}
-                <ActionButton
-                    label="나의 정원에서 추억으로 이동"
-                    color={Colors.primary}
-                    shadow={false}
-                    activeOpacity={0.85}
-                    onPress={moveToMemorial}
-                    style={styles.memoryButton}
-                />
+                {/*
+                    이미 추모정원에 있는 개체는 더 옮길 곳이 없어
+                    '추억으로 이동' 대신 완전 삭제를 둔다.
+                */}
+                {isMemorial ? (
+                    <>
+                        <ActionButton
+                            label={deleting ? "삭제 중..." : "이 식물 완전히 삭제하기"}
+                            color={Colors.danger}
+                            shadow={false}
+                            activeOpacity={0.85}
+                            disabled={deleting}
+                            onPress={deleteForever}
+                            style={styles.memoryButton}
+                        />
+                        <Text style={styles.deleteWarning}>
+                            삭제하면 이 식물에 대한 모든 정보가 지워지며 되돌릴 수 없습니다.
+                        </Text>
+                    </>
+                ) : (
+                    <ActionButton
+                        label="나의 정원에서 추억으로 이동"
+                        color={Colors.primary}
+                        shadow={false}
+                        activeOpacity={0.85}
+                        onPress={moveToMemorial}
+                        style={styles.memoryButton}
+                    />
+                )}
 
                 {/* 식물종 다시 고르기 */}
                 <Modal
@@ -797,6 +866,18 @@ const styles = StyleSheet.create({
         height: 46,
         borderRadius: Radius.xl,
         paddingVertical: Spacing.none,
+    },
+
+    // 완전 삭제 버튼 아래 경고 — 누르기 전에 되돌릴 수 없다는 걸 알린다
+    deleteWarning: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: Colors.danger,
+        textAlign: "center",
+        lineHeight: 18,
+        marginTop: -Spacing.md,
+        marginBottom: Spacing.xl,
+        paddingHorizontal: Spacing.xl,
     },
 
 
