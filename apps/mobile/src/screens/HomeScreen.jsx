@@ -545,19 +545,27 @@ export default function HomeScreen({
 
                 {/* 상단 오른쪽: 알림 */}
                 <View style={styles.notificationArea}>
-                    <GlassButton
-                        size={65}
-                        onPress={() => navigation.navigate("Notifications")}
-                    >
-                        <View>
+                    {/*
+                        읽지 않은 알림 표시(빨간 점)는 GlassButton 밖에 둔다 —
+                        버튼은 유리 효과를 동그랗게 오려내려고 overflow: hidden 이라,
+                        안에 넣으면 원 밖으로 나간 점이 버튼 모양대로 잘린다.
+                        버튼을 감싸는 상자에 얹어야 모서리 위에 온전히 뜬다.
+                    */}
+                    <View style={styles.notificationBell}>
+                        <GlassButton
+                            size={65}
+                            onPress={() => navigation.navigate("Notifications")}
+                        >
                             <Image
                                 source={require("../../assets/icons/notification_icon.png")}
                                 style={styles.notificationIcon}
                                 resizeMode="contain"
                             />
-                            {hasUnread && <View style={styles.redDot} />}
-                        </View>
-                    </GlassButton>
+                        </GlassButton>
+                        {hasUnread && (
+                            <View style={styles.redDot} pointerEvents="none" />
+                        )}
+                    </View>
 
                     {/*
                         밀린 물주기 요약 — 정원까지 들어가지 않아도 보이게.
@@ -1564,6 +1572,12 @@ const styles = StyleSheet.create({
         top: 72,
         right: 20,
         zIndex: 50,
+        // 아래 "물 줄 식물 N개" 칩이 종보다 넓어져도 종은 오른쪽 끝에 붙어 있게
+        alignItems: "flex-end",
+    },
+    // 빨간 점의 기준이 되는 상자 — 버튼과 같은 크기로 잡혀 모서리 좌표가 정확해진다
+    notificationBell: {
+        position: "relative",
     },
 
     // 밀린 물주기 요약 (알림 버튼 아래)
@@ -1589,12 +1603,15 @@ const styles = StyleSheet.create({
     },
     redDot: {
         position: "absolute",
-        top: -5,
-        right: -5,
-        width: 22,
-        height: 22,
-        borderRadius: Radius.md,
+        top: -2,
+        right: -2,
+        width: 18,
+        height: 18,
+        borderRadius: Radius.pill,
         backgroundColor: Accent.alert,
+        // 흰 테두리 — 종 아이콘·유리 배경 어디에 걸쳐도 점이 묻히지 않는다
+        borderWidth: 2,
+        borderColor: Colors.white,
     },
 
     // 식물이 돌아다닐 수 있는 영역 — 위/아래 경계는 배경별로 FIELD_BOUNDS 에서 얹는다
