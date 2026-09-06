@@ -20,6 +20,7 @@ import { getPlantExpressionSource } from "../data/characterExpressions";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import PixelOutlineText from "../components/PixelOutlineText";
 import PixelButton from "../components/PixelButton";
+import PixelSpeechBubble from "../components/PixelSpeechBubble";
 import GlassMenuItem from "../components/GlassMenuItem";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Paper, Pink, Accent } from "../../constants/colors";
@@ -154,11 +155,16 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                         <HeartsRow count={plant?.hearts ?? 0} size={25} />
                     </View>
 
-                    <View style={styles.speechBubble}>
-                        <Text style={styles.speechText}>보고 싶어...</Text>
-                        <View style={styles.tailBorder} />
-                        <View style={styles.tailInner} />
-                    </View>
+                    {/* 살아있는 개체탭과 같은 도트 말풍선 (PixelSpeechBubble) */}
+                    <PixelSpeechBubble
+                        style={styles.speechBubble}
+                        textStyle={styles.speechText}
+                        contentStyle={styles.speechContent}
+                        tailOffset={125}
+                        wrapWords
+                    >
+                        보고 싶어...
+                    </PixelSpeechBubble>
 
                     {/* Plant — same structure as PlantDetailScreen, no overlay */}
                     <View style={styles.mainPlantArea}>
@@ -375,41 +381,24 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
 
+    // 개체탭(PlantDetailScreen)의 말풍선과 같은 자리·같은 크기
     speechBubble: {
         position: "absolute",
         top: 265,
-        right: 42,
+        left: "50%",
+        marginLeft: -125, // width(250)의 절반 → 화면(=식물) 가로 중앙 정렬
         width: 250,
         height: 70,
-        backgroundColor: Colors.white,
-        borderWidth: 4,
-        borderColor: Colors.textBlack,
-        alignItems: "center",
-        justifyContent: "center",
         zIndex: 20,
     },
     speechText: {
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.subtitle,
+        fontSize: FontSizes.body,
+        lineHeight: 18,
         color: Colors.textBlack,
     },
-    tailBorder: {
-        position: "absolute",
-        bottom: -22,
-        left: 58,
-        width: 31,
-        height: 31,
-        backgroundColor: Colors.textBlack,
-        transform: [{ rotate: "45deg" }],
-    },
-    tailInner: {
-        position: "absolute",
-        bottom: -14,
-        left: 64,
-        width: 20,
-        height: 20,
-        backgroundColor: Colors.white,
-        transform: [{ rotate: "45deg" }],
+    speechContent: {
+        paddingHorizontal: Spacing.lg,
     },
 
     mainPlantArea: {
