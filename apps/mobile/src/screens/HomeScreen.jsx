@@ -177,9 +177,25 @@ const PLANT_SHADOW_H = 10;    // 들려 있을 때 발밑에 남는 그림자 �
     구멍이 투명해서, 그 자리에 확대상을 따로 그려 넣는다(Magnifier).
 */
 const MAGNIFIER_ICON = require("../../assets/icons/magnifier_icon.png");
-const MAG_SIZE = 310;
-const MAG_BOTTOM = 4;                     // 들판 아래 경계에서 띄우는 높이
+const MAG_SIZE = 380;
+/*
+    아이콘 바닥을 들판 아래 경계에서 얼마나 띄울지. 음수면 경계 아래로 내려간다.
+
+    렌즈 구멍은 아이콘 위쪽(세로 38.9% 지점)에 있고 아이콘은 바닥 기준으로 놓이므로,
+    크기만 키우면 렌즈가 위로 딸려 올라간다. 손잡이 끝을 화면 밖으로 조금 내보내
+    렌즈를 원하는 높이까지 내린다 — 렌즈 중심은 들판 바닥에서 위로
+    MAG_BOTTOM + MAG_SIZE × (1 - 0.3892) 만큼 떨어진 자리다.
+*/
+const MAG_BOTTOM = -64;
 const MAG_LENS_X = MAG_SIZE * 0.4478;
+/*
+    아이콘을 오른쪽으로 이 만큼 밀면 렌즈 구멍이 화면 한가운데에 온다.
+
+    구멍이 아이콘 가로 44.78% 지점(중심보다 왼쪽)에 있어서, 아이콘 자체를 가운데
+    두면 정작 개체를 놓는 자리인 구멍은 중심에서 왼쪽으로 벗어난다.
+    배치의 기준은 아이콘 사각형이 아니라 동그란 렌즈다.
+*/
+const MAG_LENS_DX = MAG_SIZE * (0.5 - 0.4478);
 const MAG_LENS_Y = MAG_SIZE * 0.3892;
 const MAG_HOLE_RX = MAG_SIZE * 0.2424;
 const MAG_HOLE_RY = MAG_SIZE * 0.2620;
@@ -188,8 +204,9 @@ const MAG_HOLE_RY = MAG_SIZE * 0.2620;
 
     구멍은 세로로 8% 긴 타원이지만 창을 타원으로 맞출 필요가 없다 — 넘치는 부분은
     아이콘의 도트 테두리가 덮기 때문이다(Magnifier 참고). 세로 반지름에 맞춘 정원이면
-    사방 어디서도 구멍을 다 채우고, 가장 많이 넘치는 가로 방향에서도 15px 뿐이라
-    가장 얇은 테두리(캔버스 79px ≈ 19.5px)보다 얕게 들어간다.
+    사방 어디서도 구멍을 다 채우고, 가장 많이 넘치는 가로 방향에서도 아이콘의
+    4.97%(=0.2620+0.03-0.2424)만 넘쳐 가장 얇은 테두리(캔버스 79px = 6.30%)보다
+    얕게 들어간다. 전부 MAG_SIZE 비율이라 크기를 바꿔도 이 관계는 유지된다.
 */
 const MAG_LENS_R = MAG_HOLE_RY + MAG_SIZE * 0.03;
 // 판정은 넘치게 그린 창이 아니라 실제 구멍 기준. 구멍보다는 넉넉하게 받는다 —
@@ -385,7 +402,8 @@ export default function HomeScreen({
     const lens = useMemo(() => {
         if (fieldSize.width === 0) return null;
         return {
-            x: (fieldSize.width - MAG_SIZE) / 2 + MAG_LENS_X,
+            // 아이콘을 MAG_LENS_DX 만큼 밀어 둔 결과 — 구멍 중심이 정확히 들판 가운데다
+            x: fieldSize.width / 2,
             y: fieldSize.height - MAG_BOTTOM - MAG_SIZE + MAG_LENS_Y,
         };
     }, [fieldSize]);
@@ -1288,9 +1306,11 @@ function WanderingPlant({
     구멍보다 조금 넓게(MAG_LENS_BLEED) 그려 놓고 아이콘으로 덮으면 도트 테두리
     자체가 경계가 되어 어떤 크기에서도 딱 맞는다.
 
-    아이콘은 어떤 이유로도 크기를 바꾸지 않는다 — 구멍이 아이콘 중심에서 벗어나
-    있어서 조금만 키워도 구멍이 딸려 움직이고, 같이 커지지 않는 확대창과 어긋난다.
-    렌즈에 닿았다는 신호는 아래 안내 문구가 맡는다.
+    아이콘에 런타임 스케일(닿았을 때 커지는 연출 등)을 걸지 않는다 — 구멍이 아이콘
+    중심에서 벗어나 있어서 조금만 키워도 구멍이 딸려 움직이는데, 확대창과 판정 좌표는
+    MAG_SIZE 로 미리 계산돼 있어 함께 커지지 않는다. 렌즈에 닿았다는 신호는 아래 안내
+    문구가 맡는다. (전체 크기를 바꾸고 싶으면 MAG_SIZE 를 고치면 된다 — 구멍·확대창·
+    판정 반지름이 모두 그 값의 비율이라 함께 따라온다.)
 */
 function Magnifier({
     active,
@@ -1607,6 +1627,12 @@ const styles = StyleSheet.create({
     magnifierIcon: {
         width: MAG_SIZE,
         height: MAG_SIZE,
+        /*
+            렌즈 구멍을 화면 중앙에 맞추는 보정.
+            레이아웃이 아니라 transform 으로 미는 이유는 위쪽 안내 문구까지 따라
+            밀리지 않게 하기 위해서다 — 문구는 화면 기준으로 가운데 있어야 한다.
+        */
+        transform: [{ translateX: MAG_LENS_DX }],
     },
     magnifierHint: {
         marginBottom: Spacing.sm,
