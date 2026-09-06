@@ -264,9 +264,17 @@ function MainAppContent({ user, onLogout }) {
             <Stack.Navigator
                 id="MainStack"
                 initialRouteName="Home"
+                /*
+                    gestureEnabled: 화면을 좌→우로 쓸어 되돌아가는 제스처(iOS)를 끈다.
+                    화면 전환은 각 화면의 뒤로가기·홈 버튼으로만 하도록 통일한다 —
+                    개체탭·정원처럼 화면 안에서 직접 드래그를 받는 곳이 많아
+                    가장자리를 스치기만 해도 의도치 않게 이전 화면으로 빠진다.
+                    화면마다 따로 적지 않도록 여기 한 곳에만 둔다.
+                */
                 screenOptions={{
                     headerShown: false,
                     animation: "none",
+                    gestureEnabled: false,
                 }}
             >
                 <Stack.Screen name="Home">
@@ -286,7 +294,6 @@ function MainAppContent({ user, onLogout }) {
                     options={{
                         presentation: "transparentModal",
                         animation: "none",
-                        gestureEnabled: false,
                         contentStyle: {
                             backgroundColor: "transparent",
                         },
@@ -309,7 +316,6 @@ function MainAppContent({ user, onLogout }) {
                     options={{
                         presentation: "card",
                         animation: "none",
-                        gestureEnabled: false,
                     }}
                 >
                     {(props) => (
@@ -328,7 +334,13 @@ function MainAppContent({ user, onLogout }) {
                 />
 
                 <Stack.Screen name="Profile" options={{ headerShown: false }}>
-                    {(props) => <ProfileScreen {...props} decorations={decorations} />}
+                    {(props) => (
+                        <ProfileScreen
+                            {...props}
+                            decorations={decorations}
+                            reloadPlants={loadPlants}
+                        />
+                    )}
                 </Stack.Screen>
                 <Stack.Screen
                     name="CareInfo"
@@ -430,11 +442,14 @@ function MainAppContent({ user, onLogout }) {
                     options={{
                         presentation: "card",
                         animation: "none",
-                        gestureEnabled: false,
                     }}
                 >
                     {(props) => (
-                        <MemorialPlantScreen {...props} decorations={decorations} />
+                        <MemorialPlantScreen
+                            {...props}
+                            decorations={decorations}
+                            reloadPlants={loadPlants}
+                        />
                     )}
                 </Stack.Screen>
 

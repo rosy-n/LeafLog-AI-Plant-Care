@@ -24,6 +24,7 @@ from .image_preprocessing import (
     remove_background_for_sprite,
     remove_character_face,
 )
+from .korea_time import korea_day, today_in_korea
 from .models import (
     AppUser,
     CareRecord,
@@ -217,11 +218,19 @@ def _parse_dt(value: str | None) -> datetime | None:
 
 
 def _days_since(moment: datetime | None) -> int | None:
+    """저장된 시각이 며칠 전인지 — 사용자가 달력에서 세는 하루 기준(korea_time 참고)."""
     if moment is None:
         return None
-    # 저장·조회 모두 naive UTC 기준 — 캘린더 일수 차이로 "며칠 전" 계산
-    aware = moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
-    return max(0, (datetime.now(timezone.utc).date() - aware.date()).days)
+    return max(0, (today_in_korea() - korea_day(moment)).days)
+
+
+def _watering_base_day(last_watered: datetime | None) -> date:
+    """다음 예정일을 세는 기준 날짜 — 마지막으로 물 준 날, 없으면 오늘.
+
+    달력의 하루라서 한국 날짜로 센다. UTC로 세면 밤 9시 이후(= UTC 다음날)에
+    물을 준 경우 예정일이 하루 앞당겨지고, 새벽에는 하루 늦게 잡힌다.
+    """
+    return korea_day(last_watered) if last_watered else today_in_korea()
 
 
 def _species_interval_days(plant: Plant, db: Session) -> int | None:
@@ -277,14 +286,13 @@ def _upsert_watering_schedule(
             care_type="WATERING",
             interval_days=interval,
             interval_source=source,
-            next_due_date=(last_watered or datetime.now(timezone.utc)).date()
-            + timedelta(days=interval),
+            next_due_date=_watering_base_day(last_watered) + timedelta(days=interval),
         )
         db.add(schedule)
         return schedule
 
     # 이미 있는 일정은 주기·출처를 건드리지 않고 다음 예정일만 밀어준다
-    base = (last_watered or datetime.now(timezone.utc)).date()
+    base = _watering_base_day(last_watered)
     schedule.next_due_date = base + timedelta(days=schedule.interval_days)
     return schedule
 
@@ -294,6 +302,19 @@ def _owned_plant_or_404(plant_id: int, current_user: "AppUser", db: Session) -> 
     if plant is None or plant.user_id != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="식물을 찾을 수 없습니다.")
     return plant
+
+
+def _reject_if_memorial(plant: Plant) -> None:
+    """떠나보낸 개체(추모정원)에 새 돌봄 데이터를 쓰려는 요청을 막는다.
+
+    분갈이·영양제·물주기는 앞으로 할 일이 없어 앱에서도 입력 화면을 닫아 두지만,
+    원본은 서버라 여기서 한 번 더 걸러낸다.
+    """
+    if plant.status == "DEAD":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="추모정원의 식물에는 새 기록을 남길 수 없습니다.",
+        )
 
 
 def _owned_chat_session_or_404(session_id: int, current_user: AppUser, db: Session) -> ChatSession:
@@ -954,7 +975,7 @@ def list_plants(
         ).all():
             last_watered_map[pid] = completed_at
 
-    today = datetime.now(timezone.utc).date()
+    today = today_in_korea()
     default_background = _default_background(db)
 
     def watering_summary(plant: Plant) -> tuple[int | None, date | None]:
@@ -966,7 +987,7 @@ def list_plants(
         base = last_watered_map.get(plant.plant_id) or plant.created_at
         if not interval or base is None:
             return interval, None
-        return interval, base.date() + timedelta(days=interval)
+        return interval, korea_day(base) + timedelta(days=interval)
 
     items: list[PlantListItem] = []
     for plant, common_name_ko in rows:
@@ -1051,7 +1072,7 @@ def update_plant(
                 .order_by(CareRecord.completed_at.desc())
                 .limit(1)
             )
-            base = (last or datetime.now(timezone.utc)).date()
+            base = _watering_base_day(last)
             schedule.next_due_date = base + timedelta(days=interval)
 
     if "nickname" in data and data["nickname"] is not None:
@@ -1123,6 +1144,44 @@ def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
     )
 
 
+@app.delete("/api/plants/{plant_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_plant(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """개체 삭제 — 추모정원 개체의 프로필 화면에서 부르는 "완전히 삭제".
+
+    되돌릴 수 없다. 상태를 DEAD 로 바꾸는 "추억으로 이동"(PATCH status)과 달리
+    개체와 그에 딸린 기록을 전부 지운다.
+
+    삭제는 delete_me 와 같은 이유로 DB의 ON DELETE CASCADE 에 기대지 않고
+    자식 테이블부터 명시적으로 한다 — SQLite 기본 설정은 외래키 제약을 강제하지
+    않아 개체만 지우면 기록이 고아로 남는다.
+    """
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+
+    # 이 개체의 AI 상담 — 메시지가 세션을 참조하므로 메시지부터
+    session_ids = list(
+        db.scalars(select(ChatSession.session_id).where(ChatSession.plant_id == plant_id))
+    )
+    if session_ids:
+        db.execute(delete(ChatMessage).where(ChatMessage.session_id.in_(session_ids)))
+        db.execute(delete(ChatSession).where(ChatSession.session_id.in_(session_ids)))
+
+    # 개체에 딸린 것들 — 꾸미기 / 돌봄 기록 / 돌봄 주기
+    db.execute(delete(PlantDecoration).where(PlantDecoration.plant_id == plant_id))
+    db.execute(delete(CareRecord).where(CareRecord.plant_id == plant_id))
+    db.execute(delete(CareSchedule).where(CareSchedule.plant_id == plant_id))
+
+    # 업로드한 이미지 기록 — plant_id 가 SET NULL 이라 그냥 두면 주인 없는 행으로 남는다.
+    # (S3 객체는 지우지 않는다 — 버킷이 다른 계정 소유라 삭제 권한이 없다.)
+    db.execute(delete(MediaAsset).where(MediaAsset.plant_id == plant_id))
+
+    db.delete(plant)
+    db.commit()
+
+
 @app.patch("/api/plants/{plant_id}/watering-schedule", response_model=CareSummary)
 def update_watering_schedule(
     plant_id: int,
@@ -1136,6 +1195,8 @@ def update_watering_schedule(
     다음 예정일은 마지막 물준 기록(없으면 지금) + 새 주기로 다시 계산한다.
     """
     plant = _owned_plant_or_404(plant_id, current_user, db)
+    # 떠나보낸 개체는 앞으로 물 줄 일이 없다 — 예정일을 새로 잡지 않는다
+    _reject_if_memorial(plant)
 
     if payload.interval_days is None:
         interval, source = _initial_interval(plant, db)
@@ -1153,7 +1214,7 @@ def update_watering_schedule(
         .order_by(CareRecord.completed_at.desc())
         .limit(1)
     )
-    next_due = (last_watered or datetime.now(timezone.utc)).date() + timedelta(days=interval)
+    next_due = _watering_base_day(last_watered) + timedelta(days=interval)
 
     if schedule is None:
         # 일정이 없던 개체(마스터 도입 전 등록분)는 이 시점에 만들어진다
@@ -1212,11 +1273,12 @@ def plant_care_summary(
     else:
         # 일정 행이 아직 없는 개체(마스터 도입 전 등록분) — 만들지 않고 계산만 한다
         interval, source = _initial_interval(plant, db)
-        base = (watered or plant.created_at).date() if (watered or plant.created_at) else None
+        base_moment = watered or plant.created_at
+        base = korea_day(base_moment) if base_moment else None
         next_due = base + timedelta(days=interval) if (interval and base) else None
         saved = False
 
-    today = datetime.now(timezone.utc).date()
+    today = today_in_korea()
     return CareSummary(
         last_watered_at=watered.isoformat() if watered else None,
         days_since_watering=_days_since(watered),
@@ -1267,6 +1329,7 @@ def create_care_record(
     db: Session = Depends(get_db),
 ) -> CareRecordCreated:
     plant = _owned_plant_or_404(plant_id, current_user, db)
+    _reject_if_memorial(plant)
     if payload.care_type not in CARE_TYPES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="지원하지 않는 관리 유형입니다.")
 
@@ -1635,7 +1698,7 @@ def persona_chat_reply(
                 {"role": message.role, "content": message.content} for message in payload.history
             ],
             user_message=payload.message,
-            reference_date=persona_chat.today_in_korea(),
+            reference_date=today_in_korea(),
             plant_context=plant_context,
         )
     except RuntimeError as exc:
@@ -1694,7 +1757,7 @@ async def diagnose_plant_photo(
                 _diagnosis_species_care(plant_species),
                 _persona_watering_schedule(effective_plant_id, db),
                 plant_name=plant.nickname,
-                reference_date=persona_chat.today_in_korea(),
+                reference_date=today_in_korea(),
             )
 
     weather_air_quality = _persona_weather_air_quality(current_user, db)
@@ -2223,10 +2286,11 @@ def get_environment_history(
     # 주/월도 우리 DB 누적치가 아니라, ASOS 일자료(하루 평균)를 그 자리에서 라이브
     # 조회한다 — 사용자가 그동안 앱을 몇 번 열었는지와 무관하게 항상 완전한 그래프.
     # ASOS는 전일(D-1)까지만 제공하므로 endDt는 어제로 고정한다.
+    # (ASOS 일자료는 한국 날짜 기준이라 서버 로컬 날짜가 아니라 한국 날짜로 센다)
     region = _region_for_current_user(current_user, db)
     stn_id = asos.nearest_station_id(region.lat, region.lng)
     days = 7 if period == "week" else 30
-    end = date.today() - timedelta(days=1)
+    end = today_in_korea() - timedelta(days=1)
     start = end - timedelta(days=days - 1)
 
     try:

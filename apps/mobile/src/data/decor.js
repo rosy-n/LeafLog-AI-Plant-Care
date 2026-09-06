@@ -35,12 +35,22 @@ export const ACCESSORY_IMAGES = {
     },
 };
 
-// 개체탭 배경 — 꾸미기 카드의 미리보기와 개체탭 배경이 같은 이미지다
+/*
+    개체탭 배경 — 꾸미기 카드의 미리보기와 개체탭 배경이 같은 이미지다.
+
+    affinity_bg1~5 는 애정도 단계로 해금되는 배경이다. 뒤의 숫자가 곧 필요한
+    단계라, 서버 item.required_level 도 같은 숫자여야 한다
+    (scripts/add-affinity-backgrounds.sql). 해금 판정은 앱이 하고
+    (PlantDecorateScreen), 단계는 그 개체의 애정도에서 나온다.
+*/
 export const BACKGROUND_IMAGES = {
     "detail-bg": require("../../assets/images/detail-bg.png"),
     "home-bg": require("../../assets/images/home-bg.png"),
-    store_bg1: require("../../assets/images/store_bg1.png"),
-    store_bg2: require("../../assets/images/store_bg2.png"),
+    affinity_bg1: require("../../assets/images/affinity_bg1.png"),
+    affinity_bg2: require("../../assets/images/affinity_bg2.png"),
+    affinity_bg3: require("../../assets/images/affinity_bg3.png"),
+    affinity_bg4: require("../../assets/images/affinity_bg4.png"),
+    affinity_bg5: require("../../assets/images/affinity_bg5.png"),
 };
 
 // 개체가 배경을 고르지 않았을 때의 기본값

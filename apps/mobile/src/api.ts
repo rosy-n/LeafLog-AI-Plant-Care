@@ -357,6 +357,17 @@ export function updatePlant(plantId: number, body: PlantUpdate) {
   });
 }
 
+/*
+  개체 완전 삭제 — 추모정원 개체의 프로필 화면에서만 부른다.
+  상태만 DEAD 로 바꾸는 updatePlant 와 달리 돌봄 기록·꾸미기·상담까지 함께 지워지고
+  되돌릴 수 없다.
+*/
+export function deletePlant(plantId: number) {
+  return request<null>(`/api/plants/${plantId}`, {
+    method: "DELETE",
+  });
+}
+
 export type CareSummary = {
   last_watered_at: string | null;
   days_since_watering: number | null;

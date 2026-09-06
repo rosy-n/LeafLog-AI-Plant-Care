@@ -13,10 +13,9 @@ from __future__ import annotations
 import re
 import sys
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import requests
 
@@ -40,8 +39,6 @@ MAX_GENERATION_ATTEMPTS = 3
 
 # 재시도 시에는 무작위성을 줄여서 규칙 위반(존댓말/한자/영어 등) 확률을 낮춘다.
 RETRY_TEMPERATURE = 0.3
-
-KOREA_TIMEZONE = ZoneInfo("Asia/Seoul")
 
 GENERATION_OPTIONS: dict[str, Any] = {
     "temperature": 0.6,
@@ -82,10 +79,6 @@ def list_persona_options() -> list[dict[str, str]]:
         {"slug": slug, "label": PERSONA_NAMES[file_name]}
         for slug, file_name in PERSONA_SLUG_TO_FILE.items()
     ]
-
-
-def today_in_korea() -> date:
-    return datetime.now(KOREA_TIMEZONE).date()
 
 
 @dataclass(frozen=True)

@@ -60,16 +60,18 @@ CREATE TABLE IF NOT EXISTS plant_decoration (
 -- detail-bg 는 개체가 배경을 고르지 않았을 때의 기본값이다
 -- (main.py 의 DEFAULT_BACKGROUND_ITEM_KEY). 다른 배경을 골랐다가 되돌릴 수 있도록
 -- 목록에도 한 칸으로 들어간다.
+--
+-- 배경은 기본값(풀밭) 하나와 애정도로 해금되는 affinity_bg1~5 뿐이다.
+-- 들판·여름날·봄날은 목록에서 내렸다 (scripts/retire-legacy-backgrounds.sql).
 INSERT INTO item (item_key, item_name, item_type, required_level) VALUES
     ('level1',     '잎사귀',   'ACCESSORY',  1),
     ('level2',     '반짝이',   'ACCESSORY',  2),
     ('level3',     '하트',     'ACCESSORY',  3),
     ('level4',     '알록달록', 'ACCESSORY',  4),
     ('level5',     '나비',     'ACCESSORY',  5),
-    ('detail-bg',  '풀밭',     'BACKGROUND', 0),
-    ('home-bg',    '들판',     'BACKGROUND', 0),
-    ('store_bg1',  '창가',     'BACKGROUND', 2),
-    ('store_bg2',  '마룻바닥', 'BACKGROUND', 4)
+    ('detail-bg',  '풀밭',     'BACKGROUND', 0)
+-- 애정도 해금 배경(affinity_bg1~5)은 scripts/add-affinity-backgrounds.sql 이 넣는다 —
+-- 그쪽은 DO NOTHING 이라 운영에서 손댄 값을 되돌리지 않는다.
 ON CONFLICT (item_key) DO UPDATE SET
     item_name      = EXCLUDED.item_name,
     item_type      = EXCLUDED.item_type,
