@@ -33,6 +33,7 @@ import {
     updateWateringSchedule,
 } from "../api";
 import { scheduleWateringReminder, cancelWateringReminder } from "../notifications";
+import { isMemorialPlant } from "../plantStatus";
 import PlantImage from "../components/PlantImage";
 import { getPlantExpressionSource } from "../data/characterExpressions";
 import { accessorySpriteBundle } from "../data/decor";
@@ -294,11 +295,8 @@ export default function ProfileScreen({ navigation, route, decorations = {}, rel
         );
     };
 
-    /*
-        추모정원 개체인지 — 서버 상태가 원본이고, 상세를 아직 못 받았으면
-        정원에서 넘겨준 스냅샷으로 판단한다.
-    */
-    const isMemorial = (detail?.status ?? (plant?.memorial ? "DEAD" : null)) === "DEAD";
+    // 추모정원 개체인지 — 상세를 받았으면 서버 상태가, 아직이면 정원 스냅샷이 기준
+    const isMemorial = isMemorialPlant(detail ?? plant);
 
     /*
         완전 삭제 — 추모정원 개체에서만. 상태만 DEAD 로 바꾸는 "추억으로 이동"과 달리
@@ -477,7 +475,7 @@ export default function ProfileScreen({ navigation, route, decorations = {}, rel
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
-                                {care ? (
+                                {care && !isMemorial ? (
                                     <View style={styles.editRow}>
                                         <Text style={styles.infoLabel}>물주기</Text>
                                         <TextInput
@@ -522,6 +520,7 @@ export default function ProfileScreen({ navigation, route, decorations = {}, rel
 
                                 {/* 직접 설정한 주기를 권장값으로 되돌리기 */}
                                 {care?.watering_interval_source === "USER" &&
+                                !isMemorial &&
                                 !form.watering_reset ? (
                                     <TouchableOpacity
                                         onPress={() =>
