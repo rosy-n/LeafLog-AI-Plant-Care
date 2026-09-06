@@ -44,6 +44,7 @@ export async function prepareNotifications(): Promise<void> {
 
 /** 권한 확인·요청. 거부되면 false */
 export async function ensureNotificationPermission(): Promise<boolean> {
+  await prepareNotifications();
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
   if (!current.canAskAgain) return false;
@@ -118,11 +119,11 @@ export async function scheduleWateringReminder(
       // dueDate: 예약 시각을 목록에 보여주기 위함. trigger 에서 읽으면 플랫폼마다
       //   모양이 달라(iOS 는 calendar/timeInterval 로 변환됨) 값이 비는 경우가 있다.
       data: { plantId: String(plantId), kind: "WATERING", dueDate: nextWateringDate },
-      ...(Platform.OS === "android" ? { channelId: ANDROID_CHANNEL_ID } : {}),
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
       date: when,
+      ...(Platform.OS === "android" ? { channelId: ANDROID_CHANNEL_ID } : {}),
     },
   });
   return true;

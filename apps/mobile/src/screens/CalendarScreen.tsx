@@ -14,6 +14,7 @@ import {
     Platform,
     Alert,
     ActivityIndicator,
+    AppState,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -91,16 +92,6 @@ function monthLabel(y: number, m: number) {
 }
 
 /*
-    오늘 — 기기 날짜 기준. 캘린더의 오늘 표시와, 홈 일지 버튼이 바로 여는
-    "당일 일지"가 같은 기준을 쓴다. 모듈이 올라올 때 한 번 계산하므로 앱을
-    자정 넘게 켜 둔 경우에는 다시 진입할 때 갱신된다.
-*/
-const NOW = new Date();
-const TODAY = toKey(NOW.getFullYear(), NOW.getMonth(), NOW.getDate());
-const TODAY_YEAR  = NOW.getFullYear();
-const TODAY_MONTH = NOW.getMonth();
-
-/*
     기록 시각 → 캘린더 칸 키.
 
     completed_at 에는 타임존 표기가 없어서 기기 로컬 시각으로 읽힌다.
@@ -140,7 +131,9 @@ function weekIndexOf(dateStr: string): number | null {
 
 function diaryDateLabel(dateStr: string): string {
     const [y, m, d] = dateStr.split("-").map(Number);
+    if (y === undefined || m === undefined || d === undefined) return dateStr;
     const dow = new Date(y, m - 1, d).getDay();
+    if (Number.isNaN(dow)) return dateStr;
     return `${d}일 ${DOW_KO[dow]}`;
 }
 
@@ -210,7 +203,7 @@ function PhotoFrame({
         >
             <View style={styles.photoWindow}>
                 {uri ? (
-                    <Image source={{ uri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                    <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                 ) : (
                     <View style={styles.photoPlaceholderInner}>
                         <Ionicons name="camera-outline" size={26} color={Colors.textFaint} />
@@ -242,10 +235,13 @@ export default function CalendarScreen({
     */
     const openToday = route?.params?.openDiary === true;
 
-    const [viewYear,    setViewYear]    = useState(TODAY_YEAR);
-    const [viewMonth,   setViewMonth]   = useState(TODAY_MONTH);
-    const [selected,    setSelected]    = useState<string | null>(openToday ? TODAY : null);
-    const [weekViewIdx, setWeekViewIdx] = useState<number | null>(openToday ? weekIndexOf(TODAY) : null);
+    const [now, setNow] = useState(() => new Date());
+    const today = toKey(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const [viewYear,    setViewYear]    = useState(now.getFullYear());
+    const [viewMonth,   setViewMonth]   = useState(now.getMonth());
+    const [selected,    setSelected]    = useState<string | null>(openToday ? today : null);
+    const [weekViewIdx, setWeekViewIdx] = useState<number | null>(openToday ? weekIndexOf(today) : null);
     /*
         일지(글·사진)는 아직 서버에 저장하는 곳이 없어서 화면이 들고 있는다 —
         캘린더에 그리는 돌봄 기록(물/영양제)만 실제 DB 기록이다.
@@ -256,6 +252,27 @@ export default function CalendarScreen({
     const [editSlots,   setEditSlots]   = useState<PhotoSlot[]>(EMPTY_SLOTS);
     const [pickerIdx,   setPickerIdx]   = useState<number | null>(null);
     const noteRef = useRef<TextInput>(null);
+    const photoRunRef = useRef(0);
+
+    useFocusEffect(useCallback(() => {
+        let timer: ReturnType<typeof setTimeout>;
+        const refreshToday = () => {
+            clearTimeout(timer);
+            const current = new Date();
+            setNow(current);
+            const midnight = new Date(current.getFullYear(), current.getMonth(), current.getDate() + 1);
+            timer = setTimeout(refreshToday, midnight.getTime() - current.getTime() + 100);
+        };
+        refreshToday();
+        const subscription = AppState.addEventListener("change", state => {
+            if (state === "active") refreshToday();
+        });
+        return () => {
+            clearTimeout(timer);
+            subscription.remove();
+            photoRunRef.current += 1;
+        };
+    }, []));
 
     // 날짜별 돌봄 기록 — 서버의 개체별 care-records 를 합쳐 만든다
     const [careByDate, setCareByDate] = useState<Record<string, CareDay>>({});
@@ -283,6 +300,7 @@ export default function CalendarScreen({
             if (alivePlants.length === 0) {
                 setCareByDate({});
                 setCareFailed(false);
+                setCareLoading(false);
                 return;
             }
 
@@ -318,7 +336,8 @@ export default function CalendarScreen({
     );
 
     const weeks        = buildWeeks(viewYear, viewMonth);
-    const displayWeeks = weekViewIdx !== null ? [weeks[weekViewIdx]] : weeks;
+    const focusedWeek = weekViewIdx !== null ? weeks[weekViewIdx] : null;
+    const displayWeeks = focusedWeek ? [focusedWeek] : weeks;
 
     const care     = selected ? careByDate[selected] ?? null : null;
     const isLocked = selected ? lockedDays.has(selected) : false;
@@ -332,6 +351,8 @@ export default function CalendarScreen({
 
     function selectDate(dateStr: string | null) {
         if (!dateStr) return;
+        photoRunRef.current += 1;
+        setPickerIdx(null);
         const idx = weeks.findIndex(w => w.includes(dateStr));
         setWeekViewIdx(idx >= 0 ? idx : null);
         setSelected(dateStr);
@@ -341,12 +362,14 @@ export default function CalendarScreen({
     }
 
     function prevMonth() {
+        photoRunRef.current += 1;
         setSelected(null);
         setWeekViewIdx(null);
         if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
         else setViewMonth(m => m - 1);
     }
     function nextMonth() {
+        photoRunRef.current += 1;
         setSelected(null);
         setWeekViewIdx(null);
         if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
@@ -354,14 +377,17 @@ export default function CalendarScreen({
     }
 
     function prevWeek() {
+        photoRunRef.current += 1;
         setSelected(null);
         setWeekViewIdx(i => (i !== null && i > 0) ? i - 1 : i);
     }
     function nextWeek() {
+        photoRunRef.current += 1;
         setSelected(null);
         setWeekViewIdx(i => (i !== null && i < weeks.length - 1) ? i + 1 : i);
     }
     function exitWeekView() {
+        photoRunRef.current += 1;
         setSelected(null);
         setWeekViewIdx(null);
     }
@@ -373,25 +399,31 @@ export default function CalendarScreen({
     }
 
     async function pickImage(idx: number) {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ["images"],
-            allowsEditing: true,
-            quality: 0.85,
-        });
-        if (!result.canceled && result.assets?.[0]) {
-            const uri = result.assets[0].uri;
-            setEditSlots(prev => {
-                const next = [...prev];
-                next[idx] = { ...next[idx], uri };
-                return next;
+        if (!editSlots[idx] || !selected || isLocked) return;
+        const runId = ++photoRunRef.current;
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ["images"],
+                allowsEditing: true,
+                quality: 0.85,
             });
-            setPickerIdx(idx);
+            if (photoRunRef.current !== runId) return;
+            if (!result.canceled && result.assets?.[0]) {
+                const uri = result.assets[0].uri;
+                setEditSlots(prev => prev.map((slot, i) => i === idx ? { ...slot, uri } : slot));
+                setPickerIdx(idx);
+            }
+        } catch {
+            if (photoRunRef.current === runId) {
+                Alert.alert("사진 선택 실패", "사진을 불러오지 못했어요. 다시 시도해주세요.");
+            }
         }
     }
 
     async function handlePhotoSlotTap(idx: number) {
         if (isLocked) return;
         const slot = editSlots[idx];
+        if (!slot) return;
         if (!slot.uri) {
             await pickImage(idx);
         } else {
@@ -405,28 +437,16 @@ export default function CalendarScreen({
     }
 
     function removePhoto(idx: number) {
-        setEditSlots(prev => {
-            const next = [...prev];
-            next[idx] = { uri: null, plantId: null };
-            return next;
-        });
+        setEditSlots(prev => prev.map((slot, i) => i === idx ? { uri: null, plantId: null } : slot));
     }
 
     function assignPlant(idx: number, plantId: string) {
-        setEditSlots(prev => {
-            const next = [...prev];
-            next[idx] = { ...next[idx], plantId };
-            return next;
-        });
+        setEditSlots(prev => prev.map((slot, i) => i === idx ? { ...slot, plantId } : slot));
         setPickerIdx(null);
     }
 
     function clearLabel(idx: number) {
-        setEditSlots(prev => {
-            const next = [...prev];
-            next[idx] = { ...next[idx], plantId: null };
-            return next;
-        });
+        setEditSlots(prev => prev.map((slot, i) => i === idx ? { ...slot, plantId: null } : slot));
         setPickerIdx(null);
     }
 
@@ -516,7 +536,7 @@ export default function CalendarScreen({
                                         const fertilized = (c?.fertilizedPlants.length ?? 0) > 0;
                                         const hasJournal = ds ? ds in journals : false;
                                         const isSel      = ds !== null && ds === selected;
-                                        const isToday    = ds === TODAY;
+                                        const isToday    = ds === today;
                                         const both       = watered && fertilized;
                                         const dayNum     = ds ? parseInt(ds.split("-")[2] ?? "") : null;
 

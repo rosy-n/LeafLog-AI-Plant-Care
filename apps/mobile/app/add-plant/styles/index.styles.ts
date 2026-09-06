@@ -140,7 +140,7 @@ export const styles = StyleSheet.create({
 
   // Loading overlay
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: Colors.overlay,
     alignItems: 'center',
     justifyContent: 'center',

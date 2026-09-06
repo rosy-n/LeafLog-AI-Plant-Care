@@ -127,9 +127,9 @@ export default function RepottingScreen({ navigation, route }: { navigation: any
         field: keyof SoilEntry,
         value: string
     ) => {
-        const next = [...soilMix];
-        next[index] = { ...next[index], [field]: value };
-        setSoilMix(next);
+        setSoilMix(current => current.map((entry, i) =>
+            i === index ? { ...entry, [field]: value } : entry,
+        ));
     };
 
     const saveRecord = async () => {

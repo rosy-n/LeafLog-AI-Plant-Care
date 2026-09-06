@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { File } from "expo-file-system";
 
 import type { NewPlantPayload } from "../types/plant";
 
@@ -195,11 +196,8 @@ async function requestForm<T>(path: string, formData: FormData): Promise<T> {
 
 function createImageFormData(image: UploadableImage): FormData {
   const formData = new FormData();
-  formData.append("file", {
-    uri: image.uri,
-    name: image.name || "plant-photo.jpg",
-    type: image.type || "image/jpeg",
-  } as unknown as Blob);
+  // Expo fetch reads file bytes; React Native's old { uri } parts are unsupported.
+  formData.append("file", new File(image.uri));
   return formData;
 }
 

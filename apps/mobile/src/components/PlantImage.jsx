@@ -1,5 +1,6 @@
-import React from "react";
-import { Image, StyleSheet, View } from "react-native";
+import React, { useState } from "react";
+import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { plantImages } from "../data/plants";
 import DecorImage from "./DecorImage";
 
@@ -43,38 +44,37 @@ export default function PlantImage({
 
     if (expressionStyle || effectSource || safeEffectRemote || effectFallback) {
         return (
-            <View style={[styles.layerStack, { width, height }, style]}>
-                <View style={styles.canvasStack}>
+            <LayeredPlantImage
+                key={Image.resolveAssetSource(source)?.uri ?? imageKey}
+                source={source}
+                width={width}
+                height={height}
+                style={style}
+            >
+                {expressionStyle ? (
                     <Image
-                        source={source}
+                        source={expressionSource}
+                        style={[styles.expressionLayer, expressionStyle]}
+                        resizeMode="contain"
+                        pointerEvents="none"
+                    />
+                ) : null}
+                {effectSource ? (
+                    <Image
+                        source={effectSource}
                         style={styles.layerImage}
                         resizeMode="contain"
+                        pointerEvents="none"
                     />
-                    {expressionStyle ? (
-                        <Image
-                            source={expressionSource}
-                            style={[styles.expressionLayer, expressionStyle]}
-                            resizeMode="contain"
-                            pointerEvents="none"
-                        />
-                    ) : null}
-                    {effectSource ? (
-                        <Image
-                            source={effectSource}
-                            style={styles.layerImage}
-                            resizeMode="contain"
-                            pointerEvents="none"
-                        />
-                    ) : null}
-                    {safeEffectRemote || effectFallback ? (
-                        <DecorImage
-                            remote={safeEffectRemote}
-                            fallback={effectFallback}
-                            style={styles.layerImage}
-                        />
-                    ) : null}
-                </View>
-            </View>
+                ) : null}
+                {safeEffectRemote || effectFallback ? (
+                    <DecorImage
+                        remote={safeEffectRemote}
+                        fallback={effectFallback}
+                        style={styles.layerImage}
+                    />
+                ) : null}
+            </LayeredPlantImage>
         );
     }
 
@@ -91,6 +91,51 @@ export default function PlantImage({
             ]}
             resizeMode="contain"
         />
+    );
+}
+
+// Remount on base-image changes so stale load events cannot reveal a new face.
+function LayeredPlantImage({ source, width, height, style, children }) {
+    const [loaded, setLoaded] = useState(false);
+    const [failed, setFailed] = useState(false);
+
+    return (
+        <View style={[styles.layerStack, { width, height }, style]}>
+            <View style={styles.canvasStack}>
+                <Image
+                    source={source}
+                    style={styles.layerImage}
+                    resizeMode="contain"
+                    onLoad={() => {
+                        setFailed(false);
+                        setLoaded(true);
+                    }}
+                    onError={() => {
+                        setLoaded(false);
+                        setFailed(true);
+                        console.warn("캐릭터 이미지를 불러오지 못했어요. 이미지 서버 연결을 확인해주세요.");
+                    }}
+                />
+                {loaded ? children : (
+                    <View style={styles.imageStatus} pointerEvents="none">
+                        {failed ? (
+                            <Ionicons
+                                name="image-outline"
+                                size={24}
+                                color="#748278"
+                                accessibilityLabel="캐릭터 이미지를 불러오지 못했어요"
+                            />
+                        ) : (
+                            <ActivityIndicator
+                                size="small"
+                                color="#748278"
+                                accessibilityLabel="캐릭터 이미지 불러오는 중"
+                            />
+                        )}
+                    </View>
+                )}
+            </View>
+        </View>
     );
 }
 
@@ -128,7 +173,7 @@ const styles = StyleSheet.create({
         backgroundColor: "transparent",
     },
     layerImage: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         width: "100%",
         height: "100%",
         backgroundColor: "transparent",
@@ -136,5 +181,10 @@ const styles = StyleSheet.create({
     expressionLayer: {
         position: "absolute",
         backgroundColor: "transparent",
+    },
+    imageStatus: {
+        ...StyleSheet.absoluteFill,
+        alignItems: "center",
+        justifyContent: "center",
     },
 });
