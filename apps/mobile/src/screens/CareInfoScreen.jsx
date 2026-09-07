@@ -175,7 +175,7 @@ function toChips(raw) {
         .filter(Boolean);
 }
 
-// 두는 곳 — 농사로 원문은 장소마다 실내깊이 설명이 붙어 한 줄에 최대 114자가 된다.
+// 권장 위치 — 농사로 원문은 장소마다 실내깊이 설명이 붙어 한 줄에 최대 114자가 된다.
 //   '실내 어두운 곳 (실내깊이 500 이상cm),거실 내측 (실내깊이 300~500cm),거실 창측 (…)'
 // 깊이 수치는 장소 이름과 사실상 1:1 대응이라 빼고 장소만 칩으로 보여준다.
 function toPlacementChips(raw) {
@@ -603,7 +603,7 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
 
                         {placements.length > 0 ? (
                             <View style={styles.placementBlock}>
-                                <Text style={styles.subLabel}>두는 곳</Text>
+                                <Text style={styles.subLabel}>권장 위치</Text>
                                 <View style={styles.chipContainer}>
                                     {placements.map((place) => (
                                         <View key={place} style={styles.chip}>
