@@ -17,6 +17,7 @@ export const Colors = {
 
   // ── 중성 ────────────────────────────────────
   textBlack: '#171717',      // 기본 텍스트
+  textMid: '#454545',        // textBlack↔textGray 중간 — 검정만큼 튀지 않되 회색보다 또렷해야 할 때 (메뉴 아이콘 등)
   textGray: '#727272',       // 보조 텍스트
   textFaint: '#A7A7A7',      // 비활성 · 플레이스홀더
   white: '#FFFFFF',
@@ -159,6 +160,10 @@ export const Glass = {
   // 웜 틴트 (개별 유지)
   warm14:  'rgba(200,80,60,0.14)',
   warm35:  'rgba(200,80,60,0.35)',
+  // 알림 배지 빨강 — Accent.alert(#FF3939) 기반, 유리 배지의 반투명 채움 · 테두리
+  alertGlass: 'rgba(255,57,57,0.78)',
+  alertGlassBorder: 'rgba(255,57,57,0.9)',
+  alertGlassBorderSoft: 'rgba(255,120,120,0.6)',
 } as const;
 
 // ── 소셜 로그인 브랜드 색 (지정값) ───────────────────
