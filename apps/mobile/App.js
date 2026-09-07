@@ -284,7 +284,6 @@ function MainAppContent({ user, onLogout }) {
                             plants={plants}
                             decorations={decorations}
                             hasUnread={notices.some((n) => n.urgent)}
-                            urgentCount={notices.filter((n) => n.urgent).length}
                         />
                     )}
                 </Stack.Screen>
