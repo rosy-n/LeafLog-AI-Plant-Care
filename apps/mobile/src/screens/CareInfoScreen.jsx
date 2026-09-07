@@ -104,6 +104,48 @@ function describeLight(species) {
     return { ...step, caution };
 }
 
+/*
+    영양제 요구도 → 사람이 읽는 문장.
+
+    농사로 원문(metadata.fertilizer_info)은 "요구도 + 주는 방법" 두 덩어리가
+    붙어 있고, 표기가 고르지 않다:
+      '비료를 보통 요구함'
+      '보통 요구함'                                  ← '비료를' 이 빠진 표기
+      '비료를 거의 요구하지않음 (2회/년, 4월, 7월)'
+      '비료를 보통 요구함(수용성비료 2주에 한번 줌)'
+    그대로 보여주면 문장이 중간에서 끊긴 것처럼 읽힌다. 요구도는 등급 표기로
+    줄이고, 주는 방법만 아래 줄에 남긴다 — 같은 카드의 온·습도("적정 온도 21~25°C")
+    처럼 값만 전달하는 어투로 맞춘다.
+
+    등급을 못 알아보는 원문(예: '꽃이 진 후 시비')은 손대지 않고 그대로 보여준다 —
+    농사로에는 자유 서술도 섞여 있어 억지로 등급에 끼우면 뜻이 바뀐다.
+
+    괄호 안 '수용성비료 · 완효성비료' 같은 말은 비료 제품 종류라서 그대로 둔다.
+*/
+const FERTILIZER_STEPS = [
+    { match: /(비료를\s*)?거의\s*요구하지\s*않음\.?/, title: "요구량 거의 없음" },
+    { match: /(비료를\s*)?많이\s*요구함\.?/,           title: "요구량 많음" },
+    { match: /(비료를\s*)?보통\s*요구함\.?/,           title: "요구량 보통" },
+];
+
+// 원문 → { title, detail }. 자료가 없으면 null
+function describeFertilizer(raw) {
+    const text = (raw ?? "").trim();
+    if (!text) return null;
+
+    const step = FERTILIZER_STEPS.find((item) => item.match.test(text));
+    if (!step) return { title: text, detail: null };
+
+    // 등급 표현을 떼고 남은 설명만 부가 정보로 — 앞쪽 구두점과 겉 괄호를 정리한다
+    const detail = text
+        .replace(step.match, "")
+        .replace(/^[\s.,·]+/, "")
+        .replace(/^\(([\s\S]*)\)$/, "$1")
+        .trim();
+
+    return { title: step.title, detail: detail || null };
+}
+
 // 독성 3상태 — null 은 자료 없음
 function toxicityMark(flag) {
     if (flag === true) return { icon: "위험", color: Pink.soft };
@@ -229,6 +271,7 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
     const flowerColors = toChips(species?.flower_color_names);
     const placements = toPlacementChips(species?.placement);
     const light = species ? describeLight(species) : null;
+    const fertilizer = describeFertilizer(species?.fertilizer_info);
     // 접힘 상태에서 실제로 잘릴 때만 '더 보기' 를 붙인다.
     // 농사로 설명은 짧은 한 문장부터 1,000자 넘는 속 전체 소개까지 편차가 크다.
     const isLongDescription =
@@ -468,15 +511,18 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                     >
                         <Text style={styles.cardTitle}>영양제</Text>
 
-                        {species.fertilizer_info ? (
+                        {fertilizer ? (
                             <View style={styles.infoRow}>
                                 <View style={styles.circleOrange}>
                                     <Text style={styles.sunEmoji}>🌱</Text>
                                 </View>
 
-                                <Text style={[styles.mainInfo, styles.flexText]}>
-                                    {species.fertilizer_info}
-                                </Text>
+                                <View style={[styles.textGroup, styles.flexText]}>
+                                    <Text style={styles.mainInfo}>{fertilizer.title}</Text>
+                                    {fertilizer.detail ? (
+                                        <Text style={styles.subInfo}>{fertilizer.detail}</Text>
+                                    ) : null}
+                                </View>
                             </View>
                         ) : (
                             <Text style={styles.mainInfo}>{NO_DATA}</Text>
