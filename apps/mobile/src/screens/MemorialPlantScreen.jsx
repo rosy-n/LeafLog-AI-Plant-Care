@@ -299,7 +299,7 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                         <LiquidGlassButton size={54} onPress={() => setGraveModalVisible(true)}>
                             <Image
                                 source={require("../../assets/icons/revive_icon.png")}
-                                style={styles.buttonIcon}
+                                style={styles.reviveIcon}
                                 resizeMode="contain"
                             />
                         </LiquidGlassButton>
@@ -459,6 +459,13 @@ const styles = StyleSheet.create({
     buttonIcon: {
         width: 30,
         height: 30,
+    },
+
+    // revive 아이콘은 캔버스 여백이 많아(그림이 68%, home 은 88%) 같은 30px 박스에
+    // 넣으면 눈에 보이는 크기가 작다 — 박스를 키워 다른 아이콘과 맞춘다
+    reviveIcon: {
+        width: 40,
+        height: 40,
     },
 
     rightButtons: {
