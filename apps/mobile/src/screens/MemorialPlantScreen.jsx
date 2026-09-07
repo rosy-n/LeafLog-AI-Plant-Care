@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import {
     Alert,
+    Image,
     ImageBackground,
     View,
     Text,
@@ -9,7 +10,7 @@ import {
     Animated,
     Modal,
 } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { updatePlant } from "../api";
@@ -22,8 +23,9 @@ import PixelOutlineText from "../components/PixelOutlineText";
 import PixelButton from "../components/PixelButton";
 import PixelSpeechBubble from "../components/PixelSpeechBubble";
 import GlassMenuItem from "../components/GlassMenuItem";
+import { getPersonaGreeting } from "../../constants/persona-greetings";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Paper, Pink, Accent } from "../../constants/colors";
+import { Colors, GreenTint, Paper, Accent } from "../../constants/colors";
 import { Spacing } from "../../constants/spacing";
 
 const MENU_ITEMS = [
@@ -43,6 +45,9 @@ function daysSince(iso) {
     return Math.max(0, Math.floor((Date.now() - created) / 86400000));
 }
 
+// 떠오르는 하트 — 하트 버튼·HeartsRow·개체탭 문지르기 연출과 같은 도트 하트
+const FLOATING_HEART_ICON = require("../../assets/icons/fullheart_icon.png");
+
 let heartIdCounter = 0;
 
 export default function MemorialPlantScreen({ navigation, route, decorations, reloadPlants }) {
@@ -55,6 +60,15 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
     const [menuOpen, setMenuOpen] = useState(false);
     const [graveModalVisible, setGraveModalVisible] = useState(false);
     const [floatingHearts, setFloatingHearts] = useState([]);
+
+    /*
+        말풍선 대사 — 살아있는 개체탭(PlantDetailScreen)과 같은 방식으로
+        개체의 성격(persona)에 맞는 대사 중 하나를 뽑는다.
+        화면에 들어올 때 한 번만 정해서 머무는 동안은 바뀌지 않는다
+        (useState 초기화 함수는 마운트마다 한 번만 실행된다).
+        성격을 아직 고르지 않은 개체는 getPersonaGreeting 이 기본 대사로 받아준다.
+    */
+    const [greeting] = useState(() => getPersonaGreeting(plant?.persona));
 
     const plantName = plant?.name ?? "-";
     const togetherDays = daysSince(plant?.createdAt);
@@ -155,7 +169,7 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                         <HeartsRow count={plant?.hearts ?? 0} size={25} />
                     </View>
 
-                    {/* 살아있는 개체탭과 같은 도트 말풍선 (PixelSpeechBubble) */}
+                    {/* 살아있는 개체탭과 같은 도트 말풍선 · 같은 성격별 대사 */}
                     <PixelSpeechBubble
                         style={styles.speechBubble}
                         textStyle={styles.speechText}
@@ -163,7 +177,7 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                         tailOffset={125}
                         wrapWords
                     >
-                        보고 싶어...
+                        {greeting}
                     </PixelSpeechBubble>
 
                     {/* Plant — same structure as PlantDetailScreen, no overlay */}
@@ -214,7 +228,11 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                                     ],
                                 }}
                             >
-                                <Ionicons name="heart" size={36} color={Pink.rose} />
+                                <Image
+                                    source={FLOATING_HEART_ICON}
+                                    style={styles.floatingHeart}
+                                    resizeMode="contain"
+                                />
                             </Animated.View>
                         ))}
                     </View>
@@ -274,7 +292,11 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                             size={54}
                             onPress={() => navigation.navigate("Home")}
                         >
-                            <Ionicons name="home-outline" size={30} color={GreenTint.deep} />
+                            <Image
+                                source={require("../../assets/icons/home_icon.png")}
+                                style={styles.buttonIcon}
+                                resizeMode="contain"
+                            />
                         </LiquidGlassButton>
                     </View>
 
@@ -283,23 +305,28 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                             size={54}
                             onPress={() => navigation.navigate("ConsultationHistory", { plant })}
                         >
-                            <Ionicons
-                                name="chatbubble-ellipses-outline"
-                                size={29}
-                                color={GreenTint.strong}
+                            <Image
+                                source={require("../../assets/icons/counsel_icon.png")}
+                                style={styles.buttonIcon}
+                                resizeMode="contain"
                             />
                         </LiquidGlassButton>
 
+                        {/* 다시 함께하기 — 묘비가 아니라 되살리기 동작이라 revive 아이콘을 쓴다 */}
                         <LiquidGlassButton size={54} onPress={() => setGraveModalVisible(true)}>
-                            <MaterialCommunityIcons
-                                name="grave-stone"
-                                size={30}
-                                color={Accent.mauve}
+                            <Image
+                                source={require("../../assets/icons/revive_icon.png")}
+                                style={styles.reviveIcon}
+                                resizeMode="contain"
                             />
                         </LiquidGlassButton>
 
                         <LiquidGlassButton size={68} onPress={handleHeartPress}>
-                            <Ionicons name="heart" size={36} color={Pink.rose} />
+                            <Image
+                                source={require("../../assets/icons/fullheart_icon.png")}
+                                style={styles.heartButtonIcon}
+                                resizeMode="contain"
+                            />
                         </LiquidGlassButton>
                     </View>
                 </SafeAreaView>
@@ -449,6 +476,39 @@ const styles = StyleSheet.create({
         gap: Spacing.xl,
         zIndex: 30,
     },
+    // 유리 버튼 안에 넣는 도트 아이콘 — 개체탭(PlantDetailScreen)과 같은 크기
+    buttonIcon: {
+        width: 30,
+        height: 30,
+    },
+
+    /*
+        애정도 하트(68px 버튼) — 크기는 개체탭의 68px 버튼 아이콘과 같은 40px.
+
+        하트는 위쪽 두 덩이에 면적이 몰리고 아래로 뾰족해서, 박스를 정중앙에 두면
+        모양이 위로 올라가 보인다. 실제로 재보면 불투명 픽셀의 무게중심이 기하중심보다
+        6.1% 위에 있어(43.9% vs 50.1%) 그만큼(40px 기준 약 2px) 내려 시각 중심을 맞춘다.
+        layout 을 흔들지 않도록 margin 이 아니라 transform 으로 옮긴다.
+    */
+    heartButtonIcon: {
+        width: 40,
+        height: 40,
+        transform: [{ translateY: 2 }],
+    },
+
+    // 떠오르는 하트 — 기존 Ionicons size 36 과 같은 크기
+    floatingHeart: {
+        width: 36,
+        height: 36,
+    },
+
+    // revive 아이콘은 캔버스 여백이 많아(그림이 68%, home 은 88%) 같은 30px 박스에
+    // 넣으면 눈에 보이는 크기가 작다 — 박스를 키워 다른 아이콘과 맞춘다
+    reviveIcon: {
+        width: 40,
+        height: 40,
+    },
+
     rightButtons: {
         position: "absolute",
         right: 20,

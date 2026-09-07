@@ -531,6 +531,61 @@ export function deleteCareRecord(plantId: number, recordId: number) {
   });
 }
 
+// ── 성장 일지 ────────────────────────────────────────────────────────────────
+// 하루 한 건(서버 growth_diary 의 UNIQUE user_id+diary_date)이라 날짜가 곧 주소다.
+// 날짜는 캘린더 화면이 쓰는 'YYYY-MM-DD' 그대로.
+
+export type DiaryPhoto = {
+  asset_id: number;
+  // 1~3 슬롯 번호 — 서버 growth_diary_photo.photo_order
+  photo_order: number;
+  // 사진에 붙인 개체 라벨 (plant_id). 라벨 없는 사진은 null
+  tagged_plant_id: number | null;
+  // 비공개 버킷이라 presigned URL 로 온다 — 만료되므로 저장해두지 말 것
+  url: string | null;
+};
+
+export type Diary = {
+  diary_date: string;
+  content: string;
+  photos: DiaryPhoto[];
+  updated_at: string | null;
+};
+
+// 저장할 사진 한 장 — 업로드로 받은 asset_id 를 슬롯에 꽂는다
+export type DiaryPhotoWrite = {
+  asset_id: number;
+  photo_order: number;
+  tagged_plant_id?: number | null;
+};
+
+export type DiaryPhotoUploaded = { asset_id: number; url: string };
+
+// 한 달치 일지 — 캘린더가 일지 있는 날을 표시하고, 날짜를 눌렀을 때 다시 요청하지
+// 않고 바로 펼 수 있게 본문까지 함께 온다 (하루 1건이라 최대 31건)
+export function getDiaryMonth(year: number, month: number) {
+  return request<Diary[]>(`/api/diary?year=${year}&month=${month}`);
+}
+
+// 그날 일지 저장 — photos 는 "저장 후 남아야 할 전체 목록"이라 빠진 슬롯은 떨어진다
+export function saveDiary(
+  diaryDate: string,
+  body: { content: string; photos: DiaryPhotoWrite[] },
+) {
+  return request<Diary>(`/api/diary/${diaryDate}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+// 갤러리에서 고른 사진 한 장 업로드 → 받은 asset_id 를 saveDiary 에 실어 보낸다
+export function uploadDiaryPhoto(image: UploadableImage) {
+  return requestForm<DiaryPhotoUploaded>(
+    "/api/diary/photos",
+    createImageFormData(image),
+  );
+}
+
 export function login(payload: { email: string; password: string }) {
   return request<AuthResponse>("/auth/login", {
     method: "POST",
@@ -545,6 +600,12 @@ export function checkEmail(email: string) {
 }
 
 export type CurrentUser = AuthResponse["user"];
+
+// 저장된 토큰으로 자동 로그인할 때 쓴다 — 토큰이 살아 있으면 사용자 정보를,
+// 만료·폐기됐으면 401 을 준다(그 경우 호출부가 저장된 토큰을 지운다).
+export function getMe() {
+  return request<CurrentUser>("/auth/me");
+}
 
 // 내 프로필 수정 (설정 화면의 이름 변경).
 // 닉네임 규칙은 회원가입과 같아서(2~10자, 한글/영문/숫자) 어기면 서버가 400을 준다.
