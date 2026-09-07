@@ -61,6 +61,16 @@ const EMPTY_SLOTS: PhotoSlot[] = [
 ];
 
 /*
+    채운 사진을 앞 칸으로 몰아준다 — 아래 칸에만 넣고 저장한 일지도 위 칸부터 차서
+    "사진이 한 장이면 위쪽 틀만 보인다"는 규칙이 넣은 순서와 무관하게 성립한다.
+    길이는 항상 EMPTY_SLOTS 와 같게 맞춘다 — 다시 편집할 때 빈 칸이 필요하다.
+*/
+function compactSlots(slots: PhotoSlot[]): PhotoSlot[] {
+    const filled = slots.filter(slot => slot.uri);
+    return EMPTY_SLOTS.map((empty, i) => filled[i] ?? empty);
+}
+
+/*
     캘린더에 표시하는 돌봄 종류. 서버 care_type(app/main.py CARE_TYPES)과 같은 값이며,
     분갈이(REPOTTING)는 이 화면의 범례에 없으므로 불러오지 않는다.
 */
@@ -345,6 +355,16 @@ export default function CalendarScreen({
     const slotA = editSlots[0] ?? { uri: null, plantId: null };
     const slotB = editSlots[1] ?? { uri: null, plantId: null };
 
+    /*
+        보여줄 사진 틀 —
+        아직 쓰는 중이면 두 틀 다 열어둬야 둘째 사진을 넣을 수 있다.
+        저장해 잠긴 일지는 사진이 들어간 틀만 남긴다
+        (한 장이면 위쪽만, 아예 없으면 포스트잇만).
+    */
+    const filledPhotos   = editSlots.filter(slot => slot.uri).length;
+    const showUpperFrame = !isLocked || filledPhotos > 0;
+    const showLowerFrame = !isLocked || filledPhotos > 1;
+
     const wateredChars    = plantsByIds(care?.wateredPlants ?? [], alivePlants);
     const fertilizedChars = plantsByIds(care?.fertilizedPlants ?? [], alivePlants);
     const buddy           = selected ? pickBuddy(selected, alivePlants) : null;
@@ -394,7 +414,10 @@ export default function CalendarScreen({
 
     function saveJournal() {
         if (!selected || isLocked) return;
-        setJournals(prev => ({ ...prev, [selected]: { note: editNote, photoSlots: editSlots } }));
+        // 넣은 사진을 위 칸부터 채워 저장한다 — 빈 칸이 사이에 남지 않게
+        const photoSlots = compactSlots(editSlots);
+        setJournals(prev => ({ ...prev, [selected]: { note: editNote, photoSlots } }));
+        setEditSlots(photoSlots);
         setLockedDays(prev => new Set([...prev, selected]));
     }
 
@@ -599,7 +622,7 @@ export default function CalendarScreen({
                                     <View style={[styles.legendDot, { backgroundColor: Colors.fertilizer }]}>
                                         <PlusIcon size={11} color={Colors.fertilizerIcon} />
                                     </View>
-                                    <Text style={styles.legendText}>비료</Text>
+                                    <Text style={styles.legendText}>영양제</Text>
                                 </View>
                                 <View style={styles.legendItem}>
                                     <View style={[styles.legendDot, styles.legendDotJournal]} />
@@ -683,15 +706,17 @@ export default function CalendarScreen({
                                 <View style={styles.scrapbook}>
 
                                     {/* ④ 우측 — 오른쪽으로 10도 기운 틀 */}
-                                    <View style={styles.frameRowRight}>
-                                        <PhotoFrame
-                                            uri={slotA.uri}
-                                            label={alivePlants.find(p => p.id === slotA.plantId)?.name}
-                                            tiltStyle={styles.tiltRight}
-                                            onPress={() => handlePhotoSlotTap(0)}
-                                            disabled={isLocked}
-                                        />
-                                    </View>
+                                    {showUpperFrame && (
+                                        <View style={styles.frameRowRight}>
+                                            <PhotoFrame
+                                                uri={slotA.uri}
+                                                label={alivePlants.find(p => p.id === slotA.plantId)?.name}
+                                                tiltStyle={styles.tiltRight}
+                                                onPress={() => handlePhotoSlotTap(0)}
+                                                disabled={isLocked}
+                                            />
+                                        </View>
+                                    )}
 
                                     {/* ⑥ 포스트잇 — 눌러서 쓰고, 글자 수에 맞춰 폰트가 줄어든다 */}
                                     <Pressable
@@ -714,26 +739,37 @@ export default function CalendarScreen({
                                     </Pressable>
 
                                     {/* ⑤ 좌측 — 왼쪽으로 15도 기운 틀 + ⑦ 오른쪽에 랜덤 개체 */}
-                                    <View style={styles.frameRowLeft}>
-                                        <View style={styles.lowerFrameWrap}>
-                                            <PhotoFrame
-                                                uri={slotB.uri}
-                                                label={alivePlants.find(p => p.id === slotB.plantId)?.name}
-                                                tiltStyle={styles.tiltLeft}
-                                                onPress={() => handlePhotoSlotTap(1)}
-                                                disabled={isLocked}
-                                            />
-                                            {buddy && (
-                                                <View style={styles.buddyWrap} pointerEvents="none">
-                                                    <Image
-                                                        source={plantSource(buddy)}
-                                                        style={styles.buddyImg}
-                                                        resizeMode="contain"
-                                                    />
-                                                </View>
-                                            )}
+                                    {showLowerFrame ? (
+                                        <View style={styles.frameRowLeft}>
+                                            <View style={styles.lowerFrameWrap}>
+                                                <PhotoFrame
+                                                    uri={slotB.uri}
+                                                    label={alivePlants.find(p => p.id === slotB.plantId)?.name}
+                                                    tiltStyle={styles.tiltLeft}
+                                                    onPress={() => handlePhotoSlotTap(1)}
+                                                    disabled={isLocked}
+                                                />
+                                                {buddy && (
+                                                    <View style={styles.buddyWrap} pointerEvents="none">
+                                                        <Image
+                                                            source={plantSource(buddy)}
+                                                            style={styles.buddyImg}
+                                                            resizeMode="contain"
+                                                        />
+                                                    </View>
+                                                )}
+                                            </View>
                                         </View>
-                                    </View>
+                                    ) : buddy ? (
+                                        // 아래 틀이 사라진 날 — 기댈 틀이 없으니 개체만 따로 세운다
+                                        <View style={styles.buddyOnlyRow} pointerEvents="none">
+                                            <Image
+                                                source={plantSource(buddy)}
+                                                style={styles.buddyImg}
+                                                resizeMode="contain"
+                                            />
+                                        </View>
+                                    ) : null}
                                 </View>
 
                                 {/* 저장 (잠긴 날은 숨김) */}
@@ -1100,6 +1136,13 @@ const styles = StyleSheet.create({
     buddyImg: {
         width: 112,
         height: 112,
+    },
+    // 아래 사진 틀이 없는 날 — 개체가 기댈 틀이 없으니 포스트잇 아래에 그대로 세운다
+    buddyOnlyRow: {
+        flexDirection: "row",
+        justifyContent: "center",
+        marginTop: Spacing.md,
+        zIndex: 3,
     },
 
     // ⑥ 포스트잇 — 가로로 긴 3~4줄 높이. 사진 틀과 겹치되 항상 맨 위에 얹혀
