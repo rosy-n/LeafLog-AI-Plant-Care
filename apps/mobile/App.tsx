@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as Location from "expo-location";
 import { useFonts } from "expo-font";
 import { Fonts, FontSizes } from "./constants/fonts";
@@ -23,6 +23,7 @@ import {
 } from "react-native";
 import {
   checkEmail,
+  getCurrentEnvironment,
   getMe,
   getUserSettings,
   login,
@@ -36,10 +37,12 @@ import {
   loadStoredToken,
   saveStoredToken,
 } from "./src/authStorage";
+import { saveEnvironmentCache } from "./src/environmentCache";
 import { cancelAllWateringReminders } from "./src/notifications";
 import MainApp from "./App.js";
 import AppButton from "./src/components/AppButton";
 import BackButton from "./src/components/BackButton";
+import EnvironmentLoadingScreen from "./src/components/EnvironmentLoadingScreen";
 import PixelButton from "./src/components/PixelButton";
 
 /*
@@ -51,6 +54,10 @@ const MainAppScreen = MainApp as unknown as React.ComponentType<{
   user: AuthResponse["user"];
   onLogout: () => void;
 }>;
+
+// 날씨/대기질 응답이 이보다 빨리 와도 로딩 화면을 이 시간만큼은 유지한다 —
+// 안 그러면 응답이 아주 빠를 때 로딩바가 뜨자마자 사라져 깜빡임처럼 보인다
+const ENVIRONMENT_LOADING_MIN_MS = 600;
 
 type Screen = "home" | "login" | "signup" | "nickname";
 type CheckStatus = "idle" | "checking" | "available" | "taken";
@@ -153,6 +160,9 @@ export default function App() {
   const [locationStatus, setLocationStatus] = useState<
     "unknown" | "checking" | "needed" | "done"
   >("unknown");
+  const [environmentStatus, setEnvironmentStatus] = useState<"idle" | "loading" | "done">(
+    "idle"
+  );
 
   /*
     앱을 켤 때 저장된 토큰으로 로그인 상태를 되살린다.
@@ -218,6 +228,48 @@ export default function App() {
       cancelled = true;
     };
   }, [auth]);
+
+  // 로그인 직후 딱 한 번 날씨/대기질을 미리 받아 캐시에 저장해둔다 — 위치가 설정된
+  // 뒤에 조회해야 하므로 locationStatus가 "done"이 된 다음에 시작한다. 이후
+  // 홈 화면은 이 캐시를 바로 읽으므로 재방문 때는 로딩 화면이 다시 뜨지 않는다.
+  //
+  // environmentFetchStarted를 의존성 대신 ref로 두는 이유: environmentStatus를
+  // 의존성 배열에 넣으면 setEnvironmentStatus("loading") 자체가 effect를 재실행시키고,
+  // 그때 도는 cleanup이 방금 시작한 fetch의 cancelled를 true로 만들어버려서
+  // 응답이 와도 결과가 버려지고 화면이 로딩에서 멈춰버린다.
+  const environmentFetchStarted = useRef(false);
+  useEffect(() => {
+    if (!auth) {
+      environmentFetchStarted.current = false;
+      setEnvironmentStatus("idle");
+      return;
+    }
+    if (locationStatus !== "done" || environmentFetchStarted.current) return;
+    environmentFetchStarted.current = true;
+    let cancelled = false;
+    let doneTimer: ReturnType<typeof setTimeout>;
+    setEnvironmentStatus("loading");
+    const startedAt = Date.now();
+    getCurrentEnvironment()
+      .then((result) => {
+        if (!cancelled) saveEnvironmentCache(result);
+      })
+      .catch(() => {
+        // 실패해도 홈 진입을 막지 않는다 — 홈 화면이 재조회를 다시 시도한다
+      })
+      .finally(() => {
+        // 응답이 아주 빨리 오면(0.3초 등) 로딩바가 뜨자마자 사라져 깜빡임처럼
+        // 보이므로, 최소 노출 시간을 채운 뒤에만 홈으로 넘어간다
+        const remaining = ENVIRONMENT_LOADING_MIN_MS - (Date.now() - startedAt);
+        doneTimer = setTimeout(() => {
+          if (!cancelled) setEnvironmentStatus("done");
+        }, Math.max(0, remaining));
+      });
+    return () => {
+      cancelled = true;
+      clearTimeout(doneTimer);
+    };
+  }, [auth, locationStatus]);
 
   const allRequiredAgreed = agreeTerms && agreePrivacy;
   const allAgreed = allRequiredAgreed && agreeMarketing;
@@ -487,6 +539,9 @@ export default function App() {
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       );
+    }
+    if (environmentStatus !== "done") {
+      return <EnvironmentLoadingScreen />;
     }
     return <MainAppScreen user={auth.user} onLogout={handleLogout} />;
   }
