@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import {
     Alert,
+    Image,
     ImageBackground,
     View,
     Text,
@@ -9,7 +10,7 @@ import {
     Animated,
     Modal,
 } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { updatePlant } from "../api";
@@ -274,7 +275,11 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                             size={54}
                             onPress={() => navigation.navigate("Home")}
                         >
-                            <Ionicons name="home-outline" size={30} color={GreenTint.deep} />
+                            <Image
+                                source={require("../../assets/icons/home_icon.png")}
+                                style={styles.buttonIcon}
+                                resizeMode="contain"
+                            />
                         </LiquidGlassButton>
                     </View>
 
@@ -290,11 +295,12 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                             />
                         </LiquidGlassButton>
 
+                        {/* 다시 함께하기 — 묘비가 아니라 되살리기 동작이라 revive 아이콘을 쓴다 */}
                         <LiquidGlassButton size={54} onPress={() => setGraveModalVisible(true)}>
-                            <MaterialCommunityIcons
-                                name="grave-stone"
-                                size={30}
-                                color={Accent.mauve}
+                            <Image
+                                source={require("../../assets/icons/revive_icon.png")}
+                                style={styles.buttonIcon}
+                                resizeMode="contain"
                             />
                         </LiquidGlassButton>
 
@@ -449,6 +455,12 @@ const styles = StyleSheet.create({
         gap: Spacing.xl,
         zIndex: 30,
     },
+    // 유리 버튼 안에 넣는 도트 아이콘 — 개체탭(PlantDetailScreen)과 같은 크기
+    buttonIcon: {
+        width: 30,
+        height: 30,
+    },
+
     rightButtons: {
         position: "absolute",
         right: 20,
