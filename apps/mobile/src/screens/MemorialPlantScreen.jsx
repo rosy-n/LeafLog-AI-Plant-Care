@@ -288,10 +288,10 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                             size={54}
                             onPress={() => navigation.navigate("ConsultationHistory", { plant })}
                         >
-                            <Ionicons
-                                name="chatbubble-ellipses-outline"
-                                size={29}
-                                color={GreenTint.strong}
+                            <Image
+                                source={require("../../assets/icons/counsel_icon.png")}
+                                style={styles.buttonIcon}
+                                resizeMode="contain"
                             />
                         </LiquidGlassButton>
 
@@ -305,7 +305,11 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                         </LiquidGlassButton>
 
                         <LiquidGlassButton size={68} onPress={handleHeartPress}>
-                            <Ionicons name="heart" size={36} color={Pink.rose} />
+                            <Image
+                                source={require("../../assets/icons/fullheart_icon.png")}
+                                style={styles.buttonIconLarge}
+                                resizeMode="contain"
+                            />
                         </LiquidGlassButton>
                     </View>
                 </SafeAreaView>
@@ -459,6 +463,12 @@ const styles = StyleSheet.create({
     buttonIcon: {
         width: 30,
         height: 30,
+    },
+
+    // 68px 버튼용 — 개체탭(PlantDetailScreen)의 buttonIconLarge 와 같은 값
+    buttonIconLarge: {
+        width: 40,
+        height: 40,
     },
 
     // revive 아이콘은 캔버스 여백이 많아(그림이 68%, home 은 88%) 같은 30px 박스에
