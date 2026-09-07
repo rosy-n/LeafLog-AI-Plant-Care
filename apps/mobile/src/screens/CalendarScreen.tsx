@@ -215,13 +215,24 @@ function pickBuddy(dateStr: string, plants: Plant[]): Plant | null {
     return plants[h % plants.length] ?? null;
 }
 
-function PlusIcon({ size, color }: { size: number; color: string }) {
-    const bar = Math.max(2, Math.round(size * 0.2));
+/*
+    물주기·영양제 아이콘 — 개체탭(ResourceCounter · 물주기 모달)과 같은 픽셀 아이콘.
+    키는 서버 care_type 과 같게 두어 CARE_KINDS 와 짝이 맞는다.
+    배경이 투명해서 칸/범례의 색 위에 그대로 얹힌다.
+*/
+const CARE_ICONS = {
+    WATERING:    require("../../assets/icons/water_icon.png"),
+    FERTILIZING: require("../../assets/icons/nutrients_icon.png"),
+} as const;
+
+// 아이콘마다 여백이 조금씩 달라서 크기는 얹히는 자리(칸·범례·동그라미)별로 넘긴다
+function CareIcon({ careType, size }: { careType: keyof typeof CARE_ICONS; size: number }) {
     return (
-        <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
-            <View style={{ position: "absolute", width: size * 0.85, height: bar, backgroundColor: color, borderRadius: bar / 2 }} />
-            <View style={{ position: "absolute", width: bar, height: size * 0.85, backgroundColor: color, borderRadius: bar / 2 }} />
-        </View>
+        <Image
+            source={CARE_ICONS[careType]}
+            style={{ width: size, height: size }}
+            resizeMode="contain"
+        />
     );
 }
 
@@ -709,16 +720,16 @@ export default function CalendarScreen({
                                                 {both && !isSel ? (
                                                     <View style={styles.bothWrap}>
                                                         <View style={[styles.halfCell, { backgroundColor: Colors.water }]}>
-                                                            <Ionicons name="water" size={12} color={Colors.waterIcon} />
+                                                            <CareIcon careType="WATERING" size={16} />
                                                         </View>
                                                         <View style={[styles.halfCell, { backgroundColor: Colors.fertilizer }]}>
-                                                            <PlusIcon size={14} color={Colors.fertilizerIcon} />
+                                                            <CareIcon careType="FERTILIZING" size={16} />
                                                         </View>
                                                     </View>
                                                 ) : watered && !isSel ? (
-                                                    <Ionicons name="water" size={20} color={Colors.waterIcon} />
+                                                    <CareIcon careType="WATERING" size={24} />
                                                 ) : fertilized && !isSel ? (
-                                                    <PlusIcon size={22} color={Colors.fertilizerIcon} />
+                                                    <CareIcon careType="FERTILIZING" size={24} />
                                                 ) : (
                                                     <Text style={[
                                                         styles.dayNum,
@@ -741,13 +752,13 @@ export default function CalendarScreen({
                             <View style={styles.legend}>
                                 <View style={styles.legendItem}>
                                     <View style={[styles.legendDot, { backgroundColor: Colors.water }]}>
-                                        <Ionicons name="water" size={9} color={Colors.waterIcon} />
+                                        <CareIcon careType="WATERING" size={13} />
                                     </View>
                                     <Text style={styles.legendText}>물주기</Text>
                                 </View>
                                 <View style={styles.legendItem}>
                                     <View style={[styles.legendDot, { backgroundColor: Colors.fertilizer }]}>
-                                        <PlusIcon size={11} color={Colors.fertilizerIcon} />
+                                        <CareIcon careType="FERTILIZING" size={13} />
                                     </View>
                                     <Text style={styles.legendText}>영양제</Text>
                                 </View>
@@ -797,7 +808,7 @@ export default function CalendarScreen({
                                 {wateredChars.length > 0 && (
                                     <View style={styles.careRow}>
                                         <View style={[styles.careIcon, { backgroundColor: Colors.water }]}>
-                                            <Ionicons name="water" size={16} color={Colors.waterIcon} />
+                                            <CareIcon careType="WATERING" size={20} />
                                         </View>
                                         {wateredChars.map(p => (
                                             <View key={p.id} style={styles.careCircle}>
@@ -815,7 +826,7 @@ export default function CalendarScreen({
                                 {fertilizedChars.length > 0 && (
                                     <View style={styles.careRow}>
                                         <View style={[styles.careIcon, { backgroundColor: Colors.fertilizer }]}>
-                                            <PlusIcon size={16} color={Colors.fertilizerIcon} />
+                                            <CareIcon careType="FERTILIZING" size={20} />
                                         </View>
                                         {fertilizedChars.map(p => (
                                             <View key={p.id} style={styles.careCircle}>
