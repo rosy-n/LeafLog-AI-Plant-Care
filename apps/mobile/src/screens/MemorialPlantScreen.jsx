@@ -24,7 +24,7 @@ import PixelButton from "../components/PixelButton";
 import PixelSpeechBubble from "../components/PixelSpeechBubble";
 import GlassMenuItem from "../components/GlassMenuItem";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Paper, Pink, Accent } from "../../constants/colors";
+import { Colors, GreenTint, Paper, Accent } from "../../constants/colors";
 import { Spacing } from "../../constants/spacing";
 
 const MENU_ITEMS = [
@@ -43,6 +43,9 @@ function daysSince(iso) {
     if (Number.isNaN(created)) return 0;
     return Math.max(0, Math.floor((Date.now() - created) / 86400000));
 }
+
+// 떠오르는 하트 — 하트 버튼·HeartsRow·개체탭 문지르기 연출과 같은 도트 하트
+const FLOATING_HEART_ICON = require("../../assets/icons/fullheart_icon.png");
 
 let heartIdCounter = 0;
 
@@ -215,7 +218,11 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                                     ],
                                 }}
                             >
-                                <Ionicons name="heart" size={36} color={Pink.rose} />
+                                <Image
+                                    source={FLOATING_HEART_ICON}
+                                    style={styles.floatingHeart}
+                                    resizeMode="contain"
+                                />
                             </Animated.View>
                         ))}
                     </View>
@@ -307,7 +314,7 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                         <LiquidGlassButton size={68} onPress={handleHeartPress}>
                             <Image
                                 source={require("../../assets/icons/fullheart_icon.png")}
-                                style={styles.buttonIconLarge}
+                                style={styles.heartButtonIcon}
                                 resizeMode="contain"
                             />
                         </LiquidGlassButton>
@@ -465,10 +472,24 @@ const styles = StyleSheet.create({
         height: 30,
     },
 
-    // 68px 버튼용 — 개체탭(PlantDetailScreen)의 buttonIconLarge 와 같은 값
-    buttonIconLarge: {
+    /*
+        애정도 하트(68px 버튼) — 크기는 개체탭의 68px 버튼 아이콘과 같은 40px.
+
+        하트는 위쪽 두 덩이에 면적이 몰리고 아래로 뾰족해서, 박스를 정중앙에 두면
+        모양이 위로 올라가 보인다. 실제로 재보면 불투명 픽셀의 무게중심이 기하중심보다
+        6.1% 위에 있어(43.9% vs 50.1%) 그만큼(40px 기준 약 2px) 내려 시각 중심을 맞춘다.
+        layout 을 흔들지 않도록 margin 이 아니라 transform 으로 옮긴다.
+    */
+    heartButtonIcon: {
         width: 40,
         height: 40,
+        transform: [{ translateY: 2 }],
+    },
+
+    // 떠오르는 하트 — 기존 Ionicons size 36 과 같은 크기
+    floatingHeart: {
+        width: 36,
+        height: 36,
     },
 
     // revive 아이콘은 캔버스 여백이 많아(그림이 68%, home 은 88%) 같은 30px 박스에
