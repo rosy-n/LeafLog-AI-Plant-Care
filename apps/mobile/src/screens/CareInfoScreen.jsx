@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { getPlant } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint, Pink, Warm, Accent } from "../../constants/colors";
+import { Colors, GreenTint, Pink, Warm, Accent, Gauge } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const CARE_SECTIONS = [
@@ -56,6 +56,19 @@ function rangeStyle(min, max, axisMax) {
     // 상·하한이 같은 종은 폭이 0이라 아예 안 보이므로 최소 3% 만 확보
     const width = Math.max(((high - low) / axisMax) * 100, 3);
     return { left: `${Math.min(left, 100 - width)}%`, width: `${width}%` };
+}
+
+/*
+    축 위의 한 점이 놓일 left (%) — 겨울 최저 온도 표시선에 쓴다.
+
+    겨울 최저는 적정 온도와 같은 온도 축의 값이라 같은 막대에 얹는다.
+    자료(190종)를 보면 값이 5·7·10·13°C 네 가지뿐이고 모두 0~30°C 안에 들며,
+    항상 적정 최저보다 3°C 이상 낮아서 구간과 겹치지 않는다.
+*/
+function markerStyle(value, axisMax) {
+    if (value == null) return null;
+    const at = Math.max(0, Math.min(Number(value), axisMax));
+    return { left: `${(at / axisMax) * 100}%` };
 }
 
 // 광원 요구도 → 사람이 읽는 문장 (원문 라벨이 있으면 그걸 우선)
@@ -176,7 +189,7 @@ function toPlacementChips(raw) {
     수치를 막대 안에 넣지 않는 이유는 rangeStyle 주석 참고.
     자료가 없는 항목도 같은 행 모양을 유지해서 온도·습도 줄이 어긋나지 않게 한다.
 */
-function RangeRow({ label, value, range, fillStyle, ticks }) {
+function RangeRow({ label, value, range, fillStyle, ticks, marker, markerLabel }) {
     return (
         <View>
             <View style={styles.rangeHeader}>
@@ -188,6 +201,7 @@ function RangeRow({ label, value, range, fillStyle, ticks }) {
                 <>
                     <View style={styles.rangeBar}>
                         <View style={[fillStyle, range]} />
+                        {marker ? <View style={[styles.rangeMarker, marker]} /> : null}
                     </View>
 
                     <View style={styles.rangeLabelRow}>
@@ -197,6 +211,13 @@ function RangeRow({ label, value, range, fillStyle, ticks }) {
                             </Text>
                         ))}
                     </View>
+
+                    {marker && markerLabel ? (
+                        <View style={styles.markerLegend}>
+                            <View style={styles.markerSwatch} />
+                            <Text style={styles.markerLegendText}>{markerLabel}</Text>
+                        </View>
+                    ) : null}
                 </>
             ) : null}
         </View>
@@ -300,6 +321,8 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
         species?.humidity_max_pct,
         HUMIDITY_AXIS_MAX,
     );
+    // 겨울 최저는 적정 온도와 같은 축이라 온도 막대 위에 표시선으로 얹는다
+    const winterMarker = markerStyle(species?.temp_min_winter_c, TEMP_AXIS_MAX);
     const pests = toChips(species?.bug_info);
     const flowerColors = toChips(species?.flower_color_names);
     const placements = toPlacementChips(species?.placement);
@@ -499,6 +522,12 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                                 range={tempRange}
                                 fillStyle={styles.rangeFillPink}
                                 ticks={["0°C", "15°C", "30°C"]}
+                                marker={winterMarker}
+                                markerLabel={
+                                    species.temp_min_winter_c != null
+                                        ? `겨울 ${Number(species.temp_min_winter_c)}°C 이상`
+                                        : null
+                                }
                             />
 
                             <RangeRow
@@ -514,10 +543,11 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                             />
                         </View>
 
-                        {species.temp_min_winter_c != null ? (
+                        {/* 온도 막대가 없어 표시선을 얹을 곳이 없는 종만 글로 남긴다 */}
+                        {!tempRange && species.temp_min_winter_c != null ? (
                             <View style={styles.rangeFootnote}>
                                 <Text style={styles.rangeFootnoteText}>
-                                    겨울 최저 {Number(species.temp_min_winter_c)}°C 이상 유지
+                                    겨울 {Number(species.temp_min_winter_c)}°C 이상
                                 </Text>
                             </View>
                         ) : null}
@@ -938,6 +968,36 @@ const styles = StyleSheet.create({
         height: 10,
         borderRadius: Radius.pill,
         backgroundColor: Accent.airBlue,
+    },
+
+    // 겨울 최저 표시선 — 구간(분홍)과 헷갈리지 않게 앱의 '차가움' 색을 쓴다
+    rangeMarker: {
+        position: "absolute",
+        top: 0,
+        bottom: 0,
+        width: 2,
+        marginLeft: -1,
+        backgroundColor: Gauge.coolDeep,
+    },
+
+    markerLegend: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: Spacing.sm,
+        marginTop: Spacing.sm,
+    },
+
+    markerSwatch: {
+        width: 2,
+        height: 10,
+        backgroundColor: Gauge.coolDeep,
+    },
+
+    markerLegendText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.strong,
+        includeFontPadding: false,
     },
 
     rangeLabelRow: {
