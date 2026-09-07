@@ -27,7 +27,15 @@ import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import ScreenHeader from "../components/ScreenHeader";
 import ActionButton from "../components/ActionButton";
-import { getCareRecords, type CareRecordItem } from "../api";
+import {
+    getCareRecords,
+    getDiaryMonth,
+    saveDiary,
+    uploadDiaryPhoto,
+    type CareRecordItem,
+    type Diary,
+    type DiaryPhotoWrite,
+} from "../api";
 // 캐릭터 이미지 fallback — PlantImage 와 같은 출처
 import { plantImages } from "../data/plants";
 
@@ -52,22 +60,49 @@ type CareDay = {
     fertilizedPlants: string[];
 };
 
-type PhotoSlot = { uri: string | null; plantId: string | null };
+/*
+    사진 한 칸 —
+    uri     : 화면에 그릴 주소. 갤러리에서 막 고른 로컬 파일이거나, 저장된 일지를
+              불러왔다면 서버가 준 presigned URL.
+    assetId : 서버에 올라간 사진(media_asset)의 id. 아직 안 올린 사진은 null 이고,
+              값이 있으면 다시 저장할 때 업로드를 건너뛴다.
+*/
+type PhotoSlot = { uri: string | null; plantId: string | null; assetId: number | null };
 type Journal   = { note: string; photoSlots: PhotoSlot[] };
 
-const EMPTY_SLOTS: PhotoSlot[] = [
-    { uri: null, plantId: null },
-    { uri: null, plantId: null },
-];
+// 화면에 두는 사진 칸 수. 서버는 3칸까지 받지만(growth_diary_photo.photo_order)
+// 스크랩북 레이아웃이 위·아래 두 틀이라 앱은 2칸만 쓴다.
+const PHOTO_SLOT_COUNT = 2;
+const EMPTY_SLOT: PhotoSlot = { uri: null, plantId: null, assetId: null };
+
+function emptySlots(): PhotoSlot[] {
+    return Array.from({ length: PHOTO_SLOT_COUNT }, () => ({ ...EMPTY_SLOT }));
+}
+
+// 서버 일지 한 건 → 화면이 쓰는 모양. photo_order(1-based)를 슬롯 자리에 맞춘다.
+function toJournal(diary: Diary): Journal {
+    return {
+        note: diary.content,
+        photoSlots: emptySlots().map((empty, i) => {
+            const photo = diary.photos.find(p => p.photo_order === i + 1);
+            if (!photo) return empty;
+            return {
+                uri: photo.url,
+                plantId: photo.tagged_plant_id === null ? null : String(photo.tagged_plant_id),
+                assetId: photo.asset_id,
+            };
+        }),
+    };
+}
 
 /*
     채운 사진을 앞 칸으로 몰아준다 — 아래 칸에만 넣고 저장한 일지도 위 칸부터 차서
     "사진이 한 장이면 위쪽 틀만 보인다"는 규칙이 넣은 순서와 무관하게 성립한다.
-    길이는 항상 EMPTY_SLOTS 와 같게 맞춘다 — 다시 편집할 때 빈 칸이 필요하다.
+    길이는 항상 PHOTO_SLOT_COUNT 로 맞춘다 — 다시 편집할 때 빈 칸이 필요하다.
 */
 function compactSlots(slots: PhotoSlot[]): PhotoSlot[] {
     const filled = slots.filter(slot => slot.uri);
-    return EMPTY_SLOTS.map((empty, i) => filled[i] ?? empty);
+    return emptySlots().map((empty, i) => filled[i] ?? empty);
 }
 
 /*
@@ -253,14 +288,16 @@ export default function CalendarScreen({
     const [selected,    setSelected]    = useState<string | null>(openToday ? today : null);
     const [weekViewIdx, setWeekViewIdx] = useState<number | null>(openToday ? weekIndexOf(today) : null);
     /*
-        일지(글·사진)는 아직 서버에 저장하는 곳이 없어서 화면이 들고 있는다 —
-        캘린더에 그리는 돌봄 기록(물/영양제)만 실제 DB 기록이다.
+        서버에 저장된 일지 — 날짜별로 들고 있다가 그날을 누르면 그대로 펼친다.
+        보고 있는 달을 열 때마다 GET /api/diary 로 채우고, 저장(PUT)하면 응답으로
+        갈아 끼운다. 여기 들어 있는 날 = 이미 저장한 날 = 더 고칠 수 없는 날.
     */
     const [journals,    setJournals]    = useState<Record<string, Journal>>({});
-    const [lockedDays,  setLockedDays]  = useState<Set<string>>(() => new Set());
+    // 아직 저장하지 않은 날에 쓰고 있는 초고 — 저장한 날은 journals 를 그대로 보여준다
     const [editNote,    setEditNote]    = useState("");
-    const [editSlots,   setEditSlots]   = useState<PhotoSlot[]>(EMPTY_SLOTS);
+    const [editSlots,   setEditSlots]   = useState<PhotoSlot[]>(emptySlots);
     const [pickerIdx,   setPickerIdx]   = useState<number | null>(null);
+    const [saving,      setSaving]      = useState(false);
     const noteRef = useRef<TextInput>(null);
     const photoRunRef = useRef(0);
 
@@ -288,7 +325,41 @@ export default function CalendarScreen({
     const [careByDate, setCareByDate] = useState<Record<string, CareDay>>({});
     const [careLoading, setCareLoading] = useState(false);
     const [careFailed,  setCareFailed]  = useState(false);
+    const [diaryLoading, setDiaryLoading] = useState(false);
+    const [diaryFailed,  setDiaryFailed]  = useState(false);
     const [reloadKey,   setReloadKey]   = useState(0);
+
+    /*
+        일지 로드 — 보고 있는 달의 저장된 일지를 한 번에 읽는다.
+        달을 넘길 때마다 다시 부르고, 이미 읽은 달은 남겨둔다(합쳐 넣는다).
+    */
+    useFocusEffect(
+        useCallback(() => {
+            let cancelled = false;
+            setDiaryLoading(true);
+
+            getDiaryMonth(viewYear, viewMonth + 1)
+                .then(rows => {
+                    if (cancelled) return;
+                    setJournals(prev => ({
+                        ...prev,
+                        ...Object.fromEntries(rows.map(row => [row.diary_date, toJournal(row)])),
+                    }));
+                    setDiaryFailed(false);
+                })
+                .catch(() => {
+                    // 못 읽었다고 빈 달력을 "일지 없음"으로 보이게 두면 다시 쓰게 되므로 알린다
+                    if (!cancelled) setDiaryFailed(true);
+                })
+                .finally(() => {
+                    if (!cancelled) setDiaryLoading(false);
+                });
+
+            return () => {
+                cancelled = true;
+            };
+        }, [viewYear, viewMonth, reloadKey]),
+    );
 
     // 떠나보낸 개체는 캘린더에 세우지 않는다 (홈 들판과 같은 기준)
     const alivePlants = useMemo(() => plants.filter(p => !p.memorial), [plants]);
@@ -349,11 +420,28 @@ export default function CalendarScreen({
     const focusedWeek = weekViewIdx !== null ? weeks[weekViewIdx] : null;
     const displayWeeks = focusedWeek ? [focusedWeek] : weeks;
 
-    const care     = selected ? careByDate[selected] ?? null : null;
-    const isLocked = selected ? lockedDays.has(selected) : false;
+    const care = selected ? careByDate[selected] ?? null : null;
 
-    const slotA = editSlots[0] ?? { uri: null, plantId: null };
-    const slotB = editSlots[1] ?? { uri: null, plantId: null };
+    /*
+        저장한 날은 서버가 준 일지를 그대로 보여주고 더 고칠 수 없다.
+        그래서 화면에 그리는 값(savedJournal)과 쓰고 있는 초고(editNote/editSlots)를
+        나눠 둔다 — 초고를 저장분으로 덮어쓰는 동기화가 없어서, 쓰는 중에 월 목록이
+        갱신돼도 입력하던 내용이 날아가지 않는다.
+    */
+    const savedJournal = selected ? journals[selected] ?? null : null;
+    const isLocked     = savedJournal !== null;
+
+    /*
+        저장분이 아직 도착하지 않았을 수 있는 동안(월 목록 로딩 중)에도 손대지 못하게 —
+        방금 쓴 글이 뒤늦게 온 저장분으로 덮이는 것처럼 보이는 걸 막는다.
+    */
+    const diaryBusy = saving || diaryLoading;
+
+    const noteText = isLocked ? savedJournal.note : editNote;
+    const slots    = isLocked ? savedJournal.photoSlots : editSlots;
+
+    const slotA = slots[0] ?? EMPTY_SLOT;
+    const slotB = slots[1] ?? EMPTY_SLOT;
 
     /*
         보여줄 사진 틀 —
@@ -361,7 +449,7 @@ export default function CalendarScreen({
         저장해 잠긴 일지는 사진이 들어간 틀만 남긴다
         (한 장이면 위쪽만, 아예 없으면 포스트잇만).
     */
-    const filledPhotos   = editSlots.filter(slot => slot.uri).length;
+    const filledPhotos   = slots.filter(slot => slot.uri).length;
     const showUpperFrame = !isLocked || filledPhotos > 0;
     const showLowerFrame = !isLocked || filledPhotos > 1;
 
@@ -376,9 +464,9 @@ export default function CalendarScreen({
         const idx = weeks.findIndex(w => w.includes(dateStr));
         setWeekViewIdx(idx >= 0 ? idx : null);
         setSelected(dateStr);
-        const j = journals[dateStr];
-        setEditNote(j?.note ?? "");
-        setEditSlots(j?.photoSlots ? [...j.photoSlots] : [...EMPTY_SLOTS]);
+        // 초고는 날짜마다 새로 — 저장한 날은 journals 쪽을 보여주므로 채울 필요가 없다
+        setEditNote("");
+        setEditSlots(emptySlots());
     }
 
     function prevMonth() {
@@ -412,13 +500,51 @@ export default function CalendarScreen({
         setWeekViewIdx(null);
     }
 
-    function saveJournal() {
-        if (!selected || isLocked) return;
-        // 넣은 사진을 위 칸부터 채워 저장한다 — 빈 칸이 사이에 남지 않게
-        const photoSlots = compactSlots(editSlots);
-        setJournals(prev => ({ ...prev, [selected]: { note: editNote, photoSlots } }));
-        setEditSlots(photoSlots);
-        setLockedDays(prev => new Set([...prev, selected]));
+    /*
+        일지 저장 —
+        1) 넣은 사진을 위 칸부터 몰아 담는다(빈 칸이 사이에 남지 않게)
+        2) 아직 서버에 없는 사진만 올려 asset_id 를 받는다
+        3) 본문과 사진 목록을 PUT 하고, 응답을 그날의 저장분으로 삼는다
+
+        중간에 끊겨도 이미 올라간 사진의 asset_id 는 초고에 남겨둔다 —
+        다시 누를 때 같은 사진을 두 번 올리지 않는다.
+    */
+    async function saveJournal() {
+        if (!selected || isLocked || diaryBusy) return;
+        const date = selected;
+        const working = compactSlots(editSlots);
+        setSaving(true);
+
+        try {
+            for (let i = 0; i < working.length; i++) {
+                const slot = working[i];
+                if (!slot || !slot.uri || slot.assetId !== null) continue;
+                const { asset_id } = await uploadDiaryPhoto({ uri: slot.uri });
+                working[i] = { ...slot, assetId: asset_id };
+                setEditSlots([...working]);
+            }
+
+            const photos: DiaryPhotoWrite[] = working.flatMap((slot, i) =>
+                slot.uri && slot.assetId !== null
+                    ? [{
+                          asset_id: slot.assetId,
+                          // 서버 슬롯 번호는 1부터 (growth_diary_photo.photo_order)
+                          photo_order: i + 1,
+                          tagged_plant_id: slot.plantId === null ? null : Number(slot.plantId),
+                      }]
+                    : [],
+            );
+
+            const saved = await saveDiary(date, { content: editNote, photos });
+            setJournals(prev => ({ ...prev, [date]: toJournal(saved) }));
+        } catch (err) {
+            Alert.alert(
+                "일지 저장 실패",
+                err instanceof Error ? err.message : "일지를 저장하지 못했어요. 다시 시도해주세요.",
+            );
+        } finally {
+            setSaving(false);
+        }
     }
 
     async function pickImage(idx: number) {
@@ -433,7 +559,8 @@ export default function CalendarScreen({
             if (photoRunRef.current !== runId) return;
             if (!result.canceled && result.assets?.[0]) {
                 const uri = result.assets[0].uri;
-                setEditSlots(prev => prev.map((slot, i) => i === idx ? { ...slot, uri } : slot));
+                // 새로 고른 사진이라 assetId 는 비운다 — 저장할 때 올라간다
+                setEditSlots(prev => prev.map((slot, i) => i === idx ? { ...slot, uri, assetId: null } : slot));
                 setPickerIdx(idx);
             }
         } catch {
@@ -444,7 +571,7 @@ export default function CalendarScreen({
     }
 
     async function handlePhotoSlotTap(idx: number) {
-        if (isLocked) return;
+        if (isLocked || diaryBusy) return;
         const slot = editSlots[idx];
         if (!slot) return;
         if (!slot.uri) {
@@ -460,7 +587,7 @@ export default function CalendarScreen({
     }
 
     function removePhoto(idx: number) {
-        setEditSlots(prev => prev.map((slot, i) => i === idx ? { uri: null, plantId: null } : slot));
+        setEditSlots(prev => prev.map((slot, i) => i === idx ? { uri: null, plantId: null, assetId: null } : slot));
     }
 
     function assignPlant(idx: number, plantId: string) {
@@ -631,13 +758,13 @@ export default function CalendarScreen({
                             </View>
 
                             {/* 기록을 읽는 중 · 못 읽었을 때 — 빈 달력을 "기록 없음"으로 오해하지 않게 */}
-                            {careLoading && (
+                            {(careLoading || diaryLoading) && (
                                 <View style={styles.calStatusRow}>
                                     <ActivityIndicator size="small" color={GreenTint.strong} />
-                                    <Text style={styles.calStatusText}>돌봄 기록을 불러오는 중…</Text>
+                                    <Text style={styles.calStatusText}>기록을 불러오는 중…</Text>
                                 </View>
                             )}
-                            {!careLoading && careFailed && (
+                            {!careLoading && !diaryLoading && (careFailed || diaryFailed) && (
                                 <TouchableOpacity
                                     style={styles.calStatusRow}
                                     onPress={() => setReloadKey(k => k + 1)}
@@ -713,7 +840,7 @@ export default function CalendarScreen({
                                                 label={alivePlants.find(p => p.id === slotA.plantId)?.name}
                                                 tiltStyle={styles.tiltRight}
                                                 onPress={() => handlePhotoSlotTap(0)}
-                                                disabled={isLocked}
+                                                disabled={isLocked || diaryBusy}
                                             />
                                         </View>
                                     )}
@@ -721,15 +848,15 @@ export default function CalendarScreen({
                                     {/* ⑥ 포스트잇 — 눌러서 쓰고, 글자 수에 맞춰 폰트가 줄어든다 */}
                                     <Pressable
                                         style={styles.stickyNote}
-                                        onPress={() => !isLocked && noteRef.current?.focus()}
-                                        disabled={isLocked}
+                                        onPress={() => !diaryBusy && !isLocked && noteRef.current?.focus()}
+                                        disabled={isLocked || diaryBusy}
                                     >
                                         <TextInput
                                             ref={noteRef}
-                                            style={[styles.stickyNoteInput, { fontSize: noteFontSize(editNote) }]}
-                                            value={editNote}
+                                            style={[styles.stickyNoteInput, { fontSize: noteFontSize(noteText) }]}
+                                            value={noteText}
                                             onChangeText={setEditNote}
-                                            editable={!isLocked}
+                                            editable={!isLocked && !diaryBusy}
                                             placeholder={"오늘 하루 느낀 생각과 감정을 적어보세요."}
                                             placeholderTextColor={Colors.textFaint}
                                             multiline
@@ -747,7 +874,7 @@ export default function CalendarScreen({
                                                     label={alivePlants.find(p => p.id === slotB.plantId)?.name}
                                                     tiltStyle={styles.tiltLeft}
                                                     onPress={() => handlePhotoSlotTap(1)}
-                                                    disabled={isLocked}
+                                                    disabled={isLocked || diaryBusy}
                                                 />
                                                 {buddy && (
                                                     <View style={styles.buddyWrap} pointerEvents="none">
@@ -772,12 +899,13 @@ export default function CalendarScreen({
                                     ) : null}
                                 </View>
 
-                                {/* 저장 (잠긴 날은 숨김) */}
+                                {/* 저장 (잠긴 날은 숨김) — 사진 업로드가 있어서 오래 걸릴 수 있다 */}
                                 {!isLocked && (
                                     <ActionButton
-                                        label="저장하기"
+                                        label={saving ? "저장 중…" : "저장하기"}
                                         color={Colors.primary}
                                         onPress={saveJournal}
+                                        disabled={diaryBusy}
                                     />
                                 )}
                             </View>

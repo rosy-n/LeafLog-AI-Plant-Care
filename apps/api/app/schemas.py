@@ -430,6 +430,72 @@ class CareRecordCreate(BaseModel):
     completed_at: str | None = None
 
 
+# ── 성장 일지 ────────────────────────────────────────────────────────────────
+# 슬롯 수는 growth_diary_photo.photo_order CHECK (1~3) 이 단일 출처 —
+# 앱은 현재 2칸만 쓰지만 스키마 한도를 그대로 열어둔다.
+DIARY_PHOTO_SLOT_MAX = 3
+
+
+class DiaryPhotoUploaded(BaseModel):
+    """POST /api/diary/photos 응답 — 올린 파일의 media_asset 과 표시용 URL."""
+
+    asset_id: int
+    url: str
+
+
+class DiaryPhotoWrite(BaseModel):
+    """일지에 붙일 사진 한 장 — 업로드로 받은 asset_id 를 슬롯에 꽂는다."""
+
+    asset_id: int
+    photo_order: int = Field(ge=1, le=DIARY_PHOTO_SLOT_MAX)
+    # 사진에 붙인 개체 라벨 — 없으면 라벨 없는 사진
+    tagged_plant_id: int | None = None
+
+
+class DiaryPhotoRead(BaseModel):
+    asset_id: int
+    photo_order: int
+    tagged_plant_id: int | None = None
+    # presign 실패 시 저장된 file_url 이 그대로 나간다 (_asset_url 참고)
+    url: str | None = None
+
+
+class DiaryUpsert(BaseModel):
+    """PUT /api/diary/{diary_date} 본문.
+
+    사진만 있고 글이 없는 일지도 허용해서 content 기본값은 빈 문자열이다
+    (growth_diary.content 는 NOT NULL 이라 NULL 대신 빈 문자열로 저장).
+    photos 는 "이 일지의 최종 사진 목록"이며, 빠진 슬롯은 지워진다.
+    """
+
+    content: str = Field(default="", max_length=2000)
+    photos: list[DiaryPhotoWrite] = Field(
+        default_factory=list, max_length=DIARY_PHOTO_SLOT_MAX
+    )
+
+    @field_validator("photos")
+    @classmethod
+    def no_duplicate_slots_or_assets(cls, value: list[DiaryPhotoWrite]) -> list[DiaryPhotoWrite]:
+        # growth_diary_photo 의 UNIQUE(diary_id, photo_order) / UNIQUE(diary_id, asset_id) 를
+        # DB까지 가기 전에 걸러 IntegrityError 대신 읽을 수 있는 메시지를 준다
+        orders = [photo.photo_order for photo in value]
+        if len(set(orders)) != len(orders):
+            raise ValueError("같은 사진 슬롯을 두 번 채울 수 없어요.")
+        assets = [photo.asset_id for photo in value]
+        if len(set(assets)) != len(assets):
+            raise ValueError("같은 사진을 한 일지에 두 번 넣을 수 없어요.")
+        return value
+
+
+class DiaryRead(BaseModel):
+    """일지 한 건. diary_date 는 앱이 캘린더 키로 그대로 쓰는 'YYYY-MM-DD'."""
+
+    diary_date: str
+    content: str
+    photos: list[DiaryPhotoRead] = Field(default_factory=list)
+    updated_at: str | None = None
+
+
 class PersonaChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1, max_length=500)
