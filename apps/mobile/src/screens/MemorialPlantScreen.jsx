@@ -23,6 +23,7 @@ import PixelOutlineText from "../components/PixelOutlineText";
 import PixelButton from "../components/PixelButton";
 import PixelSpeechBubble from "../components/PixelSpeechBubble";
 import GlassMenuItem from "../components/GlassMenuItem";
+import { getPersonaGreeting } from "../../constants/persona-greetings";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Paper, Accent } from "../../constants/colors";
 import { Spacing } from "../../constants/spacing";
@@ -59,6 +60,15 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
     const [menuOpen, setMenuOpen] = useState(false);
     const [graveModalVisible, setGraveModalVisible] = useState(false);
     const [floatingHearts, setFloatingHearts] = useState([]);
+
+    /*
+        말풍선 대사 — 살아있는 개체탭(PlantDetailScreen)과 같은 방식으로
+        개체의 성격(persona)에 맞는 대사 중 하나를 뽑는다.
+        화면에 들어올 때 한 번만 정해서 머무는 동안은 바뀌지 않는다
+        (useState 초기화 함수는 마운트마다 한 번만 실행된다).
+        성격을 아직 고르지 않은 개체는 getPersonaGreeting 이 기본 대사로 받아준다.
+    */
+    const [greeting] = useState(() => getPersonaGreeting(plant?.persona));
 
     const plantName = plant?.name ?? "-";
     const togetherDays = daysSince(plant?.createdAt);
@@ -159,7 +169,7 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                         <HeartsRow count={plant?.hearts ?? 0} size={25} />
                     </View>
 
-                    {/* 살아있는 개체탭과 같은 도트 말풍선 (PixelSpeechBubble) */}
+                    {/* 살아있는 개체탭과 같은 도트 말풍선 · 같은 성격별 대사 */}
                     <PixelSpeechBubble
                         style={styles.speechBubble}
                         textStyle={styles.speechText}
@@ -167,7 +177,7 @@ export default function MemorialPlantScreen({ navigation, route, decorations, re
                         tailOffset={125}
                         wrapWords
                     >
-                        보고 싶어...
+                        {greeting}
                     </PixelSpeechBubble>
 
                     {/* Plant — same structure as PlantDetailScreen, no overlay */}
