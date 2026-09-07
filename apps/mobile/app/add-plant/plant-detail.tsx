@@ -64,7 +64,7 @@ export default function PlantDetailScreen() {
       speciesImageUrl: detail?.image_url ?? null,
     });
     router.push({
-      pathname: '/add-plant/character',
+      pathname: '/add-plant/info',
     });
   };
 
