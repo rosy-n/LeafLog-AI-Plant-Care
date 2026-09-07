@@ -18,6 +18,11 @@ import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Accent, Glass, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { getCurrentEnvironment } from "../api";
+import {
+    getCachedEnvironment,
+    isEnvironmentCacheStale,
+    saveEnvironmentCache,
+} from "../environmentCache";
 // 꾸미기(item_key 기반)로 바뀌는 배경은 개체탭(PlantDetailScreen) 것 — 홈은 날씨로만 바뀐다
 import { accessorySpriteBundle, BACKGROUND_IMAGES, HOME_BACKGROUND_KEY } from "../data/decor";
 import PlantImage from "../components/PlantImage";
@@ -469,10 +474,18 @@ export default function HomeScreen({
 
     useEffect(() => {
         let cancelled = false;
+
+        // 캐시가 있으면 로딩 없이 바로 보여준다 — 관측된 지 1시간이 안 지났으면 그대로 두고,
+        // 지났으면 화면엔 캐시를 유지한 채 뒤에서 조용히 새 값을 받아온다.
+        const cachedEnv = getCachedEnvironment();
+        if (cachedEnv) setEnvironment(cachedEnv);
+        if (cachedEnv && !isEnvironmentCacheStale()) return;
+
         // 위치가 아직 설정되지 않았으면 서버가 400을 준다 — 이 경우 기본 아이콘을 그대로 둔다
         // (위치 설정은 회원가입/설정 화면에서 처리, 홈에서는 조용히 실패한다).
         getCurrentEnvironment()
             .then((result) => {
+                saveEnvironmentCache(result);
                 if (!cancelled) setEnvironment(result);
             })
             .catch(() => {});
