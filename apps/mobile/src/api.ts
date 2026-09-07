@@ -601,6 +601,12 @@ export function checkEmail(email: string) {
 
 export type CurrentUser = AuthResponse["user"];
 
+// 저장된 토큰으로 자동 로그인할 때 쓴다 — 토큰이 살아 있으면 사용자 정보를,
+// 만료·폐기됐으면 401 을 준다(그 경우 호출부가 저장된 토큰을 지운다).
+export function getMe() {
+  return request<CurrentUser>("/auth/me");
+}
+
 // 내 프로필 수정 (설정 화면의 이름 변경).
 // 닉네임 규칙은 회원가입과 같아서(2~10자, 한글/영문/숫자) 어기면 서버가 400을 준다.
 export function updateMe(body: { nickname: string }) {
