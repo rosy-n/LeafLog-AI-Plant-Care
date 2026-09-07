@@ -24,7 +24,7 @@ const CARE_SECTIONS = [
     { key: "watering", label: "물주기" },
     { key: "sunlight", label: "햇빛" },
     { key: "temperature", label: "온습도" },
-    { key: "fertilizer", label: "비료주기" },
+    { key: "fertilizer", label: "영양제" },
     { key: "soil", label: "토양&분갈이" },
     { key: "toxicity", label: "독성" },
     { key: "feature", label: "특성" },
@@ -461,12 +461,12 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                         ) : null}
                     </View>
 
-                    {/* 비료 주기 */}
+                    {/* 영양제 */}
                     <View
                         style={styles.card}
                         onLayout={(event) => saveSectionY("fertilizer", event)}
                     >
-                        <Text style={styles.cardTitle}>비료 주기</Text>
+                        <Text style={styles.cardTitle}>영양제</Text>
 
                         {species.fertilizer_info ? (
                             <View style={styles.infoRow}>
