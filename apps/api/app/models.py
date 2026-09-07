@@ -286,6 +286,67 @@ class MediaAsset(Base):
     )
 
 
+class GrowthDiary(Base):
+    """하루 한 개의 성장 일지 — 캘린더 화면(일지탭)이 쓰는 본문 한 뭉치.
+
+    사진은 growth_diary_photo 로 따로 나가고, 파일 자체는 media_asset
+    (asset_type='GROWTH_DIARY_PHOTO')에 있다.
+    """
+
+    __tablename__ = "growth_diary"
+
+    diary_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("app_user.user_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # 일지 작성 기준 날짜 — 하루 1개 제한을 판정하려고 시각과 따로 DATE 로 둔다
+    diary_date: Mapped[date] = mapped_column(Date, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    # 일지 양식 버전 — 나중에 항목 구성이 바뀔 수 있어 유지
+    diary_format_version: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, default="v1"
+    )
+    # 'metadata'는 SQLAlchemy 예약어라 속성명은 extra_metadata, 컬럼명은 metadata 유지
+    extra_metadata: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "diary_date", name="uq_growth_diary_user_date"),
+    )
+
+
+class GrowthDiaryPhoto(Base):
+    """일지에 붙은 사진 한 장 — 슬롯 번호(photo_order)와 라벨(tagged_plant_id)."""
+
+    __tablename__ = "growth_diary_photo"
+
+    diary_photo_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    diary_id: Mapped[int] = mapped_column(
+        ForeignKey("growth_diary.diary_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    asset_id: Mapped[int] = mapped_column(
+        ForeignKey("media_asset.asset_id", ondelete="CASCADE"), nullable=False
+    )
+    # 사진에 붙인 개체 라벨 — 떼어낼 수 있어서 nullable
+    tagged_plant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("plant.plant_id", ondelete="SET NULL"), nullable=True
+    )
+    # 1, 2, 3번 슬롯만 허용
+    photo_order: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("photo_order BETWEEN 1 AND 3", name="ck_growth_diary_photo_order"),
+        UniqueConstraint("diary_id", "photo_order", name="uq_growth_diary_photo_order"),
+        UniqueConstraint("diary_id", "asset_id", name="uq_growth_diary_photo_asset"),
+    )
+
+
 # =========================================================
 # AI 대화 (docs/database-schema.sql "4. AI 대화")
 # =========================================================

@@ -59,6 +59,7 @@ The code normalizes this to SQLAlchemy's `postgresql+psycopg://` driver internal
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -f apps/api/scripts/add-care-schedule-source.sql
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -f apps/api/scripts/add-persona-column.sql
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -f apps/api/scripts/add-affinity-column.sql
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -f apps/api/scripts/add-diary-tables.sql
 ```
 
 **psql 은 기본이 localhost 다.** `.env` 의 `DATABASE_URL` 이 다른 호스트를 가리키면
