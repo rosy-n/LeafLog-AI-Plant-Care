@@ -24,6 +24,7 @@ import {
 import {
   checkEmail,
   getCurrentEnvironment,
+  getMe,
   getUserSettings,
   login,
   setAuthToken,
@@ -31,6 +32,11 @@ import {
   updateUserLocation,
   type AuthResponse,
 } from "./src/api";
+import {
+  clearStoredToken,
+  loadStoredToken,
+  saveStoredToken,
+} from "./src/authStorage";
 import { saveEnvironmentCache } from "./src/environmentCache";
 import { cancelAllWateringReminders } from "./src/notifications";
 import MainApp from "./App.js";
@@ -138,6 +144,13 @@ export default function App() {
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreeMarketing, setAgreeMarketing] = useState(false);
   const [auth, setAuth] = useState<AuthResponse | null>(null);
+  /*
+    자동 로그인 —
+    기기에 남겨둔 토큰이 아직 살아 있는지 확인하는 동안 true.
+    이 값이 true 인 사이에 랜딩을 그리면 이미 로그인한 사용자에게 로그인 화면이
+    한 번 번쩍이므로, 확인이 끝날 때까지 아무 화면도 확정하지 않는다.
+  */
+  const [restoringSession, setRestoringSession] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -150,6 +163,46 @@ export default function App() {
   const [environmentStatus, setEnvironmentStatus] = useState<"idle" | "loading" | "done">(
     "idle"
   );
+
+  /*
+    앱을 켤 때 저장된 토큰으로 로그인 상태를 되살린다.
+
+    토큰만 믿고 바로 들여보내지 않고 GET /auth/me 로 한 번 확인한다 —
+    만료(기본 7일)되거나 계정이 지워진 토큰이면 401 이 오고, 그때는 저장분을
+    지우고 랜딩으로 보낸다. 확인하지 않으면 본 앱에 들어간 뒤 모든 요청이
+    401 로 실패해서 원인을 알기 어려운 빈 화면이 된다.
+
+    서버가 꺼져 있는 등 네트워크 실패도 여기서는 로그인 실패로 처리한다 —
+    사용자 정보 없이는 본 앱을 그릴 수 없다.
+  */
+  useEffect(() => {
+    let cancelled = false;
+    const token = loadStoredToken();
+
+    if (!token) {
+      setRestoringSession(false);
+      return;
+    }
+
+    setAuthToken(token);
+    getMe()
+      .then((user) => {
+        if (cancelled) return;
+        setAuth({ access_token: token, token_type: "bearer", user });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAuthToken(null);
+        clearStoredToken();
+      })
+      .finally(() => {
+        if (!cancelled) setRestoringSession(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 로그인/회원가입 직후 위치가 이미 설정돼 있는지 한 번 확인한다 — 신규
   // 가입자뿐 아니라, 예전에 "나중에 설정할게요"를 눌러둔 기존 사용자도 다시
@@ -285,6 +338,7 @@ export default function App() {
       console.warn("알림 취소 실패:", (error as Error)?.message);
     }
     setAuthToken(null);
+    clearStoredToken();
     setAuth(null);
     setLocationStatus("unknown");
     goHome();
@@ -345,6 +399,7 @@ export default function App() {
     try {
       const response = await login({ email, password: loginPassword });
       setAuthToken(response.access_token);
+      saveStoredToken(response.access_token);
       setAuth(response);
     } catch (error) {
       setFormErrors({
@@ -373,6 +428,7 @@ export default function App() {
         marketing_opt_in: agreeMarketing,
       });
       setAuthToken(response.access_token);
+      saveStoredToken(response.access_token);
       setAuth(response);
     } catch (error) {
       setFormErrors({
@@ -438,6 +494,22 @@ export default function App() {
         }}
       >
         <ActivityIndicator size="large" color="#2F7831" />
+      </View>
+    );
+  }
+
+  // 저장된 토큰 확인이 끝나기 전에 랜딩을 그리면 로그인 화면이 한 번 번쩍인다
+  if (restoringSession) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: Colors.background,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
