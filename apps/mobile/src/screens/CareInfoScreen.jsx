@@ -12,13 +12,11 @@ import {
     Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
 
 import { getPlant } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint, Pink, Warm, Accent, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Pink, Warm, Accent } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const CARE_SECTIONS = [
@@ -283,42 +281,17 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                             return (
                                 <TouchableOpacity
                                     key={item.key}
-                                    style={styles.tabButton}
+                                    style={[styles.tabChip, isActive && styles.tabChipActive]}
                                     activeOpacity={0.78}
                                     onPress={() => scrollToSection(item.key)}
                                     onLayout={(e) => saveTabPosition(item.key, e)}
                                 >
-                                    <BlurView
-                                        intensity={isActive ? 38 : 24}
-                                        tint="light"
-                                        style={[
-                                            styles.tabBlur,
-                                            {
-                                                borderColor: isActive
-                                                    ? Glass.leafSolid
-                                                    : Glass.frost72,
-                                            },
-                                        ]}
-                                    >
-                                        <LinearGradient
-                                            colors={
-                                                isActive
-                                                    ? [Glass.leafHi, Glass.leafMid, Glass.leafLow]
-                                                    : [Glass.frost72, Glass.mist, Glass.mistSoft]
-                                            }
-                                            start={{ x: 0.12, y: 0.05 }}
-                                            end={{ x: 0.9, y: 1 }}
-                                            style={styles.tabGradient}
-                                        >
-                                            <View style={styles.tabHighlight} />
-                                            <Text style={[
-                                                styles.tabText,
-                                                isActive && styles.activeTabText,
-                                            ]}>
-                                                {item.label}
-                                            </Text>
-                                        </LinearGradient>
-                                    </BlurView>
+                                    <Text style={[
+                                        styles.tabText,
+                                        isActive && styles.activeTabText,
+                                    ]}>
+                                        {item.label}
+                                    </Text>
                                 </TouchableOpacity>
                             );
                         })}
@@ -697,64 +670,55 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.xl,
     },
 
+    /*
+        섹션 이동 탭 (스크롤 스파이) —
+        아래 카드들과 같은 어법으로 맞춘다: 흰 면 + 녹색 보더가 기본, 선택된 칸만
+        메인 초록으로 꽉 채운다(ActionButton 과 같은 강조 방식). 반투명 글래스는
+        연한 배경(#FAFFF0) 위에서 대비가 거의 없어 걷어냈다.
+
+        좌우 음수 여백으로 컨테이너 거터를 상쇄해 화면 끝까지 이어지게 한다 —
+        가로 스크롤이 여백에서 끊기면 목록이 거기서 끝난 것처럼 보인다.
+        아래 실선이 스크롤되는 본문과 이 줄을 갈라 준다.
+    */
     tabWrapper: {
-        height: 48,
-        marginTop: Spacing.sm,
+        marginHorizontal: -Spacing.xl,
+        borderBottomWidth: 1,
+        borderBottomColor: GreenTint.line,
     },
 
     tabContainer: {
         gap: Spacing.sm,
         alignItems: "center",
-        paddingRight: Spacing.sm,
+        // 거터는 안쪽으로 옮겨 첫·마지막 칸이 화면 끝에 붙지 않게
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.sm,
     },
 
-    tabButton: {
-        height: 32,
-        overflow: "hidden",
-        borderRadius: Radius.md,
-        shadowColor: GreenTint.deep,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.16,
-        shadowRadius: 4,
-        elevation: 4,
-    },
-
-    tabBlur: {
-        flex: 1,
-        overflow: "hidden",
-        borderWidth: 1,
-        borderRadius: Radius.md,
-    },
-
-    tabGradient: {
-        flex: 1,
+    tabChip: {
+        height: 34,
         paddingHorizontal: Spacing.md,
+        borderRadius: Radius.md,
+        borderWidth: 1.5,
+        borderColor: GreenTint.line,
+        backgroundColor: Colors.white,
         alignItems: "center",
         justifyContent: "center",
-        borderWidth: 0.8,
-        borderColor: Glass.frost45,
-        borderRadius: Radius.md,
     },
 
-    tabHighlight: {
-        position: "absolute",
-        top: 4,
-        left: 9,
-        width: "32%",
-        height: "36%",
-        borderRadius: Radius.pill,
-        backgroundColor: Glass.frost60,
+    tabChipActive: {
+        backgroundColor: Colors.primary,
+        borderColor: Colors.primary,
     },
 
     tabText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: Colors.primary,
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
 
     activeTabText: {
-        color: Colors.primary,
+        color: Colors.white,
     },
 
     content: {
