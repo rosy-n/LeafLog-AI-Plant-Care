@@ -161,7 +161,7 @@ async function request<T>(
   return data as T;
 }
 
-async function requestForm<T>(path: string, formData: FormData): Promise<T> {
+async function requestForm<T>(path: string, formData: FormData, headers: Record<string, string> = {}): Promise<T> {
   let response: Response;
 
   try {
@@ -169,6 +169,7 @@ async function requestForm<T>(path: string, formData: FormData): Promise<T> {
       method: "POST",
       body: formData,
       headers: {
+        ...headers,
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       },
     });
@@ -714,11 +715,18 @@ export function deleteConsultation(sessionId: number) {
   return request<null>(`/api/consultations/${sessionId}`, { method: "DELETE" });
 }
 
-export function startCharacterGeneration(image: UploadableImage) {
+export function startCharacterGeneration(image: UploadableImage, requestId?: string) {
   return requestForm<CharacterGenerationJob>(
     "/api/character-generations",
     createImageFormData(image),
+    { "Idempotency-Key": requestId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}` },
   );
+}
+
+export function refreshMediaUrl(url: string) {
+  return request<{ url: string }>("/api/media/refresh", {
+    method: "POST", body: JSON.stringify({ url }),
+  });
 }
 
 export function getCharacterGeneration(jobId: string) {

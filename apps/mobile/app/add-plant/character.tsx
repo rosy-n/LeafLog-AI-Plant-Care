@@ -70,6 +70,7 @@ export default function CharacterScreen() {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const generationRunRef = useRef(0);
   const submittingRef = useRef(false);
+  const requestKeyRef = useRef({ uri: '', id: '' });
   const completedJobRef = useRef<string | null>(null);
   const intentionalRetryRef = useRef(false);
 
@@ -152,6 +153,7 @@ export default function CharacterScreen() {
   }, [resumeGeneration, draft.generationJobId, draft.capturedPhotoUri]));
 
   const handleRetry = () => {
+    requestKeyRef.current = { uri: '', id: '' };
     generationRunRef.current += 1;
     completedJobRef.current = null;
     intentionalRetryRef.current = true;
@@ -226,11 +228,14 @@ export default function CharacterScreen() {
     setScreenState('generating');
 
     try {
+      if (requestKeyRef.current.uri !== photoUri) {
+        requestKeyRef.current = { uri: photoUri, id: `${Date.now()}-${Math.random().toString(36).slice(2)}` };
+      }
       const job = await startCharacterGeneration({
         uri: photoUri,
         name: 'plant-photo',
         type: 'application/octet-stream',
-      });
+      }, requestKeyRef.current.id);
       if (generationRunRef.current !== runId) return;
       updateDraft({
         generationJobId: job.id,
