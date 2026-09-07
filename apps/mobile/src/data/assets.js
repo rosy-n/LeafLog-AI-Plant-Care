@@ -41,7 +41,6 @@ const ICONS = [
     require("../../assets/icons/sunny_icon.png"),
     require("../../assets/icons/toxicity-cat.png"),
     require("../../assets/icons/toxicity-dog.png"),
-    require("../../assets/icons/toxicity-human.png"),
     require("../../assets/icons/water_icon.png"),
     require("../../assets/icons/watering_icon.png"),
 ];
