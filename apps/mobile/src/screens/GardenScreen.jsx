@@ -32,6 +32,7 @@ const CLOSE_THRESHOLD = 120;
 const SORT_OPTIONS = [
     { key: "favorite", label: "즐겨찾기" },
     { key: "hearts",   label: "호감도순" },
+    { key: "watering", label: "물주기순" },
     { key: "recent",   label: "최신순"   },
     { key: "memorial", label: "추모정원" },
 ];
@@ -56,6 +57,25 @@ function applySortFilter(plantList, sort, query) {
         });
     } else if (sort === "hearts") {
         result.sort((a, b) => (b.hearts ?? 0) - (a.hearts ?? 0));
+    } else if (sort === "watering") {
+        /*
+            물 줄 때가 급한 개체부터.
+
+            daysUntilWatering 은 서버가 계산한 "예정일까지 남은 날"이다 —
+            음수면 그만큼 지났고, 0 이면 오늘이 물 주는 날. 오름차순이 곧
+            급한 순이다. 알림 목록(careNotices.js)과 같은 값·같은 해석을 쓴다.
+
+            일정이 없는 개체(null)는 급한지 알 수 없으니 뒤로 보낸다.
+        */
+        result.sort((a, b) => {
+            const left  = a.daysUntilWatering;
+            const right = b.daysUntilWatering;
+            if (left == null && right == null) return Number(a.id) - Number(b.id);
+            if (left == null) return 1;
+            if (right == null) return -1;
+            if (left !== right) return left - right;
+            return Number(a.id) - Number(b.id);
+        });
     } else if (sort === "recent") {
         result.sort((a, b) => Number(b.id) - Number(a.id));
     }
