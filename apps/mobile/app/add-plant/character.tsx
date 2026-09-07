@@ -243,7 +243,7 @@ export default function CharacterScreen() {
       if (resumeGeneration) {
         setGenerationMessage(job.message);
       } else {
-        router.replace('/add-plant/info');
+        router.replace('/add-plant');
       }
     } catch (error: any) {
       if (generationRunRef.current !== runId) return;

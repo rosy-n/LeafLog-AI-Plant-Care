@@ -1,11 +1,23 @@
 # 개체 추가탭 (add-plant) — 화면별 로직 정의
 
 현재 5단계 스텝 구성이다. 식물 종 판별용 사진과 SDXL 캐릭터 생성용 사진은
-서로 분리하며, 캐릭터 생성은 개체 정보 입력 중 백그라운드에서 진행한다.
+서로 분리하며, 캐릭터 생성은 시간이 걸리므로 가장 먼저 시작해두고
+(1단계) 나머지 입력(종 선택, 개체 정보)을 진행하는 동안 백그라운드에서 계속된다.
 
 ---
 
-## 1단계: 식물종 입력 (`app/add-plant/index.tsx`)
+## 1단계: 도트 캐릭터 생성 시작 (`app/add-plant/character.tsx`)
+
+- 앱 진입 시 가장 먼저 뜨는 화면이다 (`AddPlantNavigator`의 `initialRouteName`).
+- 좋은 예와 나쁜 예로 구성된 촬영 가이드를 표시한다.
+- 화분 전체가 보이는 사진을 받는다 (식물 종 판별용 사진과는 별개).
+- 미리보기에서 확인하면 `POST /api/character-generations`로 SDXL 후보 3개 생성을 시작한다.
+- 작업 ID와 캐릭터용 사진을 등록 Context에 보관한 뒤 2단계(식물종 입력)로 넘어간다.
+  생성 작업은 이후 단계들을 진행하는 동안 서버에서 계속 진행된다.
+
+---
+
+## 2단계: 식물종 입력 (`app/add-plant/index.tsx`)
 
 ### 경로 A — 카메라로 찾기 (모르는 경우)
 
@@ -28,15 +40,6 @@
 
 - 선택된 식물 정보는 종 상세 API로 확인한다.
 - 등록 전체 상태는 `AddPlantFlowContext`에 저장한다.
-
----
-
-## 2단계: 도트 캐릭터 생성 시작 (`app/add-plant/character.tsx`)
-
-- 좋은 예와 나쁜 예로 구성된 촬영 가이드를 표시한다.
-- 식물 종 판별에 쓴 사진을 재사용하지 않고, 화분 전체가 보이는 사진을 새로 받는다.
-- 미리보기에서 확인하면 `POST /api/character-generations`로 SDXL 후보 3개 생성을 시작한다.
-- 작업 ID와 캐릭터용 사진을 등록 Context에 보관한 뒤 3단계로 이동한다.
 
 ---
 
@@ -68,14 +71,14 @@
 ## 전체 상태 흐름
 
 ```
+character (촬영 가이드 + 생성 시작)
+  └─ generationJobId: string
+  └─ capturedPhotoUri: string
+
 index (종 선택)
   └─ plantSpecies: { cntntsNo, scientificName, commonNameKo, ... }
   └─ plantNetResult: { score, imageUrl, ... } | null
   └─ identificationPhotoUri: string | null
-
-character (촬영 가이드 + 생성 시작)
-  └─ generationJobId: string
-  └─ capturedPhotoUri: string
 
 info (개체 정보 입력 중 생성 계속 진행)
   └─ location, lightLevel, plantHeight, potDiameter, soilNote, lastWateredAt, lastRepottedAt
