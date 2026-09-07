@@ -4,6 +4,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
+import requests
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
@@ -25,6 +26,7 @@ from .image_preprocessing import (
     remove_character_face,
 )
 from .korea_time import korea_day, today_in_korea
+from .wikimedia import fetch_species_images
 from .models import (
     AppUser,
     CareRecord,
@@ -37,6 +39,7 @@ from .models import (
     Plant,
     PlantDecoration,
     PlantSpecies,
+    PlantSpeciesImage,
     SpeciesSourceLink,
     UserSetting,
     WeatherLog,
@@ -743,9 +746,53 @@ def search_species(
     return [SpeciesListItem.model_validate(row) for row in rows]
 
 
+def _ensure_species_images(species: PlantSpecies, db: Session) -> list[PlantSpeciesImage]:
+    """이 종의 사진이 하나도 없으면(등록 화면에서 처음 조회하는 경우) Wikimedia에서
+    가져와 plant_species_image에 저장한다. 이미 있으면 그대로 반환.
+
+    "조회했지만 못 찾음" 상태는 따로 표시하지 않는다 — 실제로 등록 시도되는 관엽식물은
+    대부분 사진이 있어(관측상 90%대) 사진 없는 드문 종을 다시 볼 때 재시도되는 비용이 작다.
+    """
+    existing = list(
+        db.scalars(
+            select(PlantSpeciesImage)
+            .where(PlantSpeciesImage.species_id == species.species_id)
+            .order_by(PlantSpeciesImage.sort_order)
+        )
+    )
+    if existing or not species.scientific_name_norm:
+        return existing
+
+    try:
+        images = fetch_species_images(species.scientific_name_norm)
+    except requests.RequestException as exc:
+        print(f"Wikimedia 조회 실패 (species_id={species.species_id}): {exc}")
+        return []
+
+    rows = [
+        PlantSpeciesImage(
+            species_id=species.species_id,
+            image_url=img["url"],
+            sort_order=i,
+            artist=img.get("artist"),
+            license=img.get("license"),
+            source_page=img.get("source_page"),
+        )
+        for i, img in enumerate(images)
+    ]
+    if rows:
+        db.add_all(rows)
+        # 검색 드롭다운 썸네일 등 1장만 쓰는 화면용 대표 이미지
+        species.image_url = rows[0].image_url
+        db.commit()
+    return rows
+
+
 def _to_species_detail(species: PlantSpecies, db: Session) -> SpeciesDetail:
     """plant_species 한 행 → SpeciesDetail. 종 상세와 개체 상세가 같이 쓴다."""
+    images = _ensure_species_images(species, db)
     detail = SpeciesDetail.model_validate(species)
+    detail.image_urls = [img.image_url for img in images]
 
     # 카드별 원문은 metadata 에 들어 있다 (merge 의 from_rda 참고)
     extra = species.extra_metadata or {}

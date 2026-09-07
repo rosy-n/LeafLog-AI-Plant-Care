@@ -209,6 +209,8 @@ class SpeciesDetail(BaseModel):
     bug_info: str | None = None
     care_tips: str | None = None
     image_url: str | None = None
+    # Wikimedia Commons 사진 최대 4장 (image_url과 첫 장이 같다) — "이 식물이 맞나요?" 슬라이드용
+    image_urls: list[str] = []
 
     # 돌보기 정보 화면이 카드별로 나눠 쓰는 원문 (plant_species.metadata 에서 꺼낸 값)
     water_cycle_label: str | None = None

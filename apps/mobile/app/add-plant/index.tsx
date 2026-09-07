@@ -1,7 +1,6 @@
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -225,11 +224,9 @@ export default function AddPlantIndexScreen() {
                   style={styles.dropdownItem}
                   onPress={() => handleSearchSelect(item)}
                 >
-                  {item.image_url ? (
-                    <Image source={{ uri: item.image_url }} style={styles.dropdownThumb} />
-                  ) : (
-                    <View style={styles.dropdownThumb} />
-                  )}
+                  <View style={styles.dropdownIcon}>
+                    <Text style={styles.dropdownIconText}>🔍</Text>
+                  </View>
                   <Text style={styles.dropdownText} numberOfLines={1}>
                     {item.common_name_ko}
                   </Text>
