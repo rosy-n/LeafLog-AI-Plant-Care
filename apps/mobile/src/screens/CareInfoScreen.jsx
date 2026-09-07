@@ -159,12 +159,39 @@ function describeFertilizer(raw) {
     return { title: step.title, detail: detail || null };
 }
 
-// 독성 3상태 — null 은 자료 없음
-function toxicityMark(flag) {
-    if (flag === true) return { icon: "위험", color: Pink.soft };
-    if (flag === false) return { icon: "안전", color: GreenTint.soft };
-    return { icon: "미확인", color: Colors.separator };
+/*
+    독성 3상태 — null 은 자료 없음.
+
+    아이콘이 상태를 직접 그린다(빨간 금지 / 초록 체크 / 회색 물음표).
+    글씨 색을 아이콘 테두리 색에 맞춰 둘이 다른 말을 하지 않게 한다.
+    독성은 잘못 읽으면 위험한 정보라 아이콘만 두지 않고 글씨도 함께 남긴다.
+*/
+const TOXICITY_STATES = {
+    toxic:   { key: "toxic",   label: "위험",   color: Colors.danger },
+    safe:    { key: "safe",    label: "안전",   color: Colors.nutrient },
+    unknown: { key: "unknown", label: "미확인", color: Colors.textFaint },
+};
+
+function toxicityState(flag) {
+    if (flag === true) return TOXICITY_STATES.toxic;
+    if (flag === false) return TOXICITY_STATES.safe;
+    return TOXICITY_STATES.unknown;
 }
+
+// 동물 × 상태 아이콘. Metro 는 require 경로를 정적으로 읽으므로 하나씩 적는다
+// (추가 시 src/data/assets.js 의 preload 목록에도 넣을 것).
+const TOXICITY_ICONS = {
+    dog: {
+        toxic:   require("../../assets/icons/dog_toxic_icon.png"),
+        safe:    require("../../assets/icons/dog_safe_icon.png"),
+        unknown: require("../../assets/icons/dog_unknown_icon.png"),
+    },
+    cat: {
+        toxic:   require("../../assets/icons/cat_toxic_icon.png"),
+        safe:    require("../../assets/icons/cat_safe_icon.png"),
+        unknown: require("../../assets/icons/cat_unknown_icon.png"),
+    },
+};
 
 // 콤마로 이어진 원문을 칩 목록으로
 function toChips(raw) {
@@ -622,45 +649,30 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                     >
                         <Text style={styles.cardTitle}>독성</Text>
 
+                        {/*
+                            동물마다 한 줄 — 아이콘·이름은 왼쪽, 판정은 오른쪽.
+                            같은 화면의 적정 온·습도 줄(이름/값)과 같은 구성이다.
+
+                            사람 칸은 두지 않는다 — ASPCA 는 반려동물만 다루고,
+                            농사로 독성 텍스트도 사람 기준이 아니라 판정할 근거가 없다.
+                        */}
                         <View style={styles.toxicityRow}>
-                            {/*
-                                사람 칸은 두지 않는다 — ASPCA 는 반려동물만 다루고,
-                                농사로 독성 텍스트도 사람 기준이 아니라 판정할 근거가 없다.
-                                근거 없이 칸만 두면 항상 '미확인' 이라 카드가 미완성처럼 보이고,
-                                사람 독성은 잘못 안내하면 위험한 정보다.
-                            */}
                             {[
-                                {
-                                    label: "강아지",
-                                    icon: require("../../assets/icons/toxicity-dog.png"),
-                                    flag: species.toxic_to_dogs,
-                                },
-                                {
-                                    label: "고양이",
-                                    icon: require("../../assets/icons/toxicity-cat.png"),
-                                    flag: species.toxic_to_cats,
-                                },
-                            ].map(({ label, icon, flag }) => {
-                                const mark = toxicityMark(flag);
+                                { animal: "dog", label: "강아지", flag: species.toxic_to_dogs },
+                                { animal: "cat", label: "고양이", flag: species.toxic_to_cats },
+                            ].map(({ animal, label, flag }) => {
+                                const state = toxicityState(flag);
                                 return (
-                                    <View key={label} style={styles.toxicityItem}>
+                                    <View key={animal} style={styles.toxicityItem}>
                                         <Image
-                                            source={icon}
-                                            style={[
-                                                styles.toxicityImage,
-                                                flag !== true && styles.toxicityImageMuted,
-                                            ]}
+                                            source={TOXICITY_ICONS[animal][state.key]}
+                                            style={styles.toxicityImage}
                                             resizeMode="contain"
                                         />
                                         <Text style={styles.toxicityLabel}>{label}</Text>
-                                        <View
-                                            style={[
-                                                styles.toxicityBadge,
-                                                { backgroundColor: mark.color },
-                                            ]}
-                                        >
-                                            <Text style={styles.chipText}>{mark.icon}</Text>
-                                        </View>
+                                        <Text style={[styles.toxicityState, { color: state.color }]}>
+                                            {state.label}
+                                        </Text>
                                     </View>
                                 );
                             })}
@@ -1050,24 +1062,27 @@ const styles = StyleSheet.create({
         marginRight: Spacing.lg,
     },
 
+    // 동물 목록 — 줄 사이 간격만. 칼럼 배치(space-around)는 칸이 둘로 줄면
+    // 카드 양끝으로 벌어져 애매해진다.
     toxicityRow: {
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        gap: Spacing.huge2,
+        gap: Spacing.md,
     },
 
     toxicityItem: {
+        flexDirection: "row",
         alignItems: "center",
+        gap: Spacing.md,
     },
 
+    // 도트 아이콘이라 너무 작으면 테두리·배지가 뭉갠다
     toxicityImage: {
-        width: 56,
-        height: 56,
-        marginBottom: Spacing.sm,
+        width: 40,
+        height: 40,
     },
 
+    // flex:1 로 이름이 남은 폭을 먹어 판정 배지가 오른쪽 끝에 붙는다
     toxicityLabel: {
+        flex: 1,
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: Colors.textBlack,
@@ -1116,15 +1131,11 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
 
-    toxicityImageMuted: {
-        opacity: 0.35,
-    },
-
-    toxicityBadge: {
-        marginTop: Spacing.sm,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 2,
-        borderRadius: Radius.lg,
+    // 색은 상태에 따라 호출부에서 얹는다 (TOXICITY_STATES.color)
+    toxicityState: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        includeFontPadding: false,
     },
 
     toxicityNote: {
