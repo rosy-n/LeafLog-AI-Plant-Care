@@ -17,6 +17,7 @@ def _database_url() -> str:
 
 @dataclass(frozen=True)
 class Settings:
+    app_role: str = os.getenv("APP_ROLE", "standalone").strip().lower()
     database_url: str = _database_url()
     secret_key: str = os.getenv("SECRET_KEY", "dev-only-change-this-secret")
     access_token_expire_minutes: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))
@@ -97,6 +98,74 @@ class Settings:
         os.getenv("CHARACTER_GPU_SWITCH_TIMEOUT_SECONDS", "240")
     )
     character_max_jobs: int = int(os.getenv("CHARACTER_MAX_JOBS", "100"))
+    character_queue_url: str = os.getenv("CHARACTER_QUEUE_URL", "").strip()
+    character_worker_token: str = os.getenv("CHARACTER_WORKER_TOKEN", "").strip()
+    character_worker_api_url: str = os.getenv("CHARACTER_WORKER_API_URL", "").rstrip("/")
+    character_lease_seconds: int = int(os.getenv("CHARACTER_LEASE_SECONDS", "180"))
+    character_max_attempts: int = int(os.getenv("CHARACTER_MAX_ATTEMPTS", "3"))
+    character_job_timeout_seconds: int = int(os.getenv("CHARACTER_JOB_TIMEOUT_SECONDS", "3600"))
+    character_queue_limit: int = int(os.getenv("CHARACTER_QUEUE_LIMIT", "20"))
+    character_dispatch_seconds: int = int(os.getenv("CHARACTER_DISPATCH_SECONDS", "30"))
+    ai_worker_url: str = os.getenv("AI_WORKER_URL", "").rstrip("/")
+    ai_worker_token: str = os.getenv("AI_WORKER_TOKEN", "").strip()
+    ai_worker_host: str = os.getenv("AI_WORKER_HOST", "127.0.0.1")
+    ai_worker_port: int = int(os.getenv("AI_WORKER_PORT", "8010"))
+    ai_gpu_lock_path: Path = Path(os.getenv("AI_GPU_LOCK_PATH", "/tmp/leaflog-ai-gpu.lock"))
+    ollama_api_url: str = os.getenv("OLLAMA_API_URL", "http://127.0.0.1:11434/api/chat")
+
+    def validate_runtime(self, role: str) -> None:
+        if self.app_role not in {"standalone", "api", "worker"}:
+            raise ValueError("APP_ROLE must be standalone, api, or worker")
+        if role == "api" and self.app_role == "worker":
+            raise ValueError("Use python -m app.ai_worker for APP_ROLE=worker")
+        if role == "worker" and self.app_role != "worker":
+            raise ValueError("The school worker requires APP_ROLE=worker")
+        if self.app_role in {"api", "worker"}:
+            if not self.character_queue_url or len(self.character_worker_token) < 32:
+                raise ValueError("Set CHARACTER_QUEUE_URL and a strong CHARACTER_WORKER_TOKEN")
+            if len(self.ai_worker_token) < 32:
+                raise ValueError("AI_WORKER_TOKEN must contain at least 32 characters")
+            if not 60 <= self.character_lease_seconds <= 900 or not 1 <= self.character_max_attempts <= 5:
+                raise ValueError("Invalid character lease or retry limit")
+            if self.character_dispatch_seconds < 5 or self.character_queue_limit < 1:
+                raise ValueError("Invalid dispatch interval or queue limit")
+            if self.character_job_timeout_seconds < self.character_lease_seconds * 2:
+                raise ValueError("Job timeout must exceed two leases")
+            if not 300 <= self.s3_presign_expire <= 3600:
+                raise ValueError("S3 presign expiry must be between 300 and 3600 seconds")
+        if self.app_role == "api":
+            if not self.database_url.startswith("postgresql"):
+                raise ValueError("Cloud API requires PostgreSQL")
+            if not self.s3_bucket or not self.s3_presign_enabled or not self.ai_worker_url:
+                raise ValueError("Cloud API requires S3_BUCKET, S3_PRESIGN=true, and AI_WORKER_URL")
+            if len(self.secret_key) < 32 or self.secret_key.startswith("dev-only"):
+                raise ValueError("Cloud API requires a strong SECRET_KEY")
+            from urllib.parse import urlparse
+            from ipaddress import ip_address, ip_network
+            target = urlparse(self.ai_worker_url)
+            if not target.hostname or target.username or target.password:
+                raise ValueError("Invalid AI_WORKER_URL")
+            if target.scheme != "https":
+                try:
+                    address = ip_address(target.hostname)
+                    private = address.is_private or address in ip_network("100.64.0.0/10")
+                except ValueError:
+                    private = target.hostname == "localhost"
+                if target.scheme != "http" or not private:
+                    raise ValueError("AI_WORKER_URL requires HTTPS or a private network address")
+        if self.app_role == "worker":
+            if os.name != "posix":
+                raise ValueError("Run the school worker inside Linux/WSL")
+            if not self.character_gpu_mode_command or self.character_gpu_ssh_host:
+                raise ValueError("Worker requires a local GPU mode command, not SSH forwarding")
+            if not self.character_restore_ollama:
+                raise ValueError("Worker requires CHARACTER_RESTORE_OLLAMA=true")
+            from urllib.parse import urlparse
+            target = urlparse(self.character_worker_api_url)
+            if target.scheme != "https" and target.hostname not in {"127.0.0.1", "localhost"}:
+                raise ValueError("CHARACTER_WORKER_API_URL must use HTTPS")
+            if not target.hostname or target.username or target.password:
+                raise ValueError("Invalid CHARACTER_WORKER_API_URL")
 
 
 settings = Settings()

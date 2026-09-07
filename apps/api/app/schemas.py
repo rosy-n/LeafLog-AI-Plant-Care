@@ -262,6 +262,8 @@ class CharacterGenerationJobRead(BaseModel):
 
 
 class PlantCreate(BaseModel):
+    characterJobId: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
+    characterCandidateId: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}-[1-3]$")
     # 종 정보 (plant_species로 매핑)
     # speciesId 가 오면 그 종을 그대로 사용, 없으면 학명/국명으로 get-or-create (마스터 미수록 종)
     speciesId: int | None = None

@@ -75,6 +75,14 @@ test('SDK 57 rejects the old uri-only multipart part', async () => {
   await assert.rejects(convertFormDataAsync(form), /Unsupported FormDataPart/);
 });
 
+test('character retries can reuse the same idempotency key', async () => {
+  const { api, calls } = setup();
+  await api.startCharacterGeneration({ uri: 'file:///photo.png' }, 'reviewed-request-id');
+  await api.startCharacterGeneration({ uri: 'file:///photo.png' }, 'reviewed-request-id');
+  assert.equal(calls[0].options.headers['Idempotency-Key'], 'reviewed-request-id');
+  assert.equal(calls[1].options.headers['Idempotency-Key'], 'reviewed-request-id');
+});
+
 test('character generation and background endpoints send image bytes with auth', async () => {
   const { api, calls } = setup();
   api.setAuthToken('test-token');

@@ -246,6 +246,38 @@ class CareRecord(Base):
     )
 
 
+class CharacterJob(Base):
+    __tablename__ = "character_job"
+
+    job_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_user.user_id", ondelete="CASCADE"), index=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    input_sha256: Mapped[str] = mapped_column(String(64))
+    bucket_name: Mapped[str] = mapped_column(String(255))
+    input_key: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(30), default="queued", index=True)
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    message: Mapped[str] = mapped_column(Text, default="생성 작업을 기다리고 있어요.")
+    current_candidate: Mapped[int] = mapped_column(Integer, default=0)
+    candidates: Mapped[list] = mapped_column(JSON, default=list)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    lease_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    plant_id: Mapped[int | None] = mapped_column(ForeignKey("plant.plant_id", ondelete="SET NULL"), nullable=True)
+    selected_candidate_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "idempotency_key", name="uq_character_job_request"),
+        CheckConstraint("progress BETWEEN 0 AND 100", name="ck_character_job_progress"),
+        CheckConstraint("attempts >= 0", name="ck_character_job_attempts"),
+        CheckConstraint("status IN ('queued','preprocessing','starting_gpu','generating','postprocessing','completed','failed')", name="ck_character_job_status"),
+    )
+
+
 class MediaAsset(Base):
     __tablename__ = "media_asset"
 
