@@ -128,7 +128,7 @@ CREATE TABLE plant_species (
     bugInfo               TEXT,
     -- 보호/관리 설명
     care_tips            TEXT,
-    -- 대표이미지 제공 API 찾아보기
+    -- 대표 이미지(1장) — plant_species_image[sort_order=0]과 항상 같다 (검색 드롭다운 썸네일 등 1장만 쓰는 화면용)
     image_url               TEXT,
     source_url              TEXT,
     -- useMthdDesc
@@ -149,6 +149,28 @@ CREATE INDEX idx_plant_species_name_ko_trgm
     ON plant_species USING gin (common_name_ko gin_trgm_ops);
 CREATE INDEX idx_plant_species_name_en_trgm
     ON plant_species USING gin (common_name_en gin_trgm_ops);
+
+-- Wikimedia Commons 사진 최대 4장 — "이 식물이 맞나요?" 화면 슬라이드용.
+-- 농사로/농진청 API는 사진 보유 종이 극히 적어 대표 이미지는 항상 이 테이블로 채운다.
+-- 배치로 전체를 미리 채우지 않고, 등록 화면에서 그 종이 처음 조회될 때 그 자리에서 채운다
+-- (GET /api/species/{id} → app/wikimedia.py) — 여러 장이라 plant_species에 배열 컬럼을 두는
+-- 대신 media_asset과 같은 결로 별도 테이블에 종당 최대 4행을 둔다.
+CREATE TABLE plant_species_image (
+    image_id      BIGSERIAL PRIMARY KEY,
+    species_id    BIGINT NOT NULL REFERENCES plant_species(species_id) ON DELETE CASCADE,
+    image_url     TEXT NOT NULL,
+    -- 0부터 시작, 슬라이드 노출 순서 (0번이 plant_species.image_url과 같은 대표 사진)
+    sort_order    SMALLINT NOT NULL DEFAULT 0,
+    -- Commons 재사용 라이선스(대개 CC BY-SA)상 저작자 표시가 필요할 수 있어 보관 — 화면엔 아직 미노출
+    artist        TEXT,
+    license       VARCHAR(100),
+    source_page   TEXT,
+    fetched_at    TIMESTAMP DEFAULT now(),
+
+    UNIQUE (species_id, sort_order)
+);
+
+CREATE INDEX idx_plant_species_image_species_id ON plant_species_image (species_id);
 CREATE INDEX idx_plant_species_sci_name_trgm
     ON plant_species USING gin (scientific_name gin_trgm_ops);
 
@@ -264,6 +286,9 @@ CREATE TABLE media_asset (
 --   광원·물주기·온습도·난이도    → RDA_INDOOR
 --   원산지(origin_country)       → RDA_INDOOR (다른 소스에 없음)
 --   독성                         → ASPCA > RDA_INDOOR
+--
+-- 이미지(plant_species_image)는 이 배치 병합 대상이 아니다 — 등록 화면에서 종이 처음
+-- 조회될 때 그 자리에서 Wikimedia Commons를 채워 넣는다 (2-2 plant_species_image 참고).
 --
 -- 현재 소스 없음: origin(자생지), distribution(분포), genus_name(속)
 --   → 국립수목원 오픈API 키 발급 시 보강 대상

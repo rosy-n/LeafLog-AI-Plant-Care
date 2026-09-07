@@ -104,6 +104,8 @@ class PlantSpecies(Base):
     # 병충해 정보
     bug_info: Mapped[str | None] = mapped_column(Text, nullable=True)
     care_tips: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 대표 이미지(1장) — plant_species_image[sort_order=0]과 항상 같다. 검색 드롭다운
+    # 썸네일처럼 목록에서 한 장만 필요한 화면은 여전히 이 필드를 쓴다.
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     # 'metadata'는 SQLAlchemy 예약어라 속성명은 extra_metadata, 컬럼명은 metadata 유지
@@ -122,6 +124,31 @@ class PlantSpecies(Base):
             name="ck_plant_species_light_level",
         ),
     )
+
+
+class PlantSpeciesImage(Base):
+    """Wikimedia Commons 사진 최대 4장 — 종당 여러 장이라 media_asset과 같은 결로 별도 테이블에 둔다.
+
+    배치로 미리 채우지 않는다 — GET /api/species/{id}가 그 종을 처음 조회할 때
+    app/wikimedia.py로 그 자리에서 채운다(app/main.py의 _ensure_species_images 참고).
+    """
+
+    __tablename__ = "plant_species_image"
+
+    image_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    species_id: Mapped[int] = mapped_column(
+        ForeignKey("plant_species.species_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    image_url: Mapped[str] = mapped_column(Text, nullable=False)
+    # 0부터 시작, 슬라이드 노출 순서 (0번이 plant_species.image_url과 같은 대표 사진)
+    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    # Commons 재사용 라이선스(대개 CC BY-SA)상 저작자 표시가 필요할 수 있어 보관 — 화면엔 아직 미노출
+    artist: Mapped[str | None] = mapped_column(Text, nullable=True)
+    license: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    source_page: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (UniqueConstraint("species_id", "sort_order", name="uq_plant_species_image_order"),)
 
 
 class Plant(Base):

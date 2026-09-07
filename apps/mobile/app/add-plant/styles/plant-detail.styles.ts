@@ -32,6 +32,7 @@ export const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: Radius.lg,
     backgroundColor: Colors.primaryLight,
+    overflow: 'hidden',
   },
   navBtn: {
     width: 36,
@@ -65,17 +66,20 @@ export const styles = StyleSheet.create({
     fontSize: FontSizes.title,
     color: Colors.textBlack,
     marginBottom: Spacing.xs,
+    textAlign: 'center',
   },
   scientificName: {
     fontSize: FontSizes.body,
     fontStyle: 'italic',
     color: Colors.textGray,
     marginBottom: Spacing.xs,
+    textAlign: 'center',
   },
   familyName: {
     fontSize: FontSizes.body,
     color: Colors.textGray,
     marginBottom: Spacing.section,
+    textAlign: 'center',
   },
 
   spacer: { flex: 1 },
