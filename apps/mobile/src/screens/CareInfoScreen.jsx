@@ -170,6 +170,39 @@ function toPlacementChips(raw) {
     return toChips(raw.replace(/\([^)]*\)/g, ""));
 }
 
+/*
+    적정 구간 한 줄 —
+    이름과 값을 한 행에 나란히 두고, 그 아래 축(0~최대) 위에 구간을 얹는다.
+    수치를 막대 안에 넣지 않는 이유는 rangeStyle 주석 참고.
+    자료가 없는 항목도 같은 행 모양을 유지해서 온도·습도 줄이 어긋나지 않게 한다.
+*/
+function RangeRow({ label, value, range, fillStyle, ticks }) {
+    return (
+        <View>
+            <View style={styles.rangeHeader}>
+                <Text style={styles.rangeName}>{label}</Text>
+                <Text style={styles.rangeValue}>{value}</Text>
+            </View>
+
+            {range ? (
+                <>
+                    <View style={styles.rangeBar}>
+                        <View style={[fillStyle, range]} />
+                    </View>
+
+                    <View style={styles.rangeLabelRow}>
+                        {ticks.map((tick) => (
+                            <Text key={tick} style={styles.rangeLabel}>
+                                {tick}
+                            </Text>
+                        ))}
+                    </View>
+                </>
+            ) : null}
+        </View>
+    );
+}
+
 export default function CareInfoScreen({ navigation, route }) {
     const plantParam = route?.params?.plant;
     const plantId = plantParam?.id;
@@ -455,52 +488,38 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                     >
                         <Text style={styles.cardTitle}>적정 온·습도</Text>
 
-                        {tempRange ? (
-                            <View style={styles.rangeBlock}>
-                                <Text style={styles.rangeCaption}>
-                                    적정 온도 {Number(species.temp_min_c)}~
-                                    {Number(species.temp_max_c)}°C
-                                </Text>
+                        <View style={styles.rangeGroup}>
+                            <RangeRow
+                                label="온도"
+                                value={
+                                    tempRange
+                                        ? `${Number(species.temp_min_c)}~${Number(species.temp_max_c)}°C`
+                                        : NO_DATA
+                                }
+                                range={tempRange}
+                                fillStyle={styles.rangeFillPink}
+                                ticks={["0°C", "15°C", "30°C"]}
+                            />
 
-                                <View style={styles.rangeBar}>
-                                    <View style={[styles.rangeFillPink, tempRange]} />
-                                </View>
-
-                                <View style={styles.rangeLabelRow}>
-                                    <Text style={styles.rangeLabel}>0°C</Text>
-                                    <Text style={styles.rangeLabel}>15°C</Text>
-                                    <Text style={styles.rangeLabel}>30°C</Text>
-                                </View>
-                            </View>
-                        ) : (
-                            <Text style={styles.mainInfo}>적정 온도: {NO_DATA}</Text>
-                        )}
-
-                        {humidityRange ? (
-                            <View style={styles.rangeBlock}>
-                                <Text style={styles.rangeCaption}>
-                                    적정 습도 {Number(species.humidity_min_pct)}~
-                                    {Number(species.humidity_max_pct)}%
-                                </Text>
-
-                                <View style={styles.rangeBar}>
-                                    <View style={[styles.rangeFillBlue, humidityRange]} />
-                                </View>
-
-                                <View style={styles.rangeLabelRow}>
-                                    <Text style={styles.rangeLabel}>0%</Text>
-                                    <Text style={styles.rangeLabel}>50%</Text>
-                                    <Text style={styles.rangeLabel}>100%</Text>
-                                </View>
-                            </View>
-                        ) : (
-                            <Text style={styles.mainInfo}>적정 습도: {NO_DATA}</Text>
-                        )}
+                            <RangeRow
+                                label="습도"
+                                value={
+                                    humidityRange
+                                        ? `${Number(species.humidity_min_pct)}~${Number(species.humidity_max_pct)}%`
+                                        : NO_DATA
+                                }
+                                range={humidityRange}
+                                fillStyle={styles.rangeFillBlue}
+                                ticks={["0%", "50%", "100%"]}
+                            />
+                        </View>
 
                         {species.temp_min_winter_c != null ? (
-                            <Text style={styles.mainInfo}>
-                                겨울 최저 {Number(species.temp_min_winter_c)}°C 이상 유지
-                            </Text>
+                            <View style={styles.rangeFootnote}>
+                                <Text style={styles.rangeFootnoteText}>
+                                    겨울 최저 {Number(species.temp_min_winter_c)}°C 이상 유지
+                                </Text>
+                            </View>
                         ) : null}
                     </View>
 
@@ -867,16 +886,40 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.screenTitle,
     },
 
-    rangeBlock: {
-        marginTop: Spacing.sm,
-        marginBottom: Spacing.xl,
+    // 온도·습도 두 줄 사이 간격만 여기서 — 마지막 줄에 죽은 여백이 남지 않게 gap 사용
+    rangeGroup: {
+        gap: Spacing.xl,
     },
 
+    rangeHeader: {
+        flexDirection: "row",
+        alignItems: "baseline",
+        justifyContent: "space-between",
+        marginBottom: Spacing.sm,
+    },
+
+    // 항목 이름은 값보다 한 단계 낮춰 — 읽는 순서가 값 → 이름이 되게
+    rangeName: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.strong,
+        includeFontPadding: false,
+    },
+
+    rangeValue: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.subtitle,
+        color: Colors.textBlack,
+        includeFontPadding: false,
+    },
+
+    // 축은 얇게 — 22px 짜리 굵은 막대는 구간 표시가 아니라 진행률처럼 읽힌다.
+    // 바탕도 separator(#F0F0F0)에서 녹색 틴트로 바꿔 흰 카드 위에서 축이 보이게 했다.
     rangeBar: {
         width: "100%",
-        height: 22,
-        borderRadius: Radius.lg,
-        backgroundColor: Colors.separator,
+        height: 10,
+        borderRadius: Radius.pill,
+        backgroundColor: GreenTint.wash,
         overflow: "hidden",
         position: "relative",
     },
@@ -884,42 +927,45 @@ const styles = StyleSheet.create({
     rangeFillPink: {
         position: "absolute",
         top: 0,
-        height: 22,
-        borderRadius: Radius.lg,
+        height: 10,
+        borderRadius: Radius.pill,
         backgroundColor: Pink.soft,
-        justifyContent: "center",
-        alignItems: "center",
     },
 
     rangeFillBlue: {
         position: "absolute",
         top: 0,
-        height: 22,
-        borderRadius: Radius.lg,
+        height: 10,
+        borderRadius: Radius.pill,
         backgroundColor: Accent.airBlue,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-
-    // 수치는 막대 안이 아니라 위에 적는다 (좁은 구간에서 글자가 삐져나오는 문제)
-    rangeCaption: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.textBlack,
-        marginBottom: Spacing.sm,
-        includeFontPadding: false,
     },
 
     rangeLabelRow: {
         flexDirection: "row",
         justifyContent: "space-between",
-        marginTop: Spacing.sm,
+        marginTop: Spacing.xs,
     },
 
+    // 축 눈금은 값과 같은 무게로 두면 자료를 가린다 — 흐리게 깔아 둔다
     rangeLabel: {
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.small,
-        color: Colors.textBlack,
+        fontSize: FontSizes.caption,
+        color: Colors.textFaint,
+        includeFontPadding: false,
+    },
+
+    // 겨울 최저는 구간이 아니라 단서라서 선 아래 각주로 뺀다
+    rangeFootnote: {
+        marginTop: Spacing.xl,
+        paddingTop: Spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: GreenTint.line,
+    },
+
+    rangeFootnoteText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
 
