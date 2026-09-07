@@ -43,6 +43,7 @@ const ICONS = [
     require("../../assets/icons/notification_icon.png"),
     require("../../assets/icons/nutrients_icon.png"),
     require("../../assets/icons/rainy_icon.png"),
+    require("../../assets/icons/revive_icon.png"),
     require("../../assets/icons/snow_icon.png"),
     require("../../assets/icons/sunny_icon.png"),
     require("../../assets/icons/water_icon.png"),
