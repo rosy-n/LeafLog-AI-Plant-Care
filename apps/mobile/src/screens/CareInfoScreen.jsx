@@ -623,14 +623,13 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                         <Text style={styles.cardTitle}>독성</Text>
 
                         <View style={styles.toxicityRow}>
+                            {/*
+                                사람 칸은 두지 않는다 — ASPCA 는 반려동물만 다루고,
+                                농사로 독성 텍스트도 사람 기준이 아니라 판정할 근거가 없다.
+                                근거 없이 칸만 두면 항상 '미확인' 이라 카드가 미완성처럼 보이고,
+                                사람 독성은 잘못 안내하면 위험한 정보다.
+                            */}
                             {[
-                                {
-                                    label: "인간",
-                                    icon: require("../../assets/icons/toxicity-human.png"),
-                                    // ASPCA 는 반려동물만 다루고 농사로 독성 텍스트는 사람 기준이 아니다.
-                                    // 사람 독성만 따로 판정할 근거가 없어 미확인으로 둔다.
-                                    flag: null,
-                                },
                                 {
                                     label: "강아지",
                                     icon: require("../../assets/icons/toxicity-dog.png"),
@@ -1053,8 +1052,9 @@ const styles = StyleSheet.create({
 
     toxicityRow: {
         flexDirection: "row",
-        justifyContent: "space-around",
+        justifyContent: "center",
         alignItems: "center",
+        gap: Spacing.huge2,
     },
 
     toxicityItem: {
