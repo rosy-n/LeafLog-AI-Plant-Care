@@ -49,15 +49,74 @@ import {
     CHARACTER_EXPRESSION_KEYS,
     getPlantExpressionSource,
 } from "../data/characterExpressions";
+import { useTutorial, TutorialNextButton } from "../TutorialContext";
+import { useHighlightPulse } from "../hooks/useHighlightPulse";
 
+// targetId는 TutorialContext.tsx의 plant-menu-* 단계와 짝을 맞춘다
 const MENU_ITEMS = [
-    { label: "프로필", screen: "Profile" },
-    { label: "식물 꾸미기", screen: "PlantDecorate" },
-    { label: "돌보기 정보", screen: "CareInfo" },
-    { label: "센서 데이터", screen: "SensorData" },
-    { label: "분갈이", screen: "Repotting" },
-    { label: "영양제", screen: "Nutrient" },
+    { label: "프로필", screen: "Profile", targetId: "menu-profile" },
+    { label: "식물 꾸미기", screen: "PlantDecorate", targetId: "menu-decorate" },
+    { label: "돌보기 정보", screen: "CareInfo", targetId: "menu-care" },
+    { label: "센서 데이터", screen: "SensorData", targetId: "menu-sensor" },
+    { label: "분갈이", screen: "Repotting", targetId: "menu-repot" },
+    { label: "영양제", screen: "Nutrient", targetId: "menu-nutrient" },
 ];
+
+/*
+    햄버거 메뉴 팝업 항목 하나. 컴포넌트로 따로 뺀 이유는 useHighlightPulse(펄스
+    애니메이션 훅)를 .map() 콜백 안에서 직접 부르면 항목마다 훅 호출 여부가
+    달라 보여(Rules of Hooks 위반 소지) — 컴포넌트 단위로 부르면 항목당 정확히
+    한 번씩만 불려 안전하다.
+*/
+function MenuPopupItem({ item, anim, highlighted, onPress }) {
+    const pulseScale = useHighlightPulse(highlighted);
+    return (
+        <Animated.View
+            style={[
+                styles.menuItemWrapper,
+                {
+                    opacity: anim,
+                    transform: [
+                        {
+                            translateY: anim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [14, 0],
+                            }),
+                        },
+                        {
+                            scale: anim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0.92, 1],
+                            }),
+                        },
+                    ],
+                },
+            ]}
+        >
+            <TouchableOpacity
+                activeOpacity={0.82}
+                style={[styles.menuItemTouch, { transform: [{ scale: pulseScale }] }]}
+                onPress={onPress}
+            >
+                <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>
+                    <LinearGradient
+                        colors={
+                            highlighted
+                                ? [Glass.leafHi, Glass.leafMid, Glass.leafLow]
+                                : [Glass.frost72, Glass.mist, Glass.mistSoft]
+                        }
+                        start={{ x: 0.12, y: 0.05 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.menuItemGlass}
+                    >
+                        <View style={styles.menuItemHighlight} />
+                        <Text style={styles.menuItemText}>{item.label}</Text>
+                    </LinearGradient>
+                </BlurView>
+            </TouchableOpacity>
+        </Animated.View>
+    );
+}
 
 // 등록일 기준 함께한 일수 (중앙 D+N)
 function daysSince(iso) {
@@ -99,6 +158,9 @@ const DROP_FALL_MS = 1100;     // 낙하 애니메이션 길이
     길이를 상수에서 뽑아내므로 방울 개수·간격을 바꿔도 소리가 따라온다.
 */
 const WATERING_ANIM_MS = (DROP_COUNT - 1) * DROP_INTERVAL_MS + DROP_FALL_MS;
+// 튜토리얼 데모: 물방울 연출(WATERING_ANIM_MS)이 끝난 뒤에도 잠깐 여유를 두고서야
+// 다음 말풍선으로 넘어간다 — 연출이 끝나자마자 바뀌면 물 준 게 눈에 잘 안 들어온다.
+const TUTORIAL_WATER_ADVANCE_DELAY_MS = WATERING_ANIM_MS + 900;
 
 /*
     진동은 RN 내장 Vibration 이 아니라 expo-haptics 를 쓴다.
@@ -130,6 +192,28 @@ const BLINK_INTERVAL_MAX_MS = 6000;
 
 export default function PlantDetailScreen({ navigation, route, decorations, reloadPlants }) {
     const plant = route?.params?.plant;
+    const tutorial = useTutorial();
+    const isTutorialDemo = !!plant?.isTutorialDemo;
+    // 햄버거 메뉴가 왼쪽에 열려 그 항목들을 설명하는 동안엔 스파·이름표(다음 버튼)를
+    // 오른쪽으로 비켜준다 — TutorialContext.tsx의 isPlantMenuStep과 같은 판정
+    const isTutorialMenuStep =
+        isTutorialDemo &&
+        tutorial.active &&
+        (tutorial.currentStep?.id === "plant-hamburger" ||
+            !!tutorial.currentStep?.id?.startsWith("plant-menu-"));
+    /*
+        문지르기 제스처(rubResponder)는 useRef(PanResponder.create(...))로 마운트 때 딱
+        한 번만 만들어져서, 그 안의 핸들러가 캡처하는 tutorial 값은 그 순간에 영원히
+        고정된다 — 이후 스텝이 바뀌어도 핸들러는 여전히 옛 값을 본다. 매 렌더 갱신되는
+        ref로 최신 값을 흘려보내 핸들러가 호출 시점의 실제 값을 읽게 한다.
+
+        currentTargetId가 아니라 currentStep의 id를 본다 — "plant-hearts" targetId는
+        애정도 설명(plant-hearts-intro)·쓰다듬기(plant-hearts)·효과 설명
+        (plant-hearts-outcome) 세 단계가 하이라이트를 공유해서, 실제로 쓰다듬어야
+        진행되는 단계인지는 targetId만으로 구분할 수 없다.
+    */
+    const tutorialStepIdRef = useRef(tutorial.currentStep?.id ?? null);
+    tutorialStepIdRef.current = tutorial.currentStep?.id ?? null;
     // 착용 중인 액세서리 — route 로 받은 식물 스냅샷이 아니라 App.js 의 맵에서 찾는다
     // (꾸미기 탭에서 바꾸고 돌아왔을 때 옛 값이 남지 않게).
     const decoration = decorations?.[String(plant?.id)] ?? null;
@@ -331,6 +415,23 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
     const requestPetReward = async () => {
         const id = plant?.id;
         if (!id || petRequested.current) return;
+
+        // 튜토리얼 데모 스파는 API 없이 로컬로만 애정도를 채운다 — "쓰다듬기" 단계일
+        // 때만 보상으로 치고 다음 단계로 넘어간다(다른 단계에서 미리 문질러도 애니메이션만
+        // 재생되고 진행되지는 않는다). 실제 문지르기 보상처럼 한 칸(1/5)만 살짝 채운다 —
+        // 한 번에 가득 차면 오히려 평소 페이스와 달라 보인다.
+        if (isTutorialDemo) {
+            if (tutorialStepIdRef.current !== "plant-hearts") return;
+            petRequested.current = true;
+            setAffinity((prev) => {
+                const nextHearts = Math.min(5, (prev?.hearts ?? 0) + 1);
+                return { score: (prev?.score ?? 0) + 5, hearts: nextHearts, level: Math.floor(nextHearts) };
+            });
+            showAffinityGain(5);
+            tutorial.advance();
+            return;
+        }
+
         petRequested.current = true;
         try {
             const result = await petPlant(Number(id));
@@ -429,6 +530,15 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
             pickIdleGreeting(null);
             return;
         }
+        // 튜토리얼 데모 스파는 실제 DB row가 아니라서 조회할 돌봄 기록이 없다 —
+        // 고정된 데모 값을 그대로 쓴다.
+        if (isTutorialDemo) {
+            setWateringDays(0);
+            setNutrientDays(0);
+            setDaysUntilWatering(null);
+            pickIdleGreeting(null);
+            return;
+        }
         let mounted = true;
         getPlantCare(Number(id))
             .then((care) => {
@@ -456,7 +566,7 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
     useFocusEffect(
         useCallback(() => {
             const id = plant?.id;
-            if (!id) return;
+            if (!id || isTutorialDemo) return;
             reloadPlants?.();
             let active = true;
             getPlantAffinity(Number(id))
@@ -486,7 +596,7 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
             return () => {
                 active = false;
             };
-        }, [plant?.id, reloadPlants])
+        }, [plant?.id, reloadPlants, isTutorialDemo])
     );
 
     // 얻은 점수를 하트 밑에 띄웠다가 사라지게 (0 = 오늘 이미 채웠거나 만점 → 표시 안 함)
@@ -562,6 +672,14 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
         }
     };
 
+    // 튜토리얼이 메뉴 항목들을 다 설명하고 홈 버튼 단계로 넘어가면, 열어뒀던
+    // 햄버거 메뉴를 자동으로 닫는다 — 사용자가 직접 닫지 않아도 자연스럽게 정리된다.
+    useEffect(() => {
+        if (menuOpen && tutorial.currentTargetId === "plant-home") {
+            closeMenu();
+        }
+    }, [tutorial.currentTargetId]);
+
     // 물방울 하나를 생성해 아래로 떨어지며 사라지는 애니메이션 실행
     const spawnDrop = () => {
         const id = ++dropIdCounter;
@@ -605,7 +723,14 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
         }
 
         const id = plant?.id;
-        if (id) {
+        if (isTutorialDemo) {
+            // 데모 스파는 서버에 기록하지 않는다 — 물방울이 다 떨어지고도 잠깐 더
+            // 지난 뒤에야(TUTORIAL_WATER_ADVANCE_DELAY_MS) 다음 단계로 넘어간다.
+            // 애니메이션이 끝나기도 전에 말풍선이 바뀌면 물 주는 연출을 놓친다.
+            setWateringDays(0);
+            showAffinityGain(5);
+            setTimeout(() => tutorial.advance(), TUTORIAL_WATER_ADVANCE_DELAY_MS);
+        } else if (id) {
             try {
                 // 저장 응답에 이번에 얻은 애정도와 갱신된 하트 수가 함께 온다
                 const saved = await createCareRecord(Number(id), { care_type: "WATERING" });
@@ -711,7 +836,11 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                 <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
                     {!chatMode && (
                         <View style={styles.resourceArea}>
-                            <ResourceCounter wateringDays={wateringDays} nutrientDays={nutrientDays} />
+                            <ResourceCounter
+                                wateringDays={wateringDays}
+                                nutrientDays={nutrientDays}
+                                highlighted={tutorial.currentTargetId === "plant-resource"}
+                            />
                         </View>
                     )}
 
@@ -747,7 +876,8 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                         </View>
                     )}
 
-                    {!chatMode && !!idleGreeting && (
+                    {/* 튜토리얼 데모 중엔 이 인사말 말풍선을 끄고 튜토리얼 말풍선만 보여준다 */}
+                    {!chatMode && !isTutorialDemo && !!idleGreeting && (
                         <PixelSpeechBubble
                             style={styles.speechBubble}
                             textStyle={styles.speechText}
@@ -760,7 +890,12 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                     )}
 
                     {!chatMode && (
-                        <View style={styles.mainPlantArea}>
+                        <View
+                            style={[
+                                styles.mainPlantArea,
+                                isTutorialMenuStep && styles.mainPlantAreaShiftRight,
+                            ]}
+                        >
                             {/* 캐릭터 — 문지르면 하트가 뜨고 진동한다 (하루 한 번 애정도도 오른다) */}
                             <View
                                 style={styles.plantTouchArea}
@@ -826,14 +961,30 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                                 </View>
                             </View>
 
-                            <View style={styles.plantLabelGroup}>
-                                <PixelOutlineText style={styles.plantName} strokeWidth={2}>
-                                    {plantName}
-                                </PixelOutlineText>
+                            <View
+                                style={[
+                                    styles.plantLabelGroup,
+                                    isTutorialDemo && tutorial.active && styles.plantLabelGroupTutorial,
+                                    // 햄버거 메뉴를 설명하는 동안엔 식물 아래로 한 번 더 내린다
+                                    isTutorialMenuStep && styles.plantLabelGroupMenuStep,
+                                ]}
+                            >
+                                {isTutorialDemo && tutorial.active ? (
+                                    // 튜토리얼 중엔 이름표 자리를 "다음" 버튼으로 쓴다 —
+                                    // 화면 하단보다 여기가 엄지로 누르기 훨씬 편하다. 캐릭터와
+                                    // 안 겹치도록 이름표보다 더 아래(plantLabelGroupTutorial)로 내린다.
+                                    <TutorialNextButton />
+                                ) : (
+                                    <>
+                                        <PixelOutlineText style={styles.plantName} strokeWidth={2}>
+                                            {plantName}
+                                        </PixelOutlineText>
 
-                                <PixelOutlineText style={styles.dayText} strokeWidth={2}>
-                                    D+{togetherDays}
-                                </PixelOutlineText>
+                                        <PixelOutlineText style={styles.dayText} strokeWidth={2}>
+                                            D+{togetherDays}
+                                        </PixelOutlineText>
+                                    </>
+                                )}
                             </View>
                         </View>
                     )}
@@ -872,66 +1023,36 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
 
                     {menuVisible && (
                         <View style={styles.menuPopup}>
-                            {MENU_ITEMS.map((item, index) => {
-                                const anim = menuAnimations[index];
-
-                                return (
-                                    <Animated.View
-                                        key={item.label}
-                                        style={[
-                                            styles.menuItemWrapper,
-                                            {
-                                                opacity: anim,
-                                                transform: [
-                                                    {
-                                                        translateY: anim.interpolate({
-                                                            inputRange: [0, 1],
-                                                            outputRange: [14, 0],
-                                                        }),
-                                                    },
-                                                    {
-                                                        scale: anim.interpolate({
-                                                            inputRange: [0, 1],
-                                                            outputRange: [0.92, 1],
-                                                        }),
-                                                    },
-                                                ],
-                                            },
-                                        ]}
-                                    >
-                                        <TouchableOpacity
-                                            activeOpacity={0.82}
-                                            style={styles.menuItemTouch}
-                                            onPress={() => {
-                                                closeMenu();
-                                                navigation.navigate(item.screen, { plant });
-                                            }}
-                                        >
-                                            <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>
-                                                <LinearGradient
-                                                    colors={[
-                                                        Glass.frost72,
-                                                        Glass.mist,
-                                                        Glass.mistSoft,
-                                                    ]}
-                                                    start={{ x: 0.12, y: 0.05 }}
-                                                    end={{ x: 1, y: 1 }}
-                                                    style={styles.menuItemGlass}
-                                                >
-                                                    <View style={styles.menuItemHighlight} />
-                                                    <Text style={styles.menuItemText}>{item.label}</Text>
-                                                </LinearGradient>
-                                            </BlurView>
-                                        </TouchableOpacity>
-                                    </Animated.View>
-                                );
-                            })}
+                            {MENU_ITEMS.map((item, index) => (
+                                <MenuPopupItem
+                                    key={item.label}
+                                    item={item}
+                                    anim={menuAnimations[index]}
+                                    highlighted={tutorial.currentTargetId === item.targetId}
+                                    onPress={() => {
+                                        // 튜토리얼 중엔 메뉴 항목 설명만 하고 실제 화면으로는 안 넘어간다
+                                        if (tutorial.active) return;
+                                        closeMenu();
+                                        navigation.navigate(item.screen, { plant });
+                                    }}
+                                />
+                            ))}
                         </View>
                     )}
 
                     {!chatMode && (
                         <View style={styles.leftButtons}>
-                            <LiquidGlassButton size={54} onPress={toggleMenu}>
+                            <LiquidGlassButton
+                                size={54}
+                                highlighted={tutorial.currentTargetId === "plant-hamburger"}
+                                onPress={() => {
+                                    if (tutorial.active && tutorial.currentTargetId !== "plant-hamburger") {
+                                        return;
+                                    }
+                                    toggleMenu();
+                                    if (tutorial.active) tutorial.advance();
+                                }}
+                            >
                                 <Image
                                     source={
                                         menuOpen
@@ -945,7 +1066,25 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
 
                             <LiquidGlassButton
                                 size={54}
-                                onPress={() => navigation.navigate("Home")}
+                                highlighted={tutorial.currentTargetId === "plant-home"}
+                                onPress={() => {
+                                    if (tutorial.active && tutorial.currentTargetId !== "plant-home") {
+                                        return;
+                                    }
+                                    navigation.navigate("Home");
+                                    if (tutorial.active && isTutorialDemo) {
+                                        const wasFirstPlant = tutorial.source === "first-plant";
+                                        // 마지막 단계를 실제로 끝까지 마친 경우라 end()가 아니라
+                                        // complete()를 불러 "튜토리얼이 끝났어요" 메시지를 띄운다
+                                        tutorial.complete();
+                                        if (wasFirstPlant) {
+                                            tutorial.navigateRoot("AddPlant", {
+                                                screen: "Character",
+                                                params: { resumeGeneration: "true" },
+                                            });
+                                        }
+                                    }
+                                }}
                             >
                                 <Image
                                     source={require("../../assets/icons/home_icon.png")}
@@ -956,11 +1095,21 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                         </View>
                     )}
 
-                    {!chatMode && (
+                    {/*
+                        햄버거 메뉴를 설명하는 동안엔 이 세 버튼(상담·대화·물주기)을 잠깐
+                        숨긴다 — 그동안 캐릭터가 오른쪽으로 비켜서 있어 겹칠 수 있고, 메뉴
+                        설명과 관계도 없다. 메뉴 설명이 끝나 캐릭터가 다시 중앙으로 오면
+                        (isTutorialMenuStep이 꺼지면) 그대로 다시 보인다.
+                    */}
+                    {!chatMode && !isTutorialMenuStep && (
                         <View style={styles.rightButtons}>
                             <LiquidGlassButton
                                 size={54}
-                                onPress={() => navigation.navigate("ConsultationHistory", { plant })}
+                                highlighted={tutorial.currentTargetId === "plant-counsel"}
+                                onPress={() => {
+                                    if (tutorial.active) return;
+                                    navigation.navigate("ConsultationHistory", { plant });
+                                }}
                             >
                                 <Image
                                     source={require("../../assets/icons/counsel_icon.png")}
@@ -969,7 +1118,14 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                                 />
                             </LiquidGlassButton>
 
-                            <LiquidGlassButton size={54} onPress={openChat}>
+                            <LiquidGlassButton
+                                size={54}
+                                highlighted={tutorial.currentTargetId === "plant-chat"}
+                                onPress={() => {
+                                    if (tutorial.active) return;
+                                    openChat();
+                                }}
+                            >
                                 <Image
                                     source={require("../../assets/icons/chat_icon.png")}
                                     style={styles.buttonIcon}
@@ -977,7 +1133,16 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                                 />
                             </LiquidGlassButton>
 
-                            <LiquidGlassButton size={68} onPress={handleWaterPress}>
+                            <LiquidGlassButton
+                                size={68}
+                                highlighted={tutorial.currentTargetId === "plant-water"}
+                                onPress={() => {
+                                    if (tutorial.active && tutorial.currentTargetId !== "plant-water") {
+                                        return;
+                                    }
+                                    handleWaterPress();
+                                }}
+                            >
                                 <Image
                                     source={require("../../assets/icons/watering_icon.png")}
                                     style={styles.buttonIconLarge}
@@ -1212,6 +1377,15 @@ const styles = StyleSheet.create({
         alignItems: "center",
         zIndex: 30,
     },
+    // 튜토리얼 중 "다음" 버튼은 이름표 자리보다 더 아래(캐릭터 아래쪽)로 내린다
+    plantLabelGroupTutorial: {
+        top: 270,
+    },
+    // 햄버거 메뉴 설명 중엔 훨씬 더 아래로 — 왼쪽 메뉴 팝업과도, 캐릭터와도
+    // 확실히 떨어뜨려 "식물 아래"라는 게 분명히 보이게 한다
+    plantLabelGroupMenuStep: {
+        top: 310,
+    },
     mainPlantArea: {
         position: "absolute",
         top: 355,
@@ -1219,6 +1393,10 @@ const styles = StyleSheet.create({
         right: 0,
         alignItems: "center",
         zIndex: 5,
+    },
+    // 튜토리얼 중 햄버거 메뉴가 왼쪽에 펼쳐져 있을 때 스파·이름표를 비켜준다
+    mainPlantAreaShiftRight: {
+        transform: [{ translateX: 70 }],
     },
     // 문지를 수 있는 영역 = 캐릭터 크기. 하트는 이 안의 손가락 좌표에 붙는다
     plantTouchArea: {

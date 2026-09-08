@@ -27,6 +27,9 @@ import {
 import { accessorySpriteBundle, BACKGROUND_IMAGES, HOME_BACKGROUND_KEY } from "../data/decor";
 import PlantImage from "../components/PlantImage";
 import { getPlantExpressionSource } from "../data/characterExpressions";
+import { useTutorial } from "../TutorialContext";
+import { useHighlightPulse } from "../hooks/useHighlightPulse";
+import { TUTORIAL_DEMO_PLANT } from "../data/tutorialDemoPlant";
 
 const WEATHER_ICONS = {
     "맑음": require("../../assets/icons/sunny_icon.png"),
@@ -85,6 +88,14 @@ const FIELD_SLOTS = [
     { width: 150, height: 150, startFx: 0.82, startFy: 0.42 },
     { width: 150, height: 150, startFx: 0.34, startFy: 0.82 },
 ];
+
+// 튜토리얼 데모 스파의 자리 크기·세로 중심 — 개체탭 캐릭터(PlantDetailScreen.jsx의
+// PLANT_SIZE=230)와 같은 크기로, 들판 안에서 가로 정중앙·세로는 중앙보다 살짝
+// 아래(0.5보다 큰 값)에 선다.
+const TUTORIAL_DEMO_SLOT_SIZE = 280;
+// 0.56 → 0.46: 말풍선(화면 상단 300px 근처)이 스파 머리 바로 위에 오도록 스파를
+// 필드 중앙보다 살짝 더 위로 올렸다.
+const TUTORIAL_DEMO_CENTER_FY = 0.46;
 
 // 물 줄 때가 됐는가 — 정원탭 배지·알림(careNotices)과 같은 기준.
 // 들판에 세울 개체를 고를 때와 말풍선을 띄울 때가 어긋나지 않게 한 곳에 둔다.
@@ -351,7 +362,32 @@ export default function HomeScreen({
     // 배경 그림이 깔린 크기 — 렌즈 바닥에 같은 배경을 1:1 로 다시 깔 때 쓴다(Magnifier)
     const [backgroundSize, setBackgroundSize] = useState({ width: 0, height: 0 });
 
-    const fieldPlants = useMemo(() => selectFieldPlants(plants), [plants]);
+    const tutorial = useTutorial();
+    // 튜토리얼이 진행되는 동안엔 실제 개체 대신 데모 "스파" 하나만 들판에 세운다 —
+    // 실제 개체와 섞이면 첫 등록(개체 0개) 사용자에겐 어차피 없고, 설정에서 재생하는
+    // 기존 사용자에겐 자기 개체와 혼동될 수 있다.
+    const showTutorialDemo = tutorial.active;
+    const realFieldPlants = useMemo(() => selectFieldPlants(plants), [plants]);
+    const fieldPlants = showTutorialDemo ? [TUTORIAL_DEMO_PLANT] : realFieldPlants;
+
+    /*
+        데모 스파의 자리 — 개체탭(PlantDetailScreen)에서와 마찬가지로 가로 정중앙,
+        세로는 중앙보다 살짝 아래에 서 있는다. 다른 개체들처럼 FIELD_SLOTS의 정해진
+        칸을 쓰지 않고, 실측 들판 크기(fieldSize)로 매번 정확히 중앙을 계산한다.
+    */
+    const demoSlot = useMemo(() => {
+        const width = TUTORIAL_DEMO_SLOT_SIZE;
+        const height = TUTORIAL_DEMO_SLOT_SIZE;
+        if (fieldSize.width === 0 || fieldSize.height === 0) {
+            return { width, height, startFx: 0.5, startFy: 0.5 };
+        }
+        return {
+            width,
+            height,
+            startFx: clamp(0.5 - width / 2 / fieldSize.width, 0, 1),
+            startFy: clamp(TUTORIAL_DEMO_CENTER_FY - height / 2 / fieldSize.height, 0, 1),
+        };
+    }, [fieldSize.width, fieldSize.height]);
 
     // 길게 눌러 들어올린 개체 — 이때만 하단 중앙에 돋보기가 나타난다
     const [heldPlantId, setHeldPlantId] = useState(null);
@@ -453,7 +489,13 @@ export default function HomeScreen({
         setHeldPlantId(null);
         setOverLens(false);
         if (!isInLens(center)) return false;
+        // 데모 스파는 "저를 길게 눌러보세요" 단계에서만 놓는 것으로 친다 —
+        // 그 전 단계(둘러보기 멘트 진행 중)에 미리 놓아도 아직은 진행되지 않는다.
+        if (plant.isTutorialDemo && tutorial.currentTargetId !== "home-longpress") {
+            return false;
+        }
         navigation.navigate("PlantDetail", { plant });
+        if (plant.isTutorialDemo) tutorial.advance();
         return true;
     };
 
@@ -546,9 +588,20 @@ export default function HomeScreen({
                     );
                 }}
             >
-                {/* 상단 왼쪽: 날씨, 미세먼지 — 탭하면 데이터 화면으로 이동 */}
+                {/*
+                    상단 왼쪽: 날씨, 미세먼지 — 탭하면 데이터 화면으로 이동.
+                    튜토리얼 중엔 둘러보기만 시키고 실제 화면 전환은 막는다
+                    (진행은 말풍선을 탭해서 한다).
+                */}
                 <View style={styles.topLeftArea}>
-                    <GlassButton size={60} onPress={() => navigation.navigate("SensorData")}>
+                    <GlassButton
+                        size={60}
+                        highlighted={tutorial.currentTargetId === "home-weather"}
+                        onPress={() => {
+                            if (tutorial.active) return;
+                            navigation.navigate("SensorData");
+                        }}
+                    >
                         {weatherIconSource && (
                             <Image
                                 source={weatherIconSource}
@@ -558,7 +611,14 @@ export default function HomeScreen({
                         )}
                     </GlassButton>
 
-                    <GlassButton size={60} onPress={() => navigation.navigate("SensorData")}>
+                    <GlassButton
+                        size={60}
+                        highlighted={tutorial.currentTargetId === "home-weather"}
+                        onPress={() => {
+                            if (tutorial.active) return;
+                            navigation.navigate("SensorData");
+                        }}
+                    >
                         {airQualityIconSource && (
                             <Image
                                 source={airQualityIconSource}
@@ -580,7 +640,11 @@ export default function HomeScreen({
                     <View style={styles.notificationBell}>
                         <GlassButton
                             size={65}
-                            onPress={() => navigation.navigate("Notifications")}
+                            highlighted={tutorial.currentTargetId === "home-notif"}
+                            onPress={() => {
+                                if (tutorial.active) return;
+                                navigation.navigate("Notifications");
+                            }}
                         >
                             <Image
                                 source={require("../../assets/icons/notification_icon.png")}
@@ -630,7 +694,7 @@ export default function HomeScreen({
                 >
                     {fieldSize.width > 0 &&
                         fieldPlants.map((plant, index) => {
-                            const slot = FIELD_SLOTS[index];
+                            const slot = plant.isTutorialDemo ? demoSlot : FIELD_SLOTS[index];
                             const accessory = decorations[String(plant.id)]?.accessory ?? null;
                             return (
                                 <WanderingPlant
@@ -644,6 +708,9 @@ export default function HomeScreen({
                                     field={fieldSize}
                                     startDelay={index * 260}
                                     needsWater={needsWatering(plant)}
+                                    // 데모 스파는 튜토리얼 내내 정해진 자리를 지킨다 —
+                                    // 어슬렁거리다 화면 구석으로 사라지면 안내 흐름이 깨진다.
+                                    wander={!plant.isTutorialDemo}
                                     onPickUp={handlePickUp(plant)}
                                     onDragMove={handleDragMove}
                                     onDrop={handleDrop(plant)}
@@ -761,7 +828,14 @@ export default function HomeScreen({
                     style={[styles.menuArea, menuAway]}
                     pointerEvents={holding ? "none" : "auto"}
                 >
-                    <GlassButton size={60} onPress={toggleMenu}>
+                    <GlassButton
+                        size={60}
+                        highlighted={tutorial.currentTargetId === "home-settings"}
+                        onPress={() => {
+                            if (tutorial.active) return;
+                            toggleMenu();
+                        }}
+                    >
                         <Image
                             source={
                                 menuOpen
@@ -779,7 +853,14 @@ export default function HomeScreen({
                     style={[styles.rightButtonArea, rightAway]}
                     pointerEvents={holding ? "none" : "auto"}
                 >
-                    <GlassButton size={60} onPress={() => navigation.navigate("Calendar")}>
+                    <GlassButton
+                        size={60}
+                        highlighted={tutorial.currentTargetId === "home-diary-calendar"}
+                        onPress={() => {
+                            if (tutorial.active) return;
+                            navigation.navigate("Calendar");
+                        }}
+                    >
                         <Image
                             source={require("../../assets/icons/calendar_icon.png")}
                             style={styles.calendarIcon}
@@ -790,7 +871,11 @@ export default function HomeScreen({
                     {/* 일지 — 캘린더를 거치지 않고 당일 일지 작성 화면으로 바로 */}
                     <GlassButton
                         size={60}
-                        onPress={() => navigation.navigate("Calendar", { openDiary: true })}
+                        highlighted={tutorial.currentTargetId === "home-diary-calendar"}
+                        onPress={() => {
+                            if (tutorial.active) return;
+                            navigation.navigate("Calendar", { openDiary: true });
+                        }}
                     >
                         <Image
                             source={require("../../assets/icons/diary_icon.png")}
@@ -801,7 +886,14 @@ export default function HomeScreen({
 
                     <GlassButton
                         size={70}
-                        onPress={() => navigation.navigate("Garden")}
+                        highlighted={tutorial.currentTargetId === "home-garden-button"}
+                        onPress={() => {
+                            if (tutorial.active && tutorial.currentTargetId !== "home-garden-button") {
+                                return;
+                            }
+                            navigation.navigate("Garden");
+                            if (tutorial.active) tutorial.advance();
+                        }}
                     >
                         <Image
                             source={require("../../assets/icons/all_icon.png")}
@@ -833,6 +925,8 @@ function WanderingPlant({
     startFy,
     startDelay,
     needsWater = false,
+    // false면 제자리에 서서 숨쉬기만 하고 어슬렁거리지 않는다 (튜토리얼 데모용)
+    wander = true,
     onPickUp,
     onDragMove,
     onDrop,
@@ -994,16 +1088,21 @@ function WanderingPlant({
         /*
             놓은 뒤 다시 어슬렁거리기 시작한다.
             목표 지점을 새로 뽑게 해서(arrived) 옮겨 놓은 자리에서 바로 예전 목표로
-            멀리 떠나지 않게 한다.
+            멀리 떠나지 않게 한다. wander=false(튜토리얼 데모)면 다시 시작하지 않는다 —
+            제자리로 돌아오지 못한 채 어슬렁거리기 시작하면 정해둔 자리를 벗어난다.
         */
         resumeWander.current = (delay) => {
+            if (!wander) return;
             arrived = true;
             if (timerRef.current) clearTimeout(timerRef.current);
             timerRef.current = setTimeout(hop, delay);
         };
 
-        // 개체들이 한 박자로 움직이지 않게 시작 시점을 넓게 흩뿌린다
-        timerRef.current = setTimeout(hop, startDelay + randomBetween(0, 1600));
+        // 개체들이 한 박자로 움직이지 않게 시작 시점을 넓게 흩뿌린다.
+        // wander=false면 애초에 어슬렁거리기를 시작하지 않고 제자리에 선다.
+        if (wander) {
+            timerRef.current = setTimeout(hop, startDelay + randomBetween(0, 1600));
+        }
 
         return () => {
             cancelled = true;
@@ -1447,20 +1546,23 @@ function Magnifier({
                     { opacity: appear, transform: [{ translateY: rise }] },
                 ]}
             >
-                <View style={styles.magnifierHint}>
-                    {/*
-                        들고 있는 개체의 이름 — 렌즈 안은 잎만 크게 보일 때가 많아
-                        확대상만으로는 어떤 아이를 집었는지 알기 어렵다.
-                    */}
-                    {plant?.name ? (
-                        <Text style={styles.magnifierHintName} numberOfLines={1}>
-                            {plant.name}
+                {/* 튜토리얼 데모 스파일 땐 이 안내 박스를 끈다 — 말풍선이 이미 같은 안내를 하고 있다 */}
+                {!plant?.isTutorialDemo && (
+                    <View style={styles.magnifierHint}>
+                        {/*
+                            들고 있는 개체의 이름 — 렌즈 안은 잎만 크게 보일 때가 많아
+                            확대상만으로는 어떤 아이를 집었는지 알기 어렵다.
+                        */}
+                        {plant?.name ? (
+                            <Text style={styles.magnifierHintName} numberOfLines={1}>
+                                {plant.name}
+                            </Text>
+                        ) : null}
+                        <Text style={styles.magnifierHintText}>
+                            {active ? "놓으면 자세히 보기" : "여기에 놓아 자세히 보기"}
                         </Text>
-                    ) : null}
-                    <Text style={styles.magnifierHintText}>
-                        {active ? "놓으면 자세히 보기" : "여기에 놓아 자세히 보기"}
-                    </Text>
-                </View>
+                    </View>
+                )}
                 <Image
                     source={MAGNIFIER_ICON}
                     resizeMode="contain"
@@ -1517,7 +1619,10 @@ function WaterBubble({ left }) {
     );
 }
 
-function GlassButton({ children, size = 62, onPress }) {
+// highlighted: 튜토리얼이 "이 버튼을 눌러보세요"라고 가리키는 동안 배경을 초록 계열로
+// 바꿔서 눈에 띄게 한다 (TutorialContext.currentTargetId와 비교해 화면이 넘겨준다)
+function GlassButton({ children, size = 62, onPress, highlighted = false }) {
+    const pulseScale = useHighlightPulse(highlighted);
     return (
         <TouchableOpacity
             activeOpacity={0.8}
@@ -1533,6 +1638,7 @@ function GlassButton({ children, size = 62, onPress }) {
                     height: size,
                     borderRadius: size / 2,
                 },
+                { transform: [{ scale: pulseScale }] },
             ]}
         >
             <BlurView
@@ -1540,24 +1646,22 @@ function GlassButton({ children, size = 62, onPress }) {
                 tint="light"
                 style={[
                     styles.glassBlur,
-                    {
-                        borderRadius: size / 2,
-                    },
+                    { borderRadius: size / 2 },
+                    highlighted && styles.glassBlurHighlighted,
                 ]}
             >
                 <LinearGradient
-                    colors={[
-                        Glass.frost72,
-                        Glass.mist,
-                        Glass.mistSoft,
-                    ]}
+                    colors={
+                        highlighted
+                            ? [Glass.leafHi, Glass.leafMid, Glass.leafLow]
+                            : [Glass.frost72, Glass.mist, Glass.mistSoft]
+                    }
                     start={{ x: 0.15, y: 0.05 }}
                     end={{ x: 1, y: 1 }}
                     style={[
                         styles.glassGradient,
-                        {
-                            borderRadius: size / 2,
-                        },
+                        { borderRadius: size / 2 },
+                        highlighted && styles.glassGradientHighlighted,
                     ]}
                 >
                     <View style={styles.glassHighlight} />
@@ -1892,12 +1996,19 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Glass.frost72,
     },
+    // 튜토리얼이 이 버튼을 가리킬 때 — 테두리도 같은 초록 계열로 바꿔 채움과 함께 눈에 띄게 한다
+    glassBlurHighlighted: {
+        borderColor: Glass.leafLow,
+    },
     glassGradient: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
         borderColor: Glass.frost45,
+    },
+    glassGradientHighlighted: {
+        borderColor: Glass.leafMid,
     },
     glassHighlight: {
         position: "absolute",
