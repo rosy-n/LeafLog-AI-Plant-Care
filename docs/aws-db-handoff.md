@@ -134,7 +134,16 @@ psql -h <host> -U <user> -d <db> -f docs/aws-db-survey.sql -o survey-<라벨>.tx
 3. 운영 DB 에도 `character_job` 마이그레이션과 `leaflog_app` 권한을 **다시** 적용한다 (권한은 DB 단위)
 4. 사진도 다시 백업한다. 복구한 2건은 학교 PC 에 배치해뒀으므로 자연히 포함된다
 5. `migrate_media` 를 **운영 DB 대상으로 plan 재작성**한다 (문서 13-2 5번)
-6. 식물사진 6건 삭제를 결정했다면 **학교 DB 에서** 처리해야 최종 덤프에 반영된다
+6. **skipped 13건을 학교 DB 에서 삭제한다.** 쓰기 중지(13-2 2번) 직후, 최종 백업(3번) **전에**
+   실행한다. 스크립트는 `docs/aws-db-delete-skipped.sql`.
+   - 대상: `PLANT_PHOTO` 6건(4,5,8,30,34,36) + `DIAGNOSIS_PHOTO` 7건(22~26,32,33)
+   - 형태가 예상과 다르거나 건수가 13이 아니면 아무것도 지우지 않고 중단한다.
+     그 사이 새 `file:///` 행이 생겼을 수 있으므로 1번 섹션 출력으로 건수를 다시 확인한다
+   - `chat_message.asset_id` 는 nullable + SET NULL 이라 상담 대화 내용은 보존된다
+   - 리허설 DB(`leaflog_rehearsal`)에서는 6절 진행을 위해 먼저 삭제한다
+   - 학교 DB 는 팀 공용이라 개발 중에 지우지 않고 이 시점까지 미뤘다.
+     접속이 막혀 있으면 `ops/school-gpu/configure-postgres-tailscale-client.ps1` 로
+     현재 Tailscale IP 를 `pg_hba.conf` 에 등록해야 한다(`leaflog_user` 만 허용됨)
 
 ## 7. 알아둘 것
 
