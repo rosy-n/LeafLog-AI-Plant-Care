@@ -15,7 +15,7 @@
 | 5-2 | 복원 + `character_job` | 완료 (오류 0) |
 | 5-3 | `leaflog_app` 권한·건수 대조 | 완료 (원본과 값 일치) |
 | 6절 | 권한 | 완료 (버킷 정책) |
-| 6절 | 실행 | **대기 — 3-3 필요** |
+| 6절 | 실행 (plan→upload→verify→apply-db) | 완료 — 19건 이전, skipped 0 |
 
 ## 2. 소윤: API `.env` 에 넣을 값
 
@@ -100,22 +100,43 @@ EC2 ~/leaflog-migration/ (700)
   survey-source.txt    ea0ac5eb…  원본 집계 기록
 ```
 
-## 5. 미해결 3건
+### 6절 이전 결과 (2026-09-08)
 
-| 항목 | 담당 | 내용 |
+```
+plan      Ready: 19; manual review: 0
+upload    19 assets verified; originals were not deleted
+verify    19 assets verified
+apply-db  19 assets verified
+
+S3 대상    leaflog/migrated/<asset_id>/<sha256>   객체 19개
+DB 갱신    bucket_name 채워진 행 19/19
+           object_key 가 leaflog/migrated/… 인 행 19건
+           file_url 에 옛 IP 호스트가 남은 행 0건
+```
+
+원본 객체(`leaflog/item-images/`)와 로컬 파일은 삭제하지 않았다.
+media-root 는 EC2 의 `/srv/leaflog/migration/media-20260908` 이고,
+계획 파일은 같은 디렉터리의 `media-plan-20260908.json` 이다.
+
+**6절 명령은 모두 `sudo -u leaflog` 로 실행한다** — `/srv/leaflog` 가 `750 leaflog:leaflog` 라
+`ubuntu` 로는 접근되지 않는다. 문서 6-2 의 `cd /srv/leaflog/app/apps/api` 를 그대로 실행하면
+권한 오류가 난다. 자격증명은 인스턴스 역할을 쓰고, DB 접속 정보는
+`/srv/leaflog/app/apps/api/.env`(600, leaflog 소유)에서 읽는다.
+
+## 5. skipped 처리 결과와 남은 항목
+
+`plan` 에서 skipped 로 빠지던 13건은 **삭제하기로 결정**했다. 리허설 DB 에서 제거한 뒤
+`plan` 이 `Ready: 19; manual review: 0` 으로 통과했다.
+
+| 항목 | 결정 | 상태 |
 |---|---|---|
-| 진단 사진 7건 | 팀원 전원 | 서로 다른 이미지 **3개**만 찾으면 7건 다 통과 (해시 중복). 압축 없이 원본 파일로 전달 |
-| 식물 사진 6건 | 소윤 | `file:///var/mobile/…` iOS 캐시 경로. 복구 불가. 지울지 결정 필요 |
-| 재발 방지 | 소윤 | `generation` 없는 등록 경로가 클라이언트 URI 를 검증 없이 저장 중 |
+| `PLANT_PHOTO` 6건 | 삭제 | 리허설 DB 완료 / 학교 DB 는 13-2 에서 (6절 참고) |
+| `DIAGNOSIS_PHOTO` 7건 | 삭제 | 같음. **팀원 파일 검색 요청은 취소됐다** |
+| 재발 방지 | **미결 — 소윤** | `generation` 없는 등록 경로가 클라이언트 URI 를 검증 없이 저장 중. `bucket_from_url()` 이 `None` 이면 거절하는 가드가 필요하다 |
 
-진단 사진 대조용 해시:
-```
-8a8af9e138febf51ed2a605a33da674e92e136f717d4ea678607f38995728dbd  → asset 22,23,24,25
-9d42e2d940959d2d6b12170a8f697ee32f6eadd61725b69af47ee83e0ab40889  → asset 26
-939ca233a40b04d3fcf1d1b17e15c42c6ccafe31a3549d9ec937ad9a8e269257  → asset 32,33
-```
-
-6절 `plan` 예측: **entries 19 / skipped 13**. `apply-db` 는 skipped 가 1건이라도 있으면 거부한다.
+삭제된 13행은 `deleted-media-assets-RDS.csv` 와 `leaflog.dump` 에 원본이 남아 있다.
+`chat_message` 5행의 `asset_id` 가 `NULL` 로 바뀌었고, 상담 대화 내용은 보존됐다.
+`care_record`·`item` 에는 영향이 없었다.
 
 건수·시퀀스·확장 집계는 `docs/aws-db-survey.sql` 로 재현한다. 원본과 복원 DB 에 같은 방식으로
 실행해 출력을 비교하면 된다 (테이블 목록을 `information_schema` 에서 읽으므로 스키마가 바뀌어도
