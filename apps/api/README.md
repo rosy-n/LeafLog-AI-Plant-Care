@@ -178,6 +178,16 @@ CHARACTER_GPU_SSH_WSL_USER=leaflog
 CHARACTER_RESTORE_OLLAMA=true
 ```
 
+페르소나 대화(`/api/plants/{id}/persona-chat`)와 병해충 상담(`/api/diagnosis`)이 쓰는 Ollama도
+같은 학교 PC에 있다. FastAPI를 개발 PC에서 실행하면 기본값(`localhost:11434`)으로는 닿지 않으므로
+주소를 지정한다. 지정하지 않으면 502와 함께 "Ollama 서버에 연결할 수 없어"가 돌아온다.
+
+```dotenv
+OLLAMA_URL=http://<학교 PC Tailscale 주소>:11434
+# 모델을 바꿀 때만 (기본값 qwen3.5:9b)
+OLLAMA_MODEL=qwen3.5:9b
+```
+
 SSH 공개 키는 학교 Windows OpenSSH 계정에 등록돼 있어야 하며, `ssh -o BatchMode=yes ...`가
 비밀번호 입력 없이 성공해야 한다. Forge의 인증 없는 7860 포트를 외부에 직접 공개하지 않는다.
 
