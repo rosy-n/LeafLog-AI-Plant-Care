@@ -24,6 +24,11 @@ import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import { getPlantExpressionSource } from "../data/characterExpressions";
 import { accessorySpriteBundle } from "../data/decor";
+import { useTutorial, TutorialBubbleGroup, TutorialNextButton, TutorialSkipButton } from "../TutorialContext";
+import { TUTORIAL_DEMO_GARDEN_PLANTS } from "../data/tutorialDemoPlant";
+
+// 튜토리얼 정원탭에 뜨는 스파 크기 — 홈화면(280)보다 살짝 작게
+const TUTORIAL_SPA_SIZE = 190;
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const SKY_HEIGHT = 126;
@@ -89,6 +94,19 @@ function applySortFilter(plantList, sort, query) {
 export default function GardenScreen({ navigation, plants, setPlants, username, reloadPlants, decorations = {} }) {
     const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
     const searchAnim = useRef(new Animated.Value(0)).current;
+
+    const tutorial = useTutorial();
+    // 튜토리얼이 정원 단계(garden-intro/garden-add/garden-close)를 보여주는 동안엔
+    // 실제 개체 대신 데모 식물 3개 + 스파를 보여주고, 나머지 상호작용은 다 막는다.
+    const isTutorialGardenStep = tutorial.active && tutorial.currentStep?.screen === "Garden";
+    /*
+        아래 panResponder는 useRef(PanResponder.create(...))로 마운트 때 한 번만 만들어져
+        onPanResponderRelease가 그 순간의 tutorial 값을 클로저로 영원히 붙잡는다
+        (PlantDetailScreen의 문지르기 버그와 같은 패턴) — 매 렌더 갱신되는 ref로 최신
+        값을 흘려보내 실제로 손을 뗀 시점의 값을 읽게 한다.
+    */
+    const tutorialCloseRef = useRef({ active: false, targetId: null });
+    tutorialCloseRef.current = { active: tutorial.active, targetId: tutorial.currentTargetId };
 
     const [sortKey, setSortKey] = useState("favorite");
     const [showSortMenu, setShowSortMenu] = useState(false);
@@ -178,6 +196,10 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
             onPanResponderRelease: (_, gestureState) => {
                 if (gestureState.dy > CLOSE_THRESHOLD || gestureState.vy > 1.1) {
                     closeGarden();
+                    // 튜토리얼의 "정원 창 끌어내리기" 단계 중이었다면 홈으로 돌아간 뒤
+                    // 이어서 롱프레스 단계를 보여준다 (garden-intro/add에서 먼저
+                    // 끌어내려도 똑같이 다음 단계로 넘긴다 — 사용자가 실제로 닫은 게 먼저다)
+                    if (tutorialCloseRef.current.active) tutorial.goToStep("home-longpress");
                 } else {
                     resetGardenPosition();
                 }
@@ -298,7 +320,10 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
                             ) : (
                                 <TouchableOpacity
                                     activeOpacity={0.7}
-                                    onPress={() => setShowSortMenu((v) => !v)}
+                                    onPress={() => {
+                                        if (tutorial.active) return;
+                                        setShowSortMenu((v) => !v);
+                                    }}
                                     style={styles.sortButton}
                                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                 >
@@ -313,7 +338,10 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
 
                             <LiquidGlassButton
                                 size={46}
-                                onPress={isSearchActive ? closeSearch : openSearch}
+                                onPress={() => {
+                                    if (tutorial.active) return;
+                                    (isSearchActive ? closeSearch : openSearch)();
+                                }}
                             >
                                 <Ionicons
                                     name={isSearchActive ? "close" : "search"}
@@ -327,7 +355,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
 
                 <FlatList
                     style={{ flex: 1 }}
-                    data={displayPlants}
+                    data={isTutorialGardenStep ? TUTORIAL_DEMO_GARDEN_PLANTS : displayPlants}
                     keyExtractor={(item) => item.id}
                     numColumns={3}
                     showsVerticalScrollIndicator={false}
@@ -348,13 +376,15 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
                             <View style={styles.card}>
                                 <TouchableOpacity
                                     activeOpacity={0.8}
-                                    /* 떠나보낸 개체는 살아있는 개체와 다른 화면으로 간다 */
-                                    onPress={() =>
+                                    /* 떠나보낸 개체는 살아있는 개체와 다른 화면으로 간다.
+                                       튜토리얼 데모 카드는 눌러도 반응하지 않는다(설명만). */
+                                    onPress={() => {
+                                        if (tutorial.active) return;
                                         navigation.replace(
                                             item.memorial ? "MemorialPlant" : "PlantDetail",
                                             { plant: item },
-                                        )
-                                    }
+                                        );
+                                    }}
                                 >
                                     <PlantImage
                                         uri={item.imageUri}
@@ -391,7 +421,10 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
                                     {!item.memorial && (
                                         <TouchableOpacity
                                             activeOpacity={0.7}
-                                            onPress={() => toggleFavorite(item.id)}
+                                            onPress={() => {
+                                                if (tutorial.active) return;
+                                                toggleFavorite(item.id);
+                                            }}
                                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                         >
                                             <Text style={[styles.star, { color: item.favorite ? Leaf.gold : Colors.textFaint }]}>
@@ -409,11 +442,40 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
 
                 <LiquidGlassButton
                     size={60}
-                    onPress={() => navigation.navigate('AddPlant')}
+                    highlighted={tutorial.currentTargetId === "garden-add"}
+                    onPress={() => {
+                        if (tutorial.active) return;
+                        navigation.navigate('AddPlant');
+                    }}
                     style={styles.addBtn}
                 >
                     <Ionicons name="add" size={34} color={GreenTint.deep} />
                 </LiquidGlassButton>
+
+                {/*
+                    튜토리얼 정원 단계 — 스파를 휴대폰 하단 쪽에 세운다(데모 식물
+                    3개보다 작게, 화면 아래쪽에). 말풍선·건너뛰기도 여기서 직접
+                    그린다 — 이 화면은 transparentModal(네이티브 모달)이라 전역
+                    오버레이(TutorialBubbleOverlay)가 그 위에 그려지지 않는다.
+                */}
+                {isTutorialGardenStep && (
+                    <>
+                        <View style={styles.tutorialBubbleBottom} pointerEvents="box-none">
+                            <TutorialBubbleGroup />
+                        </View>
+                        <View style={styles.tutorialSpaBottom} pointerEvents="none">
+                            <PlantImage
+                                imageKey="spaghetti"
+                                width={TUTORIAL_SPA_SIZE}
+                                height={TUTORIAL_SPA_SIZE}
+                            />
+                        </View>
+                        <View style={styles.tutorialSkipBottom} pointerEvents="box-none">
+                            <TutorialNextButton />
+                            <TutorialSkipButton />
+                        </View>
+                    </>
+                )}
 
                 {showSortMenu && (
                     <>
@@ -641,6 +703,31 @@ const styles = StyleSheet.create({
         bottom: 28,
         right: 24,
         zIndex: 100,
+    },
+
+    // 스파를 휴대폰 하단 쪽에 고정 — "+" 버튼(bottom:28)과 겹치지 않게 좀 더 위
+    tutorialSpaBottom: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 100,
+        alignItems: "center",
+    },
+    // 스파 머리 바로 위 — 스파 상자 상단(bottom:100+190=290)보다 살짝 위에서 시작
+    tutorialBubbleBottom: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 100 + TUTORIAL_SPA_SIZE + Spacing.sm,
+        alignItems: "center",
+    },
+    tutorialSkipBottom: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: Spacing.xl,
+        alignItems: "center",
+        gap: Spacing.md,
     },
 
     emptyState: {

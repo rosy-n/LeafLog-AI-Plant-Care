@@ -28,6 +28,32 @@ import { DEFAULT_BACKGROUND_KEY } from "./src/data/decor";
 import { syncWateringReminders } from "./src/notifications";
 import { buildCareNotices } from "./src/careNotices";
 import { BackgroundMusicProvider } from "./src/backgroundMusic";
+import { AddPlantFlowProvider, useAddPlantFlow } from "./src/AddPlantFlowContext";
+import { TutorialProvider, TutorialBubbleOverlay, useTutorial } from "./src/TutorialContext";
+
+/*
+    AddPlant 화면이 루트 스택에서 빠질 때(취소든 등록 완료든) draft를 초기화한다.
+    Provider가 이제 NavigationContainer 바깥(앱 최상위)에 있어 화면 unmount로는 더 이상
+    자동 초기화되지 않기 때문에 필요하다.
+
+    단, 튜토리얼이 "홈 둘러보기"를 위해 일부러 AddPlant를 스택에서 빼낼 때도 구조적으로는
+    같은 이벤트라서, tutorial.active인 동안은 초기화를 건너뛴다 — 그래야 튜토리얼이
+    끝나고 돌아왔을 때 진행 중이던 생성 작업(generationJobId)이 남아있다.
+*/
+function AddPlantScreenWrapper({ navigation }) {
+    const { resetDraft } = useAddPlantFlow();
+    const tutorial = useTutorial();
+    const tutorialActiveRef = useRef(tutorial.active);
+    tutorialActiveRef.current = tutorial.active;
+
+    useEffect(() => {
+        return navigation.addListener("beforeRemove", () => {
+            if (!tutorialActiveRef.current) resetDraft();
+        });
+    }, [navigation, resetDraft]);
+
+    return <AddPlantNavigator />;
+}
 
 const Stack = createNativeStackNavigator();
 
@@ -206,23 +232,25 @@ function MainAppContent({ user, onLogout }) {
     }, []);
 
     return (
-        <NavigationContainer ref={navigationRef}>
-            <Stack.Navigator
-                id="MainStack"
-                initialRouteName="Home"
-                /*
-                    gestureEnabled: 화면을 좌→우로 쓸어 되돌아가는 제스처(iOS)를 끈다.
-                    화면 전환은 각 화면의 뒤로가기·홈 버튼으로만 하도록 통일한다 —
-                    개체탭·정원처럼 화면 안에서 직접 드래그를 받는 곳이 많아
-                    가장자리를 스치기만 해도 의도치 않게 이전 화면으로 빠진다.
-                    화면마다 따로 적지 않도록 여기 한 곳에만 둔다.
-                */
-                screenOptions={{
-                    headerShown: false,
-                    animation: "none",
-                    gestureEnabled: false,
-                }}
-            >
+        <AddPlantFlowProvider isFirstPlant={plants.length === 0}>
+            <TutorialProvider navigationRef={navigationRef}>
+                <NavigationContainer ref={navigationRef}>
+                    <Stack.Navigator
+                        id="MainStack"
+                        initialRouteName="Home"
+                        /*
+                            gestureEnabled: 화면을 좌→우로 쓸어 되돌아가는 제스처(iOS)를 끈다.
+                            화면 전환은 각 화면의 뒤로가기·홈 버튼으로만 하도록 통일한다 —
+                            개체탭·정원처럼 화면 안에서 직접 드래그를 받는 곳이 많아
+                            가장자리를 스치기만 해도 의도치 않게 이전 화면으로 빠진다.
+                            화면마다 따로 적지 않도록 여기 한 곳에만 둔다.
+                        */
+                        screenOptions={{
+                            headerShown: false,
+                            animation: "none",
+                            gestureEnabled: false,
+                        }}
+                    >
                 <Stack.Screen name="Home">
                     {(props) => (
                         <HomeScreen
@@ -274,7 +302,7 @@ function MainAppContent({ user, onLogout }) {
 
                 <Stack.Screen
                     name="AddPlant"
-                    component={AddPlantNavigator}
+                    component={AddPlantScreenWrapper}
                     options={{ headerShown: false, animation: "slide_from_bottom" }}
                 />
 
@@ -398,8 +426,11 @@ function MainAppContent({ user, onLogout }) {
                     )}
                 </Stack.Screen>
 
-            </Stack.Navigator>
-        </NavigationContainer>
+                    </Stack.Navigator>
+                </NavigationContainer>
+                <TutorialBubbleOverlay />
+            </TutorialProvider>
+        </AddPlantFlowProvider>
     );
 }
 
