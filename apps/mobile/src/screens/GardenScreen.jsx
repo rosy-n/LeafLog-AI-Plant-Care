@@ -470,8 +470,10 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
                                 height={TUTORIAL_SPA_SIZE}
                             />
                         </View>
-                        <View style={styles.tutorialSkipBottom} pointerEvents="box-none">
+                        <View style={styles.tutorialNextBottom} pointerEvents="box-none">
                             <TutorialNextButton />
+                        </View>
+                        <View style={styles.tutorialSkipBottom} pointerEvents="box-none">
                             <TutorialSkipButton />
                         </View>
                     </>
@@ -721,13 +723,20 @@ const styles = StyleSheet.create({
         bottom: 100 + TUTORIAL_SPA_SIZE + Spacing.sm,
         alignItems: "center",
     },
+    // "다음"과 "건너뛰기" 사이를 확실히 띄워 잘못 누르지 않게 한다
+    tutorialNextBottom: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 60,
+        alignItems: "center",
+    },
     tutorialSkipBottom: {
         position: "absolute",
         left: 0,
         right: 0,
         bottom: Spacing.xl,
         alignItems: "center",
-        gap: Spacing.md,
     },
 
     emptyState: {

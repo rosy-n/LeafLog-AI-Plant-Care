@@ -5,9 +5,10 @@ import { Radius } from "../../constants/spacing";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { tapFeedback } from "../feedback";
+import { useHighlightPulse } from "../hooks/useHighlightPulse";
 
-// highlighted: 튜토리얼이 이 버튼을 가리키는 동안 배경을 초록 계열로 바꿔
-// "눌러야 하는 버튼"임을 알려준다
+// highlighted: 튜토리얼이 이 버튼을 가리키는 동안 배경을 초록 계열로 바꾸고
+// 커졌다 작아졌다 펄스를 줘서 "눌러야 하는 버튼"임을 알려준다
 export default function LiquidGlassButton({
                                               children,
                                               onPress,
@@ -15,6 +16,7 @@ export default function LiquidGlassButton({
                                               style,
                                               highlighted = false,
                                           }) {
+    const pulseScale = useHighlightPulse(highlighted);
     const handlePress = () => {
         tapFeedback();
         onPress?.();
@@ -31,6 +33,7 @@ export default function LiquidGlassButton({
                     borderRadius: size / 2,
                 },
                 style,
+                { transform: [{ scale: pulseScale }] },
             ]}
         >
             <BlurView

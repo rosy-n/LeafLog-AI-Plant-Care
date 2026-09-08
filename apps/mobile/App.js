@@ -29,7 +29,12 @@ import { syncWateringReminders } from "./src/notifications";
 import { buildCareNotices } from "./src/careNotices";
 import { BackgroundMusicProvider } from "./src/backgroundMusic";
 import { AddPlantFlowProvider, useAddPlantFlow } from "./src/AddPlantFlowContext";
-import { TutorialProvider, TutorialBubbleOverlay, useTutorial } from "./src/TutorialContext";
+import {
+    TutorialProvider,
+    TutorialBubbleOverlay,
+    TutorialCompletionToast,
+    useTutorial,
+} from "./src/TutorialContext";
 
 /*
     AddPlant 화면이 루트 스택에서 빠질 때(취소든 등록 완료든) draft를 초기화한다.
@@ -429,6 +434,7 @@ function MainAppContent({ user, onLogout }) {
                     </Stack.Navigator>
                 </NavigationContainer>
                 <TutorialBubbleOverlay />
+                <TutorialCompletionToast />
             </TutorialProvider>
         </AddPlantFlowProvider>
     );
