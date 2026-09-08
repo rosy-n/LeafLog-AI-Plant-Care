@@ -28,6 +28,7 @@ import { accessorySpriteBundle, BACKGROUND_IMAGES, HOME_BACKGROUND_KEY } from ".
 import PlantImage from "../components/PlantImage";
 import { getPlantExpressionSource } from "../data/characterExpressions";
 import { useTutorial } from "../TutorialContext";
+import { useHighlightPulse } from "../hooks/useHighlightPulse";
 import { TUTORIAL_DEMO_PLANT } from "../data/tutorialDemoPlant";
 
 const WEATHER_ICONS = {
@@ -1545,20 +1546,23 @@ function Magnifier({
                     { opacity: appear, transform: [{ translateY: rise }] },
                 ]}
             >
-                <View style={styles.magnifierHint}>
-                    {/*
-                        들고 있는 개체의 이름 — 렌즈 안은 잎만 크게 보일 때가 많아
-                        확대상만으로는 어떤 아이를 집었는지 알기 어렵다.
-                    */}
-                    {plant?.name ? (
-                        <Text style={styles.magnifierHintName} numberOfLines={1}>
-                            {plant.name}
+                {/* 튜토리얼 데모 스파일 땐 이 안내 박스를 끈다 — 말풍선이 이미 같은 안내를 하고 있다 */}
+                {!plant?.isTutorialDemo && (
+                    <View style={styles.magnifierHint}>
+                        {/*
+                            들고 있는 개체의 이름 — 렌즈 안은 잎만 크게 보일 때가 많아
+                            확대상만으로는 어떤 아이를 집었는지 알기 어렵다.
+                        */}
+                        {plant?.name ? (
+                            <Text style={styles.magnifierHintName} numberOfLines={1}>
+                                {plant.name}
+                            </Text>
+                        ) : null}
+                        <Text style={styles.magnifierHintText}>
+                            {active ? "놓으면 자세히 보기" : "여기에 놓아 자세히 보기"}
                         </Text>
-                    ) : null}
-                    <Text style={styles.magnifierHintText}>
-                        {active ? "놓으면 자세히 보기" : "여기에 놓아 자세히 보기"}
-                    </Text>
-                </View>
+                    </View>
+                )}
                 <Image
                     source={MAGNIFIER_ICON}
                     resizeMode="contain"
@@ -1618,6 +1622,7 @@ function WaterBubble({ left }) {
 // highlighted: 튜토리얼이 "이 버튼을 눌러보세요"라고 가리키는 동안 배경을 초록 계열로
 // 바꿔서 눈에 띄게 한다 (TutorialContext.currentTargetId와 비교해 화면이 넘겨준다)
 function GlassButton({ children, size = 62, onPress, highlighted = false }) {
+    const pulseScale = useHighlightPulse(highlighted);
     return (
         <TouchableOpacity
             activeOpacity={0.8}
@@ -1633,6 +1638,7 @@ function GlassButton({ children, size = 62, onPress, highlighted = false }) {
                     height: size,
                     borderRadius: size / 2,
                 },
+                { transform: [{ scale: pulseScale }] },
             ]}
         >
             <BlurView
