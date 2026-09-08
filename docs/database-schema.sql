@@ -186,7 +186,7 @@ CREATE TABLE plant (
     nickname            VARCHAR(100) NOT NULL,
       location_name     VARCHAR(100)
                       CHECK (location_name IN (
-                          'LIVING_ROOM', 'BEDROOM', 'BALCONY', 'KITCHEN', 'OFFICE'
+                          'LIVING_ROOM', 'BEDROOM', 'BALCONY', 'KITCHEN', 'OFFICE', 'BATHROOM'
                       )),
 
     light_condition   VARCHAR(30)

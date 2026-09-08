@@ -204,6 +204,9 @@ export default function PersonaScreen() {
                     styles.personaOptionLabel,
                     isActive && common.chipTextActive,
                   ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
                 >
                   {option.label}
                 </Text>
