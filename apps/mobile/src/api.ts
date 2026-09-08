@@ -141,7 +141,7 @@ async function request<T>(
     });
   } catch {
     throw new Error(
-      "서버에 연결할 수 없어요. 백엔드가 켜져 있고 API 주소가 휴대폰에서 접근 가능한 PC IP인지 확인해주세요.",
+      "서버 연결이 끊겼어요. 서버가 일시적으로 중단됐거나 네트워크 연결이 불안정할 수 있어요. 잠시 후 다시 시도해주세요.",
     );
   }
 
@@ -174,7 +174,7 @@ async function requestForm<T>(path: string, formData: FormData): Promise<T> {
     });
   } catch {
     throw new Error(
-      "서버에 연결할 수 없습니다. 백엔드 서버와 API 주소를 확인해주세요.",
+      "서버 연결이 끊겼어요. 서버가 일시적으로 중단됐거나 네트워크 연결이 불안정할 수 있어요. 잠시 후 다시 시도해주세요.",
     );
   }
 

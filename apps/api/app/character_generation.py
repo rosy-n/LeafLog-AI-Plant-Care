@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
+import math
 import os
 import secrets
 import shutil
@@ -12,6 +13,7 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +23,7 @@ from urllib.parse import urlparse
 import requests
 
 from .config import settings
+from .character_framing import normalize_character_framing
 from .image_preprocessing import (
     ImagePreprocessingError,
     preprocess_plant_photo,
@@ -58,6 +61,7 @@ NEGATIVE_PROMPT = (
 
 logger = logging.getLogger("uvicorn.error")
 FACE_REMOVED_CHECKSUM_PREFIX = "face-v1:"
+FORGE_PROGRESS_INTERVAL_SECONDS = 1.0
 _forge_tunnel_lock = threading.RLock()
 _forge_tunnel_process: subprocess.Popen[bytes] | None = None
 
@@ -121,6 +125,11 @@ class CharacterGenerationManager:
     def _update(self, job_id: str, **changes: object) -> None:
         with self._lock:
             job = self._jobs[job_id]
+            if job.status in {"completed", "failed"}:
+                return
+            if "progress" in changes:
+                ceiling = 100 if changes.get("status") == "completed" else 99
+                changes["progress"] = max(job.progress, min(ceiling, int(changes["progress"])))
             for name, value in changes.items():
                 setattr(job, name, value)
             job.updated_at = datetime.now(timezone.utc)
@@ -177,18 +186,20 @@ class CharacterGenerationManager:
             accepted_candidates = 0
             generation_attempt = 0
             max_generation_attempts = 6
+            retrying_candidate = False
 
             while accepted_candidates < 3 and generation_attempt < max_generation_attempts:
                 generation_attempt += 1
                 index = accepted_candidates + 1
                 seed = base_seed + generation_attempt - 1
-                progress = 20 + accepted_candidates * 23
+                progress = 20 + accepted_candidates * 24
                 self._update(
                     job_id,
                     status="generating",
                     progress=progress,
                     current_candidate=index,
-                    message=f"도트 캐릭터 {index}/3을 만들고 있어요.",
+                    message=(f"도트 캐릭터 {index}/3을 다시 만들고 있어요."
+                             if retrying_candidate else f"도트 캐릭터 {index}/3을 만들고 있어요."),
                 )
 
                 if settings.character_mock_generation:
@@ -199,6 +210,9 @@ class CharacterGenerationManager:
                     generated_bytes = _generate_with_forge(
                         input_png_base64=preprocessed.sdxl_input_png_base64,
                         seed=seed,
+                        on_progress=lambda fraction, start=progress: self._update(
+                            job_id, progress=start + int(fraction * 18),
+                        ),
                     )
                 _log_timing(
                     job_id,
@@ -210,7 +224,7 @@ class CharacterGenerationManager:
                 self._update(
                     job_id,
                     status="postprocessing",
-                    progress=min(94, progress + 14),
+                    progress=progress + 18,
                     message=f"도트 캐릭터 {index}/3의 배경과 표정을 정리하고 있어요.",
                 )
                 try:
@@ -227,10 +241,10 @@ class CharacterGenerationManager:
                         candidate=index,
                         quality=settings.character_postprocess_quality,
                     )
+                    self._update(job_id, progress=progress + 20)
                     cutout_bytes = base64.b64decode(cutout.transparent_png_base64)
                     if settings.character_mock_generation:
                         png_bytes = cutout_bytes
-                        checksum_prefix = ""
                         face_bounds = None
                     else:
                         stage_started = time.perf_counter()
@@ -243,9 +257,17 @@ class CharacterGenerationManager:
                         )
                         png_bytes = base64.b64decode(face_removed.face_removed_png_base64)
                         face_bounds = face_removed.face_bounds
+                    stage_started = time.perf_counter()
+                    framed = normalize_character_framing(png_bytes, face_bounds)
+                    png_bytes, face_bounds = framed.png_bytes, framed.face_bounds
+                    _log_timing(job_id, "frame_character", stage_started, candidate=index)
+                    self._update(job_id, progress=progress + 23)
+                    checksum_prefix = ""
+                    if face_bounds is not None:
                         bounds_text = ",".join(str(value) for value in face_bounds)
                         checksum_prefix = f"{FACE_REMOVED_CHECKSUM_PREFIX}{bounds_text}:"
                 except ImagePreprocessingError as exc:
+                    retrying_candidate = True
                     logger.warning(
                         "Rejected character candidate job_id=%s attempt=%s seed=%s reason=%s",
                         job_id,
@@ -275,12 +297,20 @@ class CharacterGenerationManager:
                     ),
                 )
                 accepted_candidates += 1
+                retrying_candidate = False
+                self._update(job_id, progress=20 + accepted_candidates * 24)
 
             if accepted_candidates < 3:
                 raise CharacterGenerationError(
                     "표정이 선명한 캐릭터 3개를 만들지 못했습니다. 다른 사진으로 다시 시도해주세요."
                 )
             release_background_removal_sessions()
+            self._update(
+                job_id,
+                status="postprocessing",
+                progress=95,
+                message="캐릭터가 준비됐어요. 마지막 정리를 하고 있어요.",
+            )
 
             if sdxl_active:
                 stage_started = time.perf_counter()
@@ -504,8 +534,41 @@ def _wait_for_forge() -> None:
     raise CharacterGenerationError("학교 GPU의 Forge 서버가 준비되지 않았습니다.")
 
 
-def _generate_with_forge(input_png_base64: str, seed: int) -> bytes:
+def _poll_forge_progress(
+    task_id: str, on_progress: Callable[[float], None], stopped: threading.Event,
+) -> None:
+    # Forge's global progress can belong to another client. Only observe our task ID.
+    while not stopped.wait(FORGE_PROGRESS_INTERVAL_SECONDS):
+        try:
+            response = requests.post(
+                f"{settings.forge_api_url.rstrip('/')}/internal/progress",
+                json={"id_task": task_id, "live_preview": False},
+                timeout=(1, 2),
+            )
+            response.raise_for_status()
+            data = response.json()
+            if stopped.is_set():
+                return
+            if not isinstance(data, dict):
+                continue
+            if data.get("completed") is True:
+                on_progress(1.0)
+                return
+            fraction = data.get("progress")
+            if (data.get("active") is True and type(fraction) in (int, float)
+                    and math.isfinite(fraction)):
+                on_progress(max(0.0, min(1.0, fraction)))
+        except (requests.RequestException, ValueError):
+            # Progress is optional: a failed observation must not fail image generation.
+            continue
+
+
+def _generate_with_forge(
+    input_png_base64: str, seed: int, on_progress: Callable[[float], None] | None = None,
+) -> bytes:
+    task_id = f"task(leaflog-{uuid.uuid4().hex})"
     payload = {
+        "force_task_id": task_id,
         "prompt": PROMPT,
         "negative_prompt": NEGATIVE_PROMPT,
         "init_images": [input_png_base64],
@@ -547,6 +610,14 @@ def _generate_with_forge(input_png_base64: str, seed: int) -> bytes:
             }
         },
     }
+    stopped = threading.Event()
+    progress_thread = None
+    if on_progress is not None:
+        progress_thread = threading.Thread(
+            target=_poll_forge_progress, args=(task_id, on_progress, stopped),
+            name="forge-progress", daemon=True,
+        )
+        progress_thread.start()
     try:
         response = requests.post(
             f"{settings.forge_api_url.rstrip('/')}/sdapi/v1/img2img",
@@ -557,6 +628,10 @@ def _generate_with_forge(input_png_base64: str, seed: int) -> bytes:
         images = response.json().get("images") or []
     except (requests.RequestException, ValueError) as exc:
         raise CharacterGenerationError("Forge 이미지 생성 요청에 실패했습니다.") from exc
+    finally:
+        stopped.set()
+        if progress_thread is not None:
+            progress_thread.join(timeout=3)
 
     if not images:
         raise CharacterGenerationError("Forge가 생성 이미지를 반환하지 않았습니다.")
