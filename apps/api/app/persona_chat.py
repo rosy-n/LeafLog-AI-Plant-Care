@@ -10,6 +10,7 @@ ai/persona-chat/CLAUDE.md의 절대 규칙과 파일 구조 설명이 그 경로
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -25,8 +26,23 @@ PROMPTS_DIR = REPO_ROOT / "ai" / "persona-chat" / "prompts"
 COMMON_PROMPT_PATH = PROMPTS_DIR / "common.txt"
 PERSONAS_DIR = PROMPTS_DIR / "personas"
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL_NAME = "qwen3.5:9b"
+# Ollama 주소/모델. 학교 PC(GPU)의 Ollama 를 개발 PC에서 쓰는 구성이라 환경변수로 뺀다.
+#   OLLAMA_URL=http://<학교 PC Tailscale 주소>:11434
+# app/config.py 의 settings 를 쓰지 않는 이유: 이 모듈은 CLI
+# (ai/persona-chat/test_persona.py)가 패키지 밖에서 파일 경로로 직접 로드하므로
+# 상대 import 를 둘 수 없다. 그래서 값은 여기서만 정의하고 config.py 에 다시 적지 않는다.
+# .env 는 FastAPI 경로에서 config.py 가 이미 읽지만, CLI 단독 실행도 같은 주소를 쓰도록
+# 여기서 한 번 더 시도한다 (python-dotenv 가 없는 환경이면 환경변수만 본다).
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+except ImportError:
+    pass
+
+OLLAMA_BASE_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
+OLLAMA_URL = f"{OLLAMA_BASE_URL}/api/chat"
+MODEL_NAME = os.getenv("OLLAMA_MODEL", "qwen3.5:9b")
 
 # 클라이언트가 보내는 대화 기록도 이 개수로 잘라서 사용한다 (사용자 5 + 캐릭터 5, 최근 5턴).
 MAX_HISTORY_MESSAGES = 10

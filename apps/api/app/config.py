@@ -52,6 +52,9 @@ class Settings:
     # (디코딩된 서비스키를 그대로 넣는다 — requests가 쿼리스트링 인코딩을 알아서 처리)
     kma_api_key: str = os.getenv("KMA_API_KEY", "")
     airkorea_api_key: str = os.getenv("AIRKOREA_API_KEY", "")
+    # 페르소나 대화 / 병해충 상담 생성 모델(Ollama)은 OLLAMA_URL, OLLAMA_MODEL 로 지정한다.
+    # 값은 app/persona_chat.py 가 직접 읽는다 — 그 모듈은 CLI(ai/persona-chat/test_persona.py)가
+    # 패키지 밖에서 파일 경로로 로드해서 settings 를 쓸 수 없다. 여기에 다시 적지 않는다.
     # 병해충 상담 Visual RAG (ai/diagnosis/) — 로컬 Docker 기본값. RunPod 등 원격 전환 시 URL/API 키로 교체
     qdrant_url: str = os.getenv("QDRANT_URL", "http://localhost:6333")
     qdrant_api_key: str = os.getenv("QDRANT_API_KEY", "")
