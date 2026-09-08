@@ -57,10 +57,12 @@ export default function EnvironmentLoadingScreen() {
       style={styles.root}
       resizeMode="cover"
     >
-      <View style={styles.barWrap}>
+      <View style={styles.captionWrap}>
         <PixelOutlineText style={styles.caption}>
           {LOADING_MESSAGES[messageIndex]}
         </PixelOutlineText>
+      </View>
+      <View style={styles.barWrap}>
         <View style={styles.track}>
           <Animated.View
             style={[styles.fill, { width: FILL_WIDTH, transform: [{ translateX }] }]}
@@ -77,6 +79,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // 진행바 너비(BAR_WIDTH)와 안내 문구 너비는 서로 무관하다 — barWrap에
+  // 함께 두면 문구가 진행바 폭에 맞춰 줄바꿈된다. 별도 래퍼로 분리해서
+  // 화면 폭 안에서는 한 줄에 들어가게 한다.
+  captionWrap: {
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.sm,
+    alignItems: "center",
+  },
   barWrap: {
     width: BAR_WIDTH,
     alignItems: "center",
@@ -84,7 +94,7 @@ const styles = StyleSheet.create({
   caption: {
     fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.body,
-    marginBottom: Spacing.sm,
+    textAlign: "center",
   },
   track: {
     width: "100%",
