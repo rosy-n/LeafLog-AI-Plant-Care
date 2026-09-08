@@ -1255,6 +1255,9 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                                             onPress={() => choosePersona(option.slug)}
                                             style={styles.personaButton}
                                             contentStyle={styles.personaButtonContent}
+                                            numberOfLines={1}
+                                            adjustsFontSizeToFit
+                                            minimumFontScale={0.7}
                                         />
                                     ))}
                                 </View>
@@ -1666,8 +1669,9 @@ const styles = StyleSheet.create({
         flexBasis: "47%",
         marginBottom: Spacing.sm,
     },
-    // "장난꾸러기형"처럼 긴 라벨이 좁은 47% 칸에서 "형"만 다음 줄로 밀리는 걸 막기 위해
-    // 기본 PixelButton 좌우 패딩(Spacing.xl)보다 줄임
+    // "장난꾸러기형"처럼 긴 라벨이 좁은 47% 칸에서 줄바꿈되는 걸 막기 위해
+    // 기본 PixelButton 좌우 패딩(Spacing.xl)보다 줄임 — PixelButton의
+    // numberOfLines={1} + adjustsFontSizeToFit(호출부에서 지정)과 함께 동작한다
     personaButtonContent: {
         paddingHorizontal: Spacing.sm,
     },
