@@ -192,7 +192,7 @@ class Plant(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "location_name IN ('LIVING_ROOM', 'BEDROOM', 'BALCONY', 'KITCHEN', 'OFFICE')",
+            "location_name IN ('LIVING_ROOM', 'BEDROOM', 'BALCONY', 'KITCHEN', 'OFFICE', 'BATHROOM')",
             name="ck_plant_location_name",
         ),
         CheckConstraint(

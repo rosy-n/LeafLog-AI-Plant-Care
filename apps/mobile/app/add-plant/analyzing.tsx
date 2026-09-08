@@ -7,8 +7,8 @@ import { common } from './styles/common.styles';
 import { styles } from './styles/analyzing.styles';
 
 const SUBTITLES = [
-  '사진을 살펴보고 있어요...',
-  '어떤 식물인지 알아보는 중이에요...',
+  '사진을 살펴보고 있어요',
+  '어떤 식물인지 알아보는 중이에요',
   '거의 다 됐어요!',
 ];
 
@@ -31,7 +31,7 @@ export default function AnalyzingScreen() {
 
   useEffect(() => {
     if (previewUri) {
-      Image.getSize(previewUri, (w, h) => setPhotoRatio(w / h), () => {});
+      Image.getSize(previewUri, (w, h) => setPhotoRatio(w / h), () => { });
     }
   }, [previewUri]);
 
