@@ -14,7 +14,7 @@ export type AddPlantInfoDraft = {
 export type AddPlantDraft = {
   generationJobId: string | null;
   identificationPhotoUri: string | null;
-  // 촬영 가이드에 맞춰 다시 받은 SDXL 캐릭터 생성용 사진.
+  // 등록 첫 단계에서 촬영 가이드에 맞춰 받은 SDXL 캐릭터 생성용 사진.
   capturedPhotoUri: string | null;
   speciesId: number | null;
   cntntsNo: string;
