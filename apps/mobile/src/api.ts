@@ -263,6 +263,8 @@ export type SpeciesDetail = {
   bug_info: string | null;
   care_tips: string | null;
   image_url: string | null;
+  // Wikimedia Commons 사진 최대 4장 (image_url과 첫 장이 같다) — "이 식물이 맞나요?" 슬라이드용
+  image_urls: string[];
   // 돌보기 정보 화면이 카드별로 쓰는 원문 (농사로 원문, 없으면 null)
   water_cycle_label: string | null;
   light_label: string | null;

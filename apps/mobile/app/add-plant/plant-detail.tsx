@@ -2,12 +2,14 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
 import { getSpecies, type SpeciesDetail } from '../../src/api';
@@ -25,7 +27,9 @@ export default function PlantDetailScreen() {
 
   const [detail, setDetail] = useState<SpeciesDetail | null>(null);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [pageWidth, setPageWidth] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     if (!speciesId) {
@@ -53,8 +57,23 @@ export default function PlantDetailScreen() {
     };
   }, [speciesId]);
 
-  // 종 마스터는 대표 이미지 1장(농사로 썸네일)만 가진다. 없으면 빈 슬롯.
-  const images = detail?.image_url ? [detail.image_url] : [];
+  // 대표 이미지 — Wikimedia Commons 사진 최대 4장(image_urls). 없으면 빈 슬롯.
+  const images = detail?.image_urls?.length
+    ? detail.image_urls.slice(0, 4)
+    : detail?.image_url
+      ? [detail.image_url]
+      : [];
+
+  const goToIndex = (index: number) => {
+    const clamped = Math.max(0, Math.min(images.length - 1, index));
+    scrollRef.current?.scrollTo({ x: clamped * pageWidth, animated: true });
+    setPhotoIndex(clamped);
+  };
+
+  const handleSlideScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!pageWidth) return;
+    setPhotoIndex(Math.round(e.nativeEvent.contentOffset.x / pageWidth));
+  };
 
   const handleConfirm = () => {
     updateDraft({
@@ -64,7 +83,7 @@ export default function PlantDetailScreen() {
       speciesImageUrl: detail?.image_url ?? null,
     });
     router.push({
-      pathname: '/add-plant/character',
+      pathname: '/add-plant/info',
     });
   };
 
@@ -77,7 +96,6 @@ export default function PlantDetailScreen() {
     );
   }
 
-  const currentImage = images[photoIndex] ?? null;
   const totalPhotos = images.length;
 
   return (
@@ -88,25 +106,43 @@ export default function PlantDetailScreen() {
     >
       <Text style={styles.title}>이 식물이 맞나요?</Text>
 
-      {/* Image with prev/next */}
+      {/* 사진 슬라이드 — 좌우로 스와이프하거나 화살표로 넘긴다 */}
       <View style={styles.imageRow}>
         <TouchableOpacity
           style={[styles.navBtn, photoIndex === 0 && styles.navBtnHidden]}
-          onPress={() => setPhotoIndex((p) => Math.max(0, p - 1))}
+          onPress={() => goToIndex(photoIndex - 1)}
           disabled={photoIndex === 0}
         >
           <Text style={styles.navBtnText}>{'<'}</Text>
         </TouchableOpacity>
 
-        {currentImage ? (
-          <Image source={{ uri: currentImage }} style={styles.plantImage} resizeMode="cover" />
-        ) : (
-          <View style={styles.plantImage} />
-        )}
+        <View
+          style={styles.plantImage}
+          onLayout={(e) => setPageWidth(e.nativeEvent.layout.width)}
+        >
+          {totalPhotos > 0 && pageWidth > 0 && (
+            <ScrollView
+              ref={scrollRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={handleSlideScrollEnd}
+            >
+              {images.map((uri, i) => (
+                <Image
+                  key={i}
+                  source={{ uri }}
+                  style={{ width: pageWidth, height: pageWidth }}
+                  resizeMode="cover"
+                />
+              ))}
+            </ScrollView>
+          )}
+        </View>
 
         <TouchableOpacity
           style={[styles.navBtn, photoIndex >= totalPhotos - 1 && styles.navBtnHidden]}
-          onPress={() => setPhotoIndex((p) => Math.min(totalPhotos - 1, p + 1))}
+          onPress={() => goToIndex(photoIndex + 1)}
           disabled={photoIndex >= totalPhotos - 1}
         >
           <Text style={styles.navBtnText}>{'>'}</Text>
