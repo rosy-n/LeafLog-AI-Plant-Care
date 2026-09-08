@@ -243,7 +243,7 @@ export default function CharacterScreen() {
       if (resumeGeneration) {
         setGenerationMessage(job.message);
       } else {
-        router.replace('/add-plant/info');
+        router.replace('/add-plant');
       }
     } catch (error: any) {
       if (generationRunRef.current !== runId) return;
@@ -319,7 +319,7 @@ export default function CharacterScreen() {
               <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
               <Text style={[styles.guideCategoryLabel, { color: Colors.primary }]}>좋은 예</Text>
             </View>
-            <View style={[styles.guideCard, styles.guideCardGood]}>
+            <View style={styles.guideCard}>
               <Image source={GUIDE_GOOD} style={styles.guideCardImage} resizeMode="cover" />
               <View style={styles.guideCardTextWrap}>
                 {GUIDE_GOOD_POINTS.map((text) => (

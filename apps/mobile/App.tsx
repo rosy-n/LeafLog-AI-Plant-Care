@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as Location from "expo-location";
 import { useFonts } from "expo-font";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Fonts, FontSizes } from "./constants/fonts";
 import { Colors } from "./constants/colors";
 import { Spacing, Radius } from "./constants/spacing";
@@ -39,6 +40,7 @@ import {
 } from "./src/authStorage";
 import { saveEnvironmentCache } from "./src/environmentCache";
 import { cancelAllWateringReminders } from "./src/notifications";
+import { preloadBundledImages } from "./src/data/assets";
 import MainApp from "./App.js";
 import AppButton from "./src/components/AppButton";
 import BackButton from "./src/components/BackButton";
@@ -55,9 +57,10 @@ const MainAppScreen = MainApp as unknown as React.ComponentType<{
   onLogout: () => void;
 }>;
 
-// 날씨/대기질 응답이 이보다 빨리 와도 로딩 화면을 이 시간만큼은 유지한다 —
-// 안 그러면 응답이 아주 빠를 때 로딩바가 뜨자마자 사라져 깜빡임처럼 보인다
-const ENVIRONMENT_LOADING_MIN_MS = 600;
+// 날씨/대기질 조회 + 번들 이미지 preload가 이보다 빨리 끝나도 로딩 화면을
+// 이 시간만큼은 유지한다 — 최소 노출 시간을 보장해 로딩바가 뜨자마자
+// 사라지는 깜빡임을 막고, 두 작업이 이 화면 뒤에서 끝나도록 감춰준다
+const ENVIRONMENT_LOADING_MIN_MS = 3000;
 
 type Screen = "home" | "login" | "signup" | "nickname";
 type CheckStatus = "idle" | "checking" | "available" | "taken";
@@ -123,7 +126,9 @@ export default function App() {
   const scale = Math.min(width / 402, height / 874, 1);
   const appWidth = Math.min(width, 402);
 
-  // 랜딩/인증 화면에서도 커스텀 폰트가 필요 — MainApp 진입 전에 미리 로드
+  // 랜딩/인증 화면에서도 커스텀 폰트가 필요 — MainApp 진입 전에 미리 로드.
+  // Ionicons/MaterialCommunityIcons도 여기서 함께 올려서 MainApp(App.js)이
+  // 마운트될 때 다시 로딩 게이트를 거치지 않게 한다.
   const [fontsLoaded] = useFonts({
     [Fonts.neoDunggeunmo]: require("./assets/fonts/NeoDunggeunmoPro-Regular.ttf"),
     [Fonts.nanumSquareNeo.light]: require("./assets/fonts/NanumSquareNeo-aLt.ttf"),
@@ -131,6 +136,8 @@ export default function App() {
     [Fonts.nanumSquareNeo.bold]: require("./assets/fonts/NanumSquareNeo-cBd.ttf"),
     [Fonts.nanumSquareNeo.extraBold]: require("./assets/fonts/NanumSquareNeo-dEb.ttf"),
     [Fonts.nanumSquareNeo.heavy]: require("./assets/fonts/NanumSquareNeo-eHv.ttf"),
+    ...Ionicons.font,
+    ...MaterialCommunityIcons.font,
   });
 
   const [screen, setScreen] = useState<Screen>("home");
@@ -229,9 +236,15 @@ export default function App() {
     };
   }, [auth]);
 
-  // 로그인 직후 딱 한 번 날씨/대기질을 미리 받아 캐시에 저장해둔다 — 위치가 설정된
-  // 뒤에 조회해야 하므로 locationStatus가 "done"이 된 다음에 시작한다. 이후
-  // 홈 화면은 이 캐시를 바로 읽으므로 재방문 때는 로딩 화면이 다시 뜨지 않는다.
+  // 로그인 직후 딱 한 번 날씨/대기질을 미리 받아 캐시에 저장하고, 동시에 번들
+  // 이미지도 preload한다 — 위치가 설정된 뒤에 조회해야 하므로 locationStatus가
+  // "done"이 된 다음에 시작한다. 이후 홈 화면은 이 캐시를 바로 읽으므로 재방문
+  // 때는 로딩 화면이 다시 뜨지 않는다.
+  //
+  // 이미지 preload를 여기서 함께 기다리는 이유: MainApp(App.js)이 마운트된
+  // 뒤에 따로 preload하면 이 화면이 끝나고 나서 별도의 로딩 화면(초록 배경 +
+  // 스피너)이 한 번 더 잠깐 보인다. 두 작업을 이 화면 하나의 최소 노출 시간
+  // 안에 모두 끝내서 로딩 화면이 하나만 보이게 한다.
   //
   // environmentFetchStarted를 의존성 대신 ref로 두는 이유: environmentStatus를
   // 의존성 배열에 넣으면 setEnvironmentStatus("loading") 자체가 effect를 재실행시키고,
@@ -250,21 +263,23 @@ export default function App() {
     let doneTimer: ReturnType<typeof setTimeout>;
     setEnvironmentStatus("loading");
     const startedAt = Date.now();
-    getCurrentEnvironment()
-      .then((result) => {
-        if (!cancelled) saveEnvironmentCache(result);
-      })
-      .catch(() => {
-        // 실패해도 홈 진입을 막지 않는다 — 홈 화면이 재조회를 다시 시도한다
-      })
-      .finally(() => {
-        // 응답이 아주 빨리 오면(0.3초 등) 로딩바가 뜨자마자 사라져 깜빡임처럼
-        // 보이므로, 최소 노출 시간을 채운 뒤에만 홈으로 넘어간다
-        const remaining = ENVIRONMENT_LOADING_MIN_MS - (Date.now() - startedAt);
-        doneTimer = setTimeout(() => {
-          if (!cancelled) setEnvironmentStatus("done");
-        }, Math.max(0, remaining));
-      });
+    Promise.all([
+      getCurrentEnvironment()
+        .then((result) => {
+          if (!cancelled) saveEnvironmentCache(result);
+        })
+        .catch(() => {
+          // 실패해도 홈 진입을 막지 않는다 — 홈 화면이 재조회를 다시 시도한다
+        }),
+      preloadBundledImages(),
+    ]).finally(() => {
+      // 두 작업이 최소 노출 시간보다 빨리 끝나도 로딩바가 뜨자마자 사라져
+      // 깜빡임처럼 보이므로, 최소 노출 시간을 채운 뒤에만 홈으로 넘어간다
+      const remaining = ENVIRONMENT_LOADING_MIN_MS - (Date.now() - startedAt);
+      doneTimer = setTimeout(() => {
+        if (!cancelled) setEnvironmentStatus("done");
+      }, Math.max(0, remaining));
+    });
     return () => {
       cancelled = true;
       clearTimeout(doneTimer);

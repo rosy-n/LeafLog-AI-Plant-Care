@@ -18,7 +18,7 @@ import { styles } from './styles/info.styles';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const LOCATIONS = ['거실', '침실', '베란다', '주방', '사무실'] as const;
+const LOCATIONS = ['거실', '침실', '베란다', '주방', '사무실', '화장실'] as const;
 
 // 화분 종류 — plant.pot_type(자유 텍스트)에 라벨 그대로 저장
 const POT_TYPES = ['플라스틱', '토분', '도자기', '시멘트', '유리', '기타'] as const;
@@ -30,6 +30,7 @@ const LOCATION_CODES: Record<string, string> = {
   베란다: 'BALCONY',
   주방: 'KITCHEN',
   사무실: 'OFFICE',
+  화장실: 'BATHROOM',
 };
 
 const LIGHT_OPTIONS = [
@@ -261,11 +262,11 @@ export default function InfoScreen() {
         {/* 위치 */}
         <View style={styles.section}>
           <SectionLabel text="어디에 두셨나요?" required />
-          <View style={styles.chipGroup}>
+          <View style={styles.chipGridGroup}>
             {LOCATIONS.map((loc) => (
               <TouchableOpacity
                 key={loc}
-                style={[styles.chip, location === loc && styles.chipActive]}
+                style={[styles.chipGrid2, location === loc && styles.chipActive]}
                 onPress={() => setLocation(loc)}
                 activeOpacity={0.8}
               >
@@ -280,11 +281,11 @@ export default function InfoScreen() {
         {/* 햇빛 */}
         <View style={styles.section}>
           <SectionLabel text="햇빛은 어느 정도 들어오나요?" required />
-          <View style={styles.chipGroup}>
+          <View style={styles.chipGridGroup}>
             {LIGHT_OPTIONS.map(({ label, sub }) => (
               <TouchableOpacity
                 key={label}
-                style={[styles.chip, lightLevel === label && styles.chipActive]}
+                style={[styles.chipGrid2, lightLevel === label && styles.chipActive]}
                 onPress={() => setLightLevel(label)}
                 activeOpacity={0.8}
               >
@@ -314,11 +315,11 @@ export default function InfoScreen() {
         {/* 화분 종류 */}
         <View style={styles.section}>
           <SectionLabel text="화분 종류는 무엇인가요?" />
-          <View style={styles.chipGroup}>
+          <View style={styles.chipGridGroup}>
             {POT_TYPES.map((type) => (
               <TouchableOpacity
                 key={type}
-                style={[styles.chip, potType === type && styles.chipActive]}
+                style={[styles.chipGrid3, potType === type && styles.chipActive]}
                 onPress={() => setPotType((prev) => (prev === type ? null : type))}
                 activeOpacity={0.8}
               >
