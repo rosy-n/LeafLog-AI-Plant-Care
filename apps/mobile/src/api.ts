@@ -220,6 +220,9 @@ export function signup(payload: {
 export type SpeciesListItem = {
   species_id: number;
   common_name_ko: string;
+  // 국명 자리가 영문명인 종에만 채워지는 한글 별칭 (위키에서 모은 유통명).
+  // 화면에는 speciesDisplayName() 으로 이 값을 우선 보여준다
+  alias_ko: string | null;
   common_name_en: string | null;
   scientific_name: string | null;
   family_name: string | null;
@@ -230,6 +233,8 @@ export type SpeciesListItem = {
 export type SpeciesDetail = {
   species_id: number;
   common_name_ko: string;
+  // SpeciesListItem 과 같은 뜻 — speciesDisplayName() 으로 읽는다
+  alias_ko: string | null;
   common_name_en: string | null;
   scientific_name: string | null;
   family_name: string | null;
@@ -279,7 +284,16 @@ export type SpeciesDetail = {
   sources: string[];
 };
 
-// 국명·영문명·학명 부분검색 (토큰 자동 첨부)
+// 검색 결과에 보여줄 이름 — 국명 자리가 영문명인 종은 한글 별칭으로 대체한다
+// ('parlour palm' → '테이블야자')
+export function speciesDisplayName(species: {
+  common_name_ko: string;
+  alias_ko: string | null;
+}) {
+  return species.alias_ko ?? species.common_name_ko;
+}
+
+// 국명·유통명·영문명·학명 부분검색 (토큰 자동 첨부)
 export function searchSpecies(keyword: string, limit = 20) {
   return request<SpeciesListItem[]>(
     `/api/species?q=${encodeURIComponent(keyword)}&limit=${limit}`,

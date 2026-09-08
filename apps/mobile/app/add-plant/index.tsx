@@ -17,7 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 // 종 검색은 농사로 API 대신 우리 종 마스터(plant_species)를 쓴다.
 // 농사로는 217종뿐이라 산림청·국가생물종지식정보시스템에만 있는 종을 고를 수 없었다.
-import { searchSpecies, type SpeciesListItem } from '../../src/api';
+import { searchSpecies, speciesDisplayName, type SpeciesListItem } from '../../src/api';
 import { useAddPlantFlow } from '../../src/AddPlantFlowContext';
 import { styles } from './styles/index.styles';
 
@@ -137,14 +137,15 @@ export default function AddPlantIndexScreen() {
     invalidateSearch();
     setIsSearchLoading(false);
     updateDraft({ identificationPhotoUri: null });
-    setSearchText(species.common_name_ko);
+    const displayName = speciesDisplayName(species);
+    setSearchText(displayName);
     setSearchResults([]);
     setIsDetailLoading(true);
     router.push({
       pathname: '/add-plant/plant-detail',
       params: {
         speciesId: String(species.species_id),
-        commonNameKo: species.common_name_ko,
+        commonNameKo: displayName,
         scientificName: species.scientific_name ?? '',
       },
     });
@@ -228,7 +229,7 @@ export default function AddPlantIndexScreen() {
                     <Text style={styles.dropdownIconText}>🔍</Text>
                   </View>
                   <Text style={styles.dropdownText} numberOfLines={1}>
-                    {item.common_name_ko}
+                    {speciesDisplayName(item)}
                   </Text>
                 </TouchableOpacity>
               </View>

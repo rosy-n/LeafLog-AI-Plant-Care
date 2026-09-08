@@ -13,7 +13,7 @@ import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRout
 
 // PlantNet 이 준 학명으로 우리 종 마스터를 찾는다 (검색이 학명도 대상으로 함).
 // 농사로 217종 대신 17,000여 종을 대조하므로 매칭률이 훨씬 높다.
-import { searchSpecies } from '../../src/api';
+import { searchSpecies, speciesDisplayName } from '../../src/api';
 import type { PlantNetResult } from '../../types/plant';
 import { common } from './styles/common.styles';
 import { styles } from './styles/plant-results.styles';
@@ -55,7 +55,9 @@ export default function PlantResultsScreen() {
           // 마스터에 없으면 speciesId 없이 진행 — 서버가 학명/국명으로 종을 만든다
           speciesId: matched ? String(matched.species_id) : '',
           commonNameKo:
-            matched?.common_name_ko ?? item.commonNames[0] ?? item.scientificName,
+            (matched && speciesDisplayName(matched)) ??
+            item.commonNames[0] ??
+            item.scientificName,
           scientificName: item.scientificName,
         },
       });

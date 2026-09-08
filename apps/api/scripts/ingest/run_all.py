@@ -1,4 +1,4 @@
-"""적재 파이프라인 전체 실행 — 소스 4개 적재 후 병합.
+"""적재 파이프라인 전체 실행 — 소스 4개 적재 → 병합 → 한글 별칭 보강.
 
 실행: cd apps/api && ./.venv/Scripts/python.exe -m scripts.ingest.run_all
 
@@ -7,7 +7,7 @@
 """
 import traceback
 
-from . import aspca, kfs_file, merge, nature_kna, rda_indoor
+from . import aspca, kfs_file, merge, nature_kna, rda_indoor, wiki_ko_alias
 from ._common import log
 
 STEPS = [
@@ -16,6 +16,8 @@ STEPS = [
     ("ASPCA (스냅샷 CSV)", aspca.main),
     ("NATURE_KNA (국립수목원 API)", nature_kna.main),
     ("MERGE (src_* → plant_species)", merge.main),
+    # 마스터가 확정된 뒤에 — 병합 결과의 국명을 보고 부족한 별칭만 위키에서 채운다
+    ("WIKI_KO_ALIAS (위키 한글 별칭)", wiki_ko_alias.main),
 ]
 
 

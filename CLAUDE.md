@@ -58,10 +58,22 @@ apps/api/scripts/ingest/
 ├── aspca.py            # 위 CSV          → src_aspca_toxicity (반려동물 독성)
 ├── nature_kna.py       # nature.go.kr 파일 3종 → src_nature_taxon (국명·영문명·학명·과)
 ├── merge.py            # src_* → plant_species 병합
+├── wiki_ko_alias.py    # 위키 한국어 이름 → plant_species_alias (검색용 별칭, 병합 대상 아님)
 └── run_all.py          # 위 전체를 순서대로
 ```
 
 필드 충돌 우선순위와 소스별 담당 필드는 `docs/database-schema.sql`의 "2-3" 섹션 주석이 기준.
+
+## 종 검색 (GET /api/species)
+
+한글 입력을 최대한 받아내기 위해 결과가 없을 때만 단계적으로 넓힌다 (`app/main.py`).
+1. 이름 부분검색 — 국명/영문명/학명 + `plant_species_alias`(위키에서 모은 유통명)
+2. pg_trgm 유사도 — 표기 변형·오타 (`떡갈고무나무` → `떡갈잎고무나무`). PG 전용
+3. 위키 조회 — ko.wikipedia 표제어 → 학명 → 마스터 재조회 (`app/wiki_names.py`).
+   맞춘 검색어는 `plant_species_alias`에 남겨 다음부터 1단계에서 잡힌다
+
+마스터 국명 자리에 영문명이 들어온 행(RDA_INDOOR 유래)은 응답의 `alias_ko`로 한글 이름을
+같이 주고, 앱은 `speciesDisplayName()`으로 그 값을 우선 표시한다.
 
 ## Design Tokens
 - 색상/폰트는 `constants/colors.ts`, `constants/fonts.ts` 만 사용

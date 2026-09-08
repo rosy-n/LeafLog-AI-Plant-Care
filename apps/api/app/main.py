@@ -27,6 +27,14 @@ from .image_preprocessing import (
 )
 from .korea_time import korea_day, today_in_korea
 from .wikimedia import fetch_species_images
+from .wiki_names import (
+    SRC_LABEL,
+    SRC_QUERY,
+    alias_norm,
+    has_hangul,
+    is_rank_name,
+    resolve_ko_name,
+)
 from .models import (
     AppUser,
     CareRecord,
@@ -41,6 +49,7 @@ from .models import (
     Plant,
     PlantDecoration,
     PlantSpecies,
+    PlantSpeciesAlias,
     PlantSpeciesImage,
     SpeciesSourceLink,
     UserSetting,
@@ -710,46 +719,223 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
 
 @app.get("/api/species", response_model=list[SpeciesListItem])
 def search_species(
-    q: str = Query(..., min_length=1, max_length=100, description="국명/영문명/학명 부분검색"),
+    q: str = Query(..., min_length=1, max_length=100, description="국명/유통명/영문명/학명 부분검색"),
     limit: int = Query(20, ge=1, le=50),
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[SpeciesListItem]:
     """종 마스터 검색 — 등록 1단계에서 외부 API 대신 이 엔드포인트를 사용한다.
 
-    ilike 부분검색이라 PostgreSQL/SQLite 양쪽에서 동작한다.
-    PG 에서는 pg_trgm GIN 인덱스(idx_plant_species_name_*_trgm)가 사용된다.
+    마스터 국명(common_name_ko)은 소스 기준의 정식 국명이라 사용자가 실제로 입력하는
+    이름과 자주 어긋난다. 그래서 한글 입력은 결과가 없을 때만 단계적으로 넓혀 잡는다.
+      1) 이름 부분검색 — 국명/영문명/학명 + plant_species_alias(위키에서 모은 유통명)
+      2) 유사도 검색   — pg_trgm. 표기 변형·오타를 받아낸다
+                         '떡갈고무나무' → '떡갈잎고무나무', '스킨답셔스' → '스킨답서스'
+      3) 위키 조회     — ko.wikipedia 표제어 → 학명 → 그 학명으로 마스터 재조회
+                         '테이블야자' → Chamaedorea elegans → 국명 자리가 'parlour palm' 인 행
+    3)에서 맞춘 검색어는 plant_species_alias 에 남겨 다음부터 1)에서 바로 잡히게 한다.
+
+    ilike 부분검색이라 PostgreSQL/SQLite 양쪽에서 동작한다. PG 에서는 pg_trgm GIN 인덱스
+    (idx_plant_species_name_*_trgm, idx_plant_species_alias_*)가 사용된다.
+    2)는 PG 전용이라 SQLite 에서는 건너뛴다.
     """
     keyword = q.strip()
     if not keyword:
         return []
 
-    pattern = f"%{keyword}%"
-    # 접두 일치를 부분 일치보다 앞에
-    prefix_rank = case((PlantSpecies.common_name_ko.ilike(f"{keyword}%"), 0), else_=1)
-    # 돌봄 정보(농진청 실내정원용 식물)가 있는 종을 앞에 —
-    # 산림청 표준식물종정보에는 야생 식물이 대량으로 들어와 있어 그것만으로는 목록이 산만해진다
-    care_rank = case((PlantSpecies.watering_interval_days.is_(None), 1), else_=0)
+    rows = _species_by_name(db, keyword, limit)
+    if not rows and has_hangul(keyword):
+        rows = _species_by_similarity(db, keyword, limit)
+    if not rows and has_hangul(keyword):
+        rows = _species_by_wiki(db, keyword, limit)
 
-    rows = db.scalars(
-        select(PlantSpecies)
+    return _to_species_list(db, rows, keyword)
+
+
+def _species_order(keyword: str) -> tuple:
+    """검색 결과 정렬 기준.
+
+    접두 일치를 부분 일치보다 앞에, 돌봄 정보(농진청 실내정원용 식물)가 있는 종을 그 다음에 —
+    산림청 표준식물종정보에는 야생 식물이 대량으로 들어와 있어 그것만으로는 목록이 산만해진다.
+    """
+    prefix_rank = case((PlantSpecies.common_name_ko.ilike(f"{keyword}%"), 0), else_=1)
+    care_rank = case((PlantSpecies.watering_interval_days.is_(None), 1), else_=0)
+    return (
+        prefix_rank,
+        care_rank,
+        func.length(PlantSpecies.common_name_ko),
+        PlantSpecies.species_id,
+    )
+
+
+def _species_by_name(db: Session, keyword: str, limit: int) -> list[PlantSpecies]:
+    """1단계 — 이름 부분검색. 마스터의 세 이름 컬럼 + 위키에서 모아 둔 별칭."""
+    pattern = f"%{keyword}%"
+    alias_hits = (
+        select(PlantSpeciesAlias.species_id)
         .where(
-            or_(
-                PlantSpecies.common_name_ko.ilike(pattern),
-                PlantSpecies.common_name_en.ilike(pattern),
-                PlantSpecies.scientific_name.ilike(pattern),
+            PlantSpeciesAlias.species_id.is_not(None),
+            # alias_norm 은 소문자·공백 제거된 값이라 like 로 충분하다
+            PlantSpeciesAlias.alias_norm.like(f"%{alias_norm(keyword)}%"),
+        )
+        .scalar_subquery()
+    )
+
+    return list(
+        db.scalars(
+            select(PlantSpecies)
+            .where(
+                or_(
+                    PlantSpecies.common_name_ko.ilike(pattern),
+                    PlantSpecies.common_name_en.ilike(pattern),
+                    PlantSpecies.scientific_name.ilike(pattern),
+                    PlantSpecies.species_id.in_(alias_hits),
+                )
+            )
+            .order_by(*_species_order(keyword))
+            .limit(limit)
+        ).all()
+    )
+
+
+def _species_by_similarity(db: Session, keyword: str, limit: int) -> list[PlantSpecies]:
+    """2단계 — pg_trgm 유사도. 부분검색이 빈손일 때 표기 변형·오타를 받아낸다.
+
+    `%` 연산자는 GIN 인덱스를 타고 기본 임계값(0.3)으로 걸러진다. 관측값:
+    '떡갈고무나무'→'떡갈잎고무나무' 0.50, '뱅갈고무나무'→'벵갈고무나무' 0.40,
+    '금전수'→'금전초' 0.33, '몬스테리아'→'몬스테라' 0.38.
+    """
+    if db.get_bind().dialect.name != "postgresql":
+        return []
+
+    score = func.similarity(PlantSpecies.common_name_ko, keyword)
+    return list(
+        db.scalars(
+            select(PlantSpecies)
+            .where(PlantSpecies.common_name_ko.op("%", is_comparison=True)(keyword))
+            .order_by(score.desc(), *_species_order(keyword))
+            .limit(limit)
+        ).all()
+    )
+
+
+def _species_by_wiki(db: Session, keyword: str, limit: int) -> list[PlantSpecies]:
+    """3단계 — 위키에 학명을 물어 마스터를 다시 찾는다. 결과는 별칭으로 캐싱한다.
+
+    마스터에 그 종이 있는데도 1·2단계에서 안 잡히는 경우를 노린다 —
+    국명 자리에 영문명이 들어온 행(RDA_INDOOR 유래 47건)이나 위키와 국명이 다른 종.
+    """
+    keyword_norm = alias_norm(keyword)
+    if not keyword_norm or _alias_miss_cached(db, keyword_norm):
+        return []
+
+    taxon = resolve_ko_name(keyword)
+    if taxon is None:
+        _remember_aliases(db, [(None, keyword, SRC_QUERY)])
+        return []
+
+    rows = list(
+        db.scalars(
+            select(PlantSpecies)
+            .where(
+                or_(
+                    PlantSpecies.scientific_name_norm == taxon.scientific_name_norm,
+                    # 위키 표제어가 속 단위이거나, 마스터가 품종 표기까지 붙여 갖고 있는 경우
+                    PlantSpecies.scientific_name_norm.like(f"{taxon.scientific_name_norm} %"),
+                )
+            )
+            .order_by(*_species_order(keyword))
+            .limit(limit)
+        ).all()
+    )
+    if not rows:
+        _remember_aliases(db, [(None, keyword, SRC_QUERY)])
+        return rows
+
+    remembered = [(species.species_id, keyword, SRC_QUERY) for species in rows]
+    if taxon.ko_title != keyword:
+        remembered += [(species.species_id, taxon.ko_title, SRC_LABEL) for species in rows]
+    _remember_aliases(db, remembered)
+    return rows
+
+
+def _alias_miss_cached(db: Session, keyword_norm: str) -> bool:
+    """이미 위키에 물어봤다가 못 찾은 검색어인지 (species_id IS NULL 인 음성 캐시)."""
+    return (
+        db.scalar(
+            select(PlantSpeciesAlias.alias_id).where(
+                PlantSpeciesAlias.alias_norm == keyword_norm,
+                PlantSpeciesAlias.species_id.is_(None),
             )
         )
-        .order_by(
-            prefix_rank,
-            care_rank,
-            func.length(PlantSpecies.common_name_ko),
-            PlantSpecies.species_id,
-        )
-        .limit(limit)
-    ).all()
+        is not None
+    )
 
-    return [SpeciesListItem.model_validate(row) for row in rows]
+
+def _remember_aliases(db: Session, entries: list[tuple[int | None, str, str]]) -> None:
+    """별칭 캐싱. (species_id, 별칭, source) 목록을 한 번에 넣는다.
+
+    species_id 가 None 이면 '위키에도 없는 말' 표시 (음성 캐시).
+    검색 결과를 돌려주기 위한 부수 작업이라, 넣다가 부딪히면 조용히 접는다.
+    """
+    seen: set[tuple[int | None, str]] = set()
+    for species_id, alias, source in entries:
+        value = (alias or "").strip()
+        norm = alias_norm(value)[:150]
+        if not norm or not has_hangul(value) or (species_id, norm) in seen:
+            continue
+        seen.add((species_id, norm))
+        db.add(
+            PlantSpeciesAlias(
+                species_id=species_id, alias=value[:150], alias_norm=norm, source=source
+            )
+        )
+    if not seen:
+        return
+    try:
+        db.commit()
+    except IntegrityError:
+        # 같은 별칭이 이미 있다 (동시 요청 / 이전 캐싱) — 캐시라 그냥 버린다
+        db.rollback()
+
+
+def _to_species_list(db: Session, rows: list[PlantSpecies], keyword: str) -> list[SpeciesListItem]:
+    """검색 결과 → 응답. 국명 자리가 한글이 아닌 행에는 보여줄 한글 별칭을 붙인다."""
+    aliases = _display_aliases(db, rows, keyword)
+    items = []
+    for row in rows:
+        item = SpeciesListItem.model_validate(row)
+        item.alias_ko = aliases.get(row.species_id)
+        items.append(item)
+    return items
+
+
+def _display_aliases(db: Session, rows: list[PlantSpecies], keyword: str) -> dict[int, str]:
+    """{species_id: 화면에 보여줄 한글 별칭}.
+
+    국명이 이미 한글인 행은 비운다 — 마스터 국명을 그대로 보여주는 게 맞다.
+    'parlour palm' 처럼 국명 자리가 영문인 행만 별칭으로 대체한다.
+    검색어와 같은 별칭이 있으면 그것을, 없으면 가장 짧은 별칭을 고른다.
+    다만 '유카속'·'부처손과' 같은 분류계급 이름은 종 하나의 이름이 아니라서 쓰지 않는다
+    (검색으로는 여전히 잡힌다 — 거르는 건 화면에 내보일 이름뿐).
+    """
+    targets = [row.species_id for row in rows if not has_hangul(row.common_name_ko)]
+    if not targets:
+        return {}
+
+    keyword_norm = alias_norm(keyword)
+    picked: dict[int, str] = {}
+    for species_id, alias in db.execute(
+        select(PlantSpeciesAlias.species_id, PlantSpeciesAlias.alias)
+        .where(PlantSpeciesAlias.species_id.in_(targets))
+        .order_by(func.length(PlantSpeciesAlias.alias), PlantSpeciesAlias.alias_id)
+    ):
+        if is_rank_name(alias):
+            continue
+        current = picked.get(species_id)
+        if current is None or alias_norm(alias) == keyword_norm:
+            picked[species_id] = alias
+    return picked
 
 
 def _ensure_species_images(species: PlantSpecies, db: Session) -> list[PlantSpeciesImage]:
@@ -799,6 +985,8 @@ def _to_species_detail(species: PlantSpecies, db: Session) -> SpeciesDetail:
     images = _ensure_species_images(species, db)
     detail = SpeciesDetail.model_validate(species)
     detail.image_urls = [img.image_url for img in images]
+    # 검색 결과와 같은 이름을 보여주기 위해 — 국명 자리가 영문명인 종만 채워진다
+    detail.alias_ko = _display_aliases(db, [species], "").get(species.species_id)
 
     # 카드별 원문은 metadata 에 들어 있다 (merge 의 from_rda 참고)
     extra = species.extra_metadata or {}
