@@ -58,10 +58,6 @@ const AIR_QUALITY_ICONS = {
 
 // 배경 이미지는 src/data/decor.js 가 단일 출처 (아래 FIELD_BOUNDS 의 키와 같다)
 
-const HOME_MENU_ITEMS = [
-    { label: "설정", icon: "settings-outline", screen: "Settings" },
-];
-
 /*
     배경마다 바닥(잔디/마룻바닥)이 시작하는 높이가 달라서 돌아다닐 영역도 따로 잡는다 —
     식물이 벽이나 하늘에 떠 있는 것처럼 보이지 않게 하기 위해.
@@ -354,8 +350,6 @@ export default function HomeScreen({
     decorations = {},
     hasUnread = false,
 }) {
-    const [menuVisible, setMenuVisible] = useState(false);
-    const [menuOpen, setMenuOpen] = useState(false);
     const [environment, setEnvironment] = useState(null);
     // x/y 는 들판이 화면에서 시작하는 자리 — 들판 밖에 그리는 확대창의 좌표 변환에 쓴다
     const [fieldSize, setFieldSize] = useState({ x: 0, y: 0, width: 0, height: 0 });
@@ -446,7 +440,7 @@ export default function HomeScreen({
             },
         ],
     });
-    const menuAway = useMemo(() => makeSideAway(-1), []);
+    const settingsAway = useMemo(() => makeSideAway(-1), []);
     const rightAway = useMemo(() => makeSideAway(1), []);
 
     /*
@@ -499,10 +493,6 @@ export default function HomeScreen({
         return true;
     };
 
-    const menuAnimations = useRef(
-        HOME_MENU_ITEMS.map(() => new Animated.Value(0))
-    ).current;
-
     useEffect(() => {
         let cancelled = false;
 
@@ -535,43 +525,6 @@ export default function HomeScreen({
         : null;
     const homeBackgroundSource =
         WEATHER_BACKGROUNDS[environment?.weather_status] ?? BACKGROUND_IMAGES[HOME_BACKGROUND_KEY];
-
-    const openMenu = () => {
-        setMenuVisible(true);
-        setMenuOpen(true);
-
-        const bottomToTopAnimations = [...menuAnimations].reverse();
-        Animated.stagger(
-            45,
-            bottomToTopAnimations.map((anim) =>
-                Animated.timing(anim, {
-                    toValue: 1,
-                    duration: 180,
-                    useNativeDriver: true,
-                })
-            )
-        ).start();
-    };
-
-    const closeMenu = () => {
-        setMenuOpen(false);
-
-        Animated.stagger(
-            35,
-            [...menuAnimations].map((anim) =>
-                Animated.timing(anim, {
-                    toValue: 0,
-                    duration: 140,
-                    useNativeDriver: true,
-                })
-            )
-        ).start(() => setMenuVisible(false));
-    };
-
-    const toggleMenu = () => {
-        if (menuOpen) closeMenu();
-        else openMenu();
-    };
 
     return (
         <View style={styles.root}>
@@ -679,7 +632,7 @@ export default function HomeScreen({
                         styles.field,
                         FIELD_BOUNDS[HOME_BACKGROUND_KEY],
                     ]}
-                    pointerEvents={menuOpen ? "none" : "box-none"}
+                    pointerEvents="box-none"
                     onLayout={(event) => {
                         const { x, y, width, height } = event.nativeEvent.layout;
                         setFieldSize((prev) =>
@@ -750,82 +703,9 @@ export default function HomeScreen({
                     />
                 )}
 
-                {/* 햄버거 메뉴 팝업 */}
-                {menuVisible && (
-                    <>
-                        <TouchableOpacity
-                            style={StyleSheet.absoluteFill}
-                            activeOpacity={1}
-                            onPress={closeMenu}
-                        />
-                        <View style={styles.menuPopup}>
-                            {HOME_MENU_ITEMS.map((item, index) => {
-                                const anim = menuAnimations[index];
-                                return (
-                                    <Animated.View
-                                        key={item.label}
-                                        style={[
-                                            styles.menuItemWrapper,
-                                            {
-                                                opacity: anim,
-                                                transform: [
-                                                    {
-                                                        translateY: anim.interpolate({
-                                                            inputRange: [0, 1],
-                                                            outputRange: [14, 0],
-                                                        }),
-                                                    },
-                                                    {
-                                                        scale: anim.interpolate({
-                                                            inputRange: [0, 1],
-                                                            outputRange: [0.92, 1],
-                                                        }),
-                                                    },
-                                                ],
-                                            },
-                                        ]}
-                                    >
-                                        <TouchableOpacity
-                                            activeOpacity={0.82}
-                                            style={styles.menuItemTouch}
-                                            onPress={() => {
-                                                tapFeedback();
-                                                closeMenu();
-                                                if (item.screen) navigation.navigate(item.screen);
-                                            }}
-                                        >
-                                            <BlurView intensity={28} tint="light" style={styles.menuItemBlur}>
-                                                <LinearGradient
-                                                    colors={[
-                                                        Glass.frost72,
-                                                        Glass.mist,
-                                                        Glass.mistSoft,
-                                                    ]}
-                                                    start={{ x: 0.12, y: 0.05 }}
-                                                    end={{ x: 1, y: 1 }}
-                                                    style={styles.menuItemGlass}
-                                                >
-                                                    <View style={styles.menuItemHighlight} />
-                                                    <Ionicons
-                                                        name={item.icon}
-                                                        size={14}
-                                                        color={Colors.textBlack}
-                                                        style={styles.menuItemIcon}
-                                                    />
-                                                    <Text style={styles.menuItemText}>{item.label}</Text>
-                                                </LinearGradient>
-                                            </BlurView>
-                                        </TouchableOpacity>
-                                    </Animated.View>
-                                );
-                            })}
-                        </View>
-                    </>
-                )}
-
-                {/* 좌측 하단: 햄버거 — 개체를 들면 왼쪽으로 밀려나며 사라진다 */}
+                {/* 좌측 하단: 설정 — 개체를 들면 왼쪽으로 밀려나며 사라진다 */}
                 <Animated.View
-                    style={[styles.menuArea, menuAway]}
+                    style={[styles.settingsArea, settingsAway]}
                     pointerEvents={holding ? "none" : "auto"}
                 >
                     <GlassButton
@@ -833,18 +713,10 @@ export default function HomeScreen({
                         highlighted={tutorial.currentTargetId === "home-settings"}
                         onPress={() => {
                             if (tutorial.active) return;
-                            toggleMenu();
+                            navigation.navigate("Settings");
                         }}
                     >
-                        <Image
-                            source={
-                                menuOpen
-                                    ? require("../../assets/icons/close_icon.png")
-                                    : require("../../assets/icons/hamburger_icon.png")
-                            }
-                            style={styles.menuIcon}
-                            resizeMode="contain"
-                        />
+                        <Ionicons name="settings-outline" size={32} color={Colors.textMid} />
                     </GlassButton>
                 </Animated.View>
 
@@ -1891,20 +1763,11 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.textBlack,
     },
 
-    menuArea: {
+    settingsArea: {
         position: "absolute",
         left: 20,
         bottom: 54,
         zIndex: 50,
-    },
-    menuIcon: {
-        width: 36,
-        height: 36,
-        // 아이콘 원본(hamburger_icon.png · close_icon.png)은 순정 검정(#000)이라
-        // 튀어 보여서, 색 토큰으로 덧입힌다 — 모양은 그대로, 색만 코드에서 지정.
-        // textBlack(#171717)은 순정 검정과 육안으로 거의 구별이 안 되고 textGray는
-        // 너무 옅어서, 그 중간인 textMid를 씀
-        tintColor: Colors.textMid,
     },
     calendarIcon: {
         width: 36,
@@ -1921,65 +1784,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: Spacing.lg,
         zIndex: 50,
-    },
-
-    // 햄버거 메뉴 팝업
-    menuPopup: {
-        position: "absolute",
-        left: 20,
-        bottom: 130,
-        zIndex: 80,
-        alignItems: "flex-start",
-    },
-    menuItemWrapper: {
-        marginBottom: Spacing.sm,
-    },
-    menuItemTouch: {
-        width: 126,
-        height: 31,
-        borderRadius: Radius.lg,
-        overflow: "hidden",
-        shadowColor: Colors.textBlack,
-        shadowOpacity: 0.18,
-        shadowRadius: 7,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 5,
-    },
-    menuItemBlur: {
-        flex: 1,
-        borderRadius: Radius.lg,
-        overflow: "hidden",
-        borderWidth: 1,
-        borderColor: Glass.frost72,
-    },
-    menuItemGlass: {
-        flex: 1,
-        borderRadius: Radius.lg,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        borderWidth: 1,
-        borderColor: Glass.frost45,
-    },
-    menuItemHighlight: {
-        position: "absolute",
-        top: 4,
-        left: 10,
-        width: 34,
-        height: 8,
-        borderRadius: Radius.pill,
-        backgroundColor: Glass.frost60,
-    },
-    menuItemIcon: {
-        marginRight: Spacing.xs,
-    },
-    menuItemText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.textBlack,
-        textShadowColor: Glass.frost60,
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 0,
     },
 
     glassTouch: {

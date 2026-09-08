@@ -18,7 +18,7 @@ import { styles } from './styles/info.styles';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const LOCATIONS = ['거실', '침실', '베란다', '주방', '사무실', '화장실'] as const;
+const LOCATIONS = ['거실', '침실', '베란다', '주방', '사무실', '욕실'] as const;
 
 // 화분 종류 — plant.pot_type(자유 텍스트)에 라벨 그대로 저장
 const POT_TYPES = ['플라스틱', '토분', '도자기', '시멘트', '유리', '기타'] as const;
@@ -30,14 +30,14 @@ const LOCATION_CODES: Record<string, string> = {
   베란다: 'BALCONY',
   주방: 'KITCHEN',
   사무실: 'OFFICE',
-  화장실: 'BATHROOM',
+  욕실: 'BATHROOM',
 };
 
 const LIGHT_OPTIONS = [
-  { label: '직사광',     sub: '햇빛 직접', code: 'DIRECT'   },
-  { label: '밝은 간접광', sub: '창가 근처', code: 'BRIGHT'   },
-  { label: '간접광',     sub: '밝은 실내', code: 'INDIRECT' },
-  { label: '어두움',     sub: '빛 적음',  code: 'LOW'      },
+  { label: '직사광', sub: '햇빛 직접', code: 'DIRECT' },
+  { label: '밝은 간접광', sub: '창가 근처', code: 'BRIGHT' },
+  { label: '간접광', sub: '밝은 실내', code: 'INDIRECT' },
+  { label: '어두움', sub: '빛 적음', code: 'LOW' },
 ] as const;
 
 // 광량 한글 라벨 → 서버 enum 코드 (plant.light_condition CHECK 제약과 일치)
@@ -46,7 +46,7 @@ const LIGHT_CODE_BY_LABEL: Record<string, string> = Object.fromEntries(
 );
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
-const DAYS   = Array.from({ length: 31 }, (_, i) => i + 1);
+const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 
 type MonthDay = { month: number; day: number } | null;
 
@@ -192,9 +192,9 @@ export default function InfoScreen() {
   const getSelectedPickerValue = (): number | null => {
     if (!pickerTarget) return null;
     if (pickerTarget === 'water-month') return lastWatered?.month ?? null;
-    if (pickerTarget === 'water-day')   return lastWatered?.day   ?? null;
+    if (pickerTarget === 'water-day') return lastWatered?.day ?? null;
     if (pickerTarget === 'repot-month') return lastRepotted?.month ?? null;
-    if (pickerTarget === 'repot-day')   return lastRepotted?.day   ?? null;
+    if (pickerTarget === 'repot-day') return lastRepotted?.day ?? null;
     return null;
   };
 
@@ -386,7 +386,7 @@ export default function InfoScreen() {
         onRequestClose={closePicker}
       >
         <TouchableOpacity style={styles.pickerBackdrop} activeOpacity={1} onPress={closePicker}>
-          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+          <TouchableOpacity activeOpacity={1} onPress={() => { }}>
             <View style={styles.pickerSheet}>
               <View style={styles.pickerHeader}>
                 <Text style={styles.pickerTitle}>{pickerTitle}</Text>

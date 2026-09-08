@@ -32,6 +32,10 @@ type PixelButtonProps = {
   style?: StyleProp<ViewStyle>;
   /** 내용 영역 패딩 재정의 — 라벨이 길어 좁은 그리드 칸에 안 들어갈 때 사용 */
   contentStyle?: StyleProp<ViewStyle>;
+  /** 라벨을 한 줄로 강제 — 좁은 그리드 칸에서 줄바꿈 대신 폰트를 줄여 맞춘다 */
+  numberOfLines?: number;
+  adjustsFontSizeToFit?: boolean;
+  minimumFontScale?: number;
 };
 
 /**
@@ -124,6 +128,9 @@ export default function PixelButton({
   disabled = false,
   style,
   contentStyle,
+  numberOfLines,
+  adjustsFontSizeToFit,
+  minimumFontScale,
 }: PixelButtonProps) {
   const large = size === "lg";
   return (
@@ -134,7 +141,12 @@ export default function PixelButton({
       style={style}
       contentStyle={[large && styles.contentLarge, contentStyle]}
     >
-      <PixelOutlineText style={[styles.label, large && styles.labelLarge]}>
+      <PixelOutlineText
+        style={[styles.label, large && styles.labelLarge]}
+        numberOfLines={numberOfLines}
+        adjustsFontSizeToFit={adjustsFontSizeToFit}
+        minimumFontScale={minimumFontScale}
+      >
         {label}
       </PixelOutlineText>
     </PixelSurface>
