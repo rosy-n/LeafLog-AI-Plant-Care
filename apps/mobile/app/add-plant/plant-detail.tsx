@@ -12,7 +12,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
-import { getSpecies, type SpeciesDetail } from '../../src/api';
+import { getSpecies, speciesDisplayName, type SpeciesDetail } from '../../src/api';
 import { useAddPlantFlow } from '../../src/AddPlantFlowContext';
 import { styles } from './styles/plant-detail.styles';
 
@@ -78,7 +78,7 @@ export default function PlantDetailScreen() {
   const handleConfirm = () => {
     updateDraft({
       speciesId: speciesId ? Number(speciesId) : null,
-      commonNameKo: detail?.common_name_ko ?? commonNameKo ?? '',
+      commonNameKo: (detail && speciesDisplayName(detail)) ?? commonNameKo ?? '',
       scientificName: detail?.scientific_name ?? scientificName ?? null,
       speciesImageUrl: detail?.image_url ?? null,
     });
@@ -156,7 +156,9 @@ export default function PlantDetailScreen() {
       )}
 
       {/* Plant info */}
-      <Text style={styles.plantName}>{detail?.common_name_ko ?? commonNameKo}</Text>
+      <Text style={styles.plantName}>
+        {(detail && speciesDisplayName(detail)) ?? commonNameKo}
+      </Text>
       {detail?.scientific_name ?? scientificName ? (
         <Text style={styles.scientificName}>
           {detail?.scientific_name ?? scientificName}
