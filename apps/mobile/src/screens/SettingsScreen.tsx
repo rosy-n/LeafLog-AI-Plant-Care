@@ -43,6 +43,7 @@ import {
 } from "../notificationSettings";
 import { useBackgroundMusic } from "../backgroundMusic";
 import { VOLUME_STEPS } from "../audioSettings";
+import { useTutorial } from "../TutorialContext";
 
 const FAQ_ITEMS = [
     {
@@ -130,6 +131,7 @@ export default function SettingsScreen({
     isAdmin?: boolean;
     onLogout?: () => void;
 }) {
+    const tutorial = useTutorial();
     // 어카운트
     const [isEditingName, setIsEditingName] = useState(false);
     const [draftName, setDraftName] = useState(username);
@@ -707,6 +709,20 @@ export default function SettingsScreen({
                         {/* ── 도움말 ────────────────────────── */}
                         <View style={styles.card}>
                             <SectionLabel icon="help-circle-outline" label="도움말" />
+                            <RowDivider />
+
+                            <TouchableOpacity
+                                style={styles.row}
+                                onPress={() => {
+                                    tutorial.start("settings");
+                                    tutorial.navigateRoot("Home");
+                                }}
+                                activeOpacity={0.75}
+                            >
+                                <Text style={styles.rowLabel}>튜토리얼</Text>
+                                <Ionicons name="play-circle-outline" size={20} color={GreenTint.line} />
+                            </TouchableOpacity>
+
                             <RowDivider />
 
                             <Text style={styles.faqSectionTitle}>자주 하는 질문</Text>

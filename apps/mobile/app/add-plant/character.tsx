@@ -23,6 +23,7 @@ import {
   type CharacterGenerationJob,
 } from '../../src/api';
 import { useAddPlantFlow } from '../../src/AddPlantFlowContext';
+import { useTutorial } from '../../src/TutorialContext';
 import PlantImage from '../../src/components/PlantImage';
 import {
   CHARACTER_EXPRESSIONS,
@@ -55,8 +56,14 @@ const GUIDE_BAD_ITEMS = [
 export default function CharacterScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ resumeGeneration?: string }>();
-  const { draft, updateDraft } = useAddPlantFlow();
+  const { draft, updateDraft, isFirstPlant } = useAddPlantFlow();
+  const tutorial = useTutorial();
   const resumeGeneration = params.resumeGeneration === 'true';
+  // 첫 식물 등록 중 생성 로딩 화면에 튜토리얼 인트로 카드를 한 번 띄운다.
+  // "건너뛰기"를 누르면 이 세션에서는 다시 보이지 않는다.
+  const [introDismissed, setIntroDismissed] = useState(false);
+  const showTutorialIntro =
+    isFirstPlant && !resumeGeneration && !introDismissed && !tutorial.active;
 
   const [screenState, setScreenState] = useState<ScreenState>(
     resumeGeneration ? 'generating' : 'intro',
@@ -389,20 +396,51 @@ export default function CharacterScreen() {
 
   if (screenState === 'generating') {
     return (
-      <View style={styles.generatingContainer}>
-        <Text style={styles.generatingTitle}>
-          {phase === 1 ? '식물 특징을\n분석하고 있어요' : '도트 캐릭터를\n만들고 있어요'}
-        </Text>
-        <View style={styles.progressTrack}>
-          <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
-        </View>
-        <Text style={styles.progressLabel}>
-          {generationMessage}
-        </Text>
-        {resumeGeneration && (
-          <Text style={styles.waitHint}>
-            입력한 식물 정보는 보관되어 있어요.{`\n`}완료될 때까지 이 화면을 유지해주세요.
+      <View style={styles.flex}>
+        <View style={styles.generatingContainer}>
+          <Text style={styles.generatingTitle}>
+            {phase === 1 ? '식물 특징을\n분석하고 있어요' : '도트 캐릭터를\n만들고 있어요'}
           </Text>
+          <View style={styles.progressTrack}>
+            <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+          </View>
+          <Text style={styles.progressLabel}>
+            {generationMessage}
+          </Text>
+          {resumeGeneration && (
+            <Text style={styles.waitHint}>
+              입력한 식물 정보는 보관되어 있어요.{`\n`}완료될 때까지 이 화면을 유지해주세요.
+            </Text>
+          )}
+        </View>
+
+        {showTutorialIntro && (
+          <View style={styles.tutorialOverlay}>
+            <TouchableOpacity
+              style={styles.tutorialSkipBtn}
+              onPress={() => setIntroDismissed(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.tutorialSkipText}>건너뛰기</Text>
+            </TouchableOpacity>
+
+            <View style={styles.tutorialCard}>
+              <Text style={styles.tutorialCardText}>
+                AI가 식물 캐릭터를 만드는 동안{'\n'}LeafLog의 기능을 살펴볼까요?
+              </Text>
+              <TouchableOpacity
+                style={styles.tutorialStartBtn}
+                activeOpacity={0.85}
+                onPress={() => {
+                  setIntroDismissed(true);
+                  tutorial.start('first-plant');
+                  tutorial.navigateRoot('Home');
+                }}
+              >
+                <Text style={styles.tutorialStartBtnText}>튜토리얼 시작</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
       </View>
     );
