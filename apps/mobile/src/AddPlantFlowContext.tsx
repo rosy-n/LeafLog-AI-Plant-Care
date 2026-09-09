@@ -14,7 +14,7 @@ export type AddPlantInfoDraft = {
 export type AddPlantDraft = {
   generationJobId: string | null;
   identificationPhotoUri: string | null;
-  // 촬영 가이드에 맞춰 다시 받은 SDXL 캐릭터 생성용 사진.
+  // 등록 첫 단계에서 촬영 가이드에 맞춰 받은 SDXL 캐릭터 생성용 사진.
   capturedPhotoUri: string | null;
   speciesId: number | null;
   cntntsNo: string;
@@ -50,11 +50,19 @@ type AddPlantFlowValue = {
   draft: AddPlantDraft;
   updateDraft: (patch: Partial<AddPlantDraft>) => void;
   resetDraft: () => void;
+  // 등록된 식물이 하나도 없을 때(=첫 등록) — character.tsx가 튜토리얼을 자동 제안할지 판단
+  isFirstPlant: boolean;
 };
 
 const AddPlantFlowContext = createContext<AddPlantFlowValue | null>(null);
 
-export function AddPlantFlowProvider({ children }: { children: ReactNode }) {
+export function AddPlantFlowProvider({
+  children,
+  isFirstPlant = false,
+}: {
+  children: ReactNode;
+  isFirstPlant?: boolean;
+}) {
   const [draft, setDraft] = useState<AddPlantDraft>(INITIAL_DRAFT);
 
   const value = useMemo<AddPlantFlowValue>(
@@ -62,8 +70,9 @@ export function AddPlantFlowProvider({ children }: { children: ReactNode }) {
       draft,
       updateDraft: (patch) => setDraft((current) => ({ ...current, ...patch })),
       resetDraft: () => setDraft(INITIAL_DRAFT),
+      isFirstPlant,
     }),
-    [draft],
+    [draft, isFirstPlant],
   );
 
   return <AddPlantFlowContext.Provider value={value}>{children}</AddPlantFlowContext.Provider>;
