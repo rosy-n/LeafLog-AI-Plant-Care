@@ -4,11 +4,14 @@ const { screen, nodes, deferred, flush } = require('./helpers/screen.cjs');
 
 function setupSearch() {
   const requests = [];
+  const navigation = [];
+  const updates = [];
+  const draft = { capturedPhotoUri: 'file:///character-photo.jpg', generationJobId: 'job-1' };
   const app = screen('app/add-plant/index.tsx', {
     '../../constants/colors': { Colors: {} },
     './styles/index.styles': { styles: {} },
-    '../../src/hooks/useAddPlantRouter': { useRouter: () => ({ push() {} }) },
-    '../../src/AddPlantFlowContext': { useAddPlantFlow: () => ({ updateDraft() {} }) },
+    '../../src/hooks/useAddPlantRouter': { useRouter: () => ({ push: (to) => navigation.push(to) }) },
+    '../../src/AddPlantFlowContext': { useAddPlantFlow: () => ({ draft, updateDraft(patch) { updates.push(patch); Object.assign(draft, patch); } }) },
     'expo-image-picker': {},
     '../../src/api': { searchSpecies(query) {
       const request = { query, ...deferred() };
@@ -16,7 +19,7 @@ function setupSearch() {
       return request.promise;
     } },
   });
-  return { ...app, requests,
+  return { ...app, requests, navigation, updates, draft,
     input: () => nodes(app.render()).find((n) => n.type === 'TextInput').props,
     labels: () => nodes(app.render()).filter((n) => n.type === 'Text').map((n) => n.props.children).flat(),
   };
@@ -79,27 +82,39 @@ test('cancelling search clears the pending debounce and loading indicator', () =
 
 function setupCharacter(resume = false) {
   const job = deferred();
+  const polls = [];
+  const progress = [];
   const navigation = [];
   const updates = [];
+  const uploads = [];
+  const draft = { capturedPhotoUri: null, generationJobId: resume ? 'job-1' : null };
   const app = screen('app/add-plant/character.tsx', {
     '../../constants/colors': { Colors: {} },
     './styles/character.styles': { styles: {} },
     './styles/common.styles': { common: {} },
     '../../src/hooks/useAddPlantRouter': {
-      useRouter: () => ({ replace: (path) => navigation.push(path) }),
+      useRouter: () => ({ push: (path) => navigation.push(path), replace: (path) => navigation.push(path) }),
       useLocalSearchParams: () => resume ? { resumeGeneration: 'true' } : {},
     },
     '../../src/AddPlantFlowContext': {
-      useAddPlantFlow: () => ({ draft: { capturedPhotoUri: null, generationJobId: resume ? 'job-1' : null }, updateDraft: (v) => updates.push(v) }),
+      useAddPlantFlow: () => ({ draft, updateDraft: (v) => { updates.push(v); Object.assign(draft, v); } }),
     },
     '../../src/components/PlantImage': { __esModule: true, default: 'PlantImage' },
     '../../src/data/characterExpressions': { hasFaceRemovedChecksum: () => false },
-    '../../src/api': { startCharacterGeneration: () => job.promise, getCharacterGeneration: () => job.promise },
+    '../../src/api': {
+      startCharacterGeneration: (photo) => { uploads.push(photo); return job.promise; },
+      getCharacterGeneration: () => {
+        const request = polls.length === 0 ? job : deferred();
+        polls.push(request);
+        return request.promise;
+      },
+    },
     'expo-image-picker': {
       requestCameraPermissionsAsync: async () => ({ status: 'granted' }),
       launchCameraAsync: async () => ({ canceled: false, assets: [{ uri: 'file:///plant.jpg' }] }),
     },
   });
+  app.native.Animated.timing = (_value, options) => ({ start() { progress.push(options.toValue); } });
   async function begin() {
     function button(label) {
       return nodes(app.render()).find((n) => n.type === 'TouchableOpacity'
@@ -111,7 +126,7 @@ function setupCharacter(resume = false) {
     await choice.onPress();
     return button('캐릭터 만들기').props.onPress();
   }
-  return { ...app, begin, job, navigation, updates };
+  return { ...app, begin, job, navigation, updates, polls, progress, uploads, draft };
 }
 
 test('a generation response after leaving cannot change the draft or navigate', async () => {
@@ -136,15 +151,59 @@ test('a generation upload failure after leaving does not open an error alert', a
   assert.equal(app.alerts.length, previousAlerts);
 });
 
-test('successful generation still advances to plant information with its job ID', async () => {
+test('accepting a photo generation job advances to species selection without waiting for candidates', async () => {
   const app = setupCharacter();
   const pending = app.begin();
   await flush();
   app.job.resolve({ id: 'job-1', message: 'queued' });
   await pending;
-  assert.deepEqual(app.navigation, ['/add-plant/info']);
+  assert.deepEqual(app.navigation, ['/add-plant']);
   assert.equal(app.updates[0].generationJobId, 'job-1');
   assert.equal(app.updates[0].capturedPhotoUri, 'file:///plant.jpg');
+});
+
+test('returning to the first photo step reuses the job instead of generating again', async () => {
+  const app = setupCharacter();
+  const pending = app.begin();
+  await flush();
+  app.job.resolve({ id: 'job-1', status: 'queued', message: 'queued' });
+  await pending;
+  app.render();
+  app.blur();
+  app.focus();
+  const next = nodes(app.render()).find((n) => n.type === 'TouchableOpacity'
+    && nodes(n).some((child) => child.type === 'Text' && child.props.children === '다음'));
+  assert.ok(next);
+  await next.props.onPress();
+  assert.equal(app.uploads.length, 1);
+  assert.equal(app.polls.length, 0);
+  assert.equal(app.draft.generationJobId, 'job-1');
+  app.dispose();
+});
+
+test('even an already completed generation job still goes to species selection first', async () => {
+  const app = setupCharacter();
+  const pending = app.begin();
+  await flush();
+  app.job.resolve({ id: 'job-1', status: 'completed', progress: 100, candidates: [] });
+  await pending;
+  assert.deepEqual(app.navigation, ['/add-plant']);
+  assert.equal(app.polls.length, 0);
+  app.dispose();
+});
+
+test('species identification can reuse the character photo without clearing the generation job', () => {
+  const app = setupSearch();
+  const photoButton = nodes(app.render()).find((n) => n.type === 'TouchableOpacity'
+    && nodes(n).some((child) => child.type === 'Text' && child.props.children === '사진으로 찾기'));
+  photoButton.props.onPress();
+  const reuse = app.alerts.at(-1)[2].find((choice) => choice.text === '방금 선택한 사진 사용');
+  reuse.onPress();
+  assert.equal(app.navigation[0].pathname, '/add-plant/organ-select');
+  assert.deepEqual(JSON.parse(app.navigation[0].params.photoUris), ['file:///character-photo.jpg']);
+  assert.equal(app.draft.generationJobId, 'job-1');
+  assert.equal(app.draft.identificationPhotoUri, app.draft.capturedPhotoUri);
+  app.dispose();
 });
 
 test('back navigation from the name screen keeps the selected completed character', async () => {
@@ -162,4 +221,72 @@ test('back navigation from the name screen keeps the selected completed characte
     && n.props.accessibilityState.selected);
   assert.equal(chosen.length, 1);
   assert.equal(chosen[0].props.accessibilityLabel, '1번 도트 캐릭터');
+});
+
+test('photo identification choices keep camera, library and cancel available within the Android limit', () => {
+  const app = setupSearch();
+  const photoButton = nodes(app.render()).find((n) => n.type === 'TouchableOpacity'
+    && nodes(n).some((child) => child.type === 'Text' && child.props.children === '사진으로 찾기'));
+  photoButton.props.onPress();
+  const choices = app.alerts.at(-1)[2];
+  assert.equal(choices.length, 3);
+  choices.find((choice) => choice.text === '다른 사진 선택').onPress();
+  assert.deepEqual(Array.from(app.alerts.at(-1)[2], (choice) => choice.text),
+    ['사진 라이브러리에서 선택', '카메라로 찍기', '취소']);
+  assert.equal(app.navigation.length, 0);
+  assert.equal(app.draft.generationJobId, 'job-1');
+  app.dispose();
+});
+
+test('generation progress follows polling but never goes backwards on retry', async () => {
+  const app = setupCharacter(true);
+  app.render();
+  app.job.resolve({ id: 'job-1', status: 'generating', progress: 38, message: 'sampling' });
+  await flush();
+  assert.equal(app.progress.at(-1), .38);
+  app.runTimer(2000);
+  await flush();
+  app.polls[1].resolve({ id: 'job-1', status: 'generating', progress: 20, message: 'retry' });
+  await flush();
+  assert.equal(app.progress.at(-1), .38);
+  assert.ok(nodes(app.render()).some((n) => n.type === 'ActivityIndicator'));
+  app.runTimer(2000);
+  await flush();
+  app.polls[2].resolve({ id: 'job-1', status: 'postprocessing', progress: 95, message: 'finishing' });
+  await flush();
+  assert.equal(app.progress.at(-1), .95);
+  app.dispose();
+});
+
+test('unfinished work cannot display 100 percent and completion opens candidates', async () => {
+  const app = setupCharacter(true);
+  app.render();
+  app.job.resolve({ id: 'job-1', status: 'postprocessing', progress: 100, message: 'finishing' });
+  await flush();
+  assert.equal(app.progress.at(-1), .99);
+  assert.ok(!nodes(app.render()).some((n) => n.props.accessibilityRole === 'radio'));
+  app.runTimer(2000);
+  await flush();
+  app.polls[1].resolve({ id: 'job-1', status: 'completed', progress: 100,
+    candidates: [1, 2, 3].map((id) => ({ id: String(id), image_url: `https://example.test/${id}.png` })) });
+  await flush();
+  assert.equal(app.progress.at(-1), 1);
+  assert.equal(nodes(app.render()).filter((n) => n.props.accessibilityRole === 'radio').length, 3);
+  assert.equal(app.timers.size, 0);
+  app.dispose();
+});
+
+test('late poll after leaving cannot update progress or open the result', async () => {
+  const app = setupCharacter(true);
+  app.render();
+  app.job.resolve({ id: 'job-1', status: 'generating', progress: 50, message: 'sampling' });
+  await flush();
+  app.runTimer(2000);
+  await flush();
+  app.blur();
+  app.polls[1].resolve({ id: 'job-1', status: 'completed', progress: 100, candidates: [] });
+  await flush();
+  assert.equal(app.progress.at(-1), .5);
+  assert.equal(app.alerts.length, 0);
+  app.dispose();
 });

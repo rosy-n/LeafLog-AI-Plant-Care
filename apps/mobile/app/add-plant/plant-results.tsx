@@ -81,7 +81,7 @@ export default function PlantResultsScreen() {
           style={styles.retryBtn}
           onPress={() => router.replace('/add-plant')}
         >
-          <Text style={styles.retryBtnText}>처음으로</Text>
+          <Text style={styles.retryBtnText}>식물 다시 찾기</Text>
         </TouchableOpacity>
       </View>
     );
