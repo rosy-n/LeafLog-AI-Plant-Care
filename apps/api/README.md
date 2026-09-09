@@ -77,6 +77,57 @@ cd apps/api; .\.venv\Scripts\python.exe scripts\backfill-affinity.py            
 서버 startup 의 `create_all` 은 없는 테이블만 만들고 기존 테이블에 컬럼을 추가하지 못하므로,
 이 스크립트를 돌리지 않으면 `/api/species` 가 없는 컬럼을 조회해 실패한다.
 
+## 캐릭터 이미지 주소
+
+학교 서버에서 생성한 캐릭터는 `media_asset.file_url`에
+`/generated/characters/<작업 ID>/candidate-1.png`처럼 경로만 저장한다.
+`object_key`, 이미지 파일, 얼굴 좌표가 포함된 `checksum`은 유지한다. DB 컬럼 변경은 없다.
+
+앱 조회 응답에는 현재 API 주소를 붙여 반환한다. 별도 이미지 서버를 쓰면
+`CHARACTER_PUBLIC_BASE_URL`이 우선한다. 이 값을 설정한 경우 주소 변경 시 환경 설정도 바꿔야 한다.
+S3와 외부 이미지 URL은 기존 저장·서명 방식을 유지한다.
+
+기존 주소 정리는 **이 변경을 API에 반영한 뒤, 실제 생성 이미지가 있는 서버의 `apps/api`에서** 실행한다.
+
+```bash
+python scripts/normalize-character-urls.py
+python scripts/normalize-character-urls.py --apply --backup ~/leaflog-backups/character-urls-before.json
+```
+
+첫 명령은 조회만 한다. 두 번째 명령은 원래 값을 새 백업 파일에 기록한 뒤 `ready` 항목의
+`file_url`만 한 트랜잭션으로 바꾼다. 기존 백업은 덮어쓰지 않는다. 백업은 Git에 올리지 않는다.
+파일 누락·키 불일치·체크섬 불일치 항목은 변경하지 않는다.
+이 도구는 파일을 다른 PC로 옮기지 않으며, 경로만 바꿔서는 없는 이미지를 복구할 수 없다.
+
+## 캐릭터 위치와 표시 크기
+
+생성 후보는 누끼와 얼굴 제거 후 `character_framing.py`에서 표시 규격을 맞춘다.
+`spaghetti.png`를 정사각형 영역에 표시했을 때를 기준으로 전체 높이는 약 68%,
+바닥은 높이의 85% 위치를 사용한다. 화분 몸통이 기준 폭(24%)보다 크게 표시될 경우에는
+높이 기준 배율과 몸통 기준 배율의 기하평균으로 축소를 완화한다. 몸통 크기를 강제로
+통일하거나 모든 캐릭터를 같은 높이로 늘리지 않고, 몸통 비중에 따라 연속적으로 보정한다.
+전체 폭은 68% 이내로 제한하고 한쪽으로 뻗은 잎이 잘리지 않도록 여백을 확보한다.
+화분의 중심을 기준으로 이동하고 가로세로 비율을 유지한다. 표정 좌표도 같은 변환을 적용한다.
+결과는 1024px 투명 PNG이며, 도트 색상이 섞이지 않도록 nearest 보간을 사용한다.
+
+기존 학교 이미지에 적용할 때는 이미지 파일이 있는 서버의 `apps/api`에서 실행한다.
+먼저 위의 주소 정리를 완료하고, API에 새 생성 후처리 코드를 배포한다.
+
+```bash
+python scripts/reframe-characters.py
+python scripts/reframe-characters.py --apply --backup-dir ~/leaflog-backups/character-framing-before
+```
+
+기본 실행은 조회만 한다. 적용 시 원본 PNG와 DB 값을 새 백업 폴더에 보관하고,
+새 파일명으로 이미지를 저장한 뒤 `file_url`, `object_key`, `checksum`을 함께 갱신한다.
+원본 파일은 지우지 않으며, 새 URL로 이미지 캐시를 갱신한다. 백업은 Git에 올리지 않는다.
+이미 정렬된 파일은 다시 처리하지 않는다. S3·외부 URL은 이 도구의 대상이 아니다.
+이전 표시 규격으로 축소된 이미지는 `--source-manifest <이전 백업 폴더>/manifest.json`을
+추가해야 한다. 현재 DB 값과 이전 기록이 일치할 때만 보관된 최초 원본과 원래 표정 좌표로
+다시 처리한다. 이미 축소된 PNG를 재확대하지 않는다.
+유효한 기존 체크섬이 파일과 다르면 건너뛴다. 체크섬이 없거나 과거 형식이 잘못된 경우에는
+현재 경로의 실제 원본 파일을 백업하고 해시를 기록한 뒤 처리한다. 얼굴 좌표 형식 오류는 건너뛴다.
+
 ## 문의 답변 (inquiry)
 
 앱 설정 → 도움말 → 문의하기로 들어온 내용은 `inquiry` 테이블에 쌓이고,
@@ -152,6 +203,19 @@ The first request can take longer because the segmentation model may be download
 1. `POST /api/character-generations`에 로그인 토큰과 식물 사진(`file`)을 전송한다.
 2. 응답의 `id`로 `GET /api/character-generations/{id}`를 2초 간격으로 조회한다.
 3. `status=completed`가 되면 `candidates`에 투명 배경 PNG 3개의 URL, 체크섬, seed가 담긴다.
+
+`progress`는 남은 시간 예측이 아닌 단계별 작업 진행률이다. 생성 요청마다 고유한
+`force_task_id`를 지정하고 Forge의 `/internal/progress`를 1초 간격으로 조회해
+샘플링 진행률을 반영한다. 미리보기 이미지는 요청하지 않는다. 조회 실패 시에도 생성은
+계속하며, 작업 ID를 구분하지 않는 전역 진행률로 대체하지 않는다.
+재시도 중 진행률은 후퇴하지 않고, 후보 3개 후처리와 Ollama 복귀가 끝나야 100%가 된다.
+정확한 진행률이 없는 전처리·모델 준비 구간에서는 앱의 처리 중 표시와 단계 안내를 유지한다.
+
+사진 누끼는 메모리 사용을 제한하기 위해 작업용 사본의 긴 변을 최대 1536px로 줄인 후 처리한다.
+JPEG는 축소 디코딩도 사용한다. 원본 파일과 최종 출력 크기는 바꾸지 않으며, 얼굴 좌표를
+다루는 생성 캐릭터에는 이 입력 축소를 적용하지 않는다.
+누끼 모델의 ONNX CPU 메모리 풀과 메모리 패턴 캐시는 사용하지 않고, CPU 연산 스레드는
+2개로 제한한다. 품질 모델과 경계 보정은 유지하면서 반복 추론의 메모리 점유를 줄인다.
 
 작업은 프로세스 내 단일 worker에서 직렬 처리한다. 각 작업은 원본 사진 전처리 후 서로 다른 seed로
 Forge img2img + ControlNet Canny를 3회 실행하고, 결과 배경을 제거한다. 학교 PC처럼 Ollama와

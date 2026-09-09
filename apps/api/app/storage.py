@@ -8,6 +8,7 @@ S3_BUCKET이 없는 개발 환경(학교 랩 PC 등)을 위해 로컬 디스크 
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -22,6 +23,47 @@ _client = None
 # app/static/uploads/ — main.py가 이 경로를 "/static/uploads"로 그대로 서빙한다.
 # uploads/는 루트 .gitignore에 이미 등록돼 있어 커밋되지 않는다.
 LOCAL_UPLOAD_DIR = Path(__file__).resolve().parent / "static" / "uploads"
+
+
+def generated_character_path(reference: str | None) -> str | None:
+    """Return a safe path in the generated-character namespace, without a host."""
+    parsed = urlparse(reference or "")
+    if parsed.scheme not in ("", "http", "https") or parsed.username or parsed.password:
+        return None
+    path = parsed.path
+    if not re.fullmatch(r"/generated/characters/(?:[A-Za-z0-9_-]+/)+[A-Za-z0-9_-]+\.png", path):
+        return None
+    return path
+
+
+def character_file_url(image_url: str, *server_base_urls: str) -> str:
+    """Store our generated files as paths; preserve S3 and external references."""
+    parsed = urlparse(image_url)
+    if not parsed.scheme and not parsed.netloc:
+        return generated_character_path(image_url) or image_url
+    if bucket_from_url(image_url) or parsed.username or parsed.password:
+        return image_url
+    for base_url in server_base_urls:
+        base = urlparse(base_url)
+        if base.scheme not in ("http", "https") or not base.netloc:
+            continue
+        if (parsed.scheme, parsed.netloc.lower()) != (base.scheme, base.netloc.lower()):
+            continue
+        prefix = base.path.rstrip("/")
+        if parsed.path.startswith(prefix + "/"):
+            path = generated_character_path(parsed.path[len(prefix):])
+            if path:
+                return path
+    return image_url
+
+
+def character_public_url(file_url: str | None, public_base_url: str) -> str | None:
+    """Resolve only stored local paths, never replace an external image host."""
+    parsed = urlparse(file_url or "")
+    if parsed.scheme or parsed.netloc:
+        return None
+    path = generated_character_path(file_url)
+    return public_base_url.rstrip("/") + path if path else None
 
 
 def _s3():
