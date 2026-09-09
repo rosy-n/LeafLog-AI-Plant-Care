@@ -35,7 +35,7 @@ class NativeFile {
   async bytes() { return photoBytes; }
 }
 
-function setup() {
+function setup({ offline = false } = {}) {
   class FormData { constructor() { this._parts = []; } }
   loadTs('node_modules/expo/src/winter/FormData.ts').installFormDataPatch(FormData);
   const { convertFormDataAsync } = loadTs(
@@ -46,6 +46,7 @@ function setup() {
   const globals = {
     FormData,
     async fetch(url, options) {
+      if (offline) throw new TypeError('Network request failed');
       const { body, boundary } = await convertFormDataAsync(options.body, 'test-boundary');
       calls.push({ url, options, body: Buffer.from(body), boundary });
       return { ok: true, json: async () => ({ results: [] }) };
@@ -119,4 +120,18 @@ test('PlantNet sends multiple photos with matching MIME types and organs', async
   assert.match(body, /filename="converted.jpg"\r\ncontent-type: image\/jpeg/);
   assert.match(body, /name="organs"\r\n\r\nleaf/);
   assert.match(body, /name="organs"\r\n\r\nflower/);
+});
+
+test('lost server connection does not incorrectly tell users to change their PC IP', async () => {
+  const { api } = setup({ offline: true });
+  for (const request of [
+    () => api.getCharacterGeneration('test-job'),
+    () => api.startCharacterGeneration({ uri: 'file:///photo.png' }),
+  ]) {
+    await assert.rejects(request(), (error) => {
+      assert.match(error.message, /서버 연결이 끊겼어요/);
+      assert.doesNotMatch(error.message, /PC IP/);
+      return true;
+    });
+  }
 });

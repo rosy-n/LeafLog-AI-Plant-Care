@@ -110,7 +110,10 @@ from .schemas import (
     WateringScheduleUpdate,
 )
 from .security import create_access_token, decode_access_token, hash_password, verify_password
-from .storage import LOCAL_UPLOAD_DIR, bucket_from_url, presigned_get_url, save_local_file, upload_bytes
+from .storage import (
+    LOCAL_UPLOAD_DIR, bucket_from_url, character_file_url, character_public_url,
+    presigned_get_url, save_local_file, upload_bytes,
+)
 
 app = FastAPI(title="LeafLog API", version="0.1.0")
 
@@ -189,6 +192,7 @@ def _object_key_from_url(url: str) -> str:
 def _latest_character_metadata(
     plant_id: int,
     db: Session,
+    request: Request,
 ) -> tuple[str | None, bool, tuple[int, int, int, int] | None]:
     """개체의 최신 캐릭터 URL과 얼굴 제거 좌표를 함께 반환한다."""
     row = db.execute(
@@ -206,7 +210,18 @@ def _latest_character_metadata(
         return None, False, None
     object_key, file_url, bucket_name, checksum = row
     bounds = _face_bounds_from_checksum(checksum)
-    return _asset_url(object_key, file_url, bucket_name), bounds is not None, bounds
+    return _character_asset_url(object_key, file_url, bucket_name, request), bounds is not None, bounds
+
+
+def _character_asset_url(
+    object_key: str | None, file_url: str | None, bucket_name: str | None, request: Request,
+) -> str | None:
+    if not bucket_name:
+        public_base_url = settings.character_public_base_url or str(request.base_url)
+        local_url = character_public_url(file_url, public_base_url)
+        if local_url:
+            return local_url
+    return _asset_url(object_key, file_url, bucket_name)
 
 
 def _asset_url(
@@ -1032,6 +1047,7 @@ def get_species(
 @app.post("/api/plants", response_model=PlantRead, status_code=status.HTTP_201_CREATED)
 def create_plant(
     payload: PlantCreate,
+    request: Request,
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PlantRead:
@@ -1092,12 +1108,15 @@ def create_plant(
             checksum=payload.photoChecksum or None,
         ))
     if payload.characterImageUrl:
+        stored_url = character_file_url(
+            payload.characterImageUrl, str(request.base_url), settings.character_public_base_url,
+        )
         db.add(MediaAsset(
             user_id=current_user.user_id,
             plant_id=plant.plant_id,
-            object_key=_object_key_from_url(payload.characterImageUrl),
-            file_url=payload.characterImageUrl,
-            bucket_name=bucket_from_url(payload.characterImageUrl),
+            object_key=_object_key_from_url(stored_url),
+            file_url=stored_url,
+            bucket_name=bucket_from_url(stored_url),
             asset_type="CHARACTER_IMAGE",
             checksum=payload.characterChecksum or None,
         ))
@@ -1133,6 +1152,7 @@ def create_plant(
 
 @app.get("/api/plants", response_model=list[PlantListItem])
 def list_plants(
+    request: Request,
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[PlantListItem]:
@@ -1166,7 +1186,7 @@ def list_plants(
         for pid, object_key, file_url, bucket_name, checksum in char_rows:
             if pid in char_map:
                 continue
-            char_map[pid] = _asset_url(object_key, file_url, bucket_name)
+            char_map[pid] = _character_asset_url(object_key, file_url, bucket_name, request)
             bounds = _face_bounds_from_checksum(checksum)
             char_face_removed_map[pid] = bounds is not None
             if bounds is not None:
@@ -1268,6 +1288,7 @@ def list_plants(
 @app.get("/api/plants/{plant_id}", response_model=PlantDetail)
 def get_plant(
     plant_id: int,
+    request: Request,
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PlantDetail:
@@ -1275,13 +1296,14 @@ def get_plant(
     if plant is None or plant.user_id != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="식물을 찾을 수 없습니다.")
 
-    return _to_plant_detail(plant, db)
+    return _to_plant_detail(plant, db, request)
 
 
 @app.patch("/api/plants/{plant_id}", response_model=PlantDetail)
 def update_plant(
     plant_id: int,
     payload: PlantUpdate,
+    request: Request,
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PlantDetail:
@@ -1348,14 +1370,15 @@ def update_plant(
 
     db.commit()
     db.refresh(plant)
-    return _to_plant_detail(plant, db)
+    return _to_plant_detail(plant, db, request)
 
 
-def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
+def _to_plant_detail(plant: Plant, db: Session, request: Request) -> PlantDetail:
     species = db.get(PlantSpecies, plant.species_id) if plant.species_id else None
     character_url, character_face_removed, character_face_bounds = _latest_character_metadata(
         plant.plant_id,
         db,
+        request,
     )
     return PlantDetail(
         id=plant.plant_id,

@@ -36,6 +36,8 @@ export default function AnalyzingScreen() {
   }, [previewUri]);
 
   useEffect(() => {
+    let active = true;
+    let navigationTimer: ReturnType<typeof setTimeout> | null = null;
     const interval = setInterval(() => {
       setSubtitleIdx(i => (i + 1) % SUBTITLES.length);
     }, 2500);
@@ -48,6 +50,7 @@ export default function AnalyzingScreen() {
     }).start();
 
     const navigateTo = (params: Record<string, string>) => {
+      if (!active) return;
       clearInterval(interval);
       progress.stopAnimation();
       Animated.timing(progress, {
@@ -55,7 +58,10 @@ export default function AnalyzingScreen() {
         duration: 300,
         useNativeDriver: false,
       }).start(() => {
-        setTimeout(() => router.replace({ pathname: '/add-plant/plant-results', params }), 400);
+        if (!active) return;
+        navigationTimer = setTimeout(() => {
+          if (active) router.replace({ pathname: '/add-plant/plant-results', params });
+        }, 400);
       });
     };
 
@@ -66,6 +72,7 @@ export default function AnalyzingScreen() {
         const results = await identifyPlant(uris, organList);
         navigateTo({ results: JSON.stringify(results), photoUris: photoUris ?? '[]' });
       } catch (e: any) {
+        if (!active) return;
         console.error('[PlantNet]', e?.message ?? e);
         navigateTo({
           results: JSON.stringify([]),
@@ -75,8 +82,13 @@ export default function AnalyzingScreen() {
       }
     })();
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      active = false;
+      clearInterval(interval);
+      if (navigationTimer) clearTimeout(navigationTimer);
+      progress.stopAnimation();
+    };
+  }, [photoUris, organs]);
 
   const progressWidth = progress.interpolate({
     inputRange: [0, 1],
