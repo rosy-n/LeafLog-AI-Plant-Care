@@ -1134,7 +1134,7 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                             </LiquidGlassButton>
 
                             <LiquidGlassButton
-                                size={68}
+                                size={54}
                                 highlighted={tutorial.currentTargetId === "plant-water"}
                                 onPress={() => {
                                     if (tutorial.active && tutorial.currentTargetId !== "plant-water") {
@@ -1145,7 +1145,7 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                             >
                                 <Image
                                     source={require("../../assets/icons/watering_icon.png")}
-                                    style={styles.buttonIconLarge}
+                                    style={styles.wateringButtonIcon}
                                     resizeMode="contain"
                                 />
                             </LiquidGlassButton>
@@ -1466,9 +1466,10 @@ const styles = StyleSheet.create({
         width: 30,
         height: 30,
     },
-    buttonIconLarge: {
-        width: 40,
-        height: 40,
+
+    wateringButtonIcon: {
+        width: 33,
+        height: 33,
     },
 
     leftButtons: {
