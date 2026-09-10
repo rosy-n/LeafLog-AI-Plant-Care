@@ -25,6 +25,7 @@ import {
 } from '../../src/api';
 import { useAddPlantFlow } from '../../src/AddPlantFlowContext';
 import { useTutorial } from '../../src/TutorialContext';
+import { ensureNotificationPermission } from '../../src/notifications';
 import PlantImage from '../../src/components/PlantImage';
 import {
   CHARACTER_EXPRESSIONS,
@@ -163,6 +164,9 @@ export default function CharacterScreen() {
     setScreenState('generating');
     setSelectedCandidateId(null);
     setCandidates([]);
+    // 이 화면이 직접 폴링을 시작하므로, 다른 화면을 보는 동안 대신 폴링하던
+    // AddPlantFlowProvider의 백그라운드 폴링은 넘겨받아 중단시킨다(중복 폴링 방지).
+    updateDraft({ generationBackgrounded: false });
 
     getCharacterGeneration(draft.generationJobId)
       .then((job) => pollGeneration(job, runId))
@@ -181,6 +185,7 @@ export default function CharacterScreen() {
     intentionalRetryRef.current = true;
     updateDraft({
       generationJobId: null,
+      generationBackgrounded: false,
       characterId: null,
       characterImageUrl: null,
       characterChecksum: '',
@@ -281,6 +286,21 @@ export default function CharacterScreen() {
     } finally {
       if (generationRunRef.current === runId) submittingRef.current = false;
     }
+  };
+
+  // "나중에 확인할게요" — 생성 대기 화면을 벗어나 홈으로 돌아가되, 진행 중인
+  // 작업(generationJobId)은 draft에 남겨 AddPlantFlowProvider가 대신 폴링하게 한다.
+  // 완료되면 로컬 알림이 뜨고, 눌러서 이 화면(CharacterResult)으로 바로 돌아온다.
+  const handleBackground = async () => {
+    updateDraft({ generationBackgrounded: true });
+    const granted = await ensureNotificationPermission();
+    if (!granted) {
+      Alert.alert(
+        '알림 권한 없음',
+        '완료 알림을 받을 수 없어요. 나중에 직접 이 화면으로 돌아와 확인해주세요.',
+      );
+    }
+    router.leaveToHome();
   };
 
   const handleNext = () => {
@@ -433,9 +453,18 @@ export default function CharacterScreen() {
             </Text>
           </View>
           {resumeGeneration && (
-            <Text style={styles.waitHint}>
-              입력한 식물 정보는 보관되어 있어요.{`\n`}완료될 때까지 이 화면을 유지해주세요.
-            </Text>
+            <>
+              <Text style={styles.waitHint}>
+                입력한 식물 정보는 보관되어 있어요.{`\n`}이 화면을 나가도 완료되면 알림으로 알려드려요.
+              </Text>
+              <TouchableOpacity
+                style={styles.backgroundBtn}
+                onPress={handleBackground}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.backgroundBtnText}>나중에 확인할게요</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
 

@@ -41,19 +41,25 @@ import {
     Provider가 이제 NavigationContainer 바깥(앱 최상위)에 있어 화면 unmount로는 더 이상
     자동 초기화되지 않기 때문에 필요하다.
 
-    단, 튜토리얼이 "홈 둘러보기"를 위해 일부러 AddPlant를 스택에서 빼낼 때도 구조적으로는
-    같은 이벤트라서, tutorial.active인 동안은 초기화를 건너뛴다 — 그래야 튜토리얼이
-    끝나고 돌아왔을 때 진행 중이던 생성 작업(generationJobId)이 남아있다.
+    단, 아래 두 경우엔 구조적으로 같은 "AddPlant가 스택에서 빠지는" 이벤트라도
+    초기화를 건너뛴다 — 둘 다 등록을 끝내거나 취소하는 게 아니라 잠시 다른 화면을
+    보러 나가는 것뿐이라, 돌아왔을 때 진행 중이던 생성 작업(generationJobId)이
+    남아있어야 한다.
+      - tutorial.active: 튜토리얼이 "홈 둘러보기"를 위해 일부러 빼낼 때
+      - draft.generationBackgrounded: 캐릭터 생성 대기 화면에서 "나중에 확인할게요"로
+        스스로 나갈 때 (character.tsx handleBackground)
 */
 function AddPlantScreenWrapper({ navigation }) {
-    const { resetDraft } = useAddPlantFlow();
+    const { draft, resetDraft } = useAddPlantFlow();
     const tutorial = useTutorial();
     const tutorialActiveRef = useRef(tutorial.active);
     tutorialActiveRef.current = tutorial.active;
+    const generationBackgroundedRef = useRef(draft.generationBackgrounded);
+    generationBackgroundedRef.current = draft.generationBackgrounded;
 
     useEffect(() => {
         return navigation.addListener("beforeRemove", () => {
-            if (!tutorialActiveRef.current) resetDraft();
+            if (!tutorialActiveRef.current && !generationBackgroundedRef.current) resetDraft();
         });
     }, [navigation, resetDraft]);
 
@@ -225,10 +231,21 @@ function MainAppContent({ user, onLogout }) {
         return () => sub.remove();
     }, []);
 
-    // 알림을 누르면 해당 개체 화면으로 이동
+    // 알림을 누르면 해당 개체 화면으로, 캐릭터 생성 완료 알림이면 등록 화면의
+    // 결과 단계(CharacterResult)로 이동 — 진행 중이던 작업(generationJobId)은
+    // AddPlantFlowProvider의 draft에 남아있으므로(AddPlantScreenWrapper 참고)
+    // 그 화면이 다시 마운트되면 완료된 job을 곧바로 불러와 후보 3개를 보여준다.
     useEffect(() => {
         const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-            const plantId = response.notification.request.content.data?.plantId;
+            const data = response.notification.request.content.data;
+            if (data?.kind === "CHARACTER_READY") {
+                navigationRef.current?.navigate("AddPlant", {
+                    screen: "CharacterResult",
+                    params: { resumeGeneration: "true" },
+                });
+                return;
+            }
+            const plantId = data?.plantId;
             if (!plantId) return;
             const target = plantsRef.current.find((p) => p.id === String(plantId));
             if (target) navigationRef.current?.navigate("PlantDetail", { plant: target });
