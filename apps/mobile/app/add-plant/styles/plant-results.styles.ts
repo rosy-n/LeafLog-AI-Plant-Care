@@ -29,8 +29,10 @@ export const styles = StyleSheet.create({
 
   // Result card
   card: {
-    backgroundColor: Colors.surfaceGray,
+    backgroundColor: Colors.white,
     borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
     overflow: 'hidden',
     marginBottom: Spacing.lg,
     marginHorizontal: Spacing.xl,

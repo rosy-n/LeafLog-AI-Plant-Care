@@ -13,6 +13,13 @@ const CHAR_HEIGHT = Math.round(CHAR_SIZE * (4 / 3));
 const CHAR_IMG_W = Math.round(width * 0.45);
 const CHAR_IMG_H = Math.min(Math.round(CHAR_IMG_W * (4 / 3)), Math.round(screenHeight * 0.3));
 
+// 나쁜 예 3장 한 줄: guideScreen 좌우 패딩 + 카드 사이 gap 2칸을 뺀 나머지를 3등분.
+// width:'100%' + aspectRatio만 쓰면 큰 원본 이미지가 들어왔을 때 Yoga가 이미지의
+// 실제 픽셀 크기로 폭을 잘못 계산해 레이아웃이 깨지는 경우가 있어 숫자로 고정한다.
+// 원본이 3x4 증명사진 비율(가로:세로 = 3:4)이라 정사각형이 아니라 그 비율대로 세로로 길게 잡는다.
+const BAD_EXAMPLE_W = Math.floor((width - Spacing.xl * 2 - Spacing.md * 2) / 3);
+const BAD_EXAMPLE_H = Math.round(BAD_EXAMPLE_W * (4 / 3));
+
 // 후보 카드 3장 한 줄: 좌우 gutter + 카드 사이 gap 을 뺀 나머지를 3등분
 const CARD_PADDING = Spacing.sm;
 const CARD_W = Math.floor((width - Spacing.xl * 2 - Spacing.md * 2) / 3);
@@ -100,20 +107,17 @@ export const styles = StyleSheet.create({
   },
 
   guideCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
     flexDirection: 'row',
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-  },
-  guideCardGood: {
-    borderLeftColor: Colors.primary,
   },
   // 원본 140×162 → 비율 보존하여 화분 잘림 방지 (110 × 162/140 ≈ 128)
+  // 액자처럼 보이도록 이미지 자체에 초록 테두리를 두른다 (카드 배경은 흰색이 아니라
+  // 화면 배경(Colors.background)을 그대로 노출)
   guideCardImage: {
     width: 110,
     height: 128,
+    borderRadius: Radius.lg,
+    borderWidth: 3,
+    borderColor: Colors.primary,
   },
   guideCardTextWrap: {
     flex: 1,
@@ -139,9 +143,11 @@ export const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   badExampleImg: {
-    width: '100%',
-    aspectRatio: 1,
+    width: BAD_EXAMPLE_W,
+    height: BAD_EXAMPLE_H,
     borderRadius: Radius.md,
+    borderWidth: 3,
+    borderColor: Colors.primary,
     backgroundColor: Colors.primaryLight,
   },
   badExampleLabel: {
@@ -222,7 +228,13 @@ export const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: Radius.xs,
   },
+  progressStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   progressLabel: {
+    flex: 1,
     fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.body,
     color: Colors.textGray,

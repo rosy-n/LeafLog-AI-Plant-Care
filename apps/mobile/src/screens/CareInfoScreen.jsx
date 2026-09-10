@@ -12,13 +12,11 @@ import {
     Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
 
 import { getPlant } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint, Pink, Warm, Accent, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Pink, Warm, Accent, Gauge } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 
 const CARE_SECTIONS = [
@@ -26,7 +24,7 @@ const CARE_SECTIONS = [
     { key: "watering", label: "물주기" },
     { key: "sunlight", label: "햇빛" },
     { key: "temperature", label: "온습도" },
-    { key: "fertilizer", label: "비료주기" },
+    { key: "fertilizer", label: "영양제" },
     { key: "soil", label: "토양&분갈이" },
     { key: "toxicity", label: "독성" },
     { key: "feature", label: "특성" },
@@ -58,6 +56,19 @@ function rangeStyle(min, max, axisMax) {
     // 상·하한이 같은 종은 폭이 0이라 아예 안 보이므로 최소 3% 만 확보
     const width = Math.max(((high - low) / axisMax) * 100, 3);
     return { left: `${Math.min(left, 100 - width)}%`, width: `${width}%` };
+}
+
+/*
+    축 위의 한 점이 놓일 left (%) — 겨울 최저 온도 표시선에 쓴다.
+
+    겨울 최저는 적정 온도와 같은 온도 축의 값이라 같은 막대에 얹는다.
+    자료(190종)를 보면 값이 5·7·10·13°C 네 가지뿐이고 모두 0~30°C 안에 들며,
+    항상 적정 최저보다 3°C 이상 낮아서 구간과 겹치지 않는다.
+*/
+function markerStyle(value, axisMax) {
+    if (value == null) return null;
+    const at = Math.max(0, Math.min(Number(value), axisMax));
+    return { left: `${(at / axisMax) * 100}%` };
 }
 
 // 광원 요구도 → 사람이 읽는 문장 (원문 라벨이 있으면 그걸 우선)
@@ -106,12 +117,81 @@ function describeLight(species) {
     return { ...step, caution };
 }
 
-// 독성 3상태 — null 은 자료 없음
-function toxicityMark(flag) {
-    if (flag === true) return { icon: "위험", color: Pink.soft };
-    if (flag === false) return { icon: "안전", color: GreenTint.soft };
-    return { icon: "미확인", color: Colors.separator };
+/*
+    영양제 요구도 → 사람이 읽는 문장.
+
+    농사로 원문(metadata.fertilizer_info)은 "요구도 + 주는 방법" 두 덩어리가
+    붙어 있고, 표기가 고르지 않다:
+      '비료를 보통 요구함'
+      '보통 요구함'                                  ← '비료를' 이 빠진 표기
+      '비료를 거의 요구하지않음 (2회/년, 4월, 7월)'
+      '비료를 보통 요구함(수용성비료 2주에 한번 줌)'
+    그대로 보여주면 문장이 중간에서 끊긴 것처럼 읽힌다. 요구도는 등급 표기로
+    줄이고, 주는 방법만 아래 줄에 남긴다 — 같은 카드의 온·습도("적정 온도 21~25°C")
+    처럼 값만 전달하는 어투로 맞춘다.
+
+    등급을 못 알아보는 원문(예: '꽃이 진 후 시비')은 손대지 않고 그대로 보여준다 —
+    농사로에는 자유 서술도 섞여 있어 억지로 등급에 끼우면 뜻이 바뀐다.
+
+    괄호 안 '수용성비료 · 완효성비료' 같은 말은 비료 제품 종류라서 그대로 둔다.
+*/
+const FERTILIZER_STEPS = [
+    { match: /(비료를\s*)?거의\s*요구하지\s*않음\.?/, title: "요구량 거의 없음" },
+    { match: /(비료를\s*)?많이\s*요구함\.?/,           title: "요구량 많음" },
+    { match: /(비료를\s*)?보통\s*요구함\.?/,           title: "요구량 보통" },
+];
+
+// 원문 → { title, detail }. 자료가 없으면 null
+function describeFertilizer(raw) {
+    const text = (raw ?? "").trim();
+    if (!text) return null;
+
+    const step = FERTILIZER_STEPS.find((item) => item.match.test(text));
+    if (!step) return { title: text, detail: null };
+
+    // 등급 표현을 떼고 남은 설명만 부가 정보로 — 앞쪽 구두점과 겉 괄호를 정리한다
+    const detail = text
+        .replace(step.match, "")
+        .replace(/^[\s.,·]+/, "")
+        .replace(/^\(([\s\S]*)\)$/, "$1")
+        .trim();
+
+    return { title: step.title, detail: detail || null };
 }
+
+/*
+    독성 3상태 — null 은 자료 없음.
+
+    아이콘이 상태를 직접 그린다(빨간 금지 / 초록 체크 / 회색 물음표).
+    글씨 색을 아이콘 테두리 색에 맞춰 둘이 다른 말을 하지 않게 한다.
+    독성은 잘못 읽으면 위험한 정보라 아이콘만 두지 않고 글씨도 함께 남긴다.
+*/
+const TOXICITY_STATES = {
+    toxic:   { key: "toxic",   label: "위험",   color: Colors.danger },
+    safe:    { key: "safe",    label: "안전",   color: Colors.nutrient },
+    unknown: { key: "unknown", label: "미확인", color: Colors.textFaint },
+};
+
+function toxicityState(flag) {
+    if (flag === true) return TOXICITY_STATES.toxic;
+    if (flag === false) return TOXICITY_STATES.safe;
+    return TOXICITY_STATES.unknown;
+}
+
+// 동물 × 상태 아이콘. Metro 는 require 경로를 정적으로 읽으므로 하나씩 적는다
+// (추가 시 src/data/assets.js 의 preload 목록에도 넣을 것).
+const TOXICITY_ICONS = {
+    dog: {
+        toxic:   require("../../assets/icons/dog_toxic_icon.png"),
+        safe:    require("../../assets/icons/dog_safe_icon.png"),
+        unknown: require("../../assets/icons/dog_unknown_icon.png"),
+    },
+    cat: {
+        toxic:   require("../../assets/icons/cat_toxic_icon.png"),
+        safe:    require("../../assets/icons/cat_safe_icon.png"),
+        unknown: require("../../assets/icons/cat_unknown_icon.png"),
+    },
+};
 
 // 콤마로 이어진 원문을 칩 목록으로
 function toChips(raw) {
@@ -122,12 +202,53 @@ function toChips(raw) {
         .filter(Boolean);
 }
 
-// 두는 곳 — 농사로 원문은 장소마다 실내깊이 설명이 붙어 한 줄에 최대 114자가 된다.
+// 권장 위치 — 농사로 원문은 장소마다 실내깊이 설명이 붙어 한 줄에 최대 114자가 된다.
 //   '실내 어두운 곳 (실내깊이 500 이상cm),거실 내측 (실내깊이 300~500cm),거실 창측 (…)'
 // 깊이 수치는 장소 이름과 사실상 1:1 대응이라 빼고 장소만 칩으로 보여준다.
 function toPlacementChips(raw) {
     if (!raw) return [];
     return toChips(raw.replace(/\([^)]*\)/g, ""));
+}
+
+/*
+    적정 구간 한 줄 —
+    이름과 값을 한 행에 나란히 두고, 그 아래 축(0~최대) 위에 구간을 얹는다.
+    수치를 막대 안에 넣지 않는 이유는 rangeStyle 주석 참고.
+    자료가 없는 항목도 같은 행 모양을 유지해서 온도·습도 줄이 어긋나지 않게 한다.
+*/
+function RangeRow({ label, value, range, fillStyle, ticks, marker, markerLabel }) {
+    return (
+        <View>
+            <View style={styles.rangeHeader}>
+                <Text style={styles.rangeName}>{label}</Text>
+                <Text style={styles.rangeValue}>{value}</Text>
+            </View>
+
+            {range ? (
+                <>
+                    <View style={styles.rangeBar}>
+                        <View style={[fillStyle, range]} />
+                        {marker ? <View style={[styles.rangeMarker, marker]} /> : null}
+                    </View>
+
+                    <View style={styles.rangeLabelRow}>
+                        {ticks.map((tick) => (
+                            <Text key={tick} style={styles.rangeLabel}>
+                                {tick}
+                            </Text>
+                        ))}
+                    </View>
+
+                    {marker && markerLabel ? (
+                        <View style={styles.markerLegend}>
+                            <View style={styles.markerSwatch} />
+                            <Text style={styles.markerLegendText}>{markerLabel}</Text>
+                        </View>
+                    ) : null}
+                </>
+            ) : null}
+        </View>
+    );
 }
 
 export default function CareInfoScreen({ navigation, route }) {
@@ -227,10 +348,13 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
         species?.humidity_max_pct,
         HUMIDITY_AXIS_MAX,
     );
+    // 겨울 최저는 적정 온도와 같은 축이라 온도 막대 위에 표시선으로 얹는다
+    const winterMarker = markerStyle(species?.temp_min_winter_c, TEMP_AXIS_MAX);
     const pests = toChips(species?.bug_info);
     const flowerColors = toChips(species?.flower_color_names);
     const placements = toPlacementChips(species?.placement);
     const light = species ? describeLight(species) : null;
+    const fertilizer = describeFertilizer(species?.fertilizer_info);
     // 접힘 상태에서 실제로 잘릴 때만 '더 보기' 를 붙인다.
     // 농사로 설명은 짧은 한 문장부터 1,000자 넘는 속 전체 소개까지 편차가 크다.
     const isLongDescription =
@@ -283,42 +407,17 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                             return (
                                 <TouchableOpacity
                                     key={item.key}
-                                    style={styles.tabButton}
+                                    style={[styles.tabChip, isActive && styles.tabChipActive]}
                                     activeOpacity={0.78}
                                     onPress={() => scrollToSection(item.key)}
                                     onLayout={(e) => saveTabPosition(item.key, e)}
                                 >
-                                    <BlurView
-                                        intensity={isActive ? 38 : 24}
-                                        tint="light"
-                                        style={[
-                                            styles.tabBlur,
-                                            {
-                                                borderColor: isActive
-                                                    ? Glass.leafSolid
-                                                    : Glass.frost72,
-                                            },
-                                        ]}
-                                    >
-                                        <LinearGradient
-                                            colors={
-                                                isActive
-                                                    ? [Glass.leafHi, Glass.leafMid, Glass.leafLow]
-                                                    : [Glass.frost72, Glass.mist, Glass.mistSoft]
-                                            }
-                                            start={{ x: 0.12, y: 0.05 }}
-                                            end={{ x: 0.9, y: 1 }}
-                                            style={styles.tabGradient}
-                                        >
-                                            <View style={styles.tabHighlight} />
-                                            <Text style={[
-                                                styles.tabText,
-                                                isActive && styles.activeTabText,
-                                            ]}>
-                                                {item.label}
-                                            </Text>
-                                        </LinearGradient>
-                                    </BlurView>
+                                    <Text style={[
+                                        styles.tabText,
+                                        isActive && styles.activeTabText,
+                                    ]}>
+                                        {item.label}
+                                    </Text>
                                 </TouchableOpacity>
                             );
                         })}
@@ -439,71 +538,67 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                     >
                         <Text style={styles.cardTitle}>적정 온·습도</Text>
 
-                        {tempRange ? (
-                            <View style={styles.rangeBlock}>
-                                <Text style={styles.rangeCaption}>
-                                    적정 온도 {Number(species.temp_min_c)}~
-                                    {Number(species.temp_max_c)}°C
+                        <View style={styles.rangeGroup}>
+                            <RangeRow
+                                label="온도"
+                                value={
+                                    tempRange
+                                        ? `${Number(species.temp_min_c)}~${Number(species.temp_max_c)}°C`
+                                        : NO_DATA
+                                }
+                                range={tempRange}
+                                fillStyle={styles.rangeFillPink}
+                                ticks={["0°C", "15°C", "30°C"]}
+                                marker={winterMarker}
+                                markerLabel={
+                                    species.temp_min_winter_c != null
+                                        ? `겨울 ${Number(species.temp_min_winter_c)}°C 이상`
+                                        : null
+                                }
+                            />
+
+                            <RangeRow
+                                label="습도"
+                                value={
+                                    humidityRange
+                                        ? `${Number(species.humidity_min_pct)}~${Number(species.humidity_max_pct)}%`
+                                        : NO_DATA
+                                }
+                                range={humidityRange}
+                                fillStyle={styles.rangeFillBlue}
+                                ticks={["0%", "50%", "100%"]}
+                            />
+                        </View>
+
+                        {/* 온도 막대가 없어 표시선을 얹을 곳이 없는 종만 글로 남긴다 */}
+                        {!tempRange && species.temp_min_winter_c != null ? (
+                            <View style={styles.rangeFootnote}>
+                                <Text style={styles.rangeFootnoteText}>
+                                    겨울 {Number(species.temp_min_winter_c)}°C 이상
                                 </Text>
-
-                                <View style={styles.rangeBar}>
-                                    <View style={[styles.rangeFillPink, tempRange]} />
-                                </View>
-
-                                <View style={styles.rangeLabelRow}>
-                                    <Text style={styles.rangeLabel}>0°C</Text>
-                                    <Text style={styles.rangeLabel}>15°C</Text>
-                                    <Text style={styles.rangeLabel}>30°C</Text>
-                                </View>
                             </View>
-                        ) : (
-                            <Text style={styles.mainInfo}>적정 온도: {NO_DATA}</Text>
-                        )}
-
-                        {humidityRange ? (
-                            <View style={styles.rangeBlock}>
-                                <Text style={styles.rangeCaption}>
-                                    적정 습도 {Number(species.humidity_min_pct)}~
-                                    {Number(species.humidity_max_pct)}%
-                                </Text>
-
-                                <View style={styles.rangeBar}>
-                                    <View style={[styles.rangeFillBlue, humidityRange]} />
-                                </View>
-
-                                <View style={styles.rangeLabelRow}>
-                                    <Text style={styles.rangeLabel}>0%</Text>
-                                    <Text style={styles.rangeLabel}>50%</Text>
-                                    <Text style={styles.rangeLabel}>100%</Text>
-                                </View>
-                            </View>
-                        ) : (
-                            <Text style={styles.mainInfo}>적정 습도: {NO_DATA}</Text>
-                        )}
-
-                        {species.temp_min_winter_c != null ? (
-                            <Text style={styles.mainInfo}>
-                                겨울 최저 {Number(species.temp_min_winter_c)}°C 이상 유지
-                            </Text>
                         ) : null}
                     </View>
 
-                    {/* 비료 주기 */}
+                    {/* 영양제 */}
                     <View
                         style={styles.card}
                         onLayout={(event) => saveSectionY("fertilizer", event)}
                     >
-                        <Text style={styles.cardTitle}>비료 주기</Text>
+                        <Text style={styles.cardTitle}>영양제</Text>
 
-                        {species.fertilizer_info ? (
+                        {fertilizer ? (
                             <View style={styles.infoRow}>
                                 <View style={styles.circleOrange}>
                                     <Text style={styles.sunEmoji}>🌱</Text>
                                 </View>
 
-                                <Text style={[styles.mainInfo, styles.flexText]}>
-                                    {species.fertilizer_info}
-                                </Text>
+                                <View style={[styles.textGroup, styles.flexText]}>
+                                    <Text style={styles.mainInfo}>{fertilizer.title}</Text>
+                                    {fertilizer.detail ? (
+                                        <Text style={styles.subInfo}>{fertilizer.detail}</Text>
+                                    ) : null}
+                                </View>
                             </View>
                         ) : (
                             <Text style={styles.mainInfo}>{NO_DATA}</Text>
@@ -535,7 +630,7 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
 
                         {placements.length > 0 ? (
                             <View style={styles.placementBlock}>
-                                <Text style={styles.subLabel}>두는 곳</Text>
+                                <Text style={styles.subLabel}>권장 위치</Text>
                                 <View style={styles.chipContainer}>
                                     {placements.map((place) => (
                                         <View key={place} style={styles.chip}>
@@ -554,46 +649,30 @@ function CareInfoView({ navigation, species, plantName, loading, error }) {
                     >
                         <Text style={styles.cardTitle}>독성</Text>
 
+                        {/*
+                            동물마다 한 줄 — 아이콘·이름은 왼쪽, 판정은 오른쪽.
+                            같은 화면의 적정 온·습도 줄(이름/값)과 같은 구성이다.
+
+                            사람 칸은 두지 않는다 — ASPCA 는 반려동물만 다루고,
+                            농사로 독성 텍스트도 사람 기준이 아니라 판정할 근거가 없다.
+                        */}
                         <View style={styles.toxicityRow}>
                             {[
-                                {
-                                    label: "인간",
-                                    icon: require("../../assets/icons/toxicity-human.png"),
-                                    // ASPCA 는 반려동물만 다루고 농사로 독성 텍스트는 사람 기준이 아니다.
-                                    // 사람 독성만 따로 판정할 근거가 없어 미확인으로 둔다.
-                                    flag: null,
-                                },
-                                {
-                                    label: "강아지",
-                                    icon: require("../../assets/icons/toxicity-dog.png"),
-                                    flag: species.toxic_to_dogs,
-                                },
-                                {
-                                    label: "고양이",
-                                    icon: require("../../assets/icons/toxicity-cat.png"),
-                                    flag: species.toxic_to_cats,
-                                },
-                            ].map(({ label, icon, flag }) => {
-                                const mark = toxicityMark(flag);
+                                { animal: "dog", label: "강아지", flag: species.toxic_to_dogs },
+                                { animal: "cat", label: "고양이", flag: species.toxic_to_cats },
+                            ].map(({ animal, label, flag }) => {
+                                const state = toxicityState(flag);
                                 return (
-                                    <View key={label} style={styles.toxicityItem}>
+                                    <View key={animal} style={styles.toxicityItem}>
                                         <Image
-                                            source={icon}
-                                            style={[
-                                                styles.toxicityImage,
-                                                flag !== true && styles.toxicityImageMuted,
-                                            ]}
+                                            source={TOXICITY_ICONS[animal][state.key]}
+                                            style={styles.toxicityImage}
                                             resizeMode="contain"
                                         />
                                         <Text style={styles.toxicityLabel}>{label}</Text>
-                                        <View
-                                            style={[
-                                                styles.toxicityBadge,
-                                                { backgroundColor: mark.color },
-                                            ]}
-                                        >
-                                            <Text style={styles.chipText}>{mark.icon}</Text>
-                                        </View>
+                                        <Text style={[styles.toxicityState, { color: state.color }]}>
+                                            {state.label}
+                                        </Text>
                                     </View>
                                 );
                             })}
@@ -697,64 +776,55 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.xl,
     },
 
+    /*
+        섹션 이동 탭 (스크롤 스파이) —
+        아래 카드들과 같은 어법으로 맞춘다: 흰 면 + 녹색 보더가 기본, 선택된 칸만
+        메인 초록으로 꽉 채운다(ActionButton 과 같은 강조 방식). 반투명 글래스는
+        연한 배경(#FAFFF0) 위에서 대비가 거의 없어 걷어냈다.
+
+        좌우 음수 여백으로 컨테이너 거터를 상쇄해 화면 끝까지 이어지게 한다 —
+        가로 스크롤이 여백에서 끊기면 목록이 거기서 끝난 것처럼 보인다.
+        아래 실선이 스크롤되는 본문과 이 줄을 갈라 준다.
+    */
     tabWrapper: {
-        height: 48,
-        marginTop: Spacing.sm,
+        marginHorizontal: -Spacing.xl,
+        borderBottomWidth: 1,
+        borderBottomColor: GreenTint.line,
     },
 
     tabContainer: {
         gap: Spacing.sm,
         alignItems: "center",
-        paddingRight: Spacing.sm,
+        // 거터는 안쪽으로 옮겨 첫·마지막 칸이 화면 끝에 붙지 않게
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.sm,
     },
 
-    tabButton: {
-        height: 32,
-        overflow: "hidden",
-        borderRadius: Radius.md,
-        shadowColor: GreenTint.deep,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.16,
-        shadowRadius: 4,
-        elevation: 4,
-    },
-
-    tabBlur: {
-        flex: 1,
-        overflow: "hidden",
-        borderWidth: 1,
-        borderRadius: Radius.md,
-    },
-
-    tabGradient: {
-        flex: 1,
+    tabChip: {
+        height: 34,
         paddingHorizontal: Spacing.md,
+        borderRadius: Radius.md,
+        borderWidth: 1.5,
+        borderColor: GreenTint.line,
+        backgroundColor: Colors.white,
         alignItems: "center",
         justifyContent: "center",
-        borderWidth: 0.8,
-        borderColor: Glass.frost45,
-        borderRadius: Radius.md,
     },
 
-    tabHighlight: {
-        position: "absolute",
-        top: 4,
-        left: 9,
-        width: "32%",
-        height: "36%",
-        borderRadius: Radius.pill,
-        backgroundColor: Glass.frost60,
+    tabChipActive: {
+        backgroundColor: Colors.primary,
+        borderColor: Colors.primary,
     },
 
     tabText: {
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
-        color: Colors.primary,
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
 
     activeTabText: {
-        color: Colors.primary,
+        color: Colors.white,
     },
 
     content: {
@@ -857,16 +927,40 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.screenTitle,
     },
 
-    rangeBlock: {
-        marginTop: Spacing.sm,
-        marginBottom: Spacing.xl,
+    // 온도·습도 두 줄 사이 간격만 여기서 — 마지막 줄에 죽은 여백이 남지 않게 gap 사용
+    rangeGroup: {
+        gap: Spacing.xl,
     },
 
+    rangeHeader: {
+        flexDirection: "row",
+        alignItems: "baseline",
+        justifyContent: "space-between",
+        marginBottom: Spacing.sm,
+    },
+
+    // 항목 이름은 값보다 한 단계 낮춰 — 읽는 순서가 값 → 이름이 되게
+    rangeName: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.strong,
+        includeFontPadding: false,
+    },
+
+    rangeValue: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.subtitle,
+        color: Colors.textBlack,
+        includeFontPadding: false,
+    },
+
+    // 축은 얇게 — 22px 짜리 굵은 막대는 구간 표시가 아니라 진행률처럼 읽힌다.
+    // 바탕도 separator(#F0F0F0)에서 녹색 틴트로 바꿔 흰 카드 위에서 축이 보이게 했다.
     rangeBar: {
         width: "100%",
-        height: 22,
-        borderRadius: Radius.lg,
-        backgroundColor: Colors.separator,
+        height: 10,
+        borderRadius: Radius.pill,
+        backgroundColor: GreenTint.wash,
         overflow: "hidden",
         position: "relative",
     },
@@ -874,42 +968,75 @@ const styles = StyleSheet.create({
     rangeFillPink: {
         position: "absolute",
         top: 0,
-        height: 22,
-        borderRadius: Radius.lg,
+        height: 10,
+        borderRadius: Radius.pill,
         backgroundColor: Pink.soft,
-        justifyContent: "center",
-        alignItems: "center",
     },
 
     rangeFillBlue: {
         position: "absolute",
         top: 0,
-        height: 22,
-        borderRadius: Radius.lg,
+        height: 10,
+        borderRadius: Radius.pill,
         backgroundColor: Accent.airBlue,
-        justifyContent: "center",
-        alignItems: "center",
     },
 
-    // 수치는 막대 안이 아니라 위에 적는다 (좁은 구간에서 글자가 삐져나오는 문제)
-    rangeCaption: {
+    // 겨울 최저 표시선 — 구간(분홍)과 헷갈리지 않게 앱의 '차가움' 색을 쓴다
+    rangeMarker: {
+        position: "absolute",
+        top: 0,
+        bottom: 0,
+        width: 2,
+        marginLeft: -1,
+        backgroundColor: Gauge.coolDeep,
+    },
+
+    markerLegend: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: Spacing.sm,
+        marginTop: Spacing.sm,
+    },
+
+    markerSwatch: {
+        width: 2,
+        height: 10,
+        backgroundColor: Gauge.coolDeep,
+    },
+
+    markerLegendText: {
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.body,
-        color: Colors.textBlack,
-        marginBottom: Spacing.sm,
+        fontSize: FontSizes.small,
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
 
     rangeLabelRow: {
         flexDirection: "row",
         justifyContent: "space-between",
-        marginTop: Spacing.sm,
+        marginTop: Spacing.xs,
     },
 
+    // 축 눈금은 값과 같은 무게로 두면 자료를 가린다 — 흐리게 깔아 둔다
     rangeLabel: {
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.small,
-        color: Colors.textBlack,
+        fontSize: FontSizes.caption,
+        color: Colors.textFaint,
+        includeFontPadding: false,
+    },
+
+    // 겨울 최저는 구간이 아니라 단서라서 선 아래 각주로 뺀다
+    rangeFootnote: {
+        marginTop: Spacing.xl,
+        paddingTop: Spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: GreenTint.line,
+    },
+
+    rangeFootnoteText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        color: GreenTint.strong,
         includeFontPadding: false,
     },
 
@@ -935,23 +1062,27 @@ const styles = StyleSheet.create({
         marginRight: Spacing.lg,
     },
 
+    // 동물 목록 — 줄 사이 간격만. 칼럼 배치(space-around)는 칸이 둘로 줄면
+    // 카드 양끝으로 벌어져 애매해진다.
     toxicityRow: {
-        flexDirection: "row",
-        justifyContent: "space-around",
-        alignItems: "center",
+        gap: Spacing.md,
     },
 
     toxicityItem: {
+        flexDirection: "row",
         alignItems: "center",
+        gap: Spacing.md,
     },
 
+    // 도트 아이콘이라 너무 작으면 테두리·배지가 뭉갠다
     toxicityImage: {
-        width: 56,
-        height: 56,
-        marginBottom: Spacing.sm,
+        width: 40,
+        height: 40,
     },
 
+    // flex:1 로 이름이 남은 폭을 먹어 판정 배지가 오른쪽 끝에 붙는다
     toxicityLabel: {
+        flex: 1,
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.body,
         color: Colors.textBlack,
@@ -1000,15 +1131,11 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
 
-    toxicityImageMuted: {
-        opacity: 0.35,
-    },
-
-    toxicityBadge: {
-        marginTop: Spacing.sm,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 2,
-        borderRadius: Radius.lg,
+    // 색은 상태에 따라 호출부에서 얹는다 (TOXICITY_STATES.color)
+    toxicityState: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.body,
+        includeFontPadding: false,
     },
 
     toxicityNote: {

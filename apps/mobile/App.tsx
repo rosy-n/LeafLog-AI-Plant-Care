@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as Location from "expo-location";
 import { useFonts } from "expo-font";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Fonts, FontSizes } from "./constants/fonts";
 import { Colors } from "./constants/colors";
 import { Spacing, Radius } from "./constants/spacing";
@@ -23,6 +24,8 @@ import {
 } from "react-native";
 import {
   checkEmail,
+  getCurrentEnvironment,
+  getMe,
   getUserSettings,
   login,
   setAuthToken,
@@ -30,10 +33,18 @@ import {
   updateUserLocation,
   type AuthResponse,
 } from "./src/api";
+import {
+  clearStoredToken,
+  loadStoredToken,
+  saveStoredToken,
+} from "./src/authStorage";
+import { saveEnvironmentCache } from "./src/environmentCache";
 import { cancelAllWateringReminders } from "./src/notifications";
+import { preloadBundledImages } from "./src/data/assets";
 import MainApp from "./App.js";
 import AppButton from "./src/components/AppButton";
 import BackButton from "./src/components/BackButton";
+import EnvironmentLoadingScreen from "./src/components/EnvironmentLoadingScreen";
 import PixelButton from "./src/components/PixelButton";
 
 /*
@@ -45,6 +56,11 @@ const MainAppScreen = MainApp as unknown as React.ComponentType<{
   user: AuthResponse["user"];
   onLogout: () => void;
 }>;
+
+// 날씨/대기질 조회 + 번들 이미지 preload가 이보다 빨리 끝나도 로딩 화면을
+// 이 시간만큼은 유지한다 — 최소 노출 시간을 보장해 로딩바가 뜨자마자
+// 사라지는 깜빡임을 막고, 두 작업이 이 화면 뒤에서 끝나도록 감춰준다
+const ENVIRONMENT_LOADING_MIN_MS = 3000;
 
 type Screen = "home" | "login" | "signup" | "nickname";
 type CheckStatus = "idle" | "checking" | "available" | "taken";
@@ -110,7 +126,9 @@ export default function App() {
   const scale = Math.min(width / 402, height / 874, 1);
   const appWidth = Math.min(width, 402);
 
-  // 랜딩/인증 화면에서도 커스텀 폰트가 필요 — MainApp 진입 전에 미리 로드
+  // 랜딩/인증 화면에서도 커스텀 폰트가 필요 — MainApp 진입 전에 미리 로드.
+  // Ionicons/MaterialCommunityIcons도 여기서 함께 올려서 MainApp(App.js)이
+  // 마운트될 때 다시 로딩 게이트를 거치지 않게 한다.
   const [fontsLoaded] = useFonts({
     [Fonts.neoDunggeunmo]: require("./assets/fonts/NeoDunggeunmoPro-Regular.ttf"),
     [Fonts.nanumSquareNeo.light]: require("./assets/fonts/NanumSquareNeo-aLt.ttf"),
@@ -118,6 +136,8 @@ export default function App() {
     [Fonts.nanumSquareNeo.bold]: require("./assets/fonts/NanumSquareNeo-cBd.ttf"),
     [Fonts.nanumSquareNeo.extraBold]: require("./assets/fonts/NanumSquareNeo-dEb.ttf"),
     [Fonts.nanumSquareNeo.heavy]: require("./assets/fonts/NanumSquareNeo-eHv.ttf"),
+    ...Ionicons.font,
+    ...MaterialCommunityIcons.font,
   });
 
   const [screen, setScreen] = useState<Screen>("home");
@@ -131,6 +151,13 @@ export default function App() {
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreeMarketing, setAgreeMarketing] = useState(false);
   const [auth, setAuth] = useState<AuthResponse | null>(null);
+  /*
+    자동 로그인 —
+    기기에 남겨둔 토큰이 아직 살아 있는지 확인하는 동안 true.
+    이 값이 true 인 사이에 랜딩을 그리면 이미 로그인한 사용자에게 로그인 화면이
+    한 번 번쩍이므로, 확인이 끝날 때까지 아무 화면도 확정하지 않는다.
+  */
+  const [restoringSession, setRestoringSession] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -140,6 +167,49 @@ export default function App() {
   const [locationStatus, setLocationStatus] = useState<
     "unknown" | "checking" | "needed" | "done"
   >("unknown");
+  const [environmentStatus, setEnvironmentStatus] = useState<"idle" | "loading" | "done">(
+    "idle"
+  );
+
+  /*
+    앱을 켤 때 저장된 토큰으로 로그인 상태를 되살린다.
+
+    토큰만 믿고 바로 들여보내지 않고 GET /auth/me 로 한 번 확인한다 —
+    만료(기본 7일)되거나 계정이 지워진 토큰이면 401 이 오고, 그때는 저장분을
+    지우고 랜딩으로 보낸다. 확인하지 않으면 본 앱에 들어간 뒤 모든 요청이
+    401 로 실패해서 원인을 알기 어려운 빈 화면이 된다.
+
+    서버가 꺼져 있는 등 네트워크 실패도 여기서는 로그인 실패로 처리한다 —
+    사용자 정보 없이는 본 앱을 그릴 수 없다.
+  */
+  useEffect(() => {
+    let cancelled = false;
+    const token = loadStoredToken();
+
+    if (!token) {
+      setRestoringSession(false);
+      return;
+    }
+
+    setAuthToken(token);
+    getMe()
+      .then((user) => {
+        if (cancelled) return;
+        setAuth({ access_token: token, token_type: "bearer", user });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAuthToken(null);
+        clearStoredToken();
+      })
+      .finally(() => {
+        if (!cancelled) setRestoringSession(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 로그인/회원가입 직후 위치가 이미 설정돼 있는지 한 번 확인한다 — 신규
   // 가입자뿐 아니라, 예전에 "나중에 설정할게요"를 눌러둔 기존 사용자도 다시
@@ -165,6 +235,56 @@ export default function App() {
       cancelled = true;
     };
   }, [auth]);
+
+  // 로그인 직후 딱 한 번 날씨/대기질을 미리 받아 캐시에 저장하고, 동시에 번들
+  // 이미지도 preload한다 — 위치가 설정된 뒤에 조회해야 하므로 locationStatus가
+  // "done"이 된 다음에 시작한다. 이후 홈 화면은 이 캐시를 바로 읽으므로 재방문
+  // 때는 로딩 화면이 다시 뜨지 않는다.
+  //
+  // 이미지 preload를 여기서 함께 기다리는 이유: MainApp(App.js)이 마운트된
+  // 뒤에 따로 preload하면 이 화면이 끝나고 나서 별도의 로딩 화면(초록 배경 +
+  // 스피너)이 한 번 더 잠깐 보인다. 두 작업을 이 화면 하나의 최소 노출 시간
+  // 안에 모두 끝내서 로딩 화면이 하나만 보이게 한다.
+  //
+  // environmentFetchStarted를 의존성 대신 ref로 두는 이유: environmentStatus를
+  // 의존성 배열에 넣으면 setEnvironmentStatus("loading") 자체가 effect를 재실행시키고,
+  // 그때 도는 cleanup이 방금 시작한 fetch의 cancelled를 true로 만들어버려서
+  // 응답이 와도 결과가 버려지고 화면이 로딩에서 멈춰버린다.
+  const environmentFetchStarted = useRef(false);
+  useEffect(() => {
+    if (!auth) {
+      environmentFetchStarted.current = false;
+      setEnvironmentStatus("idle");
+      return;
+    }
+    if (locationStatus !== "done" || environmentFetchStarted.current) return;
+    environmentFetchStarted.current = true;
+    let cancelled = false;
+    let doneTimer: ReturnType<typeof setTimeout>;
+    setEnvironmentStatus("loading");
+    const startedAt = Date.now();
+    Promise.all([
+      getCurrentEnvironment()
+        .then((result) => {
+          if (!cancelled) saveEnvironmentCache(result);
+        })
+        .catch(() => {
+          // 실패해도 홈 진입을 막지 않는다 — 홈 화면이 재조회를 다시 시도한다
+        }),
+      preloadBundledImages(),
+    ]).finally(() => {
+      // 두 작업이 최소 노출 시간보다 빨리 끝나도 로딩바가 뜨자마자 사라져
+      // 깜빡임처럼 보이므로, 최소 노출 시간을 채운 뒤에만 홈으로 넘어간다
+      const remaining = ENVIRONMENT_LOADING_MIN_MS - (Date.now() - startedAt);
+      doneTimer = setTimeout(() => {
+        if (!cancelled) setEnvironmentStatus("done");
+      }, Math.max(0, remaining));
+    });
+    return () => {
+      cancelled = true;
+      clearTimeout(doneTimer);
+    };
+  }, [auth, locationStatus]);
 
   const allRequiredAgreed = agreeTerms && agreePrivacy;
   const allAgreed = allRequiredAgreed && agreeMarketing;
@@ -233,6 +353,7 @@ export default function App() {
       console.warn("알림 취소 실패:", (error as Error)?.message);
     }
     setAuthToken(null);
+    clearStoredToken();
     setAuth(null);
     setLocationStatus("unknown");
     goHome();
@@ -293,6 +414,7 @@ export default function App() {
     try {
       const response = await login({ email, password: loginPassword });
       setAuthToken(response.access_token);
+      saveStoredToken(response.access_token);
       setAuth(response);
     } catch (error) {
       setFormErrors({
@@ -321,6 +443,7 @@ export default function App() {
         marketing_opt_in: agreeMarketing,
       });
       setAuthToken(response.access_token);
+      saveStoredToken(response.access_token);
       setAuth(response);
     } catch (error) {
       setFormErrors({
@@ -390,6 +513,22 @@ export default function App() {
     );
   }
 
+  // 저장된 토큰 확인이 끝나기 전에 랜딩을 그리면 로그인 화면이 한 번 번쩍인다
+  if (restoringSession) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: Colors.background,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
   if (auth) {
     if (locationStatus === "needed") {
       return (
@@ -415,6 +554,9 @@ export default function App() {
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       );
+    }
+    if (environmentStatus !== "done") {
+      return <EnvironmentLoadingScreen />;
     }
     return <MainAppScreen user={auth.user} onLogout={handleLogout} />;
   }

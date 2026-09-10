@@ -1,7 +1,18 @@
-import { StyleSheet } from 'react-native';
-import { Colors } from '../../../constants/colors';
+import { Dimensions, StyleSheet } from 'react-native';
+import { Colors, GreenTint } from '../../../constants/colors';
 import { Fonts, FontSizes } from '../../../constants/fonts';
 import { Spacing, Radius } from '../../../constants/spacing';
+
+const { width: screenWidth } = Dimensions.get('window');
+
+// 칩 그리드(위치·햇빛 2열, 화분 종류 3열) — 퍼센트 flexBasis는 RN에서 gap을 빼고
+// 계산하지 않아 줄바꿈이 어긋나므로, 컨테이너 폭 기준 픽셀 폭을 직접 계산한다
+// (character.styles.ts / persona.styles.ts와 동일 패턴)
+const CHIP_GRID_CONTAINER_WIDTH = screenWidth - Spacing.xl * 2;
+const chipGridItemWidth = (columns: number) =>
+  Math.floor((CHIP_GRID_CONTAINER_WIDTH - Spacing.sm * (columns - 1)) / columns);
+const CHIP_GRID_ITEM_WIDTH_2 = chipGridItemWidth(2);
+const CHIP_GRID_ITEM_WIDTH_3 = chipGridItemWidth(3);
 
 export const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -19,7 +30,9 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.lg,
     marginBottom: Spacing.section,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.primaryLight,
+    borderWidth: 1,
+    borderColor: GreenTint.line,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
   },
@@ -27,7 +40,7 @@ export const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: Radius.md,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: Colors.white,
   },
   plantHeaderName: {
     fontFamily: Fonts.neoDunggeunmo,
@@ -51,33 +64,48 @@ export const styles = StyleSheet.create({
   },
   requiredMark: { color: Colors.primary },
 
-  // Chip group
-  chipGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  chip: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.pill,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    backgroundColor: Colors.white,
-    alignItems: 'center',
-  },
+  // Chip (선택 버튼 공용 색상 · 폰트 토큰 — 크기는 그리드별 스타일이 덧씌운다)
   chipActive: {
     borderColor: Colors.primary,
     backgroundColor: Colors.primary,
   },
   chipLabel: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: FontSizes.body,
+    fontSize: FontSizes.bodyLarge,
     color: Colors.textGray,
   },
   chipLabelActive: { color: Colors.white },
   chipSub: {
-    fontSize: FontSizes.caption,
+    fontSize: FontSizes.body,
     color: Colors.textGray,
     marginTop: Spacing.xxs,
   },
   chipSubActive: { color: Colors.white },
+
+  // 칩 그리드 컨테이너 (위치 · 햇빛 · 화분 종류 공용) — 열 개수는 아이템 폭으로 결정
+  chipGridGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  // 2열 (위치 · 햇빛)
+  chipGrid2: {
+    width: CHIP_GRID_ITEM_WIDTH_2,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+  },
+  // 3열 (화분 종류)
+  chipGrid3: {
+    width: CHIP_GRID_ITEM_WIDTH_3,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+  },
 
   // Stepper
   stepper: {

@@ -5,6 +5,7 @@ from urllib.parse import unquote, urlparse
 from uuid import uuid4
 from pydantic import BaseModel, Field
 
+import requests
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
@@ -24,6 +25,7 @@ from .image_types import (
     QualityMode,
 )
 from .korea_time import korea_day, today_in_korea
+from .wikimedia import fetch_species_images
 from .models import (
     AppUser,
     CareRecord,
@@ -31,12 +33,15 @@ from .models import (
     ChatMessage,
     ChatSession,
     CharacterJob,
+    GrowthDiary,
+    GrowthDiaryPhoto,
     Inquiry,
     Item,
     MediaAsset,
     Plant,
     PlantDecoration,
     PlantSpecies,
+    PlantSpeciesImage,
     SpeciesSourceLink,
     UserSetting,
     WeatherLog,
@@ -59,6 +64,10 @@ from .schemas import (
     CurrentEnvironmentResponse,
     DiagnosisResponse,
     DiagnosisSimilarCase,
+    DiaryPhotoRead,
+    DiaryPhotoUploaded,
+    DiaryRead,
+    DiaryUpsert,
     EnvironmentHistoryResponse,
     InquiryAnswer,
     InquiryCreate,
@@ -92,7 +101,10 @@ from .schemas import (
     WateringScheduleUpdate,
 )
 from .security import create_access_token, decode_access_token, hash_password, verify_password
-from .storage import LOCAL_UPLOAD_DIR, bucket_from_url, presigned_get_url, save_local_file, upload_bytes
+from .storage import (
+    LOCAL_UPLOAD_DIR, bucket_from_url, character_file_url, character_public_url,
+    presigned_get_url, save_local_file, upload_bytes,
+)
 
 app = FastAPI(title="LeafLog API", version="0.1.0")
 
@@ -156,7 +168,7 @@ if settings.app_role == "standalone":
     app.mount("/static/uploads", StaticFiles(directory=LOCAL_UPLOAD_DIR), name="local-uploads")
 
 # plant CHECK 제약과 일치 — 허용되지 않는 값은 저장 시 NULL 처리해 제약 위반 방지
-LOCATION_NAMES = {"LIVING_ROOM", "BEDROOM", "BALCONY", "KITCHEN", "OFFICE"}
+LOCATION_NAMES = {"LIVING_ROOM", "BEDROOM", "BALCONY", "KITCHEN", "OFFICE", "BATHROOM"}
 LIGHT_CONDITIONS = {"DIRECT", "BRIGHT", "INDIRECT", "LOW"}
 CARE_TYPES = {"WATERING", "FERTILIZING", "REPOTTING"}
 
@@ -199,6 +211,7 @@ def _object_key_from_url(url: str) -> str:
 def _latest_character_metadata(
     plant_id: int,
     db: Session,
+    request: Request,
 ) -> tuple[str | None, bool, tuple[int, int, int, int] | None]:
     """개체의 최신 캐릭터 URL과 얼굴 제거 좌표를 함께 반환한다."""
     row = db.execute(
@@ -216,7 +229,18 @@ def _latest_character_metadata(
         return None, False, None
     object_key, file_url, bucket_name, checksum = row
     bounds = _face_bounds_from_checksum(checksum)
-    return _asset_url(object_key, file_url, bucket_name), bounds is not None, bounds
+    return _character_asset_url(object_key, file_url, bucket_name, request), bounds is not None, bounds
+
+
+def _character_asset_url(
+    object_key: str | None, file_url: str | None, bucket_name: str | None, request: Request,
+) -> str | None:
+    if not bucket_name:
+        public_base_url = settings.character_public_base_url or str(request.base_url)
+        local_url = character_public_url(file_url, public_base_url)
+        if local_url:
+            return local_url
+    return _asset_url(object_key, file_url, bucket_name)
 
 
 def _asset_url(
@@ -711,6 +735,9 @@ async def create_character_generation(
     current_user: AppUser = Depends(get_current_user),
     idempotency_key: str | None = Header(default=None),
 ) -> CharacterGenerationJobRead:
+    if not settings.character_generation_enabled:
+        from .character_jobs import GENERATION_PAUSED_MESSAGE
+        raise HTTPException(503, GENERATION_PAUSED_MESSAGE)
     image_bytes = await _read_image_upload(file)
     if settings.app_role == "api":
         job = await run_in_threadpool(
@@ -724,6 +751,15 @@ async def create_character_generation(
         public_base_url=public_base_url,
     )
     return _character_job_response(job)
+
+
+@app.get("/api/character-generations/availability")
+def character_generation_availability(current_user: AppUser = Depends(get_current_user)):
+    from .character_jobs import GENERATION_PAUSED_MESSAGE
+    return {
+        "enabled": settings.character_generation_enabled,
+        "message": None if settings.character_generation_enabled else GENERATION_PAUSED_MESSAGE,
+    }
 
 
 @app.get("/api/character-generations/active", response_model=CharacterGenerationJobRead | None)
@@ -838,9 +874,53 @@ def search_species(
     return [SpeciesListItem.model_validate(row) for row in rows]
 
 
+def _ensure_species_images(species: PlantSpecies, db: Session) -> list[PlantSpeciesImage]:
+    """이 종의 사진이 하나도 없으면(등록 화면에서 처음 조회하는 경우) Wikimedia에서
+    가져와 plant_species_image에 저장한다. 이미 있으면 그대로 반환.
+
+    "조회했지만 못 찾음" 상태는 따로 표시하지 않는다 — 실제로 등록 시도되는 관엽식물은
+    대부분 사진이 있어(관측상 90%대) 사진 없는 드문 종을 다시 볼 때 재시도되는 비용이 작다.
+    """
+    existing = list(
+        db.scalars(
+            select(PlantSpeciesImage)
+            .where(PlantSpeciesImage.species_id == species.species_id)
+            .order_by(PlantSpeciesImage.sort_order)
+        )
+    )
+    if existing or not species.scientific_name_norm:
+        return existing
+
+    try:
+        images = fetch_species_images(species.scientific_name_norm)
+    except requests.RequestException as exc:
+        print(f"Wikimedia 조회 실패 (species_id={species.species_id}): {exc}")
+        return []
+
+    rows = [
+        PlantSpeciesImage(
+            species_id=species.species_id,
+            image_url=img["url"],
+            sort_order=i,
+            artist=img.get("artist"),
+            license=img.get("license"),
+            source_page=img.get("source_page"),
+        )
+        for i, img in enumerate(images)
+    ]
+    if rows:
+        db.add_all(rows)
+        # 검색 드롭다운 썸네일 등 1장만 쓰는 화면용 대표 이미지
+        species.image_url = rows[0].image_url
+        db.commit()
+    return rows
+
+
 def _to_species_detail(species: PlantSpecies, db: Session) -> SpeciesDetail:
     """plant_species 한 행 → SpeciesDetail. 종 상세와 개체 상세가 같이 쓴다."""
+    images = _ensure_species_images(species, db)
     detail = SpeciesDetail.model_validate(species)
+    detail.image_urls = [img.image_url for img in images]
 
     # 카드별 원문은 metadata 에 들어 있다 (merge 의 from_rda 참고)
     extra = species.extra_metadata or {}
@@ -886,6 +966,7 @@ def get_species(
 @app.post("/api/plants", response_model=PlantRead, status_code=status.HTTP_201_CREATED)
 def create_plant(
     payload: PlantCreate,
+    request: Request,
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PlantRead:
@@ -986,12 +1067,15 @@ def create_plant(
             checksum=payload.photoChecksum or None,
         ))
     if generation is None and payload.characterImageUrl:
+        stored_url = character_file_url(
+            payload.characterImageUrl, str(request.base_url), settings.character_public_base_url,
+        )
         db.add(MediaAsset(
             user_id=current_user.user_id,
             plant_id=plant.plant_id,
-            object_key=_object_key_from_url(payload.characterImageUrl),
-            file_url=payload.characterImageUrl,
-            bucket_name=bucket_from_url(payload.characterImageUrl),
+            object_key=_object_key_from_url(stored_url),
+            file_url=stored_url,
+            bucket_name=bucket_from_url(stored_url),
             asset_type="CHARACTER_IMAGE",
             checksum=payload.characterChecksum or None,
         ))
@@ -1027,6 +1111,7 @@ def create_plant(
 
 @app.get("/api/plants", response_model=list[PlantListItem])
 def list_plants(
+    request: Request,
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[PlantListItem]:
@@ -1060,7 +1145,7 @@ def list_plants(
         for pid, object_key, file_url, bucket_name, checksum in char_rows:
             if pid in char_map:
                 continue
-            char_map[pid] = _asset_url(object_key, file_url, bucket_name)
+            char_map[pid] = _character_asset_url(object_key, file_url, bucket_name, request)
             bounds = _face_bounds_from_checksum(checksum)
             char_face_removed_map[pid] = bounds is not None
             if bounds is not None:
@@ -1162,6 +1247,7 @@ def list_plants(
 @app.get("/api/plants/{plant_id}", response_model=PlantDetail)
 def get_plant(
     plant_id: int,
+    request: Request,
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PlantDetail:
@@ -1169,13 +1255,14 @@ def get_plant(
     if plant is None or plant.user_id != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="식물을 찾을 수 없습니다.")
 
-    return _to_plant_detail(plant, db)
+    return _to_plant_detail(plant, db, request)
 
 
 @app.patch("/api/plants/{plant_id}", response_model=PlantDetail)
 def update_plant(
     plant_id: int,
     payload: PlantUpdate,
+    request: Request,
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PlantDetail:
@@ -1242,14 +1329,15 @@ def update_plant(
 
     db.commit()
     db.refresh(plant)
-    return _to_plant_detail(plant, db)
+    return _to_plant_detail(plant, db, request)
 
 
-def _to_plant_detail(plant: Plant, db: Session) -> PlantDetail:
+def _to_plant_detail(plant: Plant, db: Session, request: Request) -> PlantDetail:
     species = db.get(PlantSpecies, plant.species_id) if plant.species_id else None
     character_url, character_face_removed, character_face_bounds = _latest_character_metadata(
         plant.plant_id,
         db,
+        request,
     )
     return PlantDetail(
         id=plant.plant_id,
@@ -1805,6 +1893,212 @@ def delete_care_record(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="기록을 찾을 수 없습니다.")
     db.delete(record)
     db.commit()
+
+
+# ── 성장 일지 (growth_diary) ─────────────────────────────────────────────────
+# 하루 한 건(UNIQUE user_id, diary_date)이라 개별 id 대신 날짜로 주소를 잡는다 —
+# 앱의 캘린더 키('YYYY-MM-DD')가 그대로 경로가 된다.
+
+
+def _diary_photos(diary_id: int, db: Session) -> list[DiaryPhotoRead]:
+    """일지 사진을 슬롯 순서대로 — URL 은 media_asset 에서 presign 해 만든다."""
+    rows = db.execute(
+        select(
+            GrowthDiaryPhoto.asset_id,
+            GrowthDiaryPhoto.photo_order,
+            GrowthDiaryPhoto.tagged_plant_id,
+            MediaAsset.object_key,
+            MediaAsset.file_url,
+            MediaAsset.bucket_name,
+        )
+        .join(MediaAsset, MediaAsset.asset_id == GrowthDiaryPhoto.asset_id)
+        .where(GrowthDiaryPhoto.diary_id == diary_id)
+        .order_by(GrowthDiaryPhoto.photo_order)
+    ).all()
+    return [
+        DiaryPhotoRead(
+            asset_id=asset_id,
+            photo_order=photo_order,
+            tagged_plant_id=tagged_plant_id,
+            url=_asset_url(object_key, file_url, bucket_name),
+        )
+        for asset_id, photo_order, tagged_plant_id, object_key, file_url, bucket_name in rows
+    ]
+
+
+def _to_diary_read(diary: GrowthDiary, db: Session) -> DiaryRead:
+    return DiaryRead(
+        diary_date=diary.diary_date.isoformat(),
+        content=diary.content,
+        photos=_diary_photos(diary.diary_id, db),
+        updated_at=diary.updated_at.isoformat() if diary.updated_at else None,
+    )
+
+
+def _owned_diary_asset_or_400(asset_id: int, current_user: AppUser, db: Session) -> MediaAsset:
+    """일지에 꽂을 수 있는 사진인지 — 내가 올린 GROWTH_DIARY_PHOTO 만 허용한다.
+
+    남의 asset_id 를 실어 보내 사진을 훔쳐보는 걸 막는 자리다.
+    """
+    asset = db.get(MediaAsset, asset_id)
+    if (
+        asset is None
+        or asset.user_id != current_user.user_id
+        or asset.asset_type != "GROWTH_DIARY_PHOTO"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="일지에 붙일 수 없는 사진이에요."
+        )
+    return asset
+
+
+@app.post("/api/diary/photos", response_model=DiaryPhotoUploaded, status_code=status.HTTP_201_CREATED)
+async def upload_diary_photo(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DiaryPhotoUploaded:
+    """일지 사진 한 장 업로드 → media_asset 생성.
+
+    앱은 갤러리에서 고른 로컬 파일만 들고 있어서 진단 사진과 같은 방식(백엔드가
+    바이트를 받아 S3 에 올린다)을 쓴다. 여기서 받은 asset_id 를 PUT /api/diary 에
+    실어 보내면 일지에 붙는다.
+
+    이 라우트는 반드시 /api/diary/{diary_date} 보다 위에 있어야 한다 —
+    아래 있으면 "photos"가 날짜로 파싱되며 422 가 난다.
+    """
+    image_bytes = await _read_image_upload(file)
+
+    content_type = file.content_type or "image/jpeg"
+    extension = DIAGNOSIS_PHOTO_EXTENSIONS.get(content_type.lower(), "jpg")
+    object_key = f"diary/{current_user.user_id}/{uuid4().hex}.{extension}"
+
+    file_url = upload_bytes(image_bytes, object_key, content_type)
+    bucket_name = settings.s3_bucket or None
+    if file_url is None:
+        # S3 미설정 개발 환경 폴백 — request.base_url 로 만들어야 휴대폰에서도 열린다
+        local_path = save_local_file(image_bytes, object_key)
+        if local_path is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="사진을 저장하지 못했어요. 잠시 후 다시 시도해주세요.",
+            )
+        file_url = str(request.base_url).rstrip("/") + local_path
+        bucket_name = None
+
+    asset = MediaAsset(
+        user_id=current_user.user_id,
+        bucket_name=bucket_name,
+        object_key=object_key,
+        file_url=file_url,
+        asset_type="GROWTH_DIARY_PHOTO",
+        mime_type=content_type,
+        file_size=len(image_bytes),
+        checksum=hashlib.sha256(image_bytes).hexdigest(),
+    )
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+
+    return DiaryPhotoUploaded(
+        asset_id=asset.asset_id,
+        url=_asset_url(asset.object_key, asset.file_url, asset.bucket_name) or asset.file_url,
+    )
+
+
+@app.get("/api/diary", response_model=list[DiaryRead])
+def list_diaries(
+    year: int = Query(ge=1970, le=2200),
+    month: int = Query(ge=1, le=12),
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[DiaryRead]:
+    """한 달치 일지 — 캘린더가 어느 날에 일지가 있는지 표시하고, 날짜를 눌렀을 때
+    다시 요청하지 않고 바로 펼 수 있게 본문까지 함께 보낸다 (하루 1건이라 최대 31건)."""
+    month_start = date(year, month, 1)
+    month_end = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+
+    diaries = db.scalars(
+        select(GrowthDiary)
+        .where(
+            GrowthDiary.user_id == current_user.user_id,
+            GrowthDiary.diary_date >= month_start,
+            GrowthDiary.diary_date < month_end,
+        )
+        .order_by(GrowthDiary.diary_date)
+    ).all()
+    return [_to_diary_read(diary, db) for diary in diaries]
+
+
+@app.get("/api/diary/{diary_date}", response_model=DiaryRead)
+def get_diary(
+    diary_date: date,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DiaryRead:
+    diary = db.scalar(
+        select(GrowthDiary).where(
+            GrowthDiary.user_id == current_user.user_id,
+            GrowthDiary.diary_date == diary_date,
+        )
+    )
+    if diary is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="그날 일지가 없어요.")
+    return _to_diary_read(diary, db)
+
+
+@app.put("/api/diary/{diary_date}", response_model=DiaryRead)
+def upsert_diary(
+    diary_date: date,
+    payload: DiaryUpsert,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DiaryRead:
+    """그날 일지를 저장한다 — 없으면 만들고, 있으면 본문과 사진 목록을 갈아 끼운다.
+
+    photos 는 "저장 후 남아야 할 전체 목록"이다. 기존 연결을 지우고 다시 넣는 방식이라
+    슬롯이 빠지면 그 사진은 일지에서 떨어진다(media_asset 자체는 지우지 않는다 —
+    떨어진 파일 정리는 별도 과제).
+    """
+    for photo in payload.photos:
+        _owned_diary_asset_or_400(photo.asset_id, current_user, db)
+        # 남의 개체를 라벨로 붙이지 못하게 — 없는 개체면 404
+        if photo.tagged_plant_id is not None:
+            _owned_plant_or_404(photo.tagged_plant_id, current_user, db)
+
+    diary = db.scalar(
+        select(GrowthDiary).where(
+            GrowthDiary.user_id == current_user.user_id,
+            GrowthDiary.diary_date == diary_date,
+        )
+    )
+    if diary is None:
+        diary = GrowthDiary(
+            user_id=current_user.user_id,
+            diary_date=diary_date,
+            content=payload.content,
+        )
+        db.add(diary)
+        db.flush()
+    else:
+        diary.content = payload.content
+        db.execute(
+            delete(GrowthDiaryPhoto).where(GrowthDiaryPhoto.diary_id == diary.diary_id)
+        )
+        db.flush()
+
+    for photo in payload.photos:
+        db.add(GrowthDiaryPhoto(
+            diary_id=diary.diary_id,
+            asset_id=photo.asset_id,
+            tagged_plant_id=photo.tagged_plant_id,
+            photo_order=photo.photo_order,
+        ))
+
+    db.commit()
+    db.refresh(diary)
+    return _to_diary_read(diary, db)
 
 
 @app.get("/api/personas", response_model=list[PersonaOption])
