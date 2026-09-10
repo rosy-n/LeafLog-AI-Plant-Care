@@ -24,12 +24,12 @@ const Stack = createNativeStackNavigator();
 
 const TOTAL = 5;
 const STEP_MAP = {
-  AddPlantIndex:       1,
-  OrganSelect:         1,
-  Analyzing:           1,
-  PlantResults:        1,
-  AddPlantPlantDetail: 1,
-  Character:           2,
+  Character:           1,
+  AddPlantIndex:       2,
+  OrganSelect:         2,
+  Analyzing:           2,
+  PlantResults:        2,
+  AddPlantPlantDetail: 2,
   Info:                3,
   CharacterResult:     4,
   Name:                5,
@@ -61,7 +61,7 @@ export default function AddPlantNavigator() {
   return (
     <AddPlantFlowProvider>
       <Stack.Navigator
-        initialRouteName="AddPlantIndex"
+        initialRouteName="Character"
         /*
           gestureEnabled: 좌→우 스와이프로 되돌아가는 제스처(iOS)를 끈다.
           단계가 정해진 등록 흐름이라 뒤로가기는 헤더 버튼으로만 받는다
@@ -73,12 +73,12 @@ export default function AddPlantNavigator() {
           gestureEnabled: false,
         }}
       >
+        <Stack.Screen name="Character"           component={CharacterScreen} />
         <Stack.Screen name="AddPlantIndex"       component={AddPlantIndexScreen} />
         <Stack.Screen name="OrganSelect"         component={OrganSelectScreen} />
         <Stack.Screen name="Analyzing"           component={AnalyzingScreen} />
         <Stack.Screen name="PlantResults"        component={PlantResultsScreen} />
         <Stack.Screen name="AddPlantPlantDetail" component={AddPlantPlantDetail} />
-        <Stack.Screen name="Character"           component={CharacterScreen} />
         <Stack.Screen name="Info"                component={InfoScreen} />
         <Stack.Screen name="CharacterResult"     component={CharacterScreen} />
         <Stack.Screen name="Name"                component={NameScreen} />

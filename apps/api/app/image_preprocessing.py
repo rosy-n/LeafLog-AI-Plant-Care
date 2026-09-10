@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import gc
+import logging
 import os
 from dataclasses import dataclass
 from functools import lru_cache
@@ -17,6 +18,8 @@ from .image_types import ImagePreprocessingError, ImagePreprocessingUnavailable,
 
 FAST_BACKGROUND_REMOVAL_MODEL = "isnet-general-use"
 QUALITY_BACKGROUND_REMOVAL_MODEL = "birefnet-general"
+MAX_BACKGROUND_REMOVAL_INPUT_SIZE = 1536
+logger = logging.getLogger("uvicorn.error")
 
 
 @dataclass(frozen=True)
@@ -43,13 +46,23 @@ class CharacterFaceRemovalResult:
 @lru_cache(maxsize=2)
 def _background_removal_session(model_name: str) -> Any:
     try:
-        from rembg import new_session
+        import onnxruntime as ort
+        from rembg.sessions import sessions_class
     except ImportError as exc:
         raise ImagePreprocessingUnavailable(
             "Image preprocessing dependencies are not installed. Run `pip install -r requirements.txt`."
         ) from exc
 
-    return new_session(model_name)
+    session_class = next((candidate for candidate in sessions_class if candidate.name() == model_name), None)
+    if session_class is None:
+        raise ImagePreprocessingError("Unsupported background removal model.")
+    # Avoid retaining large CPU allocation arenas across the two quality passes.
+    options = ort.SessionOptions()
+    options.enable_cpu_mem_arena = False
+    options.enable_mem_pattern = False
+    options.intra_op_num_threads = 2
+    options.inter_op_num_threads = 1
+    return session_class(model_name, options)
 
 
 def release_background_removal_sessions() -> None:
@@ -118,17 +131,27 @@ def _remove_background_to_square(
     if not image_bytes:
         raise ImagePreprocessingError("Image file is empty.")
 
-    source = _load_image(image_bytes)
+    if canvas_size < 512 or canvas_size > 1536:
+        raise ImagePreprocessingError("Canvas size must be between 512 and 1536 pixels.")
+    source = _load_image(image_bytes, max_size=MAX_BACKGROUND_REMOVAL_INPUT_SIZE)
+    logger.info("Background removal working_size=%sx%s quality=%s", source.width, source.height, quality_mode)
     cutout = _remove_background(source, quality_mode)
     cutout = _clean_alpha(cutout, crisp=quality_mode == "quality")
     return _fit_to_square_canvas(cutout, canvas_size)
 
 
-def _load_image(image_bytes: bytes) -> Image.Image:
+def _load_image(image_bytes: bytes, *, max_size: int | None = None) -> Image.Image:
     try:
-        image = Image.open(BytesIO(image_bytes))
-        image = ImageOps.exif_transpose(image)
-        return image.convert("RGBA")
+        with Image.open(BytesIO(image_bytes)) as opened:
+            original_size = opened.size
+            if max_size is not None:
+                # Decode JPEGs at reduced resolution before allocating full-size pixels.
+                opened.draft("RGB", (max_size, max_size))
+            image = ImageOps.exif_transpose(opened)
+            if max_size is not None:
+                image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+                logger.info("Background removal source_size=%sx%s", *original_size)
+            return image.convert("RGBA")
     except (UnidentifiedImageError, OSError) as exc:
         raise ImagePreprocessingError("Invalid image file.") from exc
 
@@ -378,18 +401,15 @@ def _constrain_expression_bounds_to_pot(
     # The expression templates occupy about half of the pot body. Keep newly
     # generated faces at that ratio so narrow pots do not get oversized faces.
     constrained_width = min(face_width, round(pot_width * 0.5))
-    center_x = (face_left + face_right) / 2
-    horizontal_margin = pot_width * 0.05
-    minimum_center = pot_left + horizontal_margin + constrained_width / 2
-    maximum_center = pot_right - horizontal_margin - constrained_width / 2
-    if minimum_center <= maximum_center:
-        center_x = min(max(center_x, minimum_center), maximum_center)
+    # Only the overlay moves. Inpainting still uses the detected original face.
+    center_x = (pot_left + pot_right) / 2
+    constrained_left = round(center_x - constrained_width / 2)
 
     return _clamp_bounds(
         (
-            round(center_x - constrained_width / 2),
+            constrained_left,
             face_top,
-            round(center_x + constrained_width / 2),
+            constrained_left + constrained_width,
             face_bottom,
         ),
         size,

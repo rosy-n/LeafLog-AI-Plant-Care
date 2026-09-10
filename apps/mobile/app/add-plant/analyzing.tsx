@@ -7,8 +7,8 @@ import { common } from './styles/common.styles';
 import { styles } from './styles/analyzing.styles';
 
 const SUBTITLES = [
-  '사진을 살펴보고 있어요...',
-  '어떤 식물인지 알아보는 중이에요...',
+  '사진을 살펴보고 있어요',
+  '어떤 식물인지 알아보는 중이에요',
   '거의 다 됐어요!',
 ];
 
@@ -31,11 +31,13 @@ export default function AnalyzingScreen() {
 
   useEffect(() => {
     if (previewUri) {
-      Image.getSize(previewUri, (w, h) => setPhotoRatio(w / h), () => {});
+      Image.getSize(previewUri, (w, h) => setPhotoRatio(w / h), () => { });
     }
   }, [previewUri]);
 
   useEffect(() => {
+    let active = true;
+    let navigationTimer: ReturnType<typeof setTimeout> | null = null;
     const interval = setInterval(() => {
       setSubtitleIdx(i => (i + 1) % SUBTITLES.length);
     }, 2500);
@@ -48,6 +50,7 @@ export default function AnalyzingScreen() {
     }).start();
 
     const navigateTo = (params: Record<string, string>) => {
+      if (!active) return;
       clearInterval(interval);
       progress.stopAnimation();
       Animated.timing(progress, {
@@ -55,7 +58,10 @@ export default function AnalyzingScreen() {
         duration: 300,
         useNativeDriver: false,
       }).start(() => {
-        setTimeout(() => router.replace({ pathname: '/add-plant/plant-results', params }), 400);
+        if (!active) return;
+        navigationTimer = setTimeout(() => {
+          if (active) router.replace({ pathname: '/add-plant/plant-results', params });
+        }, 400);
       });
     };
 
@@ -66,6 +72,7 @@ export default function AnalyzingScreen() {
         const results = await identifyPlant(uris, organList);
         navigateTo({ results: JSON.stringify(results), photoUris: photoUris ?? '[]' });
       } catch (e: any) {
+        if (!active) return;
         console.error('[PlantNet]', e?.message ?? e);
         navigateTo({
           results: JSON.stringify([]),
@@ -75,8 +82,13 @@ export default function AnalyzingScreen() {
       }
     })();
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      active = false;
+      clearInterval(interval);
+      if (navigationTimer) clearTimeout(navigationTimer);
+      progress.stopAnimation();
+    };
+  }, [photoUris, organs]);
 
   const progressWidth = progress.interpolate({
     inputRange: [0, 1],

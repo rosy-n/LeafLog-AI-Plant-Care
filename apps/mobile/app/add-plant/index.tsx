@@ -1,7 +1,6 @@
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -28,7 +27,7 @@ type Mode = 'initial' | 'search';
 
 export default function AddPlantIndexScreen() {
   const router = useRouter();
-  const { updateDraft } = useAddPlantFlow();
+  const { draft, updateDraft } = useAddPlantFlow();
 
   const [mode, setMode] = useState<Mode>('initial');
   const [searchText, setSearchText] = useState('');
@@ -90,10 +89,23 @@ export default function AddPlantIndexScreen() {
 
   // ── camera area tapped ────────────────────────────────────────────────────
 
-  const handleCameraPress = () => {
+  const chooseNewPhoto = () => {
     Alert.alert('사진으로 찾기', '', [
       { text: '사진 라이브러리에서 선택', onPress: pickFromLibrary },
       { text: '카메라로 찍기', onPress: takeWithCamera },
+      { text: '취소', style: 'cancel' },
+    ]);
+  };
+
+  const handleCameraPress = () => {
+    const capturedPhotoUri = draft.capturedPhotoUri;
+    if (!capturedPhotoUri) {
+      chooseNewPhoto();
+      return;
+    }
+    Alert.alert('사진으로 찾기', '', [
+      { text: '방금 선택한 사진 사용', onPress: () => navigateToOrganSelect([capturedPhotoUri]) },
+      { text: '다른 사진 선택', onPress: chooseNewPhoto },
       { text: '취소', style: 'cancel' },
     ]);
   };
@@ -225,11 +237,9 @@ export default function AddPlantIndexScreen() {
                   style={styles.dropdownItem}
                   onPress={() => handleSearchSelect(item)}
                 >
-                  {item.image_url ? (
-                    <Image source={{ uri: item.image_url }} style={styles.dropdownThumb} />
-                  ) : (
-                    <View style={styles.dropdownThumb} />
-                  )}
+                  <View style={styles.dropdownIcon}>
+                    <Text style={styles.dropdownIconText}>🔍</Text>
+                  </View>
                   <Text style={styles.dropdownText} numberOfLines={1}>
                     {item.common_name_ko}
                   </Text>

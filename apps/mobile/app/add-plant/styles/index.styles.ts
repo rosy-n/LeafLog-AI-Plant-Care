@@ -121,11 +121,16 @@ export const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     gap: Spacing.md,
   },
-  dropdownThumb: {
+  dropdownIcon: {
     width: 36,
     height: 36,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.pill,
     backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dropdownIconText: {
+    fontSize: FontSizes.body,
   },
   dropdownText: {
     flex: 1,

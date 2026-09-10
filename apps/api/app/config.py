@@ -43,6 +43,12 @@ class Settings:
     nongsaro_api_key: str = os.getenv("NONGSARO_API_KEY", "")
     # 국립수목원 오픈API (국가생물종지식정보시스템) — 미발급 상태면 빈 값
     nature_kna_api_key: str = os.getenv("NATURE_KNA_API_KEY", "")
+    # Wikimedia Commons API — 키 발급 없이 익명 호출 가능하지만, 정책상 연락처가 담긴
+    # User-Agent를 요구한다 (없으면 403). 실제 배포 시 프로젝트 URL/이메일로 바꿔서 설정.
+    wikimedia_user_agent: str = os.getenv(
+        "WIKIMEDIA_USER_AGENT",
+        "LeafLog-AI-Plant-Care/1.0 (https://github.com/rosy-n/LeafLog-AI-Plant-Care)",
+    )
     # 공공데이터포털 — 기상청 단기예보 조회서비스 / 에어코리아 대기오염정보 조회서비스
     # (디코딩된 서비스키를 그대로 넣는다 — requests가 쿼리스트링 인코딩을 알아서 처리)
     kma_api_key: str = os.getenv("KMA_API_KEY", "")

@@ -15,9 +15,14 @@ import { hapticImpact, playSfx, tapFeedback } from "../feedback";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, GreenTint, Accent, Glass, Paper } from "../../constants/colors";
+import { Colors, GreenTint, Glass, Paper } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { getCurrentEnvironment } from "../api";
+import {
+    getCachedEnvironment,
+    isEnvironmentCacheStale,
+    saveEnvironmentCache,
+} from "../environmentCache";
 // 꾸미기(item_key 기반)로 바뀌는 배경은 개체탭(PlantDetailScreen) 것 — 홈은 날씨로만 바뀐다
 import { accessorySpriteBundle, BACKGROUND_IMAGES, HOME_BACKGROUND_KEY } from "../data/decor";
 import PlantImage from "../components/PlantImage";
@@ -246,18 +251,8 @@ const SIDE_SLIDE = 140;
     선·모서리 계단·꼬리가 좁아지는 폭처럼 선을 따라가는 값은 BUBBLE_LINE 이 단위다.
     선 두께만 바꿔도 모서리와 꼬리가 같이 따라오게 하려는 것.
 */
-/*
-    읽지 않은 알림 표시 — 종 버튼 모서리의 도트 배지.
-
-    매끈한 원은 이 화면의 도트 그림(캐릭터·말풍선·픽셀 버튼)과 결이 다르다.
-    모서리를 계단으로 깎아 도트로 그린 원이다.
-
-    한 단만 깎으면 작은 크기에서 잘린 면이 너무 커져 십자처럼 보인다.
-    PixelButton·PixelSpeechBubble 과 같은 2단 계단(세 겹)을 써야 둥글게 읽힌다.
-*/
-const DOT_STEP = 2;      // 계단 한 칸
-const DOT_LINE = 2;      // 검정 외곽선 두께
-const DOT_SIZE = DOT_STEP * 8;
+// 읽지 않은 알림 표시 — 종 버튼 모서리의 유리 배지 지름
+const DOT_SIZE = 16;
 
 const BUBBLE_DOT = 4;    // 도트 한 칸 — 몸통 크기·물방울 자리
 const BUBBLE_LINE = 3;   // 외곽선 두께 = 모서리 계단 한 단 = 몸통 가로 한 줄
@@ -347,7 +342,6 @@ export default function HomeScreen({
     plants = [],
     decorations = {},
     hasUnread = false,
-    urgentCount = 0,
 }) {
     const [menuVisible, setMenuVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -469,10 +463,18 @@ export default function HomeScreen({
 
     useEffect(() => {
         let cancelled = false;
+
+        // 캐시가 있으면 로딩 없이 바로 보여준다 — 관측된 지 1시간이 안 지났으면 그대로 두고,
+        // 지났으면 화면엔 캐시를 유지한 채 뒤에서 조용히 새 값을 받아온다.
+        const cachedEnv = getCachedEnvironment();
+        if (cachedEnv) setEnvironment(cachedEnv);
+        if (cachedEnv && !isEnvironmentCacheStale()) return;
+
         // 위치가 아직 설정되지 않았으면 서버가 400을 준다 — 이 경우 기본 아이콘을 그대로 둔다
         // (위치 설정은 회원가입/설정 화면에서 처리, 홈에서는 조용히 실패한다).
         getCurrentEnvironment()
             .then((result) => {
+                saveEnvironmentCache(result);
                 if (!cancelled) setEnvironment(result);
             })
             .catch(() => {});
@@ -588,27 +590,16 @@ export default function HomeScreen({
                         </GlassButton>
                         {hasUnread && (
                             <View style={styles.unreadDot} pointerEvents="none">
-                                <PixelDotShape color={Colors.textBlack} inset={0} />
-                                <PixelDotShape color={Accent.alert} inset={DOT_LINE} />
+                                <BlurView
+                                    intensity={26}
+                                    tint="light"
+                                    style={styles.unreadDotBlur}
+                                >
+                                    <View style={styles.unreadDotFill} />
+                                </BlurView>
                             </View>
                         )}
                     </View>
-
-                    {/*
-                        밀린 물주기 요약 — 정원까지 들어가지 않아도 보이게.
-                        빨간 점만으로는 몇 개가 밀렸는지 알 수 없다.
-                    */}
-                    {urgentCount > 0 ? (
-                        <TouchableOpacity
-                            style={styles.careSummary}
-                            onPress={() => navigation.navigate("Notifications")}
-                            activeOpacity={0.8}
-                        >
-                            <Text style={styles.careSummaryText}>
-                                물 줄 식물 {urgentCount}개
-                            </Text>
-                        </TouchableOpacity>
-                    ) : null}
                 </View>
 
                 {/*
@@ -1481,56 +1472,6 @@ function Magnifier({
 }
 
 /*
-    도트 배지의 한 겹 — 폭이 다른 사각형 셋을 겹쳐 2단 계단 모서리를 만든다.
-    가장 넓은 판을 가운데 두고, 위아래로 갈수록 한 칸씩 좁아진다.
-    같은 도형을 검정(바깥)·빨강(안쪽)으로 두 번 겹쳐 그리면 검정이 외곽선으로 남는다.
-    (PixelButton 의 PixelShape 와 같은 계산)
-*/
-function PixelDotShape({ color, inset }) {
-    const s = DOT_STEP;
-    return (
-        <>
-            <View
-                style={[
-                    styles.unreadDotLayer,
-                    {
-                        backgroundColor: color,
-                        left: inset,
-                        right: inset,
-                        top: inset + 2 * s,
-                        bottom: inset + 2 * s,
-                    },
-                ]}
-            />
-            <View
-                style={[
-                    styles.unreadDotLayer,
-                    {
-                        backgroundColor: color,
-                        left: inset + s,
-                        right: inset + s,
-                        top: inset + s,
-                        bottom: inset + s,
-                    },
-                ]}
-            />
-            <View
-                style={[
-                    styles.unreadDotLayer,
-                    {
-                        backgroundColor: color,
-                        left: inset + 2 * s,
-                        right: inset + 2 * s,
-                        top: inset,
-                        bottom: inset,
-                    },
-                ]}
-            />
-        </>
-    );
-}
-
-/*
     도트 말풍선 — "물 주세요".
 
     이미지 한 장이 아니라 사각형 View 를 도트 격자에 쌓아 만든다.
@@ -1649,30 +1590,11 @@ const styles = StyleSheet.create({
         top: 72,
         right: 20,
         zIndex: 50,
-        // 아래 "물 줄 식물 N개" 칩이 종보다 넓어져도 종은 오른쪽 끝에 붙어 있게
         alignItems: "flex-end",
     },
     // 빨간 점의 기준이 되는 상자 — 버튼과 같은 크기로 잡혀 모서리 좌표가 정확해진다
     notificationBell: {
         position: "relative",
-    },
-
-    // 밀린 물주기 요약 (알림 버튼 아래)
-    careSummary: {
-        marginTop: Spacing.sm,
-        alignSelf: "flex-end",
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.xs,
-        borderRadius: Radius.pill,
-        backgroundColor: Glass.frost72,
-        borderWidth: 1,
-        borderColor: Glass.frost45,
-    },
-    careSummaryText: {
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.small,
-        color: Colors.textBlack,
-        includeFontPadding: false,
     },
     notificationIcon: {
         width: 44,
@@ -1693,8 +1615,21 @@ const styles = StyleSheet.create({
         zIndex: 1,
         elevation: 8,
     },
-    unreadDotLayer: {
-        position: "absolute",
+    // 종 버튼(GlassButton)과 같은 결의 유리 배지 — 불투명한 도트 대신
+    // 블러 + 반투명 빨강으로, 덜 튀면서도 눈에 띄게
+    unreadDotBlur: {
+        flex: 1,
+        borderRadius: DOT_SIZE / 2,
+        overflow: "hidden",
+        borderWidth: 1,
+        borderColor: Glass.alertGlassBorder,
+    },
+    unreadDotFill: {
+        flex: 1,
+        backgroundColor: Glass.alertGlass,
+        borderWidth: 1,
+        borderColor: Glass.alertGlassBorderSoft,
+        borderRadius: DOT_SIZE / 2,
     },
 
     // 식물이 돌아다닐 수 있는 영역 — 위/아래 경계는 배경별로 FIELD_BOUNDS 에서 얹는다
@@ -1861,6 +1796,11 @@ const styles = StyleSheet.create({
     menuIcon: {
         width: 36,
         height: 36,
+        // 아이콘 원본(hamburger_icon.png · close_icon.png)은 순정 검정(#000)이라
+        // 튀어 보여서, 색 토큰으로 덧입힌다 — 모양은 그대로, 색만 코드에서 지정.
+        // textBlack(#171717)은 순정 검정과 육안으로 거의 구별이 안 되고 textGray는
+        // 너무 옅어서, 그 중간인 textMid를 씀
+        tintColor: Colors.textMid,
     },
     calendarIcon: {
         width: 36,

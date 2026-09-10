@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Image,
@@ -68,6 +69,7 @@ export default function CharacterScreen() {
   // 후보 3종 중 사용자가 직접 고른 캐릭터. 고르기 전에는 null → 확인 버튼 비활성.
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const displayedProgressRef = useRef({ jobId: '', value: 0 });
   const generationRunRef = useRef(0);
   const submittingRef = useRef(false);
   const requestKeyRef = useRef({ uri: '', id: '' });
@@ -76,11 +78,20 @@ export default function CharacterScreen() {
 
   const selectedCandidate =
     candidates.find((candidate) => candidate.id === selectedCandidateId) ?? null;
+  const hasStartedPhotoJob = !resumeGeneration && Boolean(
+    draft.generationJobId && photoUri && draft.capturedPhotoUri === photoUri,
+  );
 
   const pollGeneration = async (initialJob: CharacterGenerationJob, runId: number) => {
     let job = initialJob;
     while (generationRunRef.current === runId) {
-      const progress = Math.max(0, Math.min(100, job.progress)) / 100;
+      if (displayedProgressRef.current.jobId !== job.id) {
+        displayedProgressRef.current = { jobId: job.id, value: 0 };
+      }
+      const ceiling = job.status === 'completed' ? 100 : 99;
+      const reported = Number.isFinite(job.progress) ? job.progress : 0;
+      const progress = Math.max(displayedProgressRef.current.value, Math.min(ceiling, reported)) / 100;
+      displayedProgressRef.current.value = progress * 100;
       Animated.timing(progressAnim, {
         toValue: progress,
         duration: 300,
@@ -122,7 +133,13 @@ export default function CharacterScreen() {
       generationRunRef.current += 1;
       submittingRef.current = false;
     };
-    if (!resumeGeneration) return stopWatching;
+    if (!resumeGeneration) {
+      if (draft.generationJobId && draft.capturedPhotoUri) {
+        setPhotoUri(draft.capturedPhotoUri);
+        setScreenState('preview');
+      }
+      return stopWatching;
+    }
     if (draft.generationJobId && completedJobRef.current === draft.generationJobId) return stopWatching;
     if (!draft.generationJobId) {
       setScreenState('guide');
@@ -216,11 +233,16 @@ export default function CharacterScreen() {
 
   const handleGenerate = async () => {
     if (!photoUri || submittingRef.current) return;
+    if (hasStartedPhotoJob) {
+      router.push('/add-plant');
+      return;
+    }
     submittingRef.current = true;
     intentionalRetryRef.current = false;
     const runId = generationRunRef.current + 1;
     generationRunRef.current = runId;
     progressAnim.setValue(0);
+    displayedProgressRef.current = { jobId: '', value: 0 };
     setPhase(1);
     setGenerationMessage('식물 특징을 파악하는 중...');
     setSelectedCandidateId(null);
@@ -248,7 +270,7 @@ export default function CharacterScreen() {
       if (resumeGeneration) {
         setGenerationMessage(job.message);
       } else {
-        router.replace('/add-plant/info');
+        router.push('/add-plant');
       }
     } catch (error: any) {
       if (generationRunRef.current !== runId) return;
@@ -324,7 +346,7 @@ export default function CharacterScreen() {
               <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
               <Text style={[styles.guideCategoryLabel, { color: Colors.primary }]}>좋은 예</Text>
             </View>
-            <View style={[styles.guideCard, styles.guideCardGood]}>
+            <View style={styles.guideCard}>
               <Image source={GUIDE_GOOD} style={styles.guideCardImage} resizeMode="cover" />
               <View style={styles.guideCardTextWrap}>
                 {GUIDE_GOOD_POINTS.map((text) => (
@@ -383,7 +405,7 @@ export default function CharacterScreen() {
             onPress={handleGenerate}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryBtnText}>캐릭터 만들기</Text>
+            <Text style={styles.primaryBtnText}>{hasStartedPhotoJob ? '다음' : '캐릭터 만들기'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -401,9 +423,12 @@ export default function CharacterScreen() {
         <View style={styles.progressTrack}>
           <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
         </View>
-        <Text style={styles.progressLabel}>
-          {generationMessage}
-        </Text>
+        <View style={styles.progressStatus} accessibilityLiveRegion="polite">
+          <ActivityIndicator size="small" color={Colors.primary} accessibilityLabel="캐릭터 생성 처리 중" />
+          <Text style={styles.progressLabel}>
+            {generationMessage}
+          </Text>
+        </View>
         {resumeGeneration && (
           <Text style={styles.waitHint}>
             입력한 식물 정보는 보관되어 있어요.{`\n`}완료될 때까지 이 화면을 유지해주세요.

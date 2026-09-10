@@ -1,8 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, ActivityIndicator, AppState, Image } from "react-native";
-import { useFonts } from "expo-font";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { Fonts } from "./constants/fonts";
+import { AppState, Image } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import * as Notifications from "expo-notifications";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -30,7 +27,6 @@ import { getItems, getPlants } from "./src/api";
 import { DEFAULT_BACKGROUND_KEY } from "./src/data/decor";
 import { syncWateringReminders } from "./src/notifications";
 import { buildCareNotices } from "./src/careNotices";
-import { preloadBundledImages } from "./src/data/assets";
 import { BackgroundMusicProvider } from "./src/backgroundMusic";
 
 const Stack = createNativeStackNavigator();
@@ -83,7 +79,6 @@ function MainAppContent({ user, onLogout }) {
     // 꾸미기 아이템 마스터 (이름·해금 단계·이미지 URL). 서버가 단일 출처다
     const [items, setItems] = useState([]);
     const [username, setUsername] = useState(user?.nickname ?? "식물집사");
-    const [imagesLoaded, setImagesLoaded] = useState(false);
     // 돌봄 알림 목록 — 더미 배열 대신 개체 일정에서 계산한다
     const notices = useMemo(() => buildCareNotices(plants), [plants]);
 
@@ -93,19 +88,6 @@ function MainAppContent({ user, onLogout }) {
     useEffect(() => {
         plantsRef.current = plants;
     }, [plants]);
-
-    const [fontsLoaded] = useFonts({
-        [Fonts.neoDunggeunmo]: require("./assets/fonts/NeoDunggeunmoPro-Regular.ttf"),
-        [Fonts.nanumSquareNeo.light]: require("./assets/fonts/NanumSquareNeo-aLt.ttf"),
-        [Fonts.nanumSquareNeo.regular]: require("./assets/fonts/NanumSquareNeo-bRg.ttf"),
-        [Fonts.nanumSquareNeo.bold]: require("./assets/fonts/NanumSquareNeo-cBd.ttf"),
-        [Fonts.nanumSquareNeo.extraBold]: require("./assets/fonts/NanumSquareNeo-dEb.ttf"),
-        [Fonts.nanumSquareNeo.heavy]: require("./assets/fonts/NanumSquareNeo-eHv.ttf"),
-        // Ionicons/MaterialCommunityIcons 는 폰트로 그려진다 — 미리 안 올리면
-        // 17개 화면의 벡터 아이콘이 첫 진입 때 빈 칸으로 있다가 뒤늦게 나타난다
-        ...Ionicons.font,
-        ...MaterialCommunityIcons.font,
-    });
 
     // DB에서 현재 사용자의 식물 목록 로드 (정원 진입 시 갱신도 이 함수 재사용)
     const loadPlants = useCallback(() => {
@@ -223,42 +205,6 @@ function MainAppContent({ user, onLogout }) {
         return () => sub.remove();
     }, []);
 
-    useEffect(() => {
-        let mounted = true;
-
-        preloadBundledImages()
-            .then(() => {
-                if (mounted) {
-                    setImagesLoaded(true);
-                }
-            })
-            .catch((error) => {
-                console.warn("Image preload failed:", error);
-                if (mounted) {
-                    setImagesLoaded(true);
-                }
-            });
-
-        return () => {
-            mounted = false;
-        };
-    }, []);
-
-    if (!fontsLoaded || !imagesLoaded) {
-        return (
-            <View
-                style={{
-                    flex: 1,
-                    backgroundColor: "#8FCB7D",
-                    alignItems: "center",
-                    justifyContent: "center",
-                }}
-            >
-                <ActivityIndicator size="large" color="#2F7831" />
-            </View>
-        );
-    }
-
     return (
         <NavigationContainer ref={navigationRef}>
             <Stack.Navigator
@@ -284,7 +230,6 @@ function MainAppContent({ user, onLogout }) {
                             plants={plants}
                             decorations={decorations}
                             hasUnread={notices.some((n) => n.urgent)}
-                            urgentCount={notices.filter((n) => n.urgent).length}
                         />
                     )}
                 </Stack.Screen>

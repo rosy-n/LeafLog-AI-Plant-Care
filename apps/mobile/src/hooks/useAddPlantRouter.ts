@@ -44,7 +44,7 @@ export function useRouter() {
           })
         );
       } else if (pathname === '/add-plant') {
-        // 등록 재시작
+        // 인식 실패 후에도 생성 작업은 유지하고 종 선택으로 돌아간다.
         navigation.replace('AddPlantIndex');
       } else {
         const { screen, params } = resolve(to);
