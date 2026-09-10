@@ -1,5 +1,4 @@
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Image,
@@ -447,7 +446,6 @@ export default function CharacterScreen() {
             <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
           </View>
           <View style={styles.progressStatus} accessibilityLiveRegion="polite">
-            <ActivityIndicator size="small" color={Colors.primary} accessibilityLabel="캐릭터 생성 처리 중" />
             <Text style={styles.progressLabel}>
               {generationMessage}
             </Text>
