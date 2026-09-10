@@ -10,9 +10,10 @@ from datetime import datetime, timedelta
 import requests
 
 from .config import settings
+from .korea_time import KOREA_TIMEZONE
 
-BASE_URL = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtFcst"
-NCST_URL = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
+BASE_URL = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtFcst"
+NCST_URL = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
 REQUEST_TIMEOUT_SECONDS = 5
 CACHE_TTL_SECONDS = 15 * 60
 # 이번 시각(아직 진행 중이라 값이 더 갱신될 수 있는 시간)만 짧게 재확인하고,
@@ -78,7 +79,7 @@ def fetch_ultra_short_forecast(nx: int, ny: int) -> KmaForecast:
     if cached is not None:
         return cached
 
-    base_date, base_time = select_base_datetime(datetime.now())
+    base_date, base_time = select_base_datetime(datetime.now(KOREA_TIMEZONE))
 
     try:
         response = requests.get(
@@ -94,19 +95,20 @@ def fetch_ultra_short_forecast(nx: int, ny: int) -> KmaForecast:
                 "ny": ny,
             },
             timeout=REQUEST_TIMEOUT_SECONDS,
+            allow_redirects=False,
         )
         response.raise_for_status()
     except requests.RequestException as exc:
-        raise WeatherFetchError(f"기상청 API 요청에 실패했어: {exc}") from exc
+        raise WeatherFetchError("기상청 API 요청에 실패했어.") from None
 
     try:
         payload = response.json()
         header = payload["response"]["header"]
         if header["resultCode"] != "00":
-            raise WeatherFetchError(f"기상청 API 오류: {header.get('resultMsg')}")
+            raise WeatherFetchError("기상청 API에서 정상 자료를 받지 못했어.")
         items = payload["response"]["body"]["items"]["item"]
     except (ValueError, KeyError, TypeError) as exc:
-        raise WeatherFetchError(f"기상청 응답 형식이 예상과 달라: {response.text[:500]}") from exc
+        raise WeatherFetchError("기상청 응답 형식이 예상과 달라.") from None
 
     # 카테고리별로 가장 이른 예보 시각(=지금과 가장 가까운 시각) 값을 취한다.
     earliest: dict[str, tuple[str, str]] = {}
@@ -157,10 +159,11 @@ def _fetch_ultra_short_observation(
                 "ny": ny,
             },
             timeout=REQUEST_TIMEOUT_SECONDS,
+            allow_redirects=False,
         )
         response.raise_for_status()
     except requests.RequestException as exc:
-        raise WeatherFetchError(f"기상청 실황 조회에 실패했어: {exc}") from exc
+        raise WeatherFetchError("기상청 실황 조회에 실패했어.") from None
 
     try:
         payload = response.json()
@@ -168,10 +171,10 @@ def _fetch_ultra_short_observation(
         if header["resultCode"] == "03":  # NODATA_ERROR — 아직 관측/발표되지 않은 시각
             return None
         if header["resultCode"] != "00":
-            raise WeatherFetchError(f"기상청 API 오류: {header.get('resultMsg')}")
+            raise WeatherFetchError("기상청 API에서 정상 자료를 받지 못했어.")
         items = payload["response"]["body"]["items"]["item"]
     except (ValueError, KeyError, TypeError) as exc:
-        raise WeatherFetchError(f"기상청 실황 응답 형식이 예상과 달라: {response.text[:500]}") from exc
+        raise WeatherFetchError("기상청 실황 응답 형식이 예상과 달라.") from None
 
     values = {item["category"]: item["obsrValue"] for item in items}
     try:
@@ -213,7 +216,7 @@ def fetch_today_hourly_series(nx: int, ny: int) -> list[HourlyObservation]:
     같은 지역을 같은 시간대에 조회해도 이 캐시를 공유하므로, 실제로 기상청을 부르는
     건 그 지역에서 그 시각을 "처음" 조회하는 요청 하나뿐이다.
     """
-    now = datetime.now()
+    now = datetime.now(KOREA_TIMEZONE)
     # 초단기실황은 매시 10분 이후에 제공된다 — 아직 발표 안 된 이번 시각은 건너뛴다.
     latest_available_hour = now.replace(minute=0, second=0, microsecond=0)
     if now.minute < 10:

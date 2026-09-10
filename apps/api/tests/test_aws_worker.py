@@ -1,4 +1,5 @@
 """Offline tests: in-memory DB, fake S3/SQS; never contact school/AWS."""
+import asyncio
 import hashlib
 import io
 import os
@@ -6,6 +7,7 @@ import subprocess
 import sys
 import unittest
 import tempfile
+import threading
 from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,7 +17,8 @@ from unittest.mock import Mock, patch
 
 os.environ.update(APP_ROLE="api", DATABASE_URL="sqlite://", AWS_EC2_METADATA_DISABLED="true")
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
+from botocore.exceptions import ClientError, NoCredentialsError, ProfileNotFound
 from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import create_engine, func, select
@@ -73,6 +76,7 @@ class JobTests(unittest.TestCase):
         with self.sessions.begin() as db:
             db.add_all([AppUser(user_id=i, email=f"{i}@example.test", nickname=f"User {i}") for i in (1, 2)])
         self.config = replace(settings, app_role="api", s3_bucket="test-bucket", s3_presign_enabled=True,
+                              character_generation_enabled=True,
                               character_worker_token="w"*40, ai_worker_token="a"*40,
                               character_lease_seconds=180, character_max_attempts=3,
                               character_queue_url="https://sqs.ap-northeast-2.amazonaws.com/000000000000/test")
@@ -86,6 +90,7 @@ class JobTests(unittest.TestCase):
         p.start()
         self.addCleanup(p.stop)
         self.addCleanup(self.engine.dispose)
+        self.request = Request({"type": "http", "scheme": "https", "server": ("api.example.test", 443), "path": "/", "headers": []})
 
     def create(self, user=1, key="request-1", data=None):
         return self.service.create_job(user, data or png(), key)
@@ -117,10 +122,68 @@ class JobTests(unittest.TestCase):
         self.assertEqual(self.sqs.messages[0]["MessageBody"], '{"job_id": "' + job.id + '"}')
         self.assertEqual(len(self.s3.objects), 1)
 
+    def test_dispatch_overrides_queue_delay_for_new_and_retried_jobs(self):
+        job = self.create()
+        self.assertEqual(self.sqs.messages[0]["DelaySeconds"], 0)
+        self.service.claim(job.id)
+        self.expire(job.id)
+        self.service.dispatch()
+        self.assertEqual(len(self.sqs.messages), 2)
+        self.assertTrue(all(message["DelaySeconds"] == 0 for message in self.sqs.messages))
+
     def test_same_key_is_idempotent(self):
         first = self.create()
         self.assertEqual(self.create().id, first.id)
         self.assertEqual(len(self.s3.objects), 1)
+
+    def test_paused_admission_does_not_upload_write_or_dispatch(self):
+        with patch.object(jobs, "settings", replace(self.config, character_generation_enabled=False)):
+            with self.assertRaises(HTTPException) as caught:
+                self.create()
+            self.assertEqual(caught.exception.status_code, 503)
+            self.service.start()
+            self.service.dispatch()
+            self.assertFalse(self.s3.objects)
+            self.assertFalse(self.sqs.messages)
+            with self.sessions() as db:
+                self.assertEqual(db.scalar(select(func.count()).select_from(CharacterJob)), 0)
+
+    def test_paused_incomplete_jobs_report_pause_instead_of_waiting(self):
+        job = self.create()
+        with patch.object(jobs, "settings", replace(self.config, character_generation_enabled=False)):
+            for operation in (
+                lambda: self.service.get_job(job.id, 1),
+                lambda: self.service.latest_active(1),
+                lambda: self.service.claim(job.id),
+            ):
+                with self.assertRaises(HTTPException) as caught:
+                    operation()
+                self.assertEqual(caught.exception.status_code, 503)
+            with self.assertRaises(KeyError):
+                self.service.get_job(job.id, 2)
+
+    def test_pausing_does_not_hide_completed_candidates(self):
+        job = self.create()
+        self.complete(job)
+        with patch.object(jobs, "settings", replace(self.config, character_generation_enabled=False)):
+            self.assertEqual(len(self.service.get_job(job.id, 1).candidates), 3)
+
+    def test_pause_endpoint_and_upload_require_auth_and_do_not_start_work(self):
+        client = TestClient(main.app)
+        self.addCleanup(client.close)
+        self.assertEqual(client.get('/api/character-generations/availability').status_code, 401)
+        main.app.dependency_overrides[main.get_current_user] = lambda: SimpleNamespace(user_id=1)
+        self.addCleanup(main.app.dependency_overrides.clear)
+        with patch.object(main, 'settings', replace(self.config, character_generation_enabled=False)), \
+             patch.object(main, '_read_image_upload') as read:
+            response = client.get('/api/character-generations/availability')
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json(), {'enabled': False, 'message': jobs.GENERATION_PAUSED_MESSAGE})
+            response = client.post('/api/character-generations', files={'file': ('plant.png', png(), 'image/png')})
+            self.assertEqual(response.status_code, 503)
+            read.assert_not_called()
+            self.assertFalse(self.sqs.messages)
+            self.assertFalse(self.s3.objects)
 
     def test_same_key_with_different_photo_is_rejected(self):
         self.create()
@@ -239,12 +302,13 @@ class JobTests(unittest.TestCase):
         job = self.create()
         self.complete(job)
         payload = PlantCreate(characterJobId=job.id, characterCandidateId=f"{job.id}-2",
+                              capturedPhotoUri="file:///var/mobile/cache/photo.jpg",
                               characterImageUrl="https://untrusted.example/arbitrary.png",
                               characterChecksum="fake", nickname="Plant", commonNameKo="Monstera")
         with self.sessions() as db:
             user = db.get(AppUser, 1)
-            result = main.create_plant(payload, user, db)
-            repeated = main.create_plant(payload, user, db)
+            result = main.create_plant(payload, self.request, user, db)
+            repeated = main.create_plant(payload, self.request, user, db)
             self.assertEqual(result.id, repeated.id)
             self.assertEqual(db.scalar(select(func.count()).select_from(Plant)), 1)
             assets = db.scalars(select(MediaAsset)).all()
@@ -253,13 +317,55 @@ class JobTests(unittest.TestCase):
             self.assertEqual(character.bucket_name, "test-bucket")
             self.assertTrue(character.checksum.startswith("face-v1:"))
             self.assertNotIn("untrusted", character.file_url)
+            photo = next(a for a in assets if a.asset_type == "PLANT_PHOTO")
+            self.assertTrue(photo.file_url.startswith("s3://test-bucket/"))
+            self.assertNotIn("file:///", photo.file_url)
 
     def test_registration_rejects_another_users_job(self):
         job = self.create()
         self.complete(job)
         with self.sessions() as db, self.assertRaises(HTTPException):
             main.create_plant(PlantCreate(characterJobId=job.id, characterCandidateId=f"{job.id}-1",
-                                         nickname="Plant", commonNameKo="Monstera"), db.get(AppUser, 2), db)
+                                         nickname="Plant", commonNameKo="Monstera"), self.request, db.get(AppUser, 2), db)
+
+    def test_cloud_diary_photo_uses_the_leaflog_policy_prefix(self):
+        data = png()
+        upload = SimpleNamespace(content_type="image/png", file=io.BytesIO(data))
+        def store(body, key, mime):
+            self.assertEqual(body, data)
+            self.assertEqual(mime, "image/png")
+            self.assertTrue(key.startswith("leaflog/diary/1/"))
+            return f"https://test-bucket.s3.ap-northeast-2.amazonaws.com/{key}"
+        with self.sessions() as db, patch.object(main, "upload_bytes", side_effect=store), \
+             patch.object(main, "presigned_get_url", return_value="signed-photo"), \
+             patch.object(main, "save_local_file") as local:
+            result = asyncio.run(main.upload_diary_photo(self.request, upload, db.get(AppUser, 1), db))
+            asset = db.get(MediaAsset, result.asset_id)
+            self.assertEqual(asset.asset_type, "GROWTH_DIARY_PHOTO")
+            self.assertEqual(asset.bucket_name, "test-bucket")
+            self.assertEqual(asset.checksum, hashlib.sha256(data).hexdigest())
+            self.assertEqual(result.url, "signed-photo")
+            local.assert_not_called()
+
+    def test_cloud_diary_upload_failure_does_not_store_an_unservable_local_url(self):
+        upload = SimpleNamespace(content_type="image/png", file=io.BytesIO(png()))
+        with self.sessions() as db, patch.object(main, "upload_bytes", return_value=None), \
+             patch.object(main, "save_local_file") as local:
+            with self.assertRaises(HTTPException) as caught:
+                asyncio.run(main.upload_diary_photo(self.request, upload, db.get(AppUser, 1), db))
+            self.assertEqual(caught.exception.status_code, 503)
+            self.assertEqual(db.scalar(select(func.count()).select_from(MediaAsset)), 0)
+            local.assert_not_called()
+
+    def test_standalone_diary_upload_keeps_its_existing_local_fallback(self):
+        upload = SimpleNamespace(content_type="image/png", file=io.BytesIO(png()))
+        with self.sessions() as db, patch.object(main, "settings", replace(self.config, app_role="standalone")), \
+             patch.object(main, "upload_bytes", return_value=None), \
+             patch.object(main, "save_local_file", return_value="/static/uploads/diary/test.png") as local:
+            result = asyncio.run(main.upload_diary_photo(self.request, upload, db.get(AppUser, 1), db))
+            self.assertTrue(local.call_args.args[1].startswith("diary/1/"))
+            self.assertEqual(result.url, "https://api.example.test/static/uploads/diary/test.png")
+            self.assertIsNone(db.get(MediaAsset, result.asset_id).bucket_name)
 
     def test_deleted_plants_cannot_be_recreated_from_the_old_job(self):
         job = self.create()
@@ -268,11 +374,11 @@ class JobTests(unittest.TestCase):
                               nickname="Plant", commonNameKo="Monstera")
         with self.sessions() as db:
             user = db.get(AppUser, 1)
-            plant = main.create_plant(payload, user, db)
+            plant = main.create_plant(payload, self.request, user, db)
             main.delete_plant(plant.id, user, db)
             self.assertEqual(self.service.get_job(job.id, 1).candidates, [])
             with self.assertRaises(HTTPException):
-                main.create_plant(payload, user, db)
+                main.create_plant(payload, self.request, user, db)
 
     def test_refresh_cannot_sign_an_arbitrary_key(self):
         with self.sessions() as db, patch.object(main, "presigned_get_url", return_value="fresh-url"):
@@ -349,6 +455,17 @@ class JobTests(unittest.TestCase):
                 ai_worker.process_message(sqs, {"Body": '{"job_id":"' + "a"*32 + '"}', "ReceiptHandle": "receipt"})
         sqs.delete_message.assert_not_called()
 
+    def test_unknown_probe_job_is_acked_without_loading_models(self):
+        sqs = Mock()
+        with patch.object(ai_worker, "gpu_slot", return_value=nullcontext()), \
+             patch.object(ai_worker, "api_call", side_effect=lambda job_id, action: self.service.claim(job_id)), \
+             patch.object(ai_worker, "download_input") as download:
+            ai_worker.process_message(sqs, {"Body": '{"job_id":"' + "e"*32 + '"}', "ReceiptHandle": "probe"})
+            sqs.delete_message.assert_called_once_with(QueueUrl=self.config.character_queue_url, ReceiptHandle="probe")
+            download.assert_not_called()
+            with self.sessions() as db:
+                self.assertEqual(db.scalar(select(func.count()).select_from(CharacterJob)), 0)
+
     def test_migration_preserves_checksum_and_rejects_changed_rows(self):
         from scripts import migrate_media as media
         with tempfile.TemporaryDirectory() as temp, self.sessions() as db:
@@ -388,7 +505,204 @@ class JobTests(unittest.TestCase):
             confined(Path(temp), "../secrets.env")
 
 
+class ConsumerHealthTests(unittest.TestCase):
+    def setUp(self):
+        self.config = replace(settings, character_generation_enabled=True, ai_worker_token="a" * 40,
+                              character_queue_url="https://sqs.ap-northeast-2.amazonaws.com/000000000000/test")
+        self.stop = threading.Event()
+        for name, value in (("settings", self.config), ("_stop", self.stop),
+                            ("_thread", Mock(is_alive=lambda: True)),
+                            ("_queue_failures", {}),
+                            ("_queue_state", {"status": "starting", "error": None})):
+            patched = patch.object(ai_worker, name, value)
+            patched.start()
+            self.addCleanup(patched.stop)
+        self.client = TestClient(ai_worker.app)
+        self.addCleanup(self.client.close)
+
+    def health(self):
+        return self.client.get("/health", headers={"X-LeafLog-AI-Token": "a" * 40})
+
+    def finish_poll(self, **kwargs):
+        self.stop.set()
+        return {"Messages": []}
+
+    def test_live_thread_is_not_ready_before_first_successful_receive(self):
+        self.assertEqual(self.health().status_code, 503)
+        self.assertEqual(self.health().json()["queue"]["status"], "starting")
+        self.assertEqual(self.client.get("/health").status_code, 401)
+
+    def test_empty_receive_confirms_connection_with_no_extra_permissions(self):
+        sqs = Mock()
+        sqs.receive_message.side_effect = self.finish_poll
+        with patch.object(ai_worker.boto3, "client", return_value=sqs):
+            ai_worker.consume()
+        self.assertEqual(self.health().status_code, 200)
+        self.assertEqual(self.health().json()["queue"], {"status": "ready", "error": None})
+        sqs.receive_message.assert_called_once_with(QueueUrl=self.config.character_queue_url,
+            MaxNumberOfMessages=1, WaitTimeSeconds=20, VisibilityTimeout=self.config.character_lease_seconds)
+        sqs.get_queue_attributes.assert_not_called()
+        sqs.get_queue_url.assert_not_called()
+        sqs.close.assert_called_once()
+
+    def test_missing_credentials_and_access_denial_report_unavailable(self):
+        for error, reason in (
+            (NoCredentialsError(), "NoCredentialsError"),
+            (ClientError({"Error": {"Code": "AccessDenied", "Message": "private-value"}}, "ReceiveMessage"), "AccessDenied"),
+            (ClientError({"Error": {"Code": "ExpiredToken", "Message": "private-value"}}, "ReceiveMessage"), "ExpiredToken"),
+            (ClientError({"Error": {"Code": "private-value", "Message": "private-value"}}, "ReceiveMessage"), "ClientError"),
+        ):
+            with self.subTest(reason=reason):
+                self.stop.clear()
+                sqs = Mock()
+                sqs.receive_message.side_effect = error
+                with patch.object(ai_worker.boto3, "client", return_value=sqs), \
+                     patch.object(self.stop, "wait", side_effect=lambda timeout: self.stop.set()), \
+                     self.assertLogs(ai_worker.log, level="ERROR") as logs:
+                    ai_worker.consume()
+                response = self.health()
+                self.assertEqual(response.status_code, 503)
+                self.assertEqual(response.json()["queue"], {"status": "unavailable", "error": reason})
+                self.assertNotIn("private-value", response.text + str(logs.output))
+                sqs.delete_message.assert_not_called()
+                sqs.close.assert_called_once()
+
+    def test_client_initialization_failure_retries_without_killing_consumer(self):
+        sqs = Mock()
+        sqs.receive_message.side_effect = self.finish_poll
+        observed = []
+        with patch.object(ai_worker.boto3, "client", side_effect=[ProfileNotFound(profile="private-profile"), sqs]) as create, \
+             patch.object(self.stop, "wait", side_effect=lambda timeout: observed.append(self.health())), \
+             self.assertLogs(ai_worker.log, level="ERROR") as logs:
+            ai_worker.consume()
+        self.assertEqual(create.call_count, 2)
+        self.assertEqual(observed[0].status_code, 503)
+        self.assertEqual(observed[0].json()["queue"]["error"], "ProfileNotFound")
+        self.assertNotIn("private-profile", observed[0].text + str(logs.output))
+        self.assertEqual(self.health().status_code, 200)
+
+    def test_receive_failure_recreates_client_and_recovers(self):
+        first, second = Mock(), Mock()
+        first.receive_message.side_effect = NoCredentialsError()
+        second.receive_message.side_effect = self.finish_poll
+        observed = []
+        with patch.object(ai_worker.boto3, "client", side_effect=[first, second]), \
+             patch.object(self.stop, "wait", side_effect=lambda timeout: observed.append(self.health().status_code)), \
+             self.assertLogs(ai_worker.log, level="ERROR"):
+            ai_worker.consume()
+        self.assertEqual(observed, [503])
+        self.assertEqual(self.health().status_code, 200)
+        first.close.assert_called_once()
+        second.close.assert_called_once()
+
+    def test_stopped_consumer_never_looks_ready(self):
+        ai_worker._queue_status("ready")
+        with patch.object(ai_worker, "_thread", Mock(is_alive=lambda: False)):
+            response = self.health()
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["queue"]["status"], "stopped")
+
+    def test_receive_does_not_hide_failed_delete_or_visibility_permissions(self):
+        for operation in ("delete_message", "change_message_visibility"):
+            with self.subTest(operation=operation):
+                ai_worker._queue_status("starting")
+                sqs = Mock()
+                action = getattr(sqs, operation)
+                action.side_effect = ClientError({"Error": {"Code": "AccessDenied", "Message": "private-value"}}, operation)
+                with self.assertRaises(ClientError):
+                    ai_worker.sqs_call(sqs, operation)
+                ai_worker.sqs_call(sqs, "receive_message")
+                self.assertEqual(self.health().status_code, 503)
+                self.assertEqual(self.health().json()["queue"]["error"], "AccessDenied")
+                self.assertNotIn("private-value", self.health().text)
+                action.side_effect = None
+                ai_worker.sqs_call(sqs, operation)
+                self.assertEqual(self.health().status_code, 200)
+
+    def test_all_failed_operations_must_recover_before_ready(self):
+        error = NoCredentialsError()
+        ai_worker._queue_status("unavailable", error, "delete_message")
+        ai_worker._queue_status("unavailable", error, "change_message_visibility")
+        ai_worker._queue_status("ready", operation="delete_message")
+        self.assertEqual(self.health().status_code, 503)
+        ai_worker._queue_status("ready", operation="change_message_visibility")
+        self.assertEqual(self.health().status_code, 200)
+
+    def test_delete_failure_is_reported_and_does_not_kill_consumer(self):
+        sqs = Mock()
+        sqs.receive_message.return_value = {"Messages": [{"Body": '{"job_id":"' + "a" * 32 + '"}', "ReceiptHandle": "receipt"}]}
+        sqs.delete_message.side_effect = ClientError({"Error": {"Code": "AccessDenied"}}, "DeleteMessage")
+        with patch.object(ai_worker.boto3, "client", return_value=sqs), \
+             patch.object(ai_worker, "gpu_slot", return_value=nullcontext()), \
+             patch.object(ai_worker, "api_call", return_value={"action": "ack"}), \
+             patch.object(self.stop, "wait", side_effect=lambda timeout: self.stop.set()), \
+             self.assertLogs(ai_worker.log, level="ERROR"):
+            ai_worker.consume()
+        self.assertEqual(self.health().status_code, 503)
+        self.assertEqual(self.health().json()["queue"]["error"], "AccessDenied")
+        sqs.delete_message.assert_called_once()
+        sqs.close.assert_called_once()
+
+    def test_busy_gpu_visibility_failure_leaves_message_unacknowledged(self):
+        sqs = Mock()
+        sqs.receive_message.return_value = {"Messages": [{"Body": '{"job_id":"' + "a" * 32 + '"}', "ReceiptHandle": "receipt"}]}
+        sqs.change_message_visibility.side_effect = NoCredentialsError()
+        with patch.object(ai_worker.boto3, "client", return_value=sqs), \
+             patch.object(ai_worker, "process_message", side_effect=ai_worker.GpuBusy()), \
+             patch.object(self.stop, "wait", side_effect=lambda timeout: self.stop.set()), \
+             self.assertLogs(ai_worker.log, level="ERROR"):
+            ai_worker.consume()
+        self.assertEqual(self.health().status_code, 503)
+        self.assertEqual(self.health().json()["queue"]["error"], "NoCredentialsError")
+        sqs.change_message_visibility.assert_called_once_with(QueueUrl=self.config.character_queue_url,
+            ReceiptHandle="receipt", VisibilityTimeout=15)
+        sqs.delete_message.assert_not_called()
+
+    def test_paused_worker_remains_available_without_aws(self):
+        with patch.object(ai_worker, "settings", replace(self.config, character_generation_enabled=False)), \
+             patch.object(ai_worker.boto3, "client") as create:
+            ai_worker.consume()
+            response = self.health()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["queue"], {"status": "paused", "error": None})
+        create.assert_not_called()
+
+
 class BoundaryTests(unittest.TestCase):
+    def test_paused_api_requires_storage_and_ai_auth_but_not_sqs(self):
+        config = replace(settings, app_role='api', character_generation_enabled=False,
+                         database_url='postgresql://test/db', secret_key='s'*40,
+                         s3_bucket='test-bucket', s3_presign_enabled=True,
+                         ai_worker_url='http://127.0.0.1:8010', ai_worker_token='a'*40,
+                         character_queue_url='', character_worker_token='')
+        config.validate_runtime('api')
+        with self.assertRaises(ValueError):
+            replace(config, character_generation_enabled=True).validate_runtime('api')
+        with self.assertRaises(ValueError):
+            replace(config, ai_worker_token='').validate_runtime('api')
+
+    def test_paused_worker_requires_no_queue_callback_or_aws_credentials(self):
+        config = replace(settings, app_role='worker', character_generation_enabled=False,
+                         character_queue_url='', character_worker_token='', character_worker_api_url='',
+                         ai_worker_token='a'*40, character_gpu_mode_command='/usr/local/bin/leaflog-gpu',
+                         character_gpu_ssh_host='', character_restore_ollama=True)
+        with patch('app.config.os.name', 'posix'):
+            config.validate_runtime('worker')
+        with patch.object(ai_worker, 'settings', config), \
+             patch.object(type(config), 'validate_runtime'), \
+             patch.object(ai_worker, 'gpu_slot', return_value=nullcontext()), \
+             patch('app.character_generation._switch_gpu_mode') as switch, \
+             patch.object(ai_worker.boto3, 'client') as aws, \
+             patch.object(ai_worker.threading, 'Thread') as thread, \
+             patch.object(ai_worker, '_thread', None):
+            ai_worker.start()
+            ai_worker.consume()
+            self.assertEqual(ai_worker.health()['status'], 'ok')
+            self.assertFalse(ai_worker.health()['character_generation_enabled'])
+            switch.assert_called_once_with('ollama')
+            thread.assert_not_called()
+            aws.assert_not_called()
+
     def test_upload_reader_is_bounded(self):
         upload = SimpleNamespace(content_type="image/png", file=Mock())
         upload.file.read.return_value = b"x" * (main.MAX_IMAGE_UPLOAD_BYTES + 1)

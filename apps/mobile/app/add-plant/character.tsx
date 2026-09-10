@@ -20,6 +20,7 @@ import { Colors } from '../../constants/colors';
 import type { CharacterCandidate } from '../../constants/character-candidates';
 import {
   getCharacterGeneration,
+  getCharacterGenerationAvailability,
   startCharacterGeneration,
   type CharacterGenerationJob,
 } from '../../src/api';
@@ -63,6 +64,9 @@ export default function CharacterScreen() {
     resumeGeneration ? 'generating' : 'intro',
   );
   const [photoUri, setPhotoUri] = useState<string | null>(draft.capturedPhotoUri);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [availabilityMessage, setAvailabilityMessage] = useState<string | null>(null);
+  const availabilityCheckRef = useRef(false);
   const [phase, setPhase] = useState<1 | 2>(1);
   const [generationMessage, setGenerationMessage] = useState('식물 특징을 파악하는 중...');
   const [candidates, setCandidates] = useState<CharacterCandidate[]>([]);
@@ -129,9 +133,11 @@ export default function CharacterScreen() {
   };
 
   useFocusEffect(useCallback(() => {
+    setCheckingAvailability(false);
     const stopWatching = () => {
       generationRunRef.current += 1;
       submittingRef.current = false;
+      availabilityCheckRef.current = false;
     };
     if (!resumeGeneration) {
       if (draft.generationJobId && draft.capturedPhotoUri) {
@@ -221,12 +227,34 @@ export default function CharacterScreen() {
     setScreenState('preview');
   };
 
-  const handleStartPhoto = () => {
-    Alert.alert('사진 선택', '', [
-      { text: '사진 라이브러리에서 선택', onPress: handlePickFromLibrary },
-      { text: '카메라로 찍기', onPress: handleTakePhoto },
-      { text: '취소', style: 'cancel' },
-    ]);
+  const handleStartPhoto = async () => {
+    if (availabilityCheckRef.current) return;
+    availabilityCheckRef.current = true;
+    const runId = generationRunRef.current;
+    setCheckingAvailability(true);
+    try {
+      const availability = await getCharacterGenerationAvailability();
+      if (generationRunRef.current !== runId) return;
+      if (!availability.enabled) {
+        setAvailabilityMessage(availability.message || '캐릭터 생성을 잠시 준비하고 있어요.');
+        return;
+      }
+      setAvailabilityMessage(null);
+      Alert.alert('사진 선택', '', [
+        { text: '사진 라이브러리에서 선택', onPress: handlePickFromLibrary },
+        { text: '카메라로 찍기', onPress: handleTakePhoto },
+        { text: '취소', style: 'cancel' },
+      ]);
+    } catch (error: any) {
+      if (generationRunRef.current === runId) {
+        setAvailabilityMessage(error?.message || '생성 서버 상태를 확인하지 못했어요. 다시 시도해주세요.');
+      }
+    } finally {
+      if (generationRunRef.current === runId) {
+        availabilityCheckRef.current = false;
+        setCheckingAvailability(false);
+      }
+    }
   };
 
   // ── generation ────────────────────────────────────────────────────────────
@@ -374,10 +402,15 @@ export default function CharacterScreen() {
         </ScrollView>
 
         <View style={styles.guideFooter}>
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleStartPhoto} activeOpacity={0.8}>
+          {availabilityMessage && (
+            <Text style={styles.waitHint} accessibilityLiveRegion="polite">{availabilityMessage}</Text>
+          )}
+          <TouchableOpacity style={styles.primaryBtn} onPress={handleStartPhoto} disabled={checkingAvailability} activeOpacity={0.8}>
             <View style={styles.btnRow}>
-              <Ionicons name="camera-outline" size={20} color={Colors.white} />
-              <Text style={styles.primaryBtnText}>사진 촬영 시작</Text>
+              {checkingAvailability
+                ? <ActivityIndicator size="small" color={Colors.white} />
+                : <Ionicons name={availabilityMessage ? 'refresh-outline' : 'camera-outline'} size={20} color={Colors.white} />}
+              <Text style={styles.primaryBtnText}>{checkingAvailability ? '확인 중...' : availabilityMessage ? '다시 확인' : '사진 촬영 시작'}</Text>
             </View>
           </TouchableOpacity>
         </View>

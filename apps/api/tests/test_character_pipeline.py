@@ -30,6 +30,7 @@ class PipelineTests(unittest.TestCase):
             "_wait_for_forge": lambda: None,
             "_generate_with_forge": lambda **kw: b"generated",
             "remove_background_for_sprite": lambda **kw: SimpleNamespace(transparent_png_base64=encoded),
+            "normalize_character_framing": lambda data, bounds: SimpleNamespace(png_bytes=data, face_bounds=bounds),
             "remove_character_face": lambda data: SimpleNamespace(face_removed_png_base64=encoded, face_bounds=(300, 600, 700, 800)),
         }
         for name, value in replacements.items():

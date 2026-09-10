@@ -15,7 +15,7 @@ import requests
 
 from .config import settings
 
-BASE_URL = "http://apis.data.go.kr/1360000/AsosDalyInfoService/getWthrDataList"
+BASE_URL = "https://apis.data.go.kr/1360000/AsosDalyInfoService/getWthrDataList"
 REQUEST_TIMEOUT_SECONDS = 10
 
 # (지점번호, 지점명, 위도, 경도) — 기상청 공식 활용가이드 첨부 지점 코드표 그대로.
@@ -153,10 +153,11 @@ def fetch_daily_series(stn_id: int, start: date, end: date) -> list[DailyObserva
                 "stnIds": stn_id,
             },
             timeout=REQUEST_TIMEOUT_SECONDS,
+            allow_redirects=False,
         )
         response.raise_for_status()
     except requests.RequestException as exc:
-        raise AsosFetchError(f"ASOS 일자료 조회에 실패했어: {exc}") from exc
+        raise AsosFetchError("ASOS 일자료 조회에 실패했어.") from None
 
     try:
         payload = response.json()
@@ -164,13 +165,13 @@ def fetch_daily_series(stn_id: int, start: date, end: date) -> list[DailyObserva
         if header["resultCode"] == "03":  # NODATA_ERROR
             return []
         if header["resultCode"] != "00":
-            raise AsosFetchError(f"ASOS API 오류: {header.get('resultMsg')}")
+            raise AsosFetchError("ASOS API에서 정상 자료를 받지 못했어.")
         body = payload["response"]["body"]
         if not body.get("items"):
             return []
         items = body["items"]["item"]
     except (ValueError, KeyError, TypeError) as exc:
-        raise AsosFetchError(f"ASOS 응답 형식이 예상과 달라: {response.text[:500]}") from exc
+        raise AsosFetchError("ASOS 응답 형식이 예상과 달라.") from None
 
     records: list[DailyObservation] = []
     for item in items:
