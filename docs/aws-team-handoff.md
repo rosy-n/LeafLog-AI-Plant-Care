@@ -1,6 +1,6 @@
 # AWS 이전 작업 가이드
 
-작성: 소윤 · 기준일: 2026-09-07 · 대상: 미나, 지은, 소윤
+작성: 소윤 · 기준일: 2026-09-10 · 대상: 미나, 지은, 소윤
 
 ### 바로가기
 
@@ -15,13 +15,35 @@
 
 | 항목 | 상태 |
 |---|---|
-| API·학교 AI 분리 코드 | 로컬 구현 완료 |
-| 검사 | 백엔드 40개·모바일 34개 모의 테스트, 타입 검사 통과 |
-| 커밋·배포 | 코드·문서 검수 승인. 원격 공유·실제 배포 대기 |
-| AWS·학교 PC 적용 | 미진행 |
-| 실제 생성·폰 테스트 | AWS 연결 후 진행 |
+| API·학교 AI 분리 코드 | develop `3245298` 변경과 생성 중지·오류 처리 보강을 AWS 이전 브랜치에 반영. 최종 서버 배포 전 단계 |
+| 검사 | 백엔드 143개·모바일 53개 모의 테스트와 타입 검사 통과. 학교 실제 생성·폰 검증은 별도 |
+| 인수인계 | 미나의 Notion 기록, 지은의 `docs/aws-db-handoff.md` 확인 |
+| AWS 자원·데이터 | EC2·큐·테스트 RDS 복원 등 준비 내역 인계받음. 실제 서비스 연결 검증은 남음 |
+| EC2 IAM | API 계정의 역할 선택, S3 3개 경로 쓰기·읽기·임시 GET, SQS 메시지 1건 발신 검사 통과 |
+| 학교 SQS 인증 | 미준비 확인. EC2 역할이 학교 PC에도 적용되는 것은 아님. 9월 10일 큐는 SQS 관리형 암호화 확인, 현재 별도 KMS 권한 불필요 |
+| EC2 설치 | API 전용 계정·Python 설치. 테스트 API는 루프백 유지, Nginx를 통한 HTTPS 접속 검증 완료 |
+| EC2 테스트 | 별도 로컬 코드 사본으로 클라우드 모의 검사 23개 통과. 실제 테스트 RDS에 읽기 전용 API 시작·종료 확인 |
+| RDS | 전체 백업 후 종 사진 테이블·BATHROOM 제약 보완 완료. 앱 계정의 모델 테이블·컬럼·DML 권한 재검사 통과. 기존 행 유지 |
+| Tailscale·학교 연결 | 9월 8일 EC2 경유 SSH·worker 연결 통과. 9월 10일 재점검에서도 worker 연결 시간 초과. 전원·네트워크·Tailscale 확인 필요. 전원 꺼짐으로 단정하지 않음 |
+| 학교 worker 배포 | 별도 테스트 서비스 설치·실행. 인증 health 200·비인증 401, EC2 경유 Ollama 실응답 확인(7.6초). 생성 중지·자동시작 비활성 |
+| 학교 CLIP·RAG 연결 | worker 계정에 CLIP 준비·CPU 출력 확인. EC2 → 학교 CLIP 768차원 반환 → EC2 Qdrant 검색 200 확인(합성 이미지, 약 8.8초). 진단 정확도 검사는 별도 |
+| 외부 API | Notion의 기상청·대기질·농사로 키를 EC2 비공개 설정에 반영. 예보·ASOS·대기질 측정값 조회 성공. 근처 측정소 검색은 제공 API에서 504 확인 |
+| Qdrant | 학교와 같은 1.19.0으로 EC2 루프백에 복원. 191개 ID·벡터·payload 전체 대조 통과, 학교 원본 유지 |
+| 이미지 이전 | 현재 테스트 DB의 이미지 19건을 S3로 복사·DB 경로 갱신. 서명 GET 실제 다운로드·해시·얼굴 좌표 보존 검증 통과 |
+| API HTTPS | 공인 IP 무료 인증서 발급, 외부 HTTPS 200, 비인증 요청 401, 실험실·문서·HTTP API 차단 확인. 자동 갱신 모의 실행·재적용 통과, 4시간 점검 타이머 활성 |
+| 실제 생성·폰 테스트 | 학교 재연결·학교 SQS 인증 발급 후 진행. 새 생성은 계속 중지 |
 
-**코드 배포는 소윤이 검수 완료 커밋 SHA를 공유한 뒤 시작.** 작업 브랜치는 `feature/aws-ai-worker`. 브랜치 이름만 확인하거나 현재 `develop`을 받아서는 이번 코드를 사용할 수 없음.
+9월 10일 추가 보강: 새 작업 발신에 `DelaySeconds=0` 명시, 학교 worker의 인증 오류 재시도 및 큐 상태 표시 추가. 이 보강은 로컬 검사만 완료했으며 서버에는 아직 배포하지 않음. HTTPS·RDS·Qdrant 재점검에서 기존 데이터 유지 확인.
+
+**최종 서비스 배포는 소윤이 통합 검증 완료 커밋 SHA를 공유한 뒤 진행.** 작업 브랜치는 `feature/aws-migration`. 이번 기록은 인증 발급 전까지 검증한 코드·설정 템플릿을 보관하는 단계이며, 브랜치 반영이 서버 자동 배포나 AWS 이전 완료를 뜻하지 않음. EC2에는 별도 테스트 사본이 실행 중이며 최신 브랜치 코드와 동일한 최종 배포본이 아님. 기존 학교 서비스와 `develop`은 유지.
+
+테스트 서비스 이름은 `leaflog-api-rehearsal`, 환경 파일은 `/etc/leaflog/api-rehearsal.env`, 주소는 EC2 내부 `127.0.0.1:8000`. 생성은 `false`. Qdrant 컨테이너는 `leaflog-qdrant-rehearsal`, EC2 내부 `127.0.0.1:6333`에만 연결. 학교는 `leaflog-ai-worker-rehearsal`, 설정은 `/etc/leaflog/worker-rehearsal.env`. 아래 최종 설치 절차의 서비스 이름·경로와 구분하고 테스트 환경을 덮어쓰지 않음.
+
+학교의 테스트 연결은 **Windows Tailscale 전용 18010 → WSL localhost 8010**. Windows 방화벽에서 EC2 장비 주소만 허용하고 나머지 IPv4 출발지는 차단하는 별도 규칙 적용. 기존 WSL 전달과 8010 포트가 충돌해 외부 포트만 분리했으며 기존 학교 API·DB 규칙은 유지. 이번 테스트에서는 Tailscale Serve를 사용하지 않았으므로 9-5절의 Serve 명령을 추가 실행하지 않음. 실제 IP와 규칙 이름은 비공개 운영 기록 참고.
+
+새 worker 자동시작은 아직 비활성. 기존 학교 API가 새 GPU 잠금을 거치지 않으므로 두 환경의 생성·상담을 동시에 시험하지 않음. 최종 전환 시간에 기존 작업을 마친 뒤 자동시작·재부팅 복구를 별도 검증.
+
+외부 키는 값 자체를 문서에 기록하지 않음. 기상청·대기질 클라이언트는 HTTPS로 전환하고 오류에 요청 URL·원문 응답을 노출하지 않도록 보완. 기상청 시간은 서버 시간대와 무관하게 한국 시간 기준. 관련 회귀 테스트 3개(6개 조회 경로의 오류 유형별 검사 포함)는 로컬·EC2에서 통과. 수목원 키는 이 페이지에서 확인되지 않았으며 기존 종 DB 조회에는 필수가 아님. PlantNet은 현재 모바일 직접 호출 구조이므로 이번 서버 설정에 혼합하지 않았고, 배포 전 서버 경유 전환 여부를 검토해야 함.
 
 이번 이전의 범위는 다음과 같음.
 
@@ -48,6 +70,98 @@
 - 명령이 실패하면 해당 단계에서 중단. 권한 확대, 인증서 검증 해제, 기존 DB 삭제로 우회하지 않음.
 - 코드·설정 템플릿은 저장소에 포함. 비밀번호·토큰·덤프·사진 백업은 별도 보관.
 - 아래 절차는 적용용 문서이며 실제 실행 완료 기록이 아님.
+
+### 0-1. 권한 승인 전 테스트
+
+EC2 역할의 S3·SQS 접근 검사는 통과했고 학교의 SQS 인증이 남아 있음. 이 준비 때문에 API 설치와 일반 기능 검증까지 미룰 필요는 없음. **새 캐릭터 생성만 중지한 별도 테스트 환경**으로 시작. 권한을 우회하거나 실패한 요청을 계속 쌓는 방식이 아님.
+
+1. EC2 실행 여부와 SSH 보안 그룹의 관리자 IP를 확인. `Connection timed out`은 키 인증 이전 단계의 실패이므로, 키 재발급보다 서버 상태·허용 IP·네트워크부터 확인. SSH를 인터넷 전체에 개방하지 않음.
+2. 검수 완료 SHA를 받아 3-3절의 API 환경 설치. 기존 설치·설정이 있으면 먼저 확인하고 유지.
+3. 지은의 [DB·S3 인수인계](aws-db-handoff.md) 기준으로 **테스트 RDS** 연결과 백업 건수 확인. 이미 복원한 DB를 다시 생성하거나 덮어쓰지 않음. 최신 develop에 추가된 테이블·제약은 아래 0-2절 점검.
+4. 8절의 API 설정과 9절의 학교 worker 설정에 아래 값을 명시. API는 `/etc/leaflog/api.env`, 학교는 `/etc/leaflog/worker.env`.
+
+   ```ini
+   CHARACTER_GENERATION_ENABLED=false
+   ```
+
+5. 이 상태에서는 `CHARACTER_QUEUE_URL`, `CHARACTER_WORKER_TOKEN`, worker의 `CHARACTER_WORKER_API_URL`을 비워둘 수 있음. 학교의 SQS용 `AWS_PROFILE`·액세스 키 준비와 9-4절의 AWS 자격증명 검사는 보류. **API의 RDS·S3 설정과 양쪽의 동일한 `AI_WORKER_TOKEN`, API의 `AI_WORKER_URL`은 여전히 필요.**
+6. 학교 worker 시험 시간은 팀원과 합의. 생성 중지 상태여도 시작 시 Ollama 모드를 복구하므로 기존 SDXL 작업과 동시에 시작하지 않음. 모델 경로·Python 환경·학교 네트워크 연결은 9절 기준으로 준비.
+7. API·worker health와 실제 기능을 각각 확인한 뒤, 별도 Expo 실행 환경의 API 주소를 테스트 HTTPS 주소로 지정. 기존 학교용 Expo 설정을 덮어쓰지 않음.
+
+| 기능 | 테스트에 필요한 조건 / 예상 동작 |
+|---|---|
+| 로그인·식물·돌봄 기록·일지 | RDS 스키마·앱 계정 권한·API 정상 연결 |
+| 기존 이미지 표시·진단/일지 사진 업로드 | S3 객체 이전, 해당 실행 주체의 읽기/쓰기 권한 확인. 생성 중지 설정이 S3 권한을 대신하지 않음 |
+| 식물 상담 | 학교 worker 인증·네트워크·Ollama 확인 |
+| 사진 진단·유사 사례 검색 | 학교 CLIP·Ollama, EC2 Qdrant와 복원한 컬렉션 확인 |
+| 식물명·환경 조회 | 각 외부 API 키와 네트워크 확인 |
+| 새 캐릭터 생성·새 식물 등록 | 생성 중지 안내. 현재 등록 흐름은 캐릭터를 먼저 생성하므로 새 등록도 완료할 수 없음 |
+| 이미 완료된 생성 결과 조회 | 조회 가능. 미완료 작업 조회는 중지 사유를 응답하고 새 작업을 추가하지 않음 |
+
+생성 화면의 촬영 시작 시 `GET /api/character-generations/availability`로 설정 확인. 중지 상태면 촬영·업로드 전에 안내하고 재확인 가능. 상태 확인 중 네트워크·인증 오류를 정상 상태로 처리하지 않음. 생성 직전에 설정이 바뀌어도 서버가 요청을 503으로 거절. 구버전 학교 API가 이 경로를 제공하지 않는 경우(404)에만 기존 흐름 유지.
+
+**생성 재개 순서:** API의 S3 읽기/쓰기·SQS 발신 권한, 학교의 SQS 수신/삭제/가시성 갱신 권한, callback HTTPS·토큰을 확인 → 학교 설정을 `true`로 변경하고 worker 재시작 → 큐 접근 오류가 없는지 확인 → API 설정을 `true`로 변경하고 API 재시작 → 테스트 계정으로 후보 3개 생성·선택·등록 검증. 양쪽 최종 설정은 동일해야 함.
+
+중지 설정은 기존 작업 삭제나 강제 취소 기능이 아님. 이후 다시 중지할 때는 먼저 진행 작업을 정상 완료하고 양쪽을 `false`로 변경. 남아 있는 미완료 작업은 재개 후 재처리 또는 제한 시간에 따라 실패할 수 있으므로 작업 상태를 확인. DB·큐를 임의로 비우지 않음.
+
+### 0-2. 인계받은 데이터 확인
+
+- 상세 건수·원본 누락 목록은 `docs/aws-db-handoff.md` 기준. 실제 적용 경로·백업 해시는 비공개 운영 기록에 별도 보관.
+- 9/8 최초 점검에서 빠져 있던 `plant_species_image`와 `BATHROOM` 위치 제약은 후속 승인 후 테스트 RDS에 보완. 현재 테이블 25개, 계정 8·식물 8·미디어 19·생성 작업 0·일지 및 일지 사진 각 1·종 사진 0. 모델 필수 테이블·컬럼과 앱 DML 권한 누락 없음. 조회 가능한 시퀀스의 USAGE 권한 검사 통과.
+- 기존 `apps/api/scripts/` SQL을 RDS에 그대로 실행하지 않음. 일부 파일은 `\connect leaflog`로 학교용 DB명에 다시 접속하며, 종 사진 SQL에는 옛 데이터 삭제도 포함. 복원 DB의 위치 제약 이름은 `plant_location_name_check`로, 기존 스크립트의 `ck_plant_location_name`과 다름.
+- 보완용 [테스트 RDS SQL](../apps/api/migrations/20260908_rehearsal_develop_schema.sql)은 `leaflog_rehearsal`에서만 실행되며 종 사진 테이블·권한 추가와 위치 제약 확장만 포함. 기존 행·테이블·컬럼 삭제와 DB 재접속 없음. 일회용 PostgreSQL 18에서 반복 실행·기존 행 유지·앱 삽입 권한·다른 DB 실행 차단 검증 후, 관리자 일회성 사용 승인을 받아 새 전체 백업을 만들고 **테스트 RDS 적용 완료**. 기존 24개 테이블 건수 유지 확인. 관리자 비밀번호는 서버 파일에 저장하지 않았으며 앱 계정에 DDL 권한을 추가하지 않음. 운영 DB에는 이 파일을 그대로 실행하지 않고 최종 복원 상태에 맞춰 별도 검수.
+- 휴대폰 내부 `file:///...` 경로만 남은 과거 사진은 그 경로로 복구할 수 없음. 지은의 9월 8일 인수인계 기록에 따르면 누락 사진 13행은 테스트 RDS에서 별도 백업 후 제거했고, 학교 DB 처리는 최종 전환 시점으로 보류. 이번 코드 병합에서 삭제 SQL을 실행하지 않음. `media_asset.file_url`은 NOT NULL이므로 NULL로 바꾸는 쿼리도 적용하지 않음.
+- AWS 신규 등록은 인증 사용자의 완료된 생성 작업에서 원본·캐릭터 S3 키를 가져옴. 앱이 보낸 로컬 파일 경로나 임의 캐릭터 URL은 저장하지 않도록 테스트로 확인. 이 규칙을 과거 학교 데이터에 일괄 적용한 것은 아님.
+- 현재 백업은 테스트용 시점의 사본. 최종 전환 때 최신 원본을 다시 백업하고 새 운영 DB로 복원.
+- 이미지 이전 전 테스트 RDS 전체 백업을 새로 생성하고 일회용 PostgreSQL 18에 실제 복원. 기존 24개 테이블 건수 대조 통과. 같은 데이터 사본에서 보완 SQL을 두 번 실행해 기존 행 유지 확인. 실제 RDS 스키마 변경과는 별개 검증.
+- 이미지 이전 계획의 19건은 S3 복사·DB 경로 갱신·서명 GET 검증까지 완료. 이전 직전 대비 기존 테이블 건수와 checksum·얼굴 좌표 유지. 최초 인계의 32건과의 차이는 지은의 누락 사진 13행 정리 기록으로 확인. 상세 경로·해시는 비공개 운영 기록에 보관하며 이번 작업에서 누락 행을 추가 삭제하지 않음.
+
+### 0-3. EC2 역할 연결 후 접근 검사
+
+실행 위치: EC2. 준비 조건: SSH 연결, 검수 완료 코드·Python 설치, 대상 환경 파일 작성. 9/8 API 사용자 `leaflog`로 역할 선택과 아래 쓰기 검사를 실행해 통과. 테스트 객체 3개와 메시지 1건은 자동 삭제하지 않았고 비공개 실행 기록에 ID·경로 보관. 최종 설정 확정 후 필요할 때만 재검사. 실행할 때마다 새로운 테스트 객체·메시지가 만들어짐.
+
+아래 명령은 최종 경로 `/srv/leaflog/app`, `/etc/leaflog/api.env` 기준. 현재 내부 테스트를 검사할 때는 작업 디렉터리를 `/srv/leaflog/rehearsals/20260908-api/apps/api`, 환경 파일을 `/etc/leaflog/api-rehearsal.env`로 바꿔 실행.
+
+접속에 쓰는 `ubuntu` 사용자 대신 API 서비스와 같은 `leaflog` 사용자·환경 파일로 검사. 먼저 역할 선택만 확인. `<approved-role-name>`은 EC2에 연결된 실제 역할 이름으로 교체.
+
+```bash
+sudo systemd-run --wait --pipe --collect \
+  --uid=leaflog --gid=leaflog \
+  -p WorkingDirectory=/srv/leaflog/app/apps/api \
+  -p EnvironmentFile=/etc/leaflog/api.env \
+  /srv/leaflog/venv/bin/python -m scripts.check_aws_access \
+  --expected-role '<approved-role-name>'
+```
+
+- `ec2-role: passed`: SDK가 인스턴스 역할을 선택했고 STS의 실제 역할이 일치. **S3·SQS 사용 권한까지 확인했다는 뜻은 아님.**
+- 실패 시 환경 파일의 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE` 및 서비스 사용자 프로필이 인스턴스 역할보다 먼저 선택되는지 확인. 키 내용을 출력하지 않음. 기존 설정을 자동 삭제하거나 인계 문서에 보관해둔 개인 자격증명을 다시 활성화하지 않음.
+- 인스턴스 역할 자격증명은 EC2에서 SDK가 받아 사용. 학교 PC에 이 자격증명을 복사하지 않음. [AWS EC2 임시 자격증명](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html), [Boto3 자격증명 순서](https://docs.aws.amazon.com/boto3/latest/guide/credentials.html)
+
+역할 확인 후, **설정된 버킷·큐가 테스트 대상인지 확인하고 쓰기 검사 승인을 받은 경우에만** 다음 실행.
+
+```bash
+sudo systemd-run --wait --pipe --collect \
+  --uid=leaflog --gid=leaflog \
+  -p WorkingDirectory=/srv/leaflog/app/apps/api \
+  -p EnvironmentFile=/etc/leaflog/api.env \
+  /srv/leaflog/venv/bin/python -m scripts.check_aws_access \
+  --expected-role '<approved-role-name>' --write-test-probes
+```
+
+| 검사 | 실제 동작 |
+|---|---|
+| 저장 경로별 S3 | `leaflog/characters/`, `leaflog/diary/`, `diagnosis/` 아래 `_access-checks/<임의 ID>.txt` 1개씩 생성. 기존 객체 덮어쓰기 금지 |
+| S3 읽기 | SDK로 방금 쓴 내용을 다시 읽어 비교 |
+| 앱용 이미지 접근 | 임시 GET 주소로 실제 HTTP 요청 후 내용 비교. 주소 생성만으로 성공 처리하지 않음 |
+| SQS 발신 | DB에 존재하지 않는 임의 작업 ID 1개 전송. 작업 DB 행·사진·생성 요청은 만들지 않음 |
+
+결과의 `checks`와 `not_checked`를 함께 확인. `failed`가 있으면 종료 코드 1. 기본 모드의 종료 코드 0은 역할 검사만 통과했다는 뜻. 오류 응답 본문·비밀키·임시 URL은 출력하지 않음.
+
+테스트 파일 3개는 `created_keys`로 확인. 자동 삭제하지 않으며, 쓰기 응답이 네트워크 문제로 유실되면 목록에 없는 테스트 객체도 남을 수 있음. 정리는 검사 경로·ID를 확인한 뒤 별도 진행. 전체 캐릭터 경로에 삭제·만료 규칙을 추가하지 않음. 메시지는 생성 기능과 worker를 활성화하면 존재하지 않는 작업으로 확인되어 제거되며 GPU 추론은 실행하지 않음. 그 전에는 큐에 남아 보존 기간 후 만료될 수 있음.
+
+이 도구는 **학교의 SQS 수신·삭제·가시성 갱신, 학교에서의 임시 PUT 업로드, RDS, 실제 생성**을 검사하지 않음. 큐 속성 조회나 버킷 목록 조회 권한도 요구하지 않음. 실제 기능에 필요한 최소 권한으로 검사하며, 최종 확인은 후보 3개 생성·선택·등록 테스트로 진행.
+
+신규 AWS 일지 사진은 `leaflog/diary/`에 저장. S3 저장 실패 시 503을 반환하고 외부에서 열 수 없는 서버 내부 파일로 대체하지 않음. 기존 학교 방식과 이전 `diary/` 객체·DB 기록은 유지. 승인된 정책 본문이 가이드의 경로 범위와 일치하는지도 실제 접근 검사에서 확인.
 
 ## 1. 담당과 작업 순서
 
@@ -141,12 +255,15 @@ SQS 설정은 다음 값으로 통일.
 | 항목 | 값 |
 |---|---|
 | 처리 큐 visibility timeout | 180초 |
+| 작업 전달 지연 | 0초. API가 메시지마다 `DelaySeconds=0` 지정 |
 | 수신 대기 | 20초 |
 | 처리 큐 보존 | 4일 |
 | DLQ 보존 | 14일 |
 | 처리 큐 redrive maxReceiveCount | 10 |
 | DB의 최대 생성 시도 | 총 3회. SQS 수신 횟수와 별개 |
 | 작업 제한 시간 | 대기 포함 3,600초 |
+
+큐 기본값이 달라도 코드에서 발신 `DelaySeconds=0`, 수신 `WaitTimeSeconds=20`을 지정. 긴 폴링은 메시지가 없을 때 기다리는 시간이며, 접수한 작업을 20초 지연시키는 설정이 아님. 추가 IAM 권한이나 큐 설정 변경 없이 적용 가능. 이 동작은 보강한 코드를 API와 학교 worker에 배포한 뒤부터 적용. [전달 지연](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-delay-queues.html), [긴 폴링](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-short-and-long-polling.html)
 
 작업 중 worker가 가시성과 실행 임대를 갱신. SQS는 중복 전달 가능하므로 DB가 상태의 기준. 실패한 모든 작업이 반드시 DLQ로 이동하는 것은 아님. 앱의 최종 실패는 DB에서 확인. [가시성 제한](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html), [DLQ](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html)
 
@@ -177,6 +294,16 @@ EC2에는 IAM 역할 연결. 학교는 AWS 외부 장비이므로 전용 제한 
 5. 이전용 원본 S3 권한은 지은의 실행 주체에만 추가. 이전 완료 후 더 이상 필요 없는 권한은 검토 후 회수.
 
 공용 정책이나 기존 팀원 키를 변경하지 않음. 별도 권한 주체와 정책을 만들고 검증하는 방식으로 진행.
+
+#### 학교 인증 요청 시 첨부할 내용
+
+- [학교 worker 정책 예시](../ops/aws/iam/school-worker-policy.example.json)의 계정 ID·처리 큐 이름을 실제 값으로 교체. DLQ나 모든 큐를 허용하는 와일드카드로 확장하지 않음.
+- 담당자에게 정책 연결뿐 아니라 **AWS 외부 학교 PC가 사용할 인증 방식**도 요청. 정책 파일만 받아서는 인증되지 않음.
+- 기관에서 지원하는 무인 실행·자동 갱신 가능한 임시 인증을 우선 확인. IAM Roles Anywhere는 인증서와 신뢰 설정 등 별도 준비가 필요하며, EC2 역할 연결만으로 생기지 않음. 지원되지 않으면 학교 전용 제한 IAM 사용자 키를 테스트 기간에 허용하는지 담당자에게 확인. 개인 계정 키나 EC2 임시 자격증명을 복사하지 않음.
+- S3·RDS·IAM 관리 권한, 큐 설정 변경·발신·DLQ 권한은 학교에 요청하지 않음. KMS 암호화 큐라면 실제 키 정책과 소비자의 복호화 권한은 추가 검토.
+- 인증 정보를 받으면 실행 계정, 프로필 이름, 갱신·폐기 담당을 비공개 기록에 남기고 9-4절부터 진행. 사용자 로그인 세션 만료에 의존하는 방식은 상시 무인 실행 완료로 처리하지 않음.
+
+[AWS 외부 워크로드 인증](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_common-scenarios_non-aws.html), [SQS 권한 기준](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-api-permissions-reference.html)
 
 ### 3-3. EC2 패키지·코드 설치
 
@@ -641,6 +768,8 @@ DB 스키마 오류는 5절, 자격증명 오류는 3-2·8-1절 확인. `--reloa
 
 ### 8-3. HTTPS
 
+도메인이 없는 테스트 환경은 [공인 IP 인증서 구성](../ops/aws/https/README.md)을 사용한다. 2026-09-10부터 준비하는 현재 EC2 테스트 환경은 Nginx·Certbot 방식이다. 아래 Caddy 절차는 도메인이 있는 신규 환경의 대안이며 현재 서버에 중복 설치하지 않는다. 두 방식 모두 인증서 발급·외부 접속·자동 갱신 검증이 완료돼야 한다.
+
 위치: **AWS Ubuntu**. 준비: 테스트 도메인 DNS, EC2 80·443 접근.
 
 ```bash
@@ -868,6 +997,8 @@ curl --fail --silent --show-error http://127.0.0.1:11434/api/tags
 
 담당: 미나. 위치: **학교 Windows PowerShell**. 기존 Windows Tailscale 로그인 유지. WSL에 Tailscale을 추가 설치하거나 Windows의 Tailscale을 끄지 않음.
 
+**현재 테스트 환경에는 18010 → 8010 전달이 이미 적용되어 있음. 아래 Serve 절차는 다른 신규 환경을 위한 선택안이며 지금 학교에 중복 적용하지 않음.** 테스트 API의 `AI_WORKER_URL` 포트는 18010, WSL의 `AI_WORKER_PORT`는 8010. EC2 또는 학교의 Tailscale 주소가 달라지면 전용 전달·출발지 허용/차단 규칙·API 설정을 함께 검수. Windows localhost 8010 확인과 EC2의 인증된 18010 확인을 구분.
+
 이 문서는 Windows의 localhost 전달을 먼저 확인하고 Tailscale Serve로 내부망에 연결하는 방식. WSL NAT IP를 고정값으로 저장하지 않음. Windows·WSL 양쪽 Tailscale 동시 운영은 별도 제약이 있으므로 기존 원격 접속 경로를 임의 변경하지 않음. [Tailscale WSL 안내](https://tailscale.com/docs/install/windows/wsl2)
 
 ```powershell
@@ -913,7 +1044,22 @@ sudo systemd-run --wait --pipe --collect \
   /srv/leaflog/venv/bin/python -c 'import os,requests; r=requests.get(os.environ["AI_WORKER_URL"]+"/health",headers={"X-LeafLog-AI-Token":os.environ["AI_WORKER_TOKEN"]},timeout=15); print(r.status_code,r.json()); r.raise_for_status()'
 ```
 
-완료 기준: `200`, `status: ok`. `busy: true`는 다른 AI 작업 처리 중이라는 의미. health만으로 SQS 권한·실제 생성 성공까지 보장하지 않음.
+연결 확인 기준: `200`, `status: ok`. `busy: true`는 다른 AI 작업 처리 중이라는 의미. 보강한 worker는 다음 큐 상태도 반환.
+
+| `queue.status` | HTTP | 의미·조치 |
+|---|---|---|
+| `paused` | 200 | 생성 중지 상태. AWS 인증 없이 상담·임베딩 연결 검사 가능. 생성 준비 완료가 아님 |
+| `starting` | 503 | 아직 첫 수신 성공 전. 시작 직후에는 긴 폴링 종료까지 기다린 뒤 재확인 |
+| `ready` | 200 | 수신 성공, 현재 관측된 미복구 SQS 오류 없음 |
+| `unavailable` | 503 | 인증·권한·연결 등 SQS 오류. `queue.error`의 오류 종류 확인 |
+| `stopped` | 503 | 생성은 켜져 있으나 수신 스레드 종료. 서비스 로그 확인 |
+
+- `NoCredentialsError`·`ProfileNotFound`: worker 실행 계정의 승인된 인증 설정 확인.
+- `ExpiredToken`·`AccessDenied`: 인증 만료·권한 확인. 임의로 권한 확대하거나 다른 사람의 키로 대체하지 않음.
+- 클라이언트 초기화·수신 실패는 10초 대기 후 다시 시도. 자격증명 발급·갱신 자체를 대신하지 않으며, 환경 파일 변경은 서비스 재시작이 필요할 수 있음.
+- 메시지 삭제·가시성 연장에서 오류가 관측되면 단순 수신 성공으로 정상 처리하지 않음. 해당 동작 성공 후 오류 해제.
+- `ready`는 아직 실행하지 않은 삭제·가시성 연장 권한, GPU·S3 업로드 성공까지 보장하지 않음. 실제 생성 1건으로 따로 검증.
+- health 요청은 큐를 직접 수신하지 않음. 인증 토큰이 없으면 401. 오류 응답·로그에는 인증 원문이나 서명 URL을 남기지 않음.
 
 학교에서 AWS HTTPS callback 접속도 확인.
 

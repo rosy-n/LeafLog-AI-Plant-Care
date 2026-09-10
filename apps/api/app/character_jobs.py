@@ -29,6 +29,7 @@ TERMINAL = ("completed", "failed")
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
 MAX_IMAGE_PIXELS = 24_000_000
 STAGES = {"preprocessing", "starting_gpu", "generating", "postprocessing"}
+GENERATION_PAUSED_MESSAGE = "캐릭터 생성을 잠시 준비하고 있어요. 기존 식물은 계속 돌볼 수 있어요."
 MESSAGES = {
     "queued": "캐릭터 생성 순서를 기다리고 있어요.",
     "preprocessing": "식물과 배경을 분리하고 있어요.",
@@ -46,6 +47,11 @@ def utcnow():
 
 def aware(value):
     return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+
+def require_generation_enabled():
+    if not settings.character_generation_enabled:
+        raise HTTPException(503, GENERATION_PAUSED_MESSAGE)
 
 
 def validate_image(data: bytes) -> str:
@@ -125,6 +131,7 @@ class CharacterJobService:
         )
 
     def create_job(self, user_id, image_bytes, idempotency_key=None):
+        require_generation_enabled()
         content_type = validate_image(image_bytes)
         digest = hashlib.sha256(image_bytes).hexdigest()
         if idempotency_key and (len(idempotency_key) > 100 or not idempotency_key.isascii()):
@@ -179,6 +186,8 @@ class CharacterJobService:
             job = db.get(CharacterJob, job_id)
             if job is None or job.user_id != user_id:
                 raise KeyError(job_id)
+            if job.status not in TERMINAL:
+                require_generation_enabled()
             return self.view(job)
 
     def latest_active(self, user_id):
@@ -186,6 +195,8 @@ class CharacterJobService:
             job = db.scalar(select(CharacterJob).where(
                 CharacterJob.user_id == user_id, CharacterJob.status.not_in(TERMINAL),
             ).order_by(CharacterJob.created_at.desc()))
+            if job:
+                require_generation_enabled()
             return self.view(job) if job else None
 
     def fail(self, job):
@@ -195,6 +206,8 @@ class CharacterJobService:
         job.updated_at = utcnow()
 
     def dispatch(self, job_id=None):
+        if not settings.character_generation_enabled:
+            return
         now = utcnow()
         with self.sessions() as db:
             query = select(CharacterJob.job_id).where(
@@ -227,10 +240,11 @@ class CharacterJobService:
                 if job.last_dispatched_at and (now - aware(job.last_dispatched_at)).total_seconds() < settings.character_lease_seconds:
                     continue
                 self.sqs.send_message(QueueUrl=settings.character_queue_url,
-                                      MessageBody=json.dumps({"job_id": job.job_id}))
+                                      MessageBody=json.dumps({"job_id": job.job_id}), DelaySeconds=0)
                 job.last_dispatched_at = now
 
     def claim(self, job_id):
+        require_generation_enabled()
         with self.sessions() as db, db.begin():
             job = db.scalar(select(CharacterJob).where(CharacterJob.job_id == job_id).with_for_update())
             if job is None or job.status in TERMINAL:
@@ -325,6 +339,8 @@ class CharacterJobService:
             return {"ok": True}
 
     def start(self):
+        if not settings.character_generation_enabled:
+            return
         self.stop_event.clear()
         def run():
             while not self.stop_event.is_set():

@@ -18,6 +18,9 @@ def _database_url() -> str:
 @dataclass(frozen=True)
 class Settings:
     app_role: str = os.getenv("APP_ROLE", "standalone").strip().lower()
+    character_generation_enabled: bool = os.getenv("CHARACTER_GENERATION_ENABLED", "true").strip().lower() in (
+        "1", "true", "yes", "on",
+    )
     database_url: str = _database_url()
     secret_key: str = os.getenv("SECRET_KEY", "dev-only-change-this-secret")
     access_token_expire_minutes: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))
@@ -127,7 +130,7 @@ class Settings:
         if role == "worker" and self.app_role != "worker":
             raise ValueError("The school worker requires APP_ROLE=worker")
         if self.app_role in {"api", "worker"}:
-            if not self.character_queue_url or len(self.character_worker_token) < 32:
+            if self.character_generation_enabled and (not self.character_queue_url or len(self.character_worker_token) < 32):
                 raise ValueError("Set CHARACTER_QUEUE_URL and a strong CHARACTER_WORKER_TOKEN")
             if len(self.ai_worker_token) < 32:
                 raise ValueError("AI_WORKER_TOKEN must contain at least 32 characters")
@@ -167,11 +170,12 @@ class Settings:
             if not self.character_restore_ollama:
                 raise ValueError("Worker requires CHARACTER_RESTORE_OLLAMA=true")
             from urllib.parse import urlparse
-            target = urlparse(self.character_worker_api_url)
-            if target.scheme != "https" and target.hostname not in {"127.0.0.1", "localhost"}:
-                raise ValueError("CHARACTER_WORKER_API_URL must use HTTPS")
-            if not target.hostname or target.username or target.password:
-                raise ValueError("Invalid CHARACTER_WORKER_API_URL")
+            if self.character_generation_enabled:
+                target = urlparse(self.character_worker_api_url)
+                if target.scheme != "https" and target.hostname not in {"127.0.0.1", "localhost"}:
+                    raise ValueError("CHARACTER_WORKER_API_URL must use HTTPS")
+                if not target.hostname or target.username or target.password:
+                    raise ValueError("Invalid CHARACTER_WORKER_API_URL")
 
 
 settings = Settings()

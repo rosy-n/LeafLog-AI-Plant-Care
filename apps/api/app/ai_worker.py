@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 import boto3
 import requests
 from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from PIL import Image
@@ -31,6 +32,46 @@ MAX_IMAGE_BYTES = 12 * 1024 * 1024
 _gpu_mutex = threading.Lock()
 _stop = threading.Event()
 _thread = None
+_queue_state = {"status": "starting", "error": None}
+_queue_failures = {}
+_queue_state_lock = threading.Lock()
+
+
+def _queue_status(status, error=None, operation="receive_message"):
+    global _queue_state
+    code = None
+    if error is not None:
+        code = type(error).__name__
+        if isinstance(error, ClientError):
+            aws_code = error.response.get("Error", {}).get("Code", "")
+            if aws_code in {
+                "AccessDenied", "AccessDeniedException", "ExpiredToken", "ExpiredTokenException",
+                "InvalidClientTokenId", "InvalidSecurity", "SignatureDoesNotMatch",
+                "UnrecognizedClientException", "RequestThrottled",
+                "AWS.SimpleQueueService.NonExistentQueue",
+            }:
+                code = aws_code
+    with _queue_state_lock:
+        if status in {"starting", "paused"}:
+            _queue_failures.clear()
+        elif error is not None:
+            _queue_failures[operation] = code
+        elif status == "ready":
+            _queue_failures.pop(operation, None)
+        # Receiving successfully does not prove a failed delete/heartbeat recovered.
+        if _queue_failures:
+            status, code = "unavailable", next(iter(_queue_failures.values()))
+        _queue_state = {"status": status, "error": code}
+
+
+def sqs_call(sqs, operation, **kwargs):
+    try:
+        result = getattr(sqs, operation)(**kwargs)
+    except Exception as exc:
+        _queue_status("unavailable", exc, operation)
+        raise
+    _queue_status("ready", operation=operation)
+    return result
 
 
 class GpuBusy(RuntimeError):
@@ -106,9 +147,15 @@ class EmbedRequest(BaseModel):
 
 @app.get("/health", dependencies=[Depends(require_ai)])
 def health():
-    if _thread is None or not _thread.is_alive():
-        raise HTTPException(503, "Queue consumer is not running")
-    return {"status": "ok", "busy": _gpu_mutex.locked()}
+    queue = {"status": "paused", "error": None}
+    if settings.character_generation_enabled:
+        queue = _queue_state
+        if _thread is None or not _thread.is_alive():
+            queue = {"status": "stopped", "error": None}
+    ready = queue["status"] in {"paused", "ready"}
+    body = {"status": "ok" if ready else "unavailable", "busy": _gpu_mutex.locked(),
+            "character_generation_enabled": settings.character_generation_enabled, "queue": queue}
+    return body if ready else JSONResponse(body, status_code=503)
 
 
 @app.post("/internal/ai/chat", dependencies=[Depends(require_ai)])
@@ -200,7 +247,7 @@ def process_message(sqs, message):
     with gpu_slot():
         claim = api_call(job_id, "claim")
         if claim["action"] == "ack":
-            sqs.delete_message(QueueUrl=settings.character_queue_url, ReceiptHandle=receipt)
+            sqs_call(sqs, "delete_message", QueueUrl=settings.character_queue_url, ReceiptHandle=receipt)
             return
         if claim["action"] == "wait":
             return
@@ -210,8 +257,8 @@ def process_message(sqs, message):
             while not finished.wait(max(10, claim["lease_seconds"] // 3)):
                 try:
                     api_call(job_id, "update", {"lease_token": token})
-                    sqs.change_message_visibility(QueueUrl=settings.character_queue_url, ReceiptHandle=receipt,
-                                                  VisibilityTimeout=claim["lease_seconds"])
+                    sqs_call(sqs, "change_message_visibility", QueueUrl=settings.character_queue_url,
+                             ReceiptHandle=receipt, VisibilityTimeout=claim["lease_seconds"])
                 except Exception:
                     lost_lease.set()
                     return
@@ -252,7 +299,7 @@ def process_message(sqs, message):
             result = manager.run_inline(job_id, claim["user_id"], image_bytes)
             # A successful update is durable before this delivery is acknowledged.
             if result.status == "completed":
-                sqs.delete_message(QueueUrl=settings.character_queue_url, ReceiptHandle=receipt)
+                sqs_call(sqs, "delete_message", QueueUrl=settings.character_queue_url, ReceiptHandle=receipt)
         finally:
             finished.set()
             heart.join(timeout=55)
@@ -266,26 +313,50 @@ def process_message(sqs, message):
 
 
 def consume():
-    sqs = boto3.client("sqs", region_name=settings.s3_region,
-                       config=Config(connect_timeout=10, read_timeout=30, retries={"max_attempts": 2}))
-    while not _stop.is_set():
-        try:
+    if not settings.character_generation_enabled:
+        return
+    sqs = None
+    try:
+        while not _stop.is_set():
             if _gpu_mutex.locked():
                 _stop.wait(2)
                 continue
-            result = sqs.receive_message(QueueUrl=settings.character_queue_url, MaxNumberOfMessages=1,
-                                         WaitTimeSeconds=20, VisibilityTimeout=settings.character_lease_seconds)
+            try:
+                if sqs is None:
+                    sqs = boto3.client("sqs", region_name=settings.s3_region,
+                                       config=Config(connect_timeout=10, read_timeout=30, retries={"max_attempts": 2}))
+                result = sqs_call(sqs, "receive_message", QueueUrl=settings.character_queue_url,
+                                  MaxNumberOfMessages=1, WaitTimeSeconds=20,
+                                  VisibilityTimeout=settings.character_lease_seconds)
+            except Exception as exc:
+                _queue_status("unavailable", exc)
+                log.error("School queue receive deferred (%s)", _queue_state["error"])
+                if sqs is not None:
+                    sqs.close()
+                    sqs = None
+                _stop.wait(10)
+                continue
             for message in result.get("Messages", []):
                 if _stop.is_set():
                     break
                 try:
                     process_message(sqs, message)
                 except GpuBusy:
-                    sqs.change_message_visibility(QueueUrl=settings.character_queue_url,
-                                                  ReceiptHandle=message["ReceiptHandle"], VisibilityTimeout=15)
-        except Exception as exc:
-            log.error("School queue delivery deferred (%s)", type(exc).__name__)
-            _stop.wait(10)
+                    try:
+                        sqs_call(sqs, "change_message_visibility", QueueUrl=settings.character_queue_url,
+                                 ReceiptHandle=message["ReceiptHandle"], VisibilityTimeout=15)
+                    except Exception:
+                        log.error("School queue visibility update failed (%s)", _queue_state["error"])
+                        _stop.wait(10)
+                except (BotoCoreError, ClientError):
+                    log.error("School queue delivery deferred (%s)", _queue_state["error"])
+                    _stop.wait(10)
+                except Exception as exc:
+                    log.error("School job processing deferred (%s)", type(exc).__name__)
+                    _stop.wait(10)
+    finally:
+        if sqs is not None:
+            sqs.close()
 
 
 @app.on_event("startup")
@@ -297,8 +368,11 @@ def start():
         from .character_generation import _switch_gpu_mode
         _switch_gpu_mode("ollama")
     _stop.clear()
-    _thread = threading.Thread(target=consume, name="character-consumer", daemon=False)
-    _thread.start()
+    _thread = None
+    _queue_status("starting" if settings.character_generation_enabled else "paused")
+    if settings.character_generation_enabled:
+        _thread = threading.Thread(target=consume, name="character-consumer", daemon=False)
+        _thread.start()
 
 
 @app.on_event("shutdown")

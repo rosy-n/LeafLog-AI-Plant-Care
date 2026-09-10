@@ -1972,11 +1972,14 @@ async def upload_diary_photo(
 
     content_type = file.content_type or "image/jpeg"
     extension = DIAGNOSIS_PHOTO_EXTENSIONS.get(content_type.lower(), "jpg")
-    object_key = f"diary/{current_user.user_id}/{uuid4().hex}.{extension}"
+    prefix = "leaflog/diary" if settings.app_role == "api" else "diary"
+    object_key = f"{prefix}/{current_user.user_id}/{uuid4().hex}.{extension}"
 
-    file_url = upload_bytes(image_bytes, object_key, content_type)
+    file_url = await run_in_threadpool(upload_bytes, image_bytes, object_key, content_type)
     bucket_name = settings.s3_bucket or None
     if file_url is None:
+        if settings.app_role == "api":
+            raise HTTPException(503, "사진을 저장하지 못했어요. 잠시 후 다시 시도해주세요.")
         # S3 미설정 개발 환경 폴백 — request.base_url 로 만들어야 휴대폰에서도 열린다
         local_path = save_local_file(image_bytes, object_key)
         if local_path is None:
