@@ -229,15 +229,13 @@ export const styles = StyleSheet.create({
     borderRadius: Radius.xs,
   },
   progressStatus: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
   },
   progressLabel: {
-    flex: 1,
     fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.body,
     color: Colors.textGray,
+    textAlign: 'center',
   },
   waitHint: {
     marginTop: Spacing.xl,
