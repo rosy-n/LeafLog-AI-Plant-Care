@@ -247,6 +247,18 @@ export const styles = StyleSheet.create({
     color: Colors.textFaint,
     textAlign: 'center',
   },
+  backgroundBtn: {
+    marginTop: Spacing.lg,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+  },
+  backgroundBtnText: {
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.small,
+    color: Colors.primary,
+    textDecorationLine: 'underline',
+  },
 
   // ── Result (후보 3종 선택) ──────────────────────────────────────────────────
 

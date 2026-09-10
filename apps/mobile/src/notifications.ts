@@ -17,6 +17,7 @@ import { getPlants } from "./api";
 import { loadNotificationSettings } from "./notificationSettings";
 
 const ANDROID_CHANNEL_ID = "watering";
+const CHARACTER_ANDROID_CHANNEL_ID = "character-ready";
 
 function identifierFor(plantId: number | string) {
   return `watering-${plantId}`;
@@ -37,6 +38,10 @@ export async function prepareNotifications(): Promise<void> {
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
       name: "물주기 알림",
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
+    await Notifications.setNotificationChannelAsync(CHARACTER_ANDROID_CHANNEL_ID, {
+      name: "캐릭터 생성 완료",
       importance: Notifications.AndroidImportance.DEFAULT,
     });
   }
@@ -191,4 +196,34 @@ export async function syncWateringReminders(): Promise<WateringSyncResult> {
     }
   }
   return { scheduled, blockedByPermission: false };
+}
+
+/**
+ * 캐릭터 생성 완료 알림.
+ *
+ * 사용자가 생성 대기 화면을 벗어나 다른 화면을 보는 동안 AddPlantFlowProvider가
+ * 백그라운드로 폴링하다가 완료/실패를 감지하면 호출한다. 눌렀을 때 등록 화면으로
+ * 돌아가는 동작은 App.js의 알림 응답 리스너가 처리한다(kind: "CHARACTER_READY").
+ * 권한이 없으면 조용히 넘어간다 — 사용자가 직접 앱으로 돌아와 확인할 수 있다.
+ */
+export async function notifyCharacterGenerationReady(success: boolean): Promise<void> {
+  if (!(await ensureNotificationPermission())) return;
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: success ? "도트 캐릭터가 완성됐어요!" : "캐릭터 생성에 실패했어요",
+      body: success
+        ? "눌러서 마음에 드는 친구를 골라주세요."
+        : "눌러서 등록 화면으로 돌아가 다시 시도해주세요.",
+      data: { kind: "CHARACTER_READY" },
+    },
+    trigger:
+      Platform.OS === "android"
+        ? {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: 1,
+            channelId: CHARACTER_ANDROID_CHANNEL_ID,
+          }
+        : null,
+  });
 }
