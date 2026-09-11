@@ -769,6 +769,29 @@ class BoundaryTests(unittest.TestCase):
                 self.assertEqual(post.call_args.args[0], settings.ollama_api_url)
                 self.assertEqual(post.call_args.kwargs["headers"], {})
 
+    def test_diagnosis_sends_the_model_a_jpeg(self):
+        from app import diagnosis
+        buffer = io.BytesIO()
+        Image.new("RGBA", (3000, 1500), (0, 128, 0, 255)).save(buffer, format="WEBP")
+        with Image.open(io.BytesIO(diagnosis.model_image_jpeg(buffer.getvalue()))) as image:
+            self.assertEqual((image.format, image.mode), ("JPEG", "RGB"))
+            self.assertEqual(max(image.size), diagnosis.MODEL_IMAGE_MAX_SIDE)
+        with self.assertRaises(diagnosis.UnsupportedDiagnosisImage):
+            diagnosis.model_image_jpeg(b"not an image")
+
+    def test_school_chat_failure_is_not_reported_as_busy(self):
+        from app.persona_chat import MODEL_NAME
+        client = TestClient(ai_worker.app)
+        self.addCleanup(client.close)
+        with patch.object(ai_worker, "settings", replace(settings, ai_worker_token="a"*40)), \
+             patch.object(ai_worker, "gpu_slot", return_value=nullcontext()), \
+             patch("app.character_generation._switch_gpu_mode"), \
+             patch.object(inference_client, "post_json", side_effect=inference_client.InferenceUnavailable("bad image")), \
+             self.assertLogs(ai_worker.log, level="ERROR"):
+            response = client.post("/internal/ai/chat", headers={"X-LeafLog-AI-Token": "a"*40},
+                                   json={"model": MODEL_NAME, "messages": [{"role": "user", "content": "hi"}]})
+        self.assertEqual(response.status_code, 502)
+
     def test_remote_busy_is_clear_and_does_not_leak_response(self):
         with patch.object(inference_client.requests, "post", return_value=Mock(status_code=503)):
             with self.assertRaises(inference_client.InferenceUnavailable):
