@@ -21,6 +21,7 @@ from botocore.config import Config
 from .character_types import CharacterCandidate, CharacterGenerationJob
 from .config import settings
 from .database import SessionLocal
+from .image_formats import heif_to_jpeg
 from .models import CharacterJob
 from .storage import _s3
 
@@ -67,7 +68,7 @@ def validate_image(data: bytes) -> str:
             im.verify()
         return content_type
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
-        raise HTTPException(400, "JPG, PNG 또는 WebP 사진을 올려주세요.") from exc
+        raise HTTPException(400, "JPG, PNG, WebP 또는 HEIC 사진을 올려주세요.") from exc
 
 
 def output_key(job: CharacterJob, index: int) -> str:
@@ -132,6 +133,9 @@ class CharacterJobService:
 
     def create_job(self, user_id, image_bytes, idempotency_key=None):
         require_generation_enabled()
+        # 학교 worker는 HEIC를 못 읽는다 — 입력 원본을 JPEG로 저장해 worker 쪽은 그대로 둔다.
+        # 같은 HEIC는 같은 JPEG가 되므로 input_sha256 기반 중복 판단도 유지된다.
+        image_bytes, _ = heif_to_jpeg(image_bytes)
         content_type = validate_image(image_bytes)
         digest = hashlib.sha256(image_bytes).hexdigest()
         if idempotency_key and (len(idempotency_key) > 100 or not idempotency_key.isascii()):
