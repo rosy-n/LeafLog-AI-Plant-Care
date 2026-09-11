@@ -85,6 +85,8 @@ export default function PersonaScreen() {
 
       if (!plantId) {
         const created = await createPlant({
+          characterJobId: draft.generationJobId,
+          characterCandidateId: draft.characterId,
           speciesId: draft.speciesId,
           cntntsNo: draft.cntntsNo,
           scientificName: draft.scientificName,

@@ -3,27 +3,26 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
+from pydantic import BaseModel, Field
 
 import requests
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
 from . import affinity, air_quality, asos, diagnosis, environment, persona_chat, region_data, weather
-from .character_generation import CharacterGenerationJob, character_generation_manager
+from .character_types import CharacterGenerationJob
 from .config import settings
 from .database import Base, engine, get_db
-from .image_preprocessing import (
+from .image_types import (
     ImagePreprocessingError,
     ImagePreprocessingUnavailable,
     QualityMode,
-    preprocess_plant_photo,
-    remove_background_for_sprite,
-    remove_character_face,
 )
 from .korea_time import korea_day, today_in_korea
 from .wikimedia import fetch_species_images
@@ -33,6 +32,7 @@ from .models import (
     CareSchedule,
     ChatMessage,
     ChatSession,
+    CharacterJob,
     GrowthDiary,
     GrowthDiaryPhoto,
     Inquiry,
@@ -108,6 +108,32 @@ from .storage import (
 
 app = FastAPI(title="LeafLog API", version="0.1.0")
 
+_character_manager_instance = None
+
+
+def _character_manager():
+    global _character_manager_instance
+    if _character_manager_instance is None:
+        if settings.app_role == "api":
+            from .character_jobs import service
+            _character_manager_instance = service
+        else:
+            from .character_generation import character_generation_manager
+            _character_manager_instance = character_generation_manager
+    return _character_manager_instance
+
+
+def _local_image_tools():
+    if settings.app_role != "standalone":
+        raise HTTPException(404, "Image lab is unavailable on this server")
+    from . import image_preprocessing
+    return image_preprocessing
+
+
+if settings.app_role == "api":
+    from .character_jobs import router as worker_router
+    app.include_router(worker_router)
+
 MAX_IMAGE_UPLOAD_BYTES = 12 * 1024 * 1024
 
 # 진단 사진 S3 저장용 확장자 매핑 — 모르는 타입은 jpg로 취급 (대부분 카메라/갤러리 사진이라 안전한 기본값)
@@ -119,12 +145,13 @@ DIAGNOSIS_PHOTO_EXTENSIONS = {
     "image/heif": "heif",
 }
 IMAGE_LAB_PATH = Path(__file__).parent / "static" / "image_lab.html"
-settings.character_output_dir.mkdir(parents=True, exist_ok=True)
-app.mount(
-    "/generated/characters",
-    StaticFiles(directory=settings.character_output_dir),
-    name="generated-characters",
-)
+if settings.app_role == "standalone":
+    settings.character_output_dir.mkdir(parents=True, exist_ok=True)
+    app.mount(
+        "/generated/characters",
+        StaticFiles(directory=settings.character_output_dir),
+        name="generated-characters",
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -136,8 +163,9 @@ app.add_middleware(
 
 # S3_BUCKET 미설정 환경(학교 랩 PC 등)에서 diagnosis.upload_bytes()가 로컬로 폴백해 저장한
 # 파일을 그대로 서빙 — StaticFiles가 마운트 시점에 디렉터리 존재를 요구해 먼저 만들어둔다.
-LOCAL_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/static/uploads", StaticFiles(directory=LOCAL_UPLOAD_DIR), name="local-uploads")
+if settings.app_role == "standalone":
+    LOCAL_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/static/uploads", StaticFiles(directory=LOCAL_UPLOAD_DIR), name="local-uploads")
 
 # plant CHECK 제약과 일치 — 허용되지 않는 값은 저장 시 NULL 처리해 제약 위반 방지
 LOCATION_NAMES = {"LIVING_ROOM", "BEDROOM", "BALCONY", "KITCHEN", "OFFICE", "BATHROOM"}
@@ -220,12 +248,15 @@ def _asset_url(
 ) -> str | None:
     """media_asset 한 건의 표시용 URL — presign 되면 그걸, 아니면 저장된 file_url.
 
-    bucket_name 이 비어 있으면 기본 버킷(S3_BUCKET)의 객체로 본다.
+    버킷이 없는 레거시 로컬/외부 주소는 S3 객체로 추측하지 않는다.
     공개 객체(예: leaflog/item-images/*)는 서명 없이 file_url 이 그대로 나간다.
     """
     if object_key is None and file_url is None:
         return None
-    return presigned_get_url(object_key, bucket_name) or file_url
+    bucket = bucket_name or bucket_from_url(file_url)
+    if bucket:
+        return presigned_get_url(object_key, bucket) or file_url
+    return file_url
 
 
 def _parse_dt(value: str | None) -> datetime | None:
@@ -477,12 +508,22 @@ def _parse_rag_context(raw: object) -> tuple[list[DiagnosisSimilarCase], int | N
 
 @app.on_event("startup")
 def create_tables() -> None:
-    Base.metadata.create_all(bind=engine)
+    settings.validate_runtime("api")
+    if settings.app_role == "standalone":
+        Base.metadata.create_all(bind=engine, tables=[
+            table for table in Base.metadata.sorted_tables if table.name != "character_job"
+        ])
+    else:
+        # Fail before accepting traffic if the required migration has not been applied.
+        with engine.connect() as connection:
+            connection.execute(select(CharacterJob).limit(0))
+        _character_manager().start()
 
 
 @app.on_event("shutdown")
 def shutdown_character_generation() -> None:
-    character_generation_manager.shutdown()
+    if _character_manager_instance is not None:
+        _character_manager_instance.shutdown()
 
 
 def get_current_user(
@@ -520,13 +561,46 @@ def get_current_admin(
     return current_user
 
 
+class MediaRefreshRequest(BaseModel):
+    url: str = Field(max_length=4096)
+
+
+@app.post("/api/media/refresh")
+def refresh_media_url(payload: MediaRefreshRequest, current_user: AppUser = Depends(get_current_user),
+                      db: Session = Depends(get_db)):
+    bucket = bucket_from_url(payload.url)
+    key = _object_key_from_url(payload.url)
+    if not bucket or not key:
+        raise HTTPException(404, "이미지를 찾을 수 없어요.")
+    asset = db.scalar(select(MediaAsset).where(
+        MediaAsset.object_key == key, MediaAsset.bucket_name == bucket,
+        MediaAsset.user_id == current_user.user_id,
+    ))
+    allowed = asset is not None
+    if not allowed and settings.app_role == "api":
+        parts = key.split("/")
+        if len(parts) >= 4 and parts[:3] == ["leaflog", "characters", str(current_user.user_id)]:
+            job = db.get(CharacterJob, parts[3])
+            allowed = (job is not None and job.user_id == current_user.user_id and
+                       job.bucket_name == bucket and job.status == "completed" and
+                       any(c["key"] == key for c in job.candidates))
+    if not allowed:
+        raise HTTPException(404, "이미지를 찾을 수 없어요.")
+    url = presigned_get_url(key, bucket)
+    if not url:
+        raise HTTPException(503, "이미지 주소를 갱신하지 못했어요.")
+    return {"url": url}
+
+
 @app.get("/", include_in_schema=False)
 def root() -> RedirectResponse:
-    return RedirectResponse(url="/image-lab")
+    return RedirectResponse(url="/image-lab" if settings.app_role == "standalone" else "/health")
 
 
 @app.get("/image-lab", include_in_schema=False)
 def image_lab() -> FileResponse:
+    if settings.app_role != "standalone":
+        raise HTTPException(404)
     return FileResponse(IMAGE_LAB_PATH)
 
 
@@ -535,16 +609,20 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-async def _read_image_upload(file: UploadFile) -> bytes:
+def _read_image_upload_sync(file: UploadFile) -> bytes:
     if file.content_type and not file.content_type.startswith("image/"):
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Upload an image file.")
 
-    image_bytes = await file.read()
+    image_bytes = file.file.read(MAX_IMAGE_UPLOAD_BYTES + 1)
     if not image_bytes:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image file is empty.")
     if len(image_bytes) > MAX_IMAGE_UPLOAD_BYTES:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Image file is too large.")
     return image_bytes
+
+
+async def _read_image_upload(file: UploadFile) -> bytes:
+    return await run_in_threadpool(_read_image_upload_sync, file)
 
 
 def _image_error_response(exc: Exception) -> HTTPException:
@@ -583,6 +661,7 @@ async def preprocess_plant_image(
     canvas_size: int = Query(default=1024, ge=512, le=1536),
     quality_mode: QualityMode = Query(default="quality"),
 ) -> PlantImagePreprocessResponse:
+    preprocess_plant_photo = _local_image_tools().preprocess_plant_photo
     image_bytes = await _read_image_upload(file)
 
     try:
@@ -607,6 +686,7 @@ async def remove_image_background(
     canvas_size: int = Query(default=1024, ge=512, le=1536),
     quality_mode: QualityMode = Query(default="quality"),
 ) -> BackgroundRemovalResponse:
+    remove_background_for_sprite = _local_image_tools().remove_background_for_sprite
     image_bytes = await _read_image_upload(file)
 
     try:
@@ -628,6 +708,7 @@ async def remove_image_background(
 async def remove_generated_character_face(
     file: UploadFile = File(...),
 ) -> CharacterFaceRemovalResponse:
+    remove_character_face = _local_image_tools().remove_character_face
     image_bytes = await _read_image_upload(file)
 
     try:
@@ -652,15 +733,41 @@ async def create_character_generation(
     request: Request,
     file: UploadFile = File(...),
     current_user: AppUser = Depends(get_current_user),
+    idempotency_key: str | None = Header(default=None),
 ) -> CharacterGenerationJobRead:
+    if not settings.character_generation_enabled:
+        from .character_jobs import GENERATION_PAUSED_MESSAGE
+        raise HTTPException(503, GENERATION_PAUSED_MESSAGE)
     image_bytes = await _read_image_upload(file)
+    if settings.app_role == "api":
+        job = await run_in_threadpool(
+            _character_manager().create_job, current_user.user_id, image_bytes, idempotency_key,
+        )
+        return _character_job_response(job)
     public_base_url = settings.character_public_base_url or str(request.base_url).rstrip("/")
-    job = character_generation_manager.create_job(
+    job = _character_manager().create_job(
         user_id=current_user.user_id,
         image_bytes=image_bytes,
         public_base_url=public_base_url,
     )
     return _character_job_response(job)
+
+
+@app.get("/api/character-generations/availability")
+def character_generation_availability(current_user: AppUser = Depends(get_current_user)):
+    from .character_jobs import GENERATION_PAUSED_MESSAGE
+    return {
+        "enabled": settings.character_generation_enabled,
+        "message": None if settings.character_generation_enabled else GENERATION_PAUSED_MESSAGE,
+    }
+
+
+@app.get("/api/character-generations/active", response_model=CharacterGenerationJobRead | None)
+def active_character_generation(current_user: AppUser = Depends(get_current_user)):
+    if settings.app_role != "api":
+        return None
+    job = _character_manager().latest_active(current_user.user_id)
+    return _character_job_response(job) if job else None
 
 
 @app.get("/api/character-generations/{job_id}", response_model=CharacterGenerationJobRead)
@@ -669,7 +776,7 @@ def get_character_generation(
     current_user: AppUser = Depends(get_current_user),
 ) -> CharacterGenerationJobRead:
     try:
-        job = character_generation_manager.get_job(job_id, current_user.user_id)
+        job = _character_manager().get_job(job_id, current_user.user_id)
     except KeyError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -863,6 +970,33 @@ def create_plant(
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PlantRead:
+    generation = None
+    chosen = None
+    if settings.app_role == "api":
+        if not payload.characterJobId or not payload.characterCandidateId:
+            raise HTTPException(400, "생성한 캐릭터를 선택해주세요.")
+        generation = db.scalar(select(CharacterJob).where(
+            CharacterJob.job_id == payload.characterJobId,
+            CharacterJob.user_id == current_user.user_id,
+        ).with_for_update())
+        if generation is None:
+            raise HTTPException(404, "캐릭터 생성 작업을 찾을 수 없어요.")
+        if generation.status != "completed":
+            raise HTTPException(409, "캐릭터 생성이 아직 완료되지 않았어요.")
+        chosen = next((c for c in generation.candidates if c["id"] == payload.characterCandidateId), None)
+        if chosen is None:
+            raise HTTPException(400, "선택한 캐릭터가 이 작업에 없어요.")
+        if generation.plant_id is not None:
+            if generation.selected_candidate_id != payload.characterCandidateId:
+                raise HTTPException(409, "이미 다른 캐릭터로 등록한 작업이에요.")
+            existing = db.get(Plant, generation.plant_id)
+            if existing is None:
+                raise HTTPException(409, "이미 삭제된 식물의 생성 작업이에요.")
+            species = db.get(PlantSpecies, existing.species_id)
+            return PlantRead(id=existing.plant_id, nickname=existing.nickname,
+                             common_name_ko=species.common_name_ko if species else "", created_at=existing.created_at.isoformat())
+        if generation.selected_candidate_id:
+            raise HTTPException(409, "이미 등록 후 삭제한 생성 작업이에요. 새로 생성해주세요.")
     # 1. 종(plant_species) 결정
     #    speciesId 가 오면 마스터 행을 그대로 사용 (GET /api/species 검색 결과)
     #    없으면 학명/국명 get-or-create — PlantNet 이 인식했지만 마스터에 없는 종용 fallback
@@ -909,7 +1043,20 @@ def create_plant(
     # 3. 사진(media_asset) — 넘어온 것만 저장
     #    object_key는 클라이언트가 업로드한 실제 S3 URL 경로에서 추출 → 실제 객체와 항상 일치
     #    checksum(내용 해시)은 클라이언트가 계산해 전달하면 컬럼에 저장 (중복 감지/캐시 무효화용)
-    if payload.capturedPhotoUri:
+    if generation is not None:
+        generation.plant_id = plant.plant_id
+        generation.selected_candidate_id = chosen["id"]
+        for key, kind, digest in (
+            (generation.input_key, "PLANT_PHOTO", generation.input_sha256),
+            (chosen["key"], "CHARACTER_IMAGE", chosen["checksum"]),
+        ):
+            db.add(MediaAsset(
+                user_id=current_user.user_id, plant_id=plant.plant_id,
+                bucket_name=generation.bucket_name, object_key=key,
+                file_url=f"s3://{generation.bucket_name}/{key}",
+                asset_type=kind, checksum=digest,
+            ))
+    if generation is None and payload.capturedPhotoUri:
         db.add(MediaAsset(
             user_id=current_user.user_id,
             plant_id=plant.plant_id,
@@ -919,7 +1066,7 @@ def create_plant(
             asset_type="PLANT_PHOTO",
             checksum=payload.photoChecksum or None,
         ))
-    if payload.characterImageUrl:
+    if generation is None and payload.characterImageUrl:
         stored_url = character_file_url(
             payload.characterImageUrl, str(request.base_url), settings.character_public_base_url,
         )
@@ -1253,6 +1400,14 @@ def delete_plant(
     # 업로드한 이미지 기록 — plant_id 가 SET NULL 이라 그냥 두면 주인 없는 행으로 남는다.
     # (S3 객체는 지우지 않는다 — 버킷이 다른 계정 소유라 삭제 권한이 없다.)
     db.execute(delete(MediaAsset).where(MediaAsset.plant_id == plant_id))
+
+    if settings.app_role == "api":
+        for job in db.scalars(select(CharacterJob).where(CharacterJob.plant_id == plant_id).with_for_update()):
+            job.plant_id = None
+            job.status = "failed"
+            job.candidates = []
+            job.message = job.error = "등록한 식물이 삭제됐어요."
+            job.lease_hash = job.lease_until = None
 
     db.delete(plant)
     db.commit()
@@ -1817,11 +1972,14 @@ async def upload_diary_photo(
 
     content_type = file.content_type or "image/jpeg"
     extension = DIAGNOSIS_PHOTO_EXTENSIONS.get(content_type.lower(), "jpg")
-    object_key = f"diary/{current_user.user_id}/{uuid4().hex}.{extension}"
+    prefix = "leaflog/diary" if settings.app_role == "api" else "diary"
+    object_key = f"{prefix}/{current_user.user_id}/{uuid4().hex}.{extension}"
 
-    file_url = upload_bytes(image_bytes, object_key, content_type)
+    file_url = await run_in_threadpool(upload_bytes, image_bytes, object_key, content_type)
     bucket_name = settings.s3_bucket or None
     if file_url is None:
+        if settings.app_role == "api":
+            raise HTTPException(503, "사진을 저장하지 못했어요. 잠시 후 다시 시도해주세요.")
         # S3 미설정 개발 환경 폴백 — request.base_url 로 만들어야 휴대폰에서도 열린다
         local_path = save_local_file(image_bytes, object_key)
         if local_path is None:
@@ -1990,7 +2148,7 @@ def persona_chat_reply(
 
 
 @app.post("/api/diagnosis", response_model=DiagnosisResponse)
-async def diagnose_plant_photo(
+def diagnose_plant_photo(
     request: Request,
     file: UploadFile | None = File(default=None),
     species: str | None = Form(default=None),
@@ -2007,7 +2165,8 @@ async def diagnose_plant_photo(
             status_code=status.HTTP_400_BAD_REQUEST, detail="사진 또는 증상 설명 중 하나는 입력해야 해요."
         )
 
-    image_bytes = await _read_image_upload(file) if file is not None else None
+    # This route performs blocking model/HTTP/DB calls, so FastAPI runs it in its thread pool.
+    image_bytes = _read_image_upload_sync(file) if file is not None else None
 
     # session_id가 오면 이어지는 턴 — 같은 세션 안에서 plant_id가 바뀌지 않도록
     # 최초 생성 시점 값(chat_session.plant_id)을 그대로 쓴다. 없으면 이번이 상담의
@@ -2079,6 +2238,8 @@ async def diagnose_plant_photo(
         file_url = upload_bytes(image_bytes, object_key, content_type)
         bucket_name = settings.s3_bucket or None
         if file_url is None:
+            if settings.app_role == "api":
+                raise HTTPException(503, "진단 사진을 저장하지 못했어요. 잠시 후 다시 시도해주세요.")
             local_path = save_local_file(image_bytes, object_key)
             if local_path is not None:
                 # request.base_url을 써야 휴대폰이 실제로 접근 가능한 호스트로 URL이 만들어진다

@@ -17,6 +17,10 @@ function buildOffsets(p) {
     return offsets;
 }
 
+/**
+ * @param {{ children?: any, style?: any, strokeWidth?: number, numberOfLines?: number,
+ *           adjustsFontSizeToFit?: boolean, minimumFontScale?: number }} props
+ */
 export default function PixelOutlineText({
     children,
     style,

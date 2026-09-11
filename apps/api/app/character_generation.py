@@ -6,7 +6,6 @@ import logging
 import math
 import os
 import secrets
-import shutil
 import socket
 import subprocess
 import threading
@@ -14,7 +13,6 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
@@ -23,6 +21,7 @@ from urllib.parse import urlparse
 import requests
 
 from .config import settings
+from .character_types import CharacterCandidate, CharacterGenerationJob, CharacterJobStatus
 from .character_framing import normalize_character_framing
 from .image_preprocessing import (
     ImagePreprocessingError,
@@ -31,16 +30,6 @@ from .image_preprocessing import (
     remove_character_face,
     remove_background_for_sprite,
 )
-
-CharacterJobStatus = Literal[
-    "queued",
-    "preprocessing",
-    "starting_gpu",
-    "generating",
-    "postprocessing",
-    "completed",
-    "failed",
-]
 
 PROMPT = (
     "<lora:plantpet_sprite_lora_v2:1.0>, plantpet_sprite, "
@@ -66,40 +55,26 @@ _forge_tunnel_lock = threading.RLock()
 _forge_tunnel_process: subprocess.Popen[bytes] | None = None
 
 
-@dataclass(frozen=True)
-class CharacterCandidate:
-    id: str
-    image_url: str
-    checksum: str
-    seed: int
-    face_bounds: tuple[int, int, int, int] | None = None
-
-
-@dataclass
-class CharacterGenerationJob:
-    id: str
-    user_id: int
-    status: CharacterJobStatus = "queued"
-    progress: int = 0
-    message: str = "생성 작업을 기다리고 있어요."
-    current_candidate: int = 0
-    candidate_count: int = 3
-    candidates: list[CharacterCandidate] = field(default_factory=list)
-    error: str | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-
-
 class CharacterGenerationError(RuntimeError):
     pass
 
 
 class CharacterGenerationManager:
-    def __init__(self) -> None:
+    def __init__(self, on_update=None, on_candidate=None) -> None:
         self._jobs: dict[str, CharacterGenerationJob] = {}
         self._inputs: dict[str, bytes] = {}
         self._lock = threading.Lock()
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="character-generation")
+        self._on_update = on_update
+        self._on_candidate = on_candidate
+
+    def run_inline(self, job_id: str, user_id: int, image_bytes: bytes) -> CharacterGenerationJob:
+        if len(job_id) != 32 or any(c not in "0123456789abcdef" for c in job_id):
+            raise ValueError("Invalid character job id")
+        self._jobs[job_id] = CharacterGenerationJob(id=job_id, user_id=user_id)
+        self._inputs[job_id] = image_bytes
+        self._run_job(job_id, "")
+        return self.get_job(job_id, user_id)
 
     def create_job(self, user_id: int, image_bytes: bytes, public_base_url: str) -> CharacterGenerationJob:
         job_id = uuid.uuid4().hex
@@ -133,8 +108,12 @@ class CharacterGenerationManager:
             for name, value in changes.items():
                 setattr(job, name, value)
             job.updated_at = datetime.now(timezone.utc)
+        if self._on_update is not None:
+            self._on_update(job_id, changes)
 
     def _append_candidate(self, job_id: str, candidate: CharacterCandidate) -> None:
+        if self._on_candidate is not None:
+            self._on_candidate(job_id, candidate)
         with self._lock:
             job = self._jobs[job_id]
             job.candidates.append(candidate)
@@ -171,8 +150,8 @@ class CharacterGenerationManager:
             )
             if not settings.character_mock_generation:
                 stage_started = time.perf_counter()
-                _switch_gpu_mode("sdxl")
                 sdxl_active = True
+                _switch_gpu_mode("sdxl")
                 _log_timing(job_id, "gpu_switch_sdxl", stage_started)
 
                 stage_started = time.perf_counter()
@@ -356,7 +335,7 @@ class CharacterGenerationManager:
             job = finished.pop(0)
             self._jobs.pop(job.id, None)
             self._inputs.pop(job.id, None)
-            shutil.rmtree(settings.character_output_dir / job.id, ignore_errors=True)
+            # Registered plants may still reference these files. Only prune memory here.
 
 
 def _copy_job(job: CharacterGenerationJob) -> CharacterGenerationJob:

@@ -35,7 +35,7 @@ class NativeFile {
   async bytes() { return photoBytes; }
 }
 
-function setup({ offline = false } = {}) {
+function setup({ offline = false, availabilityStatus = 200, availabilityData = { enabled: true, message: null } } = {}) {
   class FormData { constructor() { this._parts = []; } }
   loadTs('node_modules/expo/src/winter/FormData.ts').installFormDataPatch(FormData);
   const { convertFormDataAsync } = loadTs(
@@ -45,8 +45,13 @@ function setup({ offline = false } = {}) {
   const calls = [];
   const globals = {
     FormData,
+    AbortController, setTimeout, clearTimeout,
     async fetch(url, options) {
       if (offline) throw new TypeError('Network request failed');
+      if (url.endsWith('/api/character-generations/availability')) {
+        calls.push({ url, options });
+        return { ok: availabilityStatus === 200, status: availabilityStatus, json: async () => availabilityData };
+      }
       const { body, boundary } = await convertFormDataAsync(options.body, 'test-boundary');
       calls.push({ url, options, body: Buffer.from(body), boundary });
       return { ok: true, json: async () => ({ results: [] }) };
@@ -74,6 +79,34 @@ test('SDK 57 rejects the old uri-only multipart part', async () => {
   const form = new globals.FormData();
   form.append('file', { uri: 'file:///photo.png', name: 'photo.png', type: 'image/png' });
   await assert.rejects(convertFormDataAsync(form), /Unsupported FormDataPart/);
+});
+
+test('generation availability is authenticated and handles older school APIs', async () => {
+  for (const availabilityStatus of [200, 404]) {
+    const { api, calls } = setup({ availabilityStatus });
+    api.setAuthToken('test-token');
+    assert.equal((await api.getCharacterGenerationAvailability()).enabled, true);
+    assert.equal(calls[0].options.headers.Authorization, 'Bearer test-token');
+    assert.ok(calls[0].options.signal instanceof AbortSignal);
+  }
+  const { api } = setup({ availabilityData: { enabled: false, message: 'Paused' } });
+  assert.equal((await api.getCharacterGenerationAvailability()).enabled, false);
+});
+
+test('authentication, network and malformed availability responses never enable generation', async () => {
+  for (const options of [
+    { availabilityStatus: 401 }, { availabilityStatus: 503 }, { offline: true }, { availabilityData: {} },
+  ]) {
+    await assert.rejects(setup(options).api.getCharacterGenerationAvailability());
+  }
+});
+
+test('character retries can reuse the same idempotency key', async () => {
+  const { api, calls } = setup();
+  await api.startCharacterGeneration({ uri: 'file:///photo.png' }, 'reviewed-request-id');
+  await api.startCharacterGeneration({ uri: 'file:///photo.png' }, 'reviewed-request-id');
+  assert.equal(calls[0].options.headers['Idempotency-Key'], 'reviewed-request-id');
+  assert.equal(calls[1].options.headers['Idempotency-Key'], 'reviewed-request-id');
 });
 
 test('character generation and background endpoints send image bytes with auth', async () => {

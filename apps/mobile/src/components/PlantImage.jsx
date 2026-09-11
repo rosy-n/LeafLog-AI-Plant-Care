@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { plantImages } from "../data/plants";
 import DecorImage from "./DecorImage";
+import useMediaSource from "../hooks/useMediaSource";
 
 /**
  * @param {{
@@ -33,7 +34,7 @@ export default function PlantImage({
                                        style = null,
                                    }) {
     // 원격 URL(S3 등)이 있으면 우선 사용, 없으면 번들 기본 이미지로 fallback
-    const source = explicitSource ?? (uri ? { uri } : plantImages[imageKey]);
+    const { source, refresh } = useMediaSource(explicitSource ?? (uri ? { uri } : plantImages[imageKey]));
 
     const expressionStyle = expressionSource && expressionBounds
         ? createExpressionStyle(expressionSource, expressionBounds)
@@ -50,6 +51,7 @@ export default function PlantImage({
                 width={width}
                 height={height}
                 style={style}
+                onError={refresh}
             >
                 {expressionStyle ? (
                     <Image
@@ -81,6 +83,7 @@ export default function PlantImage({
     return (
         <Image
             source={source}
+            onError={refresh}
             style={[
                 styles.image,
                 {
@@ -95,7 +98,7 @@ export default function PlantImage({
 }
 
 // Remount on base-image changes so stale load events cannot reveal a new face.
-function LayeredPlantImage({ source, width, height, style, children }) {
+function LayeredPlantImage({ source, width, height, style, children, onError }) {
     const [loaded, setLoaded] = useState(false);
     const [failed, setFailed] = useState(false);
 
@@ -113,6 +116,7 @@ function LayeredPlantImage({ source, width, height, style, children }) {
                     onError={() => {
                         setLoaded(false);
                         setFailed(true);
+                        onError?.();
                         console.warn("캐릭터 이미지를 불러오지 못했어요. 이미지 서버 연결을 확인해주세요.");
                     }}
                 />
