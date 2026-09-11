@@ -64,7 +64,11 @@ def source_bytes(source, root, s3):
 
 def plan(db, s3, root, bucket):
     result = {"version": 1, "bucket": bucket, "entries": [], "skipped": []}
-    for asset in db.scalars(select(MediaAsset).order_by(MediaAsset.asset_id)):
+    # 참고 이미지는 main._rag_reference_image_urls()가 object_key 규칙(rag-reference/<id>.jpg)으로
+    # 찾는다. 키를 leaflog/migrated/…로 바꾸면 진단 결과에서 이미지가 사라지므로 옮기지 않는다.
+    # ingest_rag_reference_images.py가 처음부터 대상 버킷에 올린다.
+    query = select(MediaAsset).where(MediaAsset.asset_type != "RAG_REFERENCE_IMAGE").order_by(MediaAsset.asset_id)
+    for asset in db.scalars(query):
         source = source_for(asset)
         if source is None:
             result["skipped"].append({"asset_id": asset.asset_id, "reason": "unmapped URL; review original manually"})
