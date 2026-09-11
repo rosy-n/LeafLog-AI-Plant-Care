@@ -513,6 +513,15 @@ class JobTests(unittest.TestCase):
             media.apply_db(db, manifest, self.s3)
             db.commit()
 
+    def test_migration_leaves_rag_reference_keys_alone(self):
+        from scripts import migrate_media as media
+        with tempfile.TemporaryDirectory() as temp, self.sessions() as db:
+            db.add(MediaAsset(bucket_name="test-bucket", object_key="rag-reference/7.jpg",
+                              file_url="s3://test-bucket/rag-reference/7.jpg", asset_type="RAG_REFERENCE_IMAGE"))
+            db.commit()
+            manifest = media.plan(db, self.s3, Path(temp), "test-bucket")
+            self.assertEqual((manifest["entries"], manifest["skipped"]), ([], []))
+
     def test_migration_blocks_path_traversal(self):
         from scripts.migrate_media import confined
         with tempfile.TemporaryDirectory() as temp, self.assertRaises(ValueError):
