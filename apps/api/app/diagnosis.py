@@ -21,6 +21,7 @@ from PIL import Image, ImageOps
 from qdrant_client import QdrantClient
 
 from .config import settings
+from . import image_formats  # noqa: F401 - PIL이 HEIC도 열도록 등록
 from . import inference_client
 from .persona_chat import MODEL_NAME as OLLAMA_MODEL_NAME
 from .persona_chat import (
@@ -426,7 +427,7 @@ def model_image_jpeg(image_bytes: bytes) -> bytes:
         with Image.open(io.BytesIO(image_bytes)) as opened:
             image = ImageOps.exif_transpose(opened).convert("RGB")
     except (OSError, ValueError, Image.DecompressionBombError) as exc:
-        raise UnsupportedDiagnosisImage("사진을 읽을 수 없어요. JPG나 PNG 사진으로 다시 시도해주세요.") from exc
+        raise UnsupportedDiagnosisImage("사진을 읽을 수 없어요. JPG, PNG, WebP, HEIC 사진으로 다시 시도해주세요.") from exc
     image.thumbnail((MODEL_IMAGE_MAX_SIDE, MODEL_IMAGE_MAX_SIDE))
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG", quality=90)
