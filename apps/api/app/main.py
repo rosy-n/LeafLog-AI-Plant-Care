@@ -250,7 +250,7 @@ def _asset_url(
     """media_asset 한 건의 표시용 URL — presign 되면 그걸, 아니면 저장된 file_url.
 
     버킷이 없는 레거시 로컬/외부 주소는 S3 객체로 추측하지 않는다.
-    공개 객체(예: leaflog/item-images/*)는 서명 없이 file_url 이 그대로 나간다.
+    버킷은 비공개라 아이템 이미지(leaflog/item-images/*)도 서명해서 내보낸다 — file_url 은 서명 실패 시 대비용.
     """
     if object_key is None and file_url is None:
         return None
