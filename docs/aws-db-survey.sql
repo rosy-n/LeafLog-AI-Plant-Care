@@ -1,5 +1,5 @@
 -- 섹션 4-1 검증 기준선. 원본(학교) DB 에서 실행하고 출력을 보관한다.
---   psql -h 100.70.205.63 -U <계정> -d leaflog -W -f survey-4-1.sql -o survey-source.txt
+--   psql -h <원본 DB 호스트> -U <계정> -d leaflog -W -f survey-4-1.sql -o survey-source.txt
 \encoding UTF8
 \pset pager off
 

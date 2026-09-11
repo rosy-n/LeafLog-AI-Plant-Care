@@ -29,7 +29,7 @@
 - 인증 확인 폴더: `/var/www/leaflog-acme`
 - 인증서: `/etc/letsencrypt/live/leaflog-api-ip/`
 - 갱신 후 실행 파일: `/usr/local/sbin/leaflog-reload-https`
-- API: `leaflog-api-rehearsal`, `127.0.0.1:8000`
+- API: `leaflog-api`, `127.0.0.1:8000`
 
 파일이 존재하는 것과 HTTPS 검증이 끝난 것은 별개다. 실제 적용 상태는 비공개 운영 기록을 확인한다. 인증서 발급 전에 갱신 타이머만 켜놓고 완료로 처리하지 않는다.
 
