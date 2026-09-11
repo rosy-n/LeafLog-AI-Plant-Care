@@ -779,6 +779,19 @@ class BoundaryTests(unittest.TestCase):
         with self.assertRaises(diagnosis.UnsupportedDiagnosisImage):
             diagnosis.model_image_jpeg(b"not an image")
 
+    def test_iphone_heic_photos_become_jpeg(self):
+        from app import diagnosis, image_formats
+        self.assertTrue(image_formats.HEIF_SUPPORTED)
+        buffer = io.BytesIO()
+        Image.new("RGB", (640, 480), (0, 128, 0)).save(buffer, format="HEIF")
+        heic = buffer.getvalue()
+        converted, changed = image_formats.heif_to_jpeg(heic)
+        self.assertTrue(changed)
+        self.assertEqual(jobs.validate_image(converted), "image/jpeg")
+        self.assertEqual(image_formats.heif_to_jpeg(converted), (converted, False))
+        with Image.open(io.BytesIO(diagnosis.model_image_jpeg(heic))) as image:
+            self.assertEqual(image.format, "JPEG")
+
     def test_school_chat_failure_is_not_reported_as_busy(self):
         from app.persona_chat import MODEL_NAME
         client = TestClient(ai_worker.app)

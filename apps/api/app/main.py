@@ -19,6 +19,7 @@ from . import affinity, air_quality, asos, diagnosis, environment, persona_chat,
 from .character_types import CharacterGenerationJob
 from .config import settings
 from .database import Base, engine, get_db
+from .image_formats import heif_to_jpeg
 from .image_types import (
     ImagePreprocessingError,
     ImagePreprocessingUnavailable,
@@ -2167,6 +2168,12 @@ def diagnose_plant_photo(
 
     # This route performs blocking model/HTTP/DB calls, so FastAPI runs it in its thread pool.
     image_bytes = _read_image_upload_sync(file) if file is not None else None
+    photo_content_type = (file.content_type or "image/jpeg") if file is not None else None
+    if image_bytes is not None:
+        # 아이폰 HEIC는 모델도, 상담 기록을 다시 여는 다른 기기도 못 읽으니 저장 전에 JPEG로 바꾼다.
+        image_bytes, converted = heif_to_jpeg(image_bytes)
+        if converted:
+            photo_content_type = "image/jpeg"
 
     # session_id가 오면 이어지는 턴 — 같은 세션 안에서 plant_id가 바뀌지 않도록
     # 최초 생성 시점 값(chat_session.plant_id)을 그대로 쓴다. 없으면 이번이 상담의
@@ -2233,7 +2240,7 @@ def diagnose_plant_photo(
     # S3가 없는 개발 환경 대응). 둘 다 실패해도 진단 응답 자체는 막지 않고 asset_id 없이 저장한다.
     user_asset_id: int | None = None
     if image_bytes is not None:
-        content_type = file.content_type or "image/jpeg"
+        content_type = photo_content_type
         extension = DIAGNOSIS_PHOTO_EXTENSIONS.get(content_type.lower(), "jpg")
         object_key = f"diagnosis/{current_user.user_id}/{uuid4().hex}.{extension}"
 
