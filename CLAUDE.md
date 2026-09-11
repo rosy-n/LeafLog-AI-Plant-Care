@@ -70,7 +70,8 @@ apps/api/scripts/ingest/
 
 ## Active Branch
 
-`feature/plant-registration` — 현재 개발 중
+`develop` — 기능 브랜치는 develop 에서 만들고 PR 로 합친다. 운영(AWS) 배포는 develop 커밋 기준
+(`docs/aws-team-handoff.md` 0절).
 
 ## Coding Rules
 
