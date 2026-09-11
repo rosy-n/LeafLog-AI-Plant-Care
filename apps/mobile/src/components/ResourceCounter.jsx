@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors } from "../../constants/colors";
+import { Colors, Leaf } from "../../constants/colors";
 import { Spacing } from "../../constants/spacing";
 
 const STROKE_DIRS = [
@@ -11,7 +11,7 @@ const STROKE_DIRS = [
     [-1,  1], [ 1,  1],
 ];
 
-function OutlineText({ children, style, strokeWidth = 2 }) {
+function OutlineText({ children, style, strokeWidth = 2, fillColor = Colors.white }) {
     const p = strokeWidth;
 
     return (
@@ -32,12 +32,15 @@ function OutlineText({ children, style, strokeWidth = 2 }) {
                     {children}
                 </Text>
             ))}
-            <Text style={[style, styles.outlineFill]}>{children}</Text>
+            <Text style={[style, { color: fillColor }]}>{children}</Text>
         </View>
     );
 }
 
-export default function ResourceCounter({ wateringDays, nutrientDays }) {
+// highlighted: 튜토리얼이 이 남은 날짜 표시를 가리키는 동안 버튼 하이라이트와 같은
+// 초록으로 글자색을 바꾼다
+export default function ResourceCounter({ wateringDays, nutrientDays, highlighted = false }) {
+    const fillColor = highlighted ? Leaf.bright : Colors.white;
     return (
         <View style={styles.container}>
             <View style={styles.row}>
@@ -46,7 +49,7 @@ export default function ResourceCounter({ wateringDays, nutrientDays }) {
                     style={styles.icon}
                     resizeMode="contain"
                 />
-                <OutlineText style={styles.text} strokeWidth={2}>
+                <OutlineText style={styles.text} strokeWidth={2} fillColor={fillColor}>
                     D + {wateringDays ?? 0}
                 </OutlineText>
             </View>
@@ -57,7 +60,7 @@ export default function ResourceCounter({ wateringDays, nutrientDays }) {
                     style={styles.icon}
                     resizeMode="contain"
                 />
-                <OutlineText style={styles.text} strokeWidth={2}>
+                <OutlineText style={styles.text} strokeWidth={2} fillColor={fillColor}>
                     D + {nutrientDays ?? 0}
                 </OutlineText>
             </View>
@@ -84,10 +87,6 @@ const styles = StyleSheet.create({
 
     outlineWrapper: {
         alignSelf: "center",
-    },
-
-    outlineFill: {
-        color: Colors.white,
     },
 
     text: {

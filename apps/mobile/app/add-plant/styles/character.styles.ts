@@ -229,15 +229,13 @@ export const styles = StyleSheet.create({
     borderRadius: Radius.xs,
   },
   progressStatus: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
   },
   progressLabel: {
-    flex: 1,
     fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.body,
     color: Colors.textGray,
+    textAlign: 'center',
   },
   waitHint: {
     marginTop: Spacing.xl,
@@ -246,6 +244,18 @@ export const styles = StyleSheet.create({
     lineHeight: 18,
     color: Colors.textFaint,
     textAlign: 'center',
+  },
+  backgroundBtn: {
+    marginTop: Spacing.lg,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+  },
+  backgroundBtnText: {
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.small,
+    color: Colors.primary,
+    textDecorationLine: 'underline',
   },
 
   // ── Result (후보 3종 선택) ──────────────────────────────────────────────────
@@ -321,4 +331,58 @@ export const styles = StyleSheet.create({
 
   disabledBtn: { backgroundColor: Colors.disabled },
   disabledBtnText: { color: Colors.textGray },
+
+  // ── 튜토리얼 인트로 카드 (생성 로딩 화면 위에 뜨는 오버레이) ─────────────────
+
+  tutorialOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xl,
+  },
+  tutorialSkipBtn: {
+    position: 'absolute',
+    top: Spacing.xxl,
+    right: Spacing.xl,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  tutorialSkipText: {
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.small,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  tutorialCard: {
+    width: '100%',
+    backgroundColor: Colors.white,
+    borderRadius: Radius.xl,
+    paddingVertical: Spacing.xxl,
+    paddingHorizontal: Spacing.xl,
+    alignItems: 'center',
+    gap: Spacing.xl,
+  },
+  tutorialCardText: {
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.bodyLarge,
+    color: Colors.textBlack,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  tutorialStartBtn: {
+    width: '100%',
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.lg,
+    alignItems: 'center',
+  },
+  tutorialStartBtnText: {
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.bodyLarge,
+    color: Colors.white,
+  },
 });

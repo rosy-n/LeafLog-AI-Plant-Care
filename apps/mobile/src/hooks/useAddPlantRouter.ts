@@ -54,6 +54,17 @@ export function useRouter() {
     back() {
       navigation.goBack();
     },
+    // 생성 작업은 남겨둔 채 메인 스택의 홈으로 나간다 (캐릭터 생성 대기 화면 "나중에
+    // 확인할게요"). navigate('Home')은 지금 쌓인 스택 상태(Garden 모달을 거쳐
+    // 들어왔는지 등)에 따라 애매하게 동작할 수 있어(예: 이전 화면 헤더가 안 지워진
+    // 채 남는 전환 잔상), replace('/')·tutorial.skip()과 같은 방식으로 스택 자체를
+    // Home 하나만 남기고 통째로 갈아치운다.
+    leaveToHome() {
+      const mainStack = navigation.getParent('MainStack');
+      (mainStack ?? navigation.getParent())?.dispatch(
+        CommonActions.reset({ index: 0, routes: [{ name: 'Home' }] })
+      );
+    },
   };
 }
 
