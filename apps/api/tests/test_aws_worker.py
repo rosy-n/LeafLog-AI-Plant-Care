@@ -328,6 +328,20 @@ class JobTests(unittest.TestCase):
             main.create_plant(PlantCreate(characterJobId=job.id, characterCandidateId=f"{job.id}-1",
                                          nickname="Plant", commonNameKo="Monstera"), self.request, db.get(AppUser, 2), db)
 
+    def test_registration_without_a_job_stores_no_client_reference(self):
+        # 생성 작업을 거치지 않는 등록 경로는 앱이 보낸 참조를 그대로 저장한다. 기기 안의
+        # file:/// 경로가 들어가면 서명도 이전도 불가능한 행이 남는다 — 이전 때 옮기지 못한
+        # 13건이 이렇게 생겼다. 클라우드에서는 생성 작업을 요구해 그 경로 자체를 막는다.
+        payload = PlantCreate(capturedPhotoUri="file:///var/mobile/cache/photo.jpg",
+                              characterImageUrl="file:///var/mobile/cache/character.png",
+                              nickname="Plant", commonNameKo="Monstera")
+        with self.sessions() as db:
+            with self.assertRaises(HTTPException) as raised:
+                main.create_plant(payload, self.request, db.get(AppUser, 1), db)
+            self.assertEqual(raised.exception.status_code, 400)
+            self.assertEqual(db.scalar(select(func.count()).select_from(MediaAsset)), 0)
+            self.assertEqual(db.scalar(select(func.count()).select_from(Plant)), 0)
+
     def test_cloud_diary_photo_uses_the_leaflog_policy_prefix(self):
         data = png()
         upload = SimpleNamespace(content_type="image/png", file=io.BytesIO(data))
