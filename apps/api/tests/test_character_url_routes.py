@@ -25,6 +25,7 @@ class CharacterUrlRouteTests(unittest.TestCase):
         cls.directory = TemporaryDirectory(prefix="leaflog-url-tests-")
         settings = replace(
             config.settings,
+            app_role="standalone",
             character_output_dir=Path(cls.directory.name) / "characters",
             character_public_base_url="",
         )

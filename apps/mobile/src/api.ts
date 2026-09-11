@@ -124,6 +124,12 @@ function resolveApiBaseUrl(): string {
 
 const API_BASE_URL = resolveApiBaseUrl();
 
+class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -155,13 +161,13 @@ async function request<T>(
         : Array.isArray(detail) && typeof detail[0]?.msg === "string"
           ? detail[0].msg.replace(/^Value error,\s*/, "")
           : "요청 처리 중 오류가 발생했어요.";
-    throw new Error(message);
+    throw new ApiError(message, response.status);
   }
 
   return data as T;
 }
 
-async function requestForm<T>(path: string, formData: FormData): Promise<T> {
+async function requestForm<T>(path: string, formData: FormData, headers: Record<string, string> = {}): Promise<T> {
   let response: Response;
 
   try {
@@ -169,6 +175,7 @@ async function requestForm<T>(path: string, formData: FormData): Promise<T> {
       method: "POST",
       body: formData,
       headers: {
+        ...headers,
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       },
     });
@@ -777,11 +784,36 @@ export function deleteConsultation(sessionId: number) {
   return request<null>(`/api/consultations/${sessionId}`, { method: "DELETE" });
 }
 
-export function startCharacterGeneration(image: UploadableImage) {
+export async function getCharacterGenerationAvailability(): Promise<{ enabled: boolean; message: string | null }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  try {
+    const result = await request<{ enabled: boolean; message: string | null }>(
+      '/api/character-generations/availability', { signal: controller.signal },
+    );
+    if (typeof result?.enabled !== 'boolean') throw new Error('생성 서버 상태를 확인하지 못했어요. 다시 시도해주세요.');
+    return result;
+  } catch (error) {
+    // Older school APIs do not expose the feature switch yet.
+    if (error instanceof ApiError && error.status === 404) return { enabled: true, message: null };
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function startCharacterGeneration(image: UploadableImage, requestId?: string) {
   return requestForm<CharacterGenerationJob>(
     "/api/character-generations",
     createImageFormData(image),
+    { "Idempotency-Key": requestId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}` },
   );
+}
+
+export function refreshMediaUrl(url: string) {
+  return request<{ url: string }>("/api/media/refresh", {
+    method: "POST", body: JSON.stringify({ url }),
+  });
 }
 
 export function getCharacterGeneration(jobId: string) {

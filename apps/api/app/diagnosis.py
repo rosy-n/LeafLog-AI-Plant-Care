@@ -17,16 +17,13 @@ from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
 
-import requests
-import torch
 from PIL import Image
 from qdrant_client import QdrantClient
-from transformers import CLIPModel, CLIPProcessor
 
 from .config import settings
+from . import inference_client
 from .persona_chat import MODEL_NAME as OLLAMA_MODEL_NAME
 from .persona_chat import (
-    OLLAMA_URL,
     WateringSchedule,
     WeatherAirQuality,
     build_watering_schedule_status,
@@ -183,8 +180,13 @@ class SpeciesCareInfo:
 
 
 @lru_cache(maxsize=1)
-def _clip() -> tuple[CLIPModel, CLIPProcessor, torch.device]:
-    if torch.cuda.is_available():
+def _clip():
+    import torch
+    from transformers import CLIPModel, CLIPProcessor
+
+    if settings.app_role == "worker":
+        device = torch.device("cpu")
+    elif torch.cuda.is_available():
         device = torch.device("cuda")
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
@@ -207,11 +209,13 @@ def reference_dataset_size() -> int:
     return _qdrant().count(collection_name=settings.qdrant_collection, exact=True).count
 
 
-@torch.no_grad()
 def _embed_image(image: Image.Image) -> list[float]:
+    import torch
+
     model, processor, device = _clip()
     inputs = processor(images=[image], return_tensors="pt").to(device)
-    output = model.get_image_features(**inputs)
+    with torch.no_grad():
+        output = model.get_image_features(**inputs)
     # transformers>=5: get_image_features가 raw tensor 대신 BaseModelOutputWithPooling을 반환
     features = output.pooler_output if hasattr(output, "pooler_output") else output
     features = features / features.norm(p=2, dim=-1, keepdim=True)
@@ -223,8 +227,11 @@ def search_similar_cases(
     top_k: int = DEFAULT_TOP_K,
     min_score: float = MIN_SIMILARITY_SCORE,
 ) -> list[SimilarCase]:
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    vector = _embed_image(image)
+    if settings.app_role == "api":
+        vector = inference_client.embed(image_bytes)
+    else:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        vector = _embed_image(image)
     points = _qdrant().query_points(
         collection_name=settings.qdrant_collection,
         query=vector,
@@ -339,24 +346,7 @@ def _call_ollama(messages: list[dict], *, options: dict | None = None) -> str:
         "options": options or {"num_ctx": OLLAMA_NUM_CTX},
     }
 
-    try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=REQUEST_TIMEOUT_SECONDS)
-        response.raise_for_status()
-    except requests.ConnectionError as exc:
-        raise RuntimeError("Ollama 서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.") from exc
-    except requests.Timeout as exc:
-        raise RuntimeError("답변 생성 시간이 초과됐어요.") from exc
-    except requests.RequestException as exc:
-        raise RuntimeError(f"진단 생성에 실패했어요: {exc}") from exc
-
-    try:
-        text = response.json()["message"]["content"].strip()
-    except (ValueError, KeyError, TypeError) as exc:
-        raise RuntimeError("모델 응답 형식이 올바르지 않아요.") from exc
-
-    if not text:
-        raise RuntimeError("모델이 빈 답변을 반환했어요.")
-    return text
+    return inference_client.chat(payload, timeout=REQUEST_TIMEOUT_SECONDS)
 
 
 def _call_ollama_with_language_retry(messages: list[dict]) -> str:

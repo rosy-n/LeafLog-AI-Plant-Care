@@ -33,6 +33,7 @@ function setup() {
     '@expo/vector-icons': { Ionicons: 'Icon' },
     '../data/plants': { plantImages: { spaghetti: 1 } },
     './DecorImage': { __esModule: true, default: 'DecorImage' },
+    '../hooks/useMediaSource': { __esModule: true, default: (source) => ({ source, refresh() {} }) },
   };
   const filename = path.resolve(__dirname, '../src/components/PlantImage.jsx');
   const { outputText } = ts.transpileModule(readFileSync(filename, 'utf8'), {

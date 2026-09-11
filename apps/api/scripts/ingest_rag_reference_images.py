@@ -47,6 +47,20 @@ def _object_key(image_id: int) -> str:
     return f"rag-reference/{image_id}.jpg"
 
 
+def _index_by_stem(images_dir: Path) -> dict[str, Path]:
+    """확장자를 뺀 파일명으로 원본을 찾기 위한 색인.
+
+    라벨 엑셀의 file_name은 수작업이라 실제 파일과 확장자가 어긋난 경우가 있고("LL-...-000037.jpg"
+    라고 적혀 있지만 실제 파일은 .png), 파일명 끝에 공백이 섞인 것도 있다. 업로드 직전에 어차피
+    JPEG로 정규화하므로 확장자를 맞출 필요가 없다.
+    """
+    index: dict[str, Path] = {}
+    for path in sorted(images_dir.iterdir()) if images_dir.is_dir() else ():
+        if path.is_file():
+            index.setdefault(path.stem.strip().casefold(), path)
+    return index
+
+
 def _to_jpeg_bytes(path: Path) -> tuple[bytes, int, int]:
     with Image.open(path) as image:
         rgb = image.convert("RGB")
@@ -73,6 +87,7 @@ def main() -> None:
         parser.error("S3_BUCKET이 없으면 --base-url이 필요합니다 (로컬 저장 파일에 접근할 호스트).")
 
     client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key or None)
+    by_stem = _index_by_stem(args.images_dir)
     db = SessionLocal()
 
     try:
@@ -107,13 +122,15 @@ def main() -> None:
                     continue
 
                 source_path = args.images_dir / file_name
-                if not source_path.exists():
-                    print(f"[건너뜀] image_id={image_id}: 원본 파일 없음 ({source_path})")
+                if not source_path.is_file():
+                    source_path = by_stem.get(Path(file_name).stem.strip().casefold())
+                if source_path is None:
+                    print(f"[건너뜀] image_id={image_id}: 원본 파일 없음 ({args.images_dir / file_name})")
                     missing_file += 1
                     continue
 
                 if args.dry_run:
-                    print(f"[dry-run] image_id={image_id} file_name={file_name} -> {object_key}")
+                    print(f"[dry-run] image_id={image_id} file_name={source_path.name} -> {object_key}")
                     uploaded += 1
                     continue
 
