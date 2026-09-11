@@ -2222,6 +2222,8 @@ def diagnose_plant_photo(
                 conversation_history=conversation_history,
             )
             similar_cases = []
+    except diagnosis.UnsupportedDiagnosisImage as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
