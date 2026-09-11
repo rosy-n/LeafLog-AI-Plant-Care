@@ -28,6 +28,43 @@ import { DEFAULT_BACKGROUND_KEY } from "./src/data/decor";
 import { syncWateringReminders } from "./src/notifications";
 import { buildCareNotices } from "./src/careNotices";
 import { BackgroundMusicProvider } from "./src/backgroundMusic";
+import { AddPlantFlowProvider, useAddPlantFlow } from "./src/AddPlantFlowContext";
+import {
+    TutorialProvider,
+    TutorialBubbleOverlay,
+    TutorialCompletionToast,
+    useTutorial,
+} from "./src/TutorialContext";
+
+/*
+    AddPlant 화면이 루트 스택에서 빠질 때(취소든 등록 완료든) draft를 초기화한다.
+    Provider가 이제 NavigationContainer 바깥(앱 최상위)에 있어 화면 unmount로는 더 이상
+    자동 초기화되지 않기 때문에 필요하다.
+
+    단, 아래 두 경우엔 구조적으로 같은 "AddPlant가 스택에서 빠지는" 이벤트라도
+    초기화를 건너뛴다 — 둘 다 등록을 끝내거나 취소하는 게 아니라 잠시 다른 화면을
+    보러 나가는 것뿐이라, 돌아왔을 때 진행 중이던 생성 작업(generationJobId)이
+    남아있어야 한다.
+      - tutorial.active: 튜토리얼이 "홈 둘러보기"를 위해 일부러 빼낼 때
+      - draft.generationBackgrounded: 캐릭터 생성 대기 화면에서 "나중에 확인할게요"로
+        스스로 나갈 때 (character.tsx handleBackground)
+*/
+function AddPlantScreenWrapper({ navigation }) {
+    const { draft, resetDraft } = useAddPlantFlow();
+    const tutorial = useTutorial();
+    const tutorialActiveRef = useRef(tutorial.active);
+    tutorialActiveRef.current = tutorial.active;
+    const generationBackgroundedRef = useRef(draft.generationBackgrounded);
+    generationBackgroundedRef.current = draft.generationBackgrounded;
+
+    useEffect(() => {
+        return navigation.addListener("beforeRemove", () => {
+            if (!tutorialActiveRef.current && !generationBackgroundedRef.current) resetDraft();
+        });
+    }, [navigation, resetDraft]);
+
+    return <AddPlantNavigator />;
+}
 
 const Stack = createNativeStackNavigator();
 
@@ -194,10 +231,21 @@ function MainAppContent({ user, onLogout }) {
         return () => sub.remove();
     }, []);
 
-    // 알림을 누르면 해당 개체 화면으로 이동
+    // 알림을 누르면 해당 개체 화면으로, 캐릭터 생성 완료 알림이면 등록 화면의
+    // 결과 단계(CharacterResult)로 이동 — 진행 중이던 작업(generationJobId)은
+    // AddPlantFlowProvider의 draft에 남아있으므로(AddPlantScreenWrapper 참고)
+    // 그 화면이 다시 마운트되면 완료된 job을 곧바로 불러와 후보 3개를 보여준다.
     useEffect(() => {
         const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-            const plantId = response.notification.request.content.data?.plantId;
+            const data = response.notification.request.content.data;
+            if (data?.kind === "CHARACTER_READY") {
+                navigationRef.current?.navigate("AddPlant", {
+                    screen: "CharacterResult",
+                    params: { resumeGeneration: "true" },
+                });
+                return;
+            }
+            const plantId = data?.plantId;
             if (!plantId) return;
             const target = plantsRef.current.find((p) => p.id === String(plantId));
             if (target) navigationRef.current?.navigate("PlantDetail", { plant: target });
@@ -206,23 +254,25 @@ function MainAppContent({ user, onLogout }) {
     }, []);
 
     return (
-        <NavigationContainer ref={navigationRef}>
-            <Stack.Navigator
-                id="MainStack"
-                initialRouteName="Home"
-                /*
-                    gestureEnabled: 화면을 좌→우로 쓸어 되돌아가는 제스처(iOS)를 끈다.
-                    화면 전환은 각 화면의 뒤로가기·홈 버튼으로만 하도록 통일한다 —
-                    개체탭·정원처럼 화면 안에서 직접 드래그를 받는 곳이 많아
-                    가장자리를 스치기만 해도 의도치 않게 이전 화면으로 빠진다.
-                    화면마다 따로 적지 않도록 여기 한 곳에만 둔다.
-                */
-                screenOptions={{
-                    headerShown: false,
-                    animation: "none",
-                    gestureEnabled: false,
-                }}
-            >
+        <AddPlantFlowProvider isFirstPlant={plants.length === 0}>
+            <TutorialProvider navigationRef={navigationRef}>
+                <NavigationContainer ref={navigationRef}>
+                    <Stack.Navigator
+                        id="MainStack"
+                        initialRouteName="Home"
+                        /*
+                            gestureEnabled: 화면을 좌→우로 쓸어 되돌아가는 제스처(iOS)를 끈다.
+                            화면 전환은 각 화면의 뒤로가기·홈 버튼으로만 하도록 통일한다 —
+                            개체탭·정원처럼 화면 안에서 직접 드래그를 받는 곳이 많아
+                            가장자리를 스치기만 해도 의도치 않게 이전 화면으로 빠진다.
+                            화면마다 따로 적지 않도록 여기 한 곳에만 둔다.
+                        */
+                        screenOptions={{
+                            headerShown: false,
+                            animation: "none",
+                            gestureEnabled: false,
+                        }}
+                    >
                 <Stack.Screen name="Home">
                     {(props) => (
                         <HomeScreen
@@ -274,7 +324,7 @@ function MainAppContent({ user, onLogout }) {
 
                 <Stack.Screen
                     name="AddPlant"
-                    component={AddPlantNavigator}
+                    component={AddPlantScreenWrapper}
                     options={{ headerShown: false, animation: "slide_from_bottom" }}
                 />
 
@@ -398,8 +448,12 @@ function MainAppContent({ user, onLogout }) {
                     )}
                 </Stack.Screen>
 
-            </Stack.Navigator>
-        </NavigationContainer>
+                    </Stack.Navigator>
+                </NavigationContainer>
+                <TutorialBubbleOverlay />
+                <TutorialCompletionToast />
+            </TutorialProvider>
+        </AddPlantFlowProvider>
     );
 }
 

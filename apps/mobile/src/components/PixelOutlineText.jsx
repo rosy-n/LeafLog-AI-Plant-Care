@@ -17,15 +17,26 @@ function buildOffsets(p) {
     return offsets;
 }
 
-export default function PixelOutlineText({ children, style, strokeWidth = 2 }) {
+export default function PixelOutlineText({
+    children,
+    style,
+    strokeWidth = 2,
+    numberOfLines,
+    adjustsFontSizeToFit,
+    minimumFontScale,
+}) {
     const p = strokeWidth;
     const offsets = buildOffsets(p);
+    // numberOfLines/adjustsFontSizeToFit는 외곽선 레이어와 채움 레이어가 각자 별도 Text이므로
+    // 모든 레이어에 동일하게 넘겨야 줄바꿈·축소 결과가 어긋나지 않는다.
+    const textProps = { numberOfLines, adjustsFontSizeToFit, minimumFontScale };
 
     return (
         <View style={[styles.container, { padding: p }]}>
             {offsets.map(([dx, dy], index) => (
                 <Text
                     key={index}
+                    {...textProps}
                     style={[
                         style,
                         {
@@ -40,7 +51,9 @@ export default function PixelOutlineText({ children, style, strokeWidth = 2 }) {
                 </Text>
             ))}
             {/* Fill layer — in-flow, always on top of absolute stroke layers */}
-            <Text style={[style, styles.fill]}>{children}</Text>
+            <Text {...textProps} style={[style, styles.fill]}>
+                {children}
+            </Text>
         </View>
     );
 }

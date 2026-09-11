@@ -13,7 +13,6 @@ import CharacterScreen      from '../../app/add-plant/character';
 import NameScreen           from '../../app/add-plant/name';
 import InfoScreen           from '../../app/add-plant/info';
 import PersonaScreen        from '../../app/add-plant/persona';
-import { AddPlantFlowProvider } from '../AddPlantFlowContext';
 
 import BackButton from '../components/BackButton';
 import { Colors } from '../../constants/colors';
@@ -59,32 +58,30 @@ function AddPlantHeader() {
 
 export default function AddPlantNavigator() {
   return (
-    <AddPlantFlowProvider>
-      <Stack.Navigator
-        initialRouteName="Character"
-        /*
-          gestureEnabled: 좌→우 스와이프로 되돌아가는 제스처(iOS)를 끈다.
-          단계가 정해진 등록 흐름이라 뒤로가기는 헤더 버튼으로만 받는다
-          (본편 스택도 App.js 의 screenOptions 에서 같은 값을 쓴다).
-        */
-        screenOptions={{
-          header: () => <AddPlantHeader />,
-          contentStyle: { backgroundColor: Colors.background },
-          gestureEnabled: false,
-        }}
-      >
-        <Stack.Screen name="Character"           component={CharacterScreen} />
-        <Stack.Screen name="AddPlantIndex"       component={AddPlantIndexScreen} />
-        <Stack.Screen name="OrganSelect"         component={OrganSelectScreen} />
-        <Stack.Screen name="Analyzing"           component={AnalyzingScreen} />
-        <Stack.Screen name="PlantResults"        component={PlantResultsScreen} />
-        <Stack.Screen name="AddPlantPlantDetail" component={AddPlantPlantDetail} />
-        <Stack.Screen name="Info"                component={InfoScreen} />
-        <Stack.Screen name="CharacterResult"     component={CharacterScreen} />
-        <Stack.Screen name="Name"                component={NameScreen} />
-        <Stack.Screen name="Persona"             component={PersonaScreen} />
-      </Stack.Navigator>
-    </AddPlantFlowProvider>
+    <Stack.Navigator
+      initialRouteName="Character"
+      /*
+        gestureEnabled: 좌→우 스와이프로 되돌아가는 제스처(iOS)를 끈다.
+        단계가 정해진 등록 흐름이라 뒤로가기는 헤더 버튼으로만 받는다
+        (본편 스택도 App.js 의 screenOptions 에서 같은 값을 쓴다).
+      */
+      screenOptions={{
+        header: () => <AddPlantHeader />,
+        contentStyle: { backgroundColor: Colors.background },
+        gestureEnabled: false,
+      }}
+    >
+      <Stack.Screen name="Character"           component={CharacterScreen} />
+      <Stack.Screen name="AddPlantIndex"       component={AddPlantIndexScreen} />
+      <Stack.Screen name="OrganSelect"         component={OrganSelectScreen} />
+      <Stack.Screen name="Analyzing"           component={AnalyzingScreen} />
+      <Stack.Screen name="PlantResults"        component={PlantResultsScreen} />
+      <Stack.Screen name="AddPlantPlantDetail" component={AddPlantPlantDetail} />
+      <Stack.Screen name="Info"                component={InfoScreen} />
+      <Stack.Screen name="CharacterResult"     component={CharacterScreen} />
+      <Stack.Screen name="Name"                component={NameScreen} />
+      <Stack.Screen name="Persona"             component={PersonaScreen} />
+    </Stack.Navigator>
   );
 }
 

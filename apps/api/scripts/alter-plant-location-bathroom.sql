@@ -1,4 +1,4 @@
--- plant.location_name 에 '화장실'(BATHROOM)을 추가한다.
+-- plant.location_name 에 '욕실'(BATHROOM)을 추가한다.
 -- models.py / docs/database-schema.sql "2." plant 테이블 정의와 같은 값으로 맞춘다.
 --
 -- 슈퍼유저(postgres)로 실행 — leaflog_user는 db-setup.sql의 ALTER DEFAULT PRIVILEGES로 이미 권한 보유
