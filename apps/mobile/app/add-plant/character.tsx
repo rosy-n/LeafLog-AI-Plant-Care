@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Image,
