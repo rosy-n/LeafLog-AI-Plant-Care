@@ -1,0 +1,12 @@
+[Unit]
+Description=Renew LeafLog HTTPS certificate
+After=network-online.target nginx.service
+Wants=network-online.target
+ConditionPathExists=/etc/letsencrypt/renewal/leaflog-api-ip.conf
+
+[Service]
+Type=oneshot
+ExecStart=/opt/leaflog-certbot/bin/certbot renew --quiet --no-random-sleep-on-renew
+TimeoutStartSec=600
+UMask=0077
+PrivateTmp=true

@@ -1,0 +1,22 @@
+[Unit]
+Description=LeafLog cloud API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=leaflog
+Group=leaflog
+WorkingDirectory=/srv/leaflog/app/apps/api
+EnvironmentFile=/etc/leaflog/api.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/srv/leaflog/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=90
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

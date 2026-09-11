@@ -12,8 +12,8 @@ from pyproj import Transformer
 
 from .config import settings
 
-NEARBY_STATION_URL = "http://apis.data.go.kr/B552584/MsrstnInfoInqireSvc/getNearbyMsrstnList"
-REALTIME_URL = "http://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty"
+NEARBY_STATION_URL = "https://apis.data.go.kr/B552584/MsrstnInfoInqireSvc/getNearbyMsrstnList"
+REALTIME_URL = "https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty"
 REQUEST_TIMEOUT_SECONDS = 5
 CACHE_TTL_SECONDS = 15 * 60
 
@@ -78,22 +78,23 @@ def nearest_station(lat: float, lon: float) -> str:
                 "ver": "1.1",
             },
             timeout=REQUEST_TIMEOUT_SECONDS,
+            allow_redirects=False,
         )
         response.raise_for_status()
     except requests.RequestException as exc:
-        raise AirQualityFetchError(f"에어코리아 측정소 조회에 실패했어: {exc}") from exc
+        raise AirQualityFetchError("에어코리아 측정소 조회에 실패했어.") from None
 
     try:
         payload = response.json()
         header = payload["response"]["header"]
         if header["resultCode"] != "00":
-            raise AirQualityFetchError(f"에어코리아 API 오류: {header.get('resultMsg')}")
+            raise AirQualityFetchError("에어코리아 API에서 정상 자료를 받지 못했어.")
         items = payload["response"]["body"]["items"]
         station_name = items[0]["stationName"]
     except (ValueError, KeyError, TypeError, IndexError) as exc:
         raise AirQualityFetchError(
-            f"에어코리아 측정소 응답 형식이 예상과 달라: {response.text[:500]}"
-        ) from exc
+            "에어코리아 측정소 응답 형식이 예상과 달라."
+        ) from None
 
     _station_cache[cache_key] = (time.monotonic(), station_name)
     return station_name
@@ -133,21 +134,22 @@ def fetch_realtime_measurements(station_name: str) -> list[AirQualityRecord]:
                 "pageNo": 1,
             },
             timeout=REQUEST_TIMEOUT_SECONDS,
+            allow_redirects=False,
         )
         response.raise_for_status()
     except requests.RequestException as exc:
-        raise AirQualityFetchError(f"에어코리아 측정정보 조회에 실패했어: {exc}") from exc
+        raise AirQualityFetchError("에어코리아 측정정보 조회에 실패했어.") from None
 
     try:
         payload = response.json()
         header = payload["response"]["header"]
         if header["resultCode"] != "00":
-            raise AirQualityFetchError(f"에어코리아 API 오류: {header.get('resultMsg')}")
+            raise AirQualityFetchError("에어코리아 API에서 정상 자료를 받지 못했어.")
         items = payload["response"]["body"]["items"]
     except (ValueError, KeyError, TypeError) as exc:
         raise AirQualityFetchError(
-            f"에어코리아 측정정보 응답 형식이 예상과 달라: {response.text[:500]}"
-        ) from exc
+            "에어코리아 측정정보 응답 형식이 예상과 달라."
+        ) from None
 
     records: list[AirQualityRecord] = []
     for item in items:
@@ -213,21 +215,22 @@ def fetch_daily_series(station_name: str, start: date, end: date) -> list[DailyA
                 "pageNo": 1,
             },
             timeout=DAILY_SERIES_REQUEST_TIMEOUT_SECONDS,
+            allow_redirects=False,
         )
         response.raise_for_status()
     except requests.RequestException as exc:
-        raise AirQualityFetchError(f"에어코리아 측정정보 조회에 실패했어: {exc}") from exc
+        raise AirQualityFetchError("에어코리아 측정정보 조회에 실패했어.") from None
 
     try:
         payload = response.json()
         header = payload["response"]["header"]
         if header["resultCode"] != "00":
-            raise AirQualityFetchError(f"에어코리아 API 오류: {header.get('resultMsg')}")
+            raise AirQualityFetchError("에어코리아 API에서 정상 자료를 받지 못했어.")
         items = payload["response"]["body"]["items"]
     except (ValueError, KeyError, TypeError) as exc:
         raise AirQualityFetchError(
-            f"에어코리아 측정정보 응답 형식이 예상과 달라: {response.text[:500]}"
-        ) from exc
+            "에어코리아 측정정보 응답 형식이 예상과 달라."
+        ) from None
 
     pm10_by_date: dict[date, list[float]] = defaultdict(list)
     pm25_by_date: dict[date, list[float]] = defaultdict(list)

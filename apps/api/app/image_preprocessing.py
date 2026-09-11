@@ -14,20 +14,12 @@ import numpy as np
 import pillow_avif  # Registers AVIF support with Pillow.
 from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 
-QualityMode = Literal["fast", "quality"]
+from .image_types import ImagePreprocessingError, ImagePreprocessingUnavailable, QualityMode
 
 FAST_BACKGROUND_REMOVAL_MODEL = "isnet-general-use"
 QUALITY_BACKGROUND_REMOVAL_MODEL = "birefnet-general"
 MAX_BACKGROUND_REMOVAL_INPUT_SIZE = 1536
 logger = logging.getLogger("uvicorn.error")
-
-
-class ImagePreprocessingError(ValueError):
-    pass
-
-
-class ImagePreprocessingUnavailable(RuntimeError):
-    pass
 
 
 @dataclass(frozen=True)
