@@ -174,9 +174,9 @@ psql -h <host> -U <user> -d <db> -f docs/aws-db-survey.sql -o survey-<라벨>.tx
 
 ## 7. 알아둘 것
 
-- **퍼블릭 액세스 차단은 현재 꺼둔 상태다.** `S3_PRESIGN=true` 가 API 필수값이라 배포 후에는
-  퍼블릭 정책이 불필요해진다. 앱에서 아이템 이미지가 보이는 걸 확인한 뒤 차단을 켜고
-  `PublicReadItemImages` statement 를 제거하면 된다
+- **퍼블릭 액세스 차단은 2026-09-12 적용했다.** `PublicReadItemImages` statement 를 제거하고
+  "모든 퍼블릭 액세스 차단"을 켰다. API 가 아이템 이미지를 포함한 모든 사진을 서명 URL 로 내보내며,
+  익명 GET 403·앱 이미지 213건 서명 GET 정상을 확인했다. 공개 읽기 정책을 다시 붙이지 않는다
 - 원본(Windows)과 RDS(Linux)의 **collation 이 다르다.** 한글 `ORDER BY` 순서가 바뀐다.
   현재 앱 코드는 정수 기준으로만 정렬해 영향 없지만, 한글 이름 정렬을 추가하면 순서가 달라진다
 - `character_job.user_id` 는 `INTEGER` 인데 `app_user.user_id` 는 `BIGSERIAL` 이다. 지금은 동작한다

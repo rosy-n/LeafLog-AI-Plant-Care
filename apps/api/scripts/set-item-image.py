@@ -14,9 +14,8 @@ GET /api/items 가 그 URL을 돌려주고 앱이 번들 이미지 대신 원격
 예:
   ./.venv/Scripts/python.exe scripts/set-item-image.py level1 "<item-image-url>"
 
-URL 은 만료되지 않는 것을 넣는다. 아이템 이미지는 사용자 데이터가 아니라 앱 리소스라
-leaflog/item-images/* 프리픽스만 공개 읽기로 열어 두고(정책: s3-item-images-public-policy.json)
-쿼리스트링 없는 위 형태의 URL 을 쓴다. 사용자 사진/캐릭터(leaflog/user-images/*)는 비공개 그대로다.
+URL 은 쿼리스트링 없는 S3 객체 주소를 넣는다. 버킷은 전체 비공개(2026-09-12 퍼블릭 액세스 차단)이고,
+API 가 이 주소에서 버킷·키를 읽어 앱에 줄 때마다 서명 URL 로 바꿔 준다. 공개 읽기 정책은 쓰지 않는다.
 
 콘솔에서 만든 presigned URL(?X-Amz-... 붙은 것)을 넣어도 동작하지만 최대 12시간이면
 만료되고, 그 뒤에는 앱이 번들 이미지로 되돌아간다 — 임시 확인용으로만 쓸 것.
