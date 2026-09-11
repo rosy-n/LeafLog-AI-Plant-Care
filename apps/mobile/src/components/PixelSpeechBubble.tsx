@@ -143,12 +143,18 @@ export default function PixelSpeechBubble({
       <PixelTail fill={fill} border={border} offset={tailOffset} />
       {/* 내용 */}
       <View style={[styles.content, contentStyle]}>
-        {wrapWords && typeof children === "string" ? (
-          <WordWrapText text={children} style={[styles.text, textStyle]} />
+        {typeof children === "string" ? (
+          wrapWords ? (
+            <WordWrapText text={children} style={[styles.text, textStyle]} />
+          ) : (
+            <Text style={[styles.text, textStyle]} textBreakStrategy="simple">
+              {children}
+            </Text>
+          )
         ) : (
-          <Text style={[styles.text, textStyle]} textBreakStrategy="simple">
-            {children}
-          </Text>
+          // 문자열이 아니면(예: 문장별로 따로 줄바꿈한 WordWrapText 배열) 그대로
+          // 그린다 — Text 안에 View 기반 요소를 넣을 수 없어 감싸지 않는다.
+          children
         )}
       </View>
     </View>
