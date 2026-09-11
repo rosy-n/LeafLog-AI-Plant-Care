@@ -22,6 +22,16 @@ test('signed URL expiry is parsed; local and external images are untouched', () 
   }
 });
 
+test('a bundled image without a URL renders instead of crashing', () => {
+  const { app } = setup();
+  for (const source of [null, { uri: undefined }, 7]) {
+    assert.equal(app.render(source).source, source);
+  }
+  assert.deepEqual(app.render().source, {});
+  app.dispose();
+  assert.equal(app.timers.size, 0);
+});
+
 test('image errors refresh the source without changing the original registration URL', async () => {
   const { app } = setup();
   const first = app.render({ uri: oldUrl });

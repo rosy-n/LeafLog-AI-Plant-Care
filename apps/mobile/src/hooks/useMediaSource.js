@@ -21,7 +21,7 @@ export default function useMediaSource(source) {
   const uri = source?.uri;
   const [resolved, setResolved] = useState(null);
   const current = useRef(null);
-  const activeUri = resolved?.original === uri ? resolved.url : uri;
+  const activeUri = uri && resolved?.original === uri ? resolved.url : uri;
 
   useEffect(() => {
     const state = { uri, inFlight: false, failed: false, alive: true, lastAttempt: 0 };
