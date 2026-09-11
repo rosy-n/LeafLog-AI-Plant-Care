@@ -1,5 +1,4 @@
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Image,
@@ -25,6 +24,8 @@ import {
   type CharacterGenerationJob,
 } from '../../src/api';
 import { useAddPlantFlow } from '../../src/AddPlantFlowContext';
+import { useTutorial } from '../../src/TutorialContext';
+import { ensureNotificationPermission } from '../../src/notifications';
 import PlantImage from '../../src/components/PlantImage';
 import {
   CHARACTER_EXPRESSIONS,
@@ -57,8 +58,14 @@ const GUIDE_BAD_ITEMS = [
 export default function CharacterScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ resumeGeneration?: string }>();
-  const { draft, updateDraft } = useAddPlantFlow();
+  const { draft, updateDraft, isFirstPlant } = useAddPlantFlow();
+  const tutorial = useTutorial();
   const resumeGeneration = params.resumeGeneration === 'true';
+  // 첫 식물 등록 중 생성 로딩 화면에 튜토리얼 인트로 카드를 한 번 띄운다.
+  // "건너뛰기"를 누르면 이 세션에서는 다시 보이지 않는다.
+  const [introDismissed, setIntroDismissed] = useState(false);
+  const showTutorialIntro =
+    isFirstPlant && !resumeGeneration && !introDismissed && !tutorial.active;
 
   const [screenState, setScreenState] = useState<ScreenState>(
     resumeGeneration ? 'generating' : 'intro',
@@ -163,6 +170,9 @@ export default function CharacterScreen() {
     setScreenState('generating');
     setSelectedCandidateId(null);
     setCandidates([]);
+    // 이 화면이 직접 폴링을 시작하므로, 다른 화면을 보는 동안 대신 폴링하던
+    // AddPlantFlowProvider의 백그라운드 폴링은 넘겨받아 중단시킨다(중복 폴링 방지).
+    updateDraft({ generationBackgrounded: false });
 
     getCharacterGeneration(draft.generationJobId)
       .then((job) => pollGeneration(job, runId))
@@ -182,6 +192,7 @@ export default function CharacterScreen() {
     intentionalRetryRef.current = true;
     updateDraft({
       generationJobId: null,
+      generationBackgrounded: false,
       characterId: null,
       characterImageUrl: null,
       characterChecksum: '',
@@ -307,6 +318,21 @@ export default function CharacterScreen() {
     } finally {
       if (generationRunRef.current === runId) submittingRef.current = false;
     }
+  };
+
+  // "나중에 확인할게요" — 생성 대기 화면을 벗어나 홈으로 돌아가되, 진행 중인
+  // 작업(generationJobId)은 draft에 남겨 AddPlantFlowProvider가 대신 폴링하게 한다.
+  // 완료되면 로컬 알림이 뜨고, 눌러서 이 화면(CharacterResult)으로 바로 돌아온다.
+  const handleBackground = async () => {
+    updateDraft({ generationBackgrounded: true });
+    const granted = await ensureNotificationPermission();
+    if (!granted) {
+      Alert.alert(
+        '알림 권한 없음',
+        '완료 알림을 받을 수 없어요. 나중에 직접 이 화면으로 돌아와 확인해주세요.',
+      );
+    }
+    router.leaveToHome();
   };
 
   const handleNext = () => {
@@ -449,23 +475,62 @@ export default function CharacterScreen() {
 
   if (screenState === 'generating') {
     return (
-      <View style={styles.generatingContainer}>
-        <Text style={styles.generatingTitle}>
-          {phase === 1 ? '식물 특징을\n분석하고 있어요' : '도트 캐릭터를\n만들고 있어요'}
-        </Text>
-        <View style={styles.progressTrack}>
-          <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
-        </View>
-        <View style={styles.progressStatus} accessibilityLiveRegion="polite">
-          <ActivityIndicator size="small" color={Colors.primary} accessibilityLabel="캐릭터 생성 처리 중" />
-          <Text style={styles.progressLabel}>
-            {generationMessage}
+      <View style={styles.flex}>
+        <View style={styles.generatingContainer}>
+          <Text style={styles.generatingTitle}>
+            {phase === 1 ? '식물 특징을\n분석하고 있어요' : '도트 캐릭터를\n만들고 있어요'}
           </Text>
+          <View style={styles.progressTrack}>
+            <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+          </View>
+          <View style={styles.progressStatus} accessibilityLiveRegion="polite">
+            <Text style={styles.progressLabel}>
+              {generationMessage}
+            </Text>
+          </View>
+          {resumeGeneration && (
+            <>
+              <Text style={styles.waitHint}>
+                입력한 식물 정보는 보관되어 있어요.{`\n`}이 화면을 나가도 완료되면 알림으로 알려드려요.
+              </Text>
+              <TouchableOpacity
+                style={styles.backgroundBtn}
+                onPress={handleBackground}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.backgroundBtnText}>나중에 확인할게요</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
-        {resumeGeneration && (
-          <Text style={styles.waitHint}>
-            입력한 식물 정보는 보관되어 있어요.{`\n`}완료될 때까지 이 화면을 유지해주세요.
-          </Text>
+
+        {showTutorialIntro && (
+          <View style={styles.tutorialOverlay}>
+            <TouchableOpacity
+              style={styles.tutorialSkipBtn}
+              onPress={() => setIntroDismissed(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.tutorialSkipText}>건너뛰기</Text>
+            </TouchableOpacity>
+
+            <View style={styles.tutorialCard}>
+              <Text style={styles.tutorialCardText}>
+                AI가 식물 캐릭터를 만드는 동안{'\n'}LeafLog의 기능을 살펴볼까요?
+              </Text>
+              <TouchableOpacity
+                style={styles.tutorialStartBtn}
+                activeOpacity={0.85}
+                onPress={() => {
+                  setIntroDismissed(true);
+                  tutorial.start('first-plant');
+                  tutorial.navigateRoot('Home');
+                }}
+              >
+                <Text style={styles.tutorialStartBtnText}>튜토리얼 시작</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
       </View>
     );
