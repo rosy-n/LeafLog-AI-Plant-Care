@@ -101,6 +101,8 @@ function setupCharacter(resume = false, availability = async () => ({ enabled: t
     },
     '../../src/components/PlantImage': { __esModule: true, default: 'PlantImage' },
     '../../src/data/characterExpressions': { hasFaceRemovedChecksum: () => false },
+    '../../src/TutorialContext': { useTutorial: () => ({ active: false, start() {}, navigateRoot() {} }) },
+    '../../src/notifications': { ensureNotificationPermission: async () => true },
     '../../src/api': {
       getCharacterGenerationAvailability: availability,
       startCharacterGeneration: (photo) => { uploads.push(photo); return job.promise; },
@@ -294,7 +296,8 @@ test('generation progress follows polling but never goes backwards on retry', as
   app.polls[1].resolve({ id: 'job-1', status: 'generating', progress: 20, message: 'retry' });
   await flush();
   assert.equal(app.progress.at(-1), .38);
-  assert.ok(nodes(app.render()).some((n) => n.type === 'ActivityIndicator'));
+  // 진행 막대만 남기고 로딩 원은 뺐다(c16f993). 되돌아간 진행률 대신 새 안내 문구만 반영한다.
+  assert.ok(nodes(app.render()).some((n) => n.type === 'Text' && [n.props.children].flat().includes('retry')));
   app.runTimer(2000);
   await flush();
   app.polls[2].resolve({ id: 'job-1', status: 'postprocessing', progress: 95, message: 'finishing' });
