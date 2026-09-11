@@ -75,7 +75,8 @@ def _s3():
             "s3",
             region_name=settings.s3_region,
             endpoint_url=f"https://s3.{settings.s3_region}.amazonaws.com",
-            config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
+            config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"},
+                          connect_timeout=10, read_timeout=30, retries={"max_attempts": 2}),
         )
     return _client
 
@@ -84,7 +85,7 @@ def bucket_from_url(url: str | None) -> str | None:
     """업로드 URL에서 버킷 이름 추출 — media_asset.bucket_name 에 남겨 둘 값.
 
     가상 호스팅 스타일(https://{bucket}.s3[.{region}].amazonaws.com/{key})만 알아본다.
-    CDN 도메인이나 path-style URL 이면 None → 기본 버킷(S3_BUCKET)의 객체로 본다.
+    CDN 도메인이나 path-style URL 이면 None. 임의의 파일을 기본 버킷으로 간주하지 않는다.
     """
     host = urlparse(url or "").hostname or ""
     if not host.endswith(".amazonaws.com"):
@@ -151,6 +152,8 @@ def save_local_file(data: bytes, object_key: str) -> str | None:
     """
     try:
         target = LOCAL_UPLOAD_DIR / object_key
+        if not target.resolve().is_relative_to(LOCAL_UPLOAD_DIR.resolve()):
+            return None
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
     except OSError:

@@ -78,6 +78,8 @@ export interface AddPlantState {
 // ---------------------------------------------------------------------------
 
 export interface NewPlantPayload {
+  characterJobId?: string | null;
+  characterCandidateId?: string | null;
   // 종 마스터에서 고른 종의 id — GET /api/species 검색 결과로 채운다.
   // 없으면 서버가 학명/국명으로 get-or-create (마스터 미수록 종 fallback)
   speciesId?: number | null;

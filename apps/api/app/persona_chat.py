@@ -17,7 +17,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-import requests
+from .config import settings
+from . import inference_client
 
 # apps/api/app/persona_chat.py -> apps/api/app -> apps/api -> apps -> 레포 루트
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -25,7 +26,7 @@ PROMPTS_DIR = REPO_ROOT / "ai" / "persona-chat" / "prompts"
 COMMON_PROMPT_PATH = PROMPTS_DIR / "common.txt"
 PERSONAS_DIR = PROMPTS_DIR / "personas"
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
+OLLAMA_URL = settings.ollama_api_url
 MODEL_NAME = "qwen3.5:9b"
 
 # 클라이언트가 보내는 대화 기록도 이 개수로 잘라서 사용한다 (사용자 5 + 캐릭터 5, 최근 5턴).
@@ -462,33 +463,7 @@ def request_ollama(
         "options": generation_options or GENERATION_OPTIONS,
     }
 
-    try:
-        response = requests.post(
-            OLLAMA_URL,
-            json=payload,
-            timeout=REQUEST_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-    except requests.ConnectionError as exc:
-        raise RuntimeError(
-            "Ollama 서버에 연결할 수 없어. 먼저 'ollama serve'가 실행 중인지 확인해줘."
-        ) from exc
-    except requests.Timeout as exc:
-        raise RuntimeError("Ollama 응답 시간이 초과됐어.") from exc
-    except requests.RequestException as exc:
-        raise RuntimeError(f"Ollama API 요청에 실패했어: {exc}") from exc
-
-    try:
-        data = response.json()
-        answer = data["message"]["content"].strip()
-    except (ValueError, KeyError, TypeError) as exc:
-        raise RuntimeError(
-            f"Ollama 응답 형식이 예상과 달라: {response.text[:500]}"
-        ) from exc
-
-    if not answer:
-        raise RuntimeError("모델이 빈 답변을 반환했어.")
-    return answer
+    return inference_client.chat(payload, timeout=REQUEST_TIMEOUT_SECONDS)
 
 
 def chat_with_ollama(

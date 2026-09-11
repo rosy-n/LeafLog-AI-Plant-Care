@@ -1,0 +1,10 @@
+[Unit]
+Description=Check LeafLog short-lived HTTPS certificate renewal
+
+[Timer]
+OnCalendar=*-*-* 00/4:00:00
+RandomizedDelaySec=900
+Persistent=true
+
+[Install]
+WantedBy=timers.target

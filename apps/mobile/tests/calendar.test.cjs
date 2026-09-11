@@ -15,7 +15,7 @@ function setup() {
     '../components/ScreenHeader': { __esModule: true, default: 'ScreenHeader' },
     '../components/ActionButton': { __esModule: true, default: 'ActionButton' },
     '../data/plants': { plantImages: {} },
-    '../api': { getCareRecords: () => care.promise },
+    '../api': { getCareRecords: () => care.promise, getDiaryMonth: async () => [] },
     'expo-image-picker': { launchImageLibraryAsync: () => picker.promise },
   }, { Date: Clock });
   const props = { navigation: {}, route: { params: { openDiary: true } }, plants: [] };
@@ -41,6 +41,8 @@ test('calendar date refresh timer is cleared when leaving the screen', () => {
 
 test('a photo selected for an earlier day cannot fill a different day', async () => {
   const app = setup();
+  app.render();
+  await flush();
   const firstFrame = nodes(app.render()).find((n) => n.type?.name === 'PhotoFrame');
   const pending = firstFrame.props.onPress();
   const nextDay = nodes(app.render()).find((n) => n.type === 'TouchableOpacity'
@@ -54,6 +56,8 @@ test('a photo selected for an earlier day cannot fill a different day', async ()
 
 test('calendar photo selection still fills the selected day', async () => {
   const app = setup();
+  app.render();
+  await flush();
   const frame = nodes(app.render()).find((n) => n.type?.name === 'PhotoFrame');
   const pending = frame.props.onPress();
   app.picker.resolve({ canceled: false, assets: [{ uri: 'file:///day6.jpg' }] });
@@ -63,6 +67,8 @@ test('calendar photo selection still fills the selected day', async () => {
 
 test('a photo picker failure shows a recoverable alert', async () => {
   const app = setup();
+  app.render();
+  await flush();
   const pending = nodes(app.render()).find((n) => n.type?.name === 'PhotoFrame').props.onPress();
   app.picker.reject(new Error('permission denied'));
   await pending;
@@ -73,6 +79,7 @@ test('removing the last plant during a care request cannot leave a loading spinn
   const app = setup();
   const plants = [{ id: '1', name: 'plant' }];
   app.render({ plants });
+  await flush();
   assert.ok(nodes(app.render({ plants })).some((n) => n.type === 'ActivityIndicator'));
   app.render();
   assert.ok(!nodes(app.render()).some((n) => n.type === 'ActivityIndicator'));

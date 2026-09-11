@@ -1,0 +1,25 @@
+[Unit]
+Description=LeafLog school AI worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=leaflog
+Group=leaflog
+WorkingDirectory=/home/leaflog/LeafLog-AI-Plant-Care/apps/api
+EnvironmentFile=/etc/leaflog/worker.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/leaflog/miniforge3/envs/leaflog-api/bin/python -m app.ai_worker
+Restart=on-failure
+RestartSec=10
+RuntimeDirectory=leaflog-ai
+StateDirectory=leaflog-ai
+TimeoutStopSec=4200
+KillMode=mixed
+UMask=0077
+# GPU mode switching uses the existing narrowly-scoped sudoers rule.
+# NoNewPrivileges/PrivateTmp must not isolate the GPU command or shared lock.
+
+[Install]
+WantedBy=multi-user.target

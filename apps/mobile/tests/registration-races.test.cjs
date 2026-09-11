@@ -80,7 +80,7 @@ test('cancelling search clears the pending debounce and loading indicator', () =
   assert.ok(!nodes(app.render()).some((n) => n.type === 'ActivityIndicator'));
 });
 
-function setupCharacter(resume = false) {
+function setupCharacter(resume = false, availability = async () => ({ enabled: true, message: null })) {
   const job = deferred();
   const polls = [];
   const progress = [];
@@ -101,7 +101,10 @@ function setupCharacter(resume = false) {
     },
     '../../src/components/PlantImage': { __esModule: true, default: 'PlantImage' },
     '../../src/data/characterExpressions': { hasFaceRemovedChecksum: () => false },
+    '../../src/TutorialContext': { useTutorial: () => ({ active: false, start() {}, navigateRoot() {} }) },
+    '../../src/notifications': { ensureNotificationPermission: async () => true },
     '../../src/api': {
+      getCharacterGenerationAvailability: availability,
       startCharacterGeneration: (photo) => { uploads.push(photo); return job.promise; },
       getCharacterGeneration: () => {
         const request = polls.length === 0 ? job : deferred();
@@ -121,13 +124,57 @@ function setupCharacter(resume = false) {
         && nodes(n).some((child) => child.type === 'Text' && child.props.children === label));
     }
     button('사진 촬영 가이드').props.onPress();
-    button('사진 촬영 시작').props.onPress();
+    await button('사진 촬영 시작').props.onPress();
     const choice = app.alerts.at(-1)[2].find((b) => b.text === '카메라로 찍기');
     await choice.onPress();
     return button('캐릭터 만들기').props.onPress();
   }
   return { ...app, begin, job, navigation, updates, polls, progress, uploads, draft };
 }
+
+test('paused generation prevents taking a photo or uploading and can be checked again', async () => {
+  let enabled = false;
+  const app = setupCharacter(false, async () => ({ enabled, message: 'Temporarily unavailable' }));
+  const button = (label) => nodes(app.render()).find((n) => n.type === 'TouchableOpacity'
+    && nodes(n).some((child) => child.type === 'Text' && child.props.children === label));
+  button('사진 촬영 가이드').props.onPress();
+  await button('사진 촬영 시작').props.onPress();
+  assert.equal(app.alerts.length, 0);
+  assert.equal(app.uploads.length, 0);
+  assert.equal(app.updates.length, 0);
+  assert.equal(app.navigation.length, 0);
+  assert.ok(nodes(app.render()).some((n) => n.type === 'Text' && n.props.children === 'Temporarily unavailable'));
+  enabled = true;
+  await button('다시 확인').props.onPress();
+  assert.equal(app.alerts.at(-1)[0], '사진 선택');
+  app.dispose();
+});
+
+test('an availability response cannot open the camera picker after leaving', async () => {
+  const availability = deferred();
+  const app = setupCharacter(false, () => availability.promise);
+  const button = (label) => nodes(app.render()).find((n) => n.type === 'TouchableOpacity'
+    && nodes(n).some((child) => child.type === 'Text' && child.props.children === label));
+  button('사진 촬영 가이드').props.onPress();
+  const pending = button('사진 촬영 시작').props.onPress();
+  app.blur();
+  availability.resolve({ enabled: true, message: null });
+  await pending;
+  assert.equal(app.alerts.length, 0);
+  app.dispose();
+});
+
+test('an availability error stays on the guide instead of starting an upload', async () => {
+  const app = setupCharacter(false, async () => { throw new Error('offline'); });
+  const button = (label) => nodes(app.render()).find((n) => n.type === 'TouchableOpacity'
+    && nodes(n).some((child) => child.type === 'Text' && child.props.children === label));
+  button('사진 촬영 가이드').props.onPress();
+  await button('사진 촬영 시작').props.onPress();
+  assert.equal(app.uploads.length, 0);
+  assert.equal(app.alerts.length, 0);
+  assert.ok(button('다시 확인'));
+  app.dispose();
+});
 
 test('a generation response after leaving cannot change the draft or navigate', async () => {
   const app = setupCharacter();
@@ -249,7 +296,8 @@ test('generation progress follows polling but never goes backwards on retry', as
   app.polls[1].resolve({ id: 'job-1', status: 'generating', progress: 20, message: 'retry' });
   await flush();
   assert.equal(app.progress.at(-1), .38);
-  assert.ok(nodes(app.render()).some((n) => n.type === 'ActivityIndicator'));
+  // 진행 막대만 남기고 로딩 원은 뺐다(c16f993). 되돌아간 진행률 대신 새 안내 문구만 반영한다.
+  assert.ok(nodes(app.render()).some((n) => n.type === 'Text' && [n.props.children].flat().includes('retry')));
   app.runTimer(2000);
   await flush();
   app.polls[2].resolve({ id: 'job-1', status: 'postprocessing', progress: 95, message: 'finishing' });
