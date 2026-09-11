@@ -15,14 +15,15 @@
 | 5-2 | 복원 + `character_job` | 완료 (오류 0) |
 | 5-3 | `leaflog_app` 권한·건수 대조 | 완료 (원본과 값 일치) |
 | 6절 | 권한 | 완료 (버킷 정책) |
-| 6절 | 실행 (plan→upload→verify→apply-db) | 완료 — 19건 이전, skipped 0 |
+| 6절 | 실행 (plan→upload→verify→apply-db) | 완료 |
+| 재구축 | 9/11 학교 덤프로 리허설 DB 재작성 | 완료 — `leaflog_rehearsal2`, 22건 이전 (8절) |
 
 ## 2. 소윤: API `.env` 에 넣을 값
 
 ### 내가 제공
 
 ```
-DATABASE_URL="postgresql://leaflog_app:<암호>@leaflog-db.cde6cma2gqp6.ap-northeast-2.rds.amazonaws.com:5432/leaflog_rehearsal?sslmode=verify-full&sslrootcert=/etc/leaflog/global-bundle.pem"
+DATABASE_URL="postgresql://leaflog_app:<암호>@leaflog-db.cde6cma2gqp6.ap-northeast-2.rds.amazonaws.com:5432/leaflog_rehearsal2?sslmode=verify-full&sslrootcert=/etc/leaflog/global-bundle.pem"
 S3_BUCKET="leaflog-dev-054422645032-ap-northeast-2-an"
 S3_REGION="ap-northeast-2"
 ```
@@ -151,20 +152,25 @@ psql -h <host> -U <user> -d <db> -f docs/aws-db-survey.sql -o survey-<라벨>.tx
 리허설 산출물을 그대로 쓰면 안 되는 항목이다.
 
 1. **덤프를 새로 뜬다.** 리허설 덤프에는 그 이후의 UPDATE·DELETE 가 없다
-2. **새 빈 운영 DB** 에 복원한다. `leaflog_rehearsal` 에 덮어쓰지 않는다 (폰 테스트 데이터가 섞여 있다)
+2. **새 빈 운영 DB** 에 복원한다. 리허설 DB 에 덮어쓰지 않는다 (폰 테스트 데이터가 섞여 있다)
 3. 운영 DB 에도 `character_job` 마이그레이션과 `leaflog_app` 권한을 **다시** 적용한다 (권한은 DB 단위)
 4. 사진도 다시 백업한다. 복구한 2건은 학교 PC 에 배치해뒀으므로 자연히 포함된다
 5. `migrate_media` 를 **운영 DB 대상으로 plan 재작성**한다 (문서 13-2 5번)
-6. **skipped 13건을 학교 DB 에서 삭제한다.** 쓰기 중지(13-2 2번) 직후, 최종 백업(3번) **전에**
+6. **skipped 행을 학교 DB 에서 삭제한다.** 쓰기 중지(13-2 2번) 직후, 최종 백업(3번) **전에**
    실행한다. 스크립트는 `docs/aws-db-delete-skipped.sql`.
-   - 대상: `PLANT_PHOTO` 6건(4,5,8,30,34,36) + `DIAGNOSIS_PHOTO` 7건(22~26,32,33)
-   - 형태가 예상과 다르거나 건수가 13이 아니면 아무것도 지우지 않고 중단한다.
-     그 사이 새 `file:///` 행이 생겼을 수 있으므로 1번 섹션 출력으로 건수를 다시 확인한다
+   - 대상을 **asset_id 로 고정하지 않고 형태로** 고른다. 등록이 늘면 목록이 달라지기 때문이다
+     (9/07 13건 → 9/11 16건). 조건은 `PLANT_PHOTO` 의 `file:///var/mobile/…` 와
+     `DIAGNOSIS_PHOTO` 의 `bucket_name IS NULL` + `/static/uploads/diagnosis/` 두 가지다
+   - 이미 S3 로 이전된 행은 고르지 않는다. 대상이 100건을 넘으면 조건 오류로 보고 중단한다
+   - 실행 전 1번 섹션 출력으로 건수와 내용을 반드시 확인한다
    - `chat_message.asset_id` 는 nullable + SET NULL 이라 상담 대화 내용은 보존된다
-   - 리허설 DB(`leaflog_rehearsal`)에서는 6절 진행을 위해 먼저 삭제한다
    - 학교 DB 는 팀 공용이라 개발 중에 지우지 않고 이 시점까지 미뤘다.
      접속이 막혀 있으면 `ops/school-gpu/configure-postgres-tailscale-client.ps1` 로
      현재 Tailscale IP 를 `pg_hba.conf` 에 등록해야 한다(`leaflog_user` 만 허용됨)
+7. **캐릭터 파일이 학교 PC 에 없을 수 있다.** 개발 PC 에서 API 를 띄워 생성하면
+   `CHARACTER_OUTPUT_DIR` 기본값 때문에 그 PC 에만 남는다. `plan` 이 `source unreadable` 로
+   잡아주므로, 그때 해당 파일을 찾아 media-root 와 **학교 PC 양쪽에** 넣는다
+   (학교에 넣어야 다음 백업에 자연히 포함된다)
 
 ## 7. 알아둘 것
 
@@ -178,3 +184,72 @@ psql -h <host> -U <user> -d <db> -f docs/aws-db-survey.sql -o survey-<라벨>.tx
 - `media_asset` asset 28 의 checksum 이 **65자**다 (sha256 은 64자). 오타로 보이며 현재는
   정규식에 안 걸려 검사를 건너뛴다. checksum 을 신뢰하는 코드가 생기면 문제가 된다
 - S3 에 `leaflog/migrated/_permcheck.txt` (0바이트 권한 검증용) 가 남아 있다. 삭제해도 된다
+
+## 8. 2026-09-11 리허설 재구축
+
+9/07 덤프가 9/08 캐릭터 리프레임 작업과 개체 17~19 추가보다 앞서 있어, 학교 DB 를 다시
+덤프해 리허설 환경을 새로 만들었다.
+
+### 결과
+
+```
+DB           leaflog_rehearsal2      (기존 leaflog_rehearsal 은 비교용으로 남겨둠)
+테이블        26개 = 25 + character_job
+             (plant_species_alias, plant_species_image 가 9/07 대비 새로 생김)
+캐릭터 파일   23개 → media-root 27개 (복구 3건 포함)
+이전 결과     plan Ready 22 / manual review 0 → upload → verify → apply-db 모두 22건
+DB 검증       bucket_name 22/22, object_key 전부 leaflog/migrated/…,
+             사설 IP 0건, file:// 0건
+```
+
+`.env` 는 DB 이름만 바꿨다(암호 동일). 백업은 같은 디렉터리의 `.env.bak-20260911`.
+
+### 캐릭터 3건 복구
+
+개체 17~19(야야·락락·야자야자)의 캐릭터가 `source unreadable` 로 빠졌다. 학교 PC 에도
+없었고 **개발 PC 에서 API 를 띄워 생성해 그쪽에만 남아 있었다**. 파일을 찾아 media-root 와
+학교 PC 양쪽에 배치했고, `face-v1` checksum 비교를 통과해 동일 파일임이 확인됐다.
+
+```
+plant 17 야야      asset 40  5de04b06…/candidate-1.png
+plant 18 락락      asset 42  c7b86fb5…/candidate-1.png
+plant 19 야자야자  asset 44  1963acf5…/candidate-2.png
+```
+
+9/08 에 학교 PC 로 옮겨둔 일지 사진과 `da0f9860` 캐릭터는 이번 백업에 자동 포함됐다.
+학교에 배치해두는 방식이 실제로 효과가 있음을 확인한 셈이다.
+
+### 삭제한 16건
+
+`PLANT_PHOTO` 9건(4,5,8,30,34,36,**39,41,43**) + `DIAGNOSIS_PHOTO` 7건(22~26,32,33).
+백업은 EC2 의 `/srv/leaflog/migration/deleted-media-assets-rehearsal2.csv`.
+`chat_message` 5행의 `asset_id` 가 `NULL` 로 바뀌었다.
+
+**`PLANT_PHOTO` 가 6건에서 9건으로 늘었다.** 39·41·43 이 개체 17~19 등록분이고 형태가
+동일하다. 서버 가드가 없어 등록할 때마다 쌓인다 — 5절의 미결 항목이 그대로 재현됐다.
+
+### 권한 변경 (리허설 DB 한정)
+
+`leaflog_app` 에 **시퀀스 `UPDATE`** 를 추가했다. 없으면 `setval()` 을 못 돌려 데이터 전용
+복원이 불가능하고, 그래서 팀원이 리허설 갱신을 스스로 못 한다.
+
+```sql
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO leaflog_app;
+```
+
+앱 런타임은 `nextval()` 만 쓰므로 `USAGE` 로 충분하다. **13-2 의 운영 DB 는 문서 5-3 그대로
+`USAGE, SELECT` 만 부여한다.** 리허설은 갱신이 반복되는 버리는 환경이라 트레이드오프가 반대다.
+
+### 다음 갱신은 EC2 한 대에서 끝난다
+
+학교 PC 에서 따로 덤프를 뜰 필요가 없다. 조건이 모두 확인됐다.
+
+```
+EC2 → 학교 PG 5432   도달 가능 (Tailscale)
+EC2 → RDS 5432       도달 가능
+EC2 에 postgres:18   있음
+```
+
+복원은 `leaflog_admin`(RDS 마스터)으로 해야 한다. `leaflog_app` 은 테이블을 소유하지 않아
+스키마 복원이 안 되고, 데이터 전용 복원도 시퀀스 권한 없이는 `setval()` 에서 막힌다.
+마스터 자격증명은 공유하지 말고 복원 담당이 직접 수행한다.
