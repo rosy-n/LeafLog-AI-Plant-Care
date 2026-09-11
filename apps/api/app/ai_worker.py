@@ -174,8 +174,9 @@ def chat(payload: ChatRequest):
             })
             return {"message": {"content": result["message"]["content"]}}
         except Exception as exc:
+            # 503은 API가 "학교 AI가 다른 작업을 처리 중"으로 안내한다 — GPU가 실제로 바쁠 때(GpuBusy)만 쓴다.
             log.error("School chat failed (%s)", type(exc).__name__)
-            raise HTTPException(503, "School chat is unavailable") from exc
+            raise HTTPException(502, "School chat failed") from exc
 
 
 @app.post("/internal/ai/embed", dependencies=[Depends(require_ai)])
