@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
 
-from PIL import Image
+from PIL import Image, ImageOps
 from qdrant_client import QdrantClient
 
 from .config import settings
@@ -407,6 +407,32 @@ def generate_diagnosis(
     return _call_ollama_with_language_retry(messages)
 
 
+MODEL_IMAGE_MAX_SIDE = 1536
+
+
+class UnsupportedDiagnosisImage(ValueError):
+    pass
+
+
+def model_image_jpeg(image_bytes: bytes) -> bytes:
+    """모델에 넘길 사진을 JPEG로 맞춘다.
+
+    Ollama(llama.cpp)는 JPEG/PNG/BMP/GIF만 디코드해서 WebP 등은 400으로 거절한다 — 그 400이
+    학교 worker를 거치며 "학교 AI가 다른 작업을 처리 중"으로 보이던 원인(2026-09-12 실측).
+    PIL로 열리는 사진이면 방향(EXIF)을 바로잡아 JPEG로 바꾸고, 긴 변을 줄여 전송량도 줄인다.
+    원본 사진 저장(상담 기록)은 호출부가 따로 하므로 여기서 바꾸는 건 모델 입력뿐이다.
+    """
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as opened:
+            image = ImageOps.exif_transpose(opened).convert("RGB")
+    except (OSError, ValueError, Image.DecompressionBombError) as exc:
+        raise UnsupportedDiagnosisImage("사진을 읽을 수 없어요. JPG나 PNG 사진으로 다시 시도해주세요.") from exc
+    image.thumbnail((MODEL_IMAGE_MAX_SIDE, MODEL_IMAGE_MAX_SIDE))
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=90)
+    return buffer.getvalue()
+
+
 def diagnose(
     image_bytes: bytes,
     *,
@@ -423,6 +449,7 @@ def diagnose(
     similar_cases도 함께 돌려주는 이유: 호출부(main.py)가 이 값을 응답에 실어 보내면
     앱에서 "RAG 검색 결과" 토글로 Qwen이 참고한 근거를 그대로 보여줄 수 있기 때문.
     """
+    image_bytes = model_image_jpeg(image_bytes)
     similar_cases = search_similar_cases(image_bytes, top_k=top_k, min_score=min_score)
     diagnosis_text = generate_diagnosis(
         image_bytes,
