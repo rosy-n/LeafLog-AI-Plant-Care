@@ -10,7 +10,6 @@ import {
     Easing,
     PanResponder,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { hapticImpact, playSfx, tapFeedback } from "../feedback";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -716,7 +715,11 @@ export default function HomeScreen({
                             navigation.navigate("Settings");
                         }}
                     >
-                        <Ionicons name="settings-outline" size={32} color={Colors.textMid} />
+                        <Image
+                            source={require("../../assets/icons/settings_icon.png")}
+                            style={styles.settingsIcon}
+                            resizeMode="contain"
+                        />
                     </GlassButton>
                 </Animated.View>
 
@@ -1768,6 +1771,10 @@ const styles = StyleSheet.create({
         left: 20,
         bottom: 54,
         zIndex: 50,
+    },
+    settingsIcon: {
+        width: 40,
+        height: 40,
     },
     calendarIcon: {
         width: 36,
