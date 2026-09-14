@@ -155,6 +155,9 @@ class SpeciesListItem(BaseModel):
     # 종 검색 결과 — 등록 1단계 목록에 필요한 최소 필드
     species_id: int
     common_name_ko: str
+    # 국명 자리가 영문명인 행에만 채워지는 한글 별칭 (plant_species_alias).
+    # 화면은 alias_ko ?? common_name_ko 를 보여준다 — 'parlour palm' → '테이블야자'
+    alias_ko: str | None = None
     common_name_en: str | None = None
     scientific_name: str | None = None
     family_name: str | None = None
@@ -168,6 +171,8 @@ class SpeciesDetail(BaseModel):
     # 종 상세 — 4개 소스를 병합한 돌봄 정보. 값이 없으면 None(=자료 없음)
     species_id: int
     common_name_ko: str
+    # SpeciesListItem 과 같은 뜻 — 국명 자리가 영문명인 종의 한글 별칭
+    alias_ko: str | None = None
     common_name_en: str | None = None
     scientific_name: str | None = None
     family_name: str | None = None
