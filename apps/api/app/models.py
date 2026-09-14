@@ -151,6 +151,39 @@ class PlantSpeciesImage(Base):
     __table_args__ = (UniqueConstraint("species_id", "sort_order", name="uq_plant_species_image_order"),)
 
 
+class PlantSpeciesAlias(Base):
+    """국명 검색 보강용 별칭 — 사용자가 실제로 입력하는 유통명/원예명 ↔ 종 연결.
+
+    마스터 국명(common_name_ko)은 소스 기준의 정식 국명이라 사용자가 쓰는 이름과
+    자주 어긋난다 ('테이블야자' ↔ 'parlour palm', '금전수' ↔ '금전초').
+    plant_species_image 와 같은 결로 배치 병합 대상이 아니고, 위키에서 채운다
+    (scripts/ingest/wiki_ko_alias.py 사전 적재 + app/wiki_names.py 온디맨드).
+    """
+
+    __tablename__ = "plant_species_alias"
+
+    alias_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    # NULL = 위키에서도 못 찾은 검색어. 같은 말을 매번 위키에 되묻지 않기 위한 음성 캐시
+    species_id: Mapped[int | None] = mapped_column(
+        ForeignKey("plant_species.species_id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    # 화면 표시용 원문
+    alias: Mapped[str] = mapped_column(String(150), nullable=False)
+    # 검색 키 — 소문자 + 공백/가운뎃점 제거 (app/wiki_names.py 의 alias_norm)
+    alias_norm: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
+    # WIKI_KO_LABEL / WIKI_KO_ALIAS / WIKI_KO_REDIRECT / WIKI_KO_QUERY
+    source: Mapped[str] = mapped_column(String(30), nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("species_id", "alias_norm", name="uq_plant_species_alias"),
+        CheckConstraint(
+            "source IN ('WIKI_KO_LABEL', 'WIKI_KO_ALIAS', 'WIKI_KO_REDIRECT', 'WIKI_KO_QUERY')",
+            name="ck_plant_species_alias_source",
+        ),
+    )
+
+
 class Plant(Base):
     __tablename__ = "plant"
 
