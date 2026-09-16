@@ -798,6 +798,8 @@ export type DiagnosisResult = {
 // image가 없으면(자연어만 입력) 서버가 CLIP/Qdrant 검색을 건너뛰고 symptomText만으로 답변한다 —
 // 이 경우 symptomText는 필수.
 // plantId가 있으면(개체 상세에서 진입한 경우) 서버가 그 개체의 종 관리 기준·물주기 일정을 답변에 참고한다.
+// plantPart는 사용자가 사진 첨부 시 직접 고른 부위(잎/줄기/열매/꽃/가지) — RAG 검색에서 같은
+// 부위 사례를 우선 채우는 데 쓰인다. 모르면 안 보내도 된다(서버가 부위 무관 검색으로 대체).
 // sessionId가 없으면 서버가 새 상담 세션을 만들어 응답에 session_id로 돌려준다 — 같은 화면 안에서
 // 이어지는 질문은 그 값을 그대로 넘겨야 이전 대화 맥락(chat_message 이력)이 유지된다.
 export function diagnosePlantPhoto(
@@ -805,11 +807,13 @@ export function diagnosePlantPhoto(
   symptomText?: string,
   plantId?: number,
   sessionId?: number,
+  plantPart?: string,
 ) {
   const formData = image ? createImageFormData(image) : new FormData();
   if (symptomText) formData.append("symptom_text", symptomText);
   if (plantId != null) formData.append("plant_id", String(plantId));
   if (sessionId != null) formData.append("session_id", String(sessionId));
+  if (plantPart) formData.append("plant_part", plantPart);
   return requestForm<DiagnosisResult>("/api/diagnosis", formData, {}, AI_TIMEOUT_MS);
 }
 
