@@ -33,6 +33,18 @@ import { diagnosePlantPhoto, getPlant, updatePlant } from "../api";
 const STATUS_ORDER = ["ALIVE", "SICK", "DEAD"];
 const STATUS_LABELS = { ALIVE: "건강", SICK: "아픔", DEAD: "떠나보냄" };
 
+// 사진 첨부 시 고르는 증상 부위 — RAG 검색에서 같은 부위 사례를 우선 채우는 데 쓰인다
+// (apps/api/app/diagnosis.py의 search_similar_cases). null(모르겠음)이면 서버가 부위
+// 무관하게 검색한다 — 기본값은 항상 null이라 아무것도 안 골라도 기존과 동일하게 동작한다.
+const PLANT_PART_OPTIONS = [
+    { code: null, label: "모르겠음" },
+    { code: "잎", label: "잎" },
+    { code: "줄기", label: "줄기" },
+    { code: "가지", label: "가지" },
+    { code: "열매", label: "열매" },
+    { code: "꽃", label: "꽃" },
+];
+
 // Qwen 답변이 오기까지 수초~수십초 걸리므로, "···" 하나만 보여주는 대신 처리 단계를
 // 순서대로 보여준다 — 이미지 유무에 따라 실제로 거치는 파이프라인이 다르므로 문구도 다르다.
 // 각 단계는 10초씩 유지되고, 마지막 단계는 응답이 올 때까지 그대로 떠 있는다.
@@ -131,6 +143,7 @@ export default function ConsultStartScreen({ navigation, route }) {
         },
     ]);
     const [pendingImage, setPendingImage] = useState(null);
+    const [selectedPart, setSelectedPart] = useState(null);
     const [isSending, setIsSending] = useState(false);
     const [plantDetail, setPlantDetail] = useState(null);
     // 카드마다 독립적으로: 아직 저장하지 않은 선택값(태그만 누른 상태) / 저장 완료된 결과
@@ -143,6 +156,8 @@ export default function ConsultStartScreen({ navigation, route }) {
     // 후속 질문에 새 사진이 없으면 직전에 보낸 사진을 재사용한다 — 사진이 한 번도 없었다면
     // 자연어만으로 상담(텍스트 전용 경로)한다.
     const lastImageRef = useRef(null);
+    // 재사용되는 사진과 짝을 맞춰, 그때 골랐던 부위도 같이 재사용한다.
+    const lastPartRef = useRef(null);
     // 이 화면을 여는 동안의 상담 세션 — 첫 응답에서 서버가 발급한 값을 저장해두고
     // 후속 질문마다 그대로 실어 보내야 서버가 같은 chat_session에 대화를 이어붙인다.
     const sessionIdRef = useRef(null);
@@ -230,6 +245,7 @@ export default function ConsultStartScreen({ navigation, route }) {
         });
         if (!result.canceled) {
             setPendingImage(result.assets[0].uri);
+            setSelectedPart(null);
         }
     };
 
@@ -246,11 +262,13 @@ export default function ConsultStartScreen({ navigation, route }) {
 
         if (pendingImage) {
             lastImageRef.current = pendingImage;
+            lastPartRef.current = selectedPart;
         }
 
         setMessages((prev) => [...prev, userMessage]);
         setMessage("");
         setPendingImage(null);
+        setSelectedPart(null);
 
         const hasImage = !!lastImageRef.current;
         const loadingSteps = hasImage ? IMAGE_LOADING_STEPS : buildTextOnlyLoadingSteps(plantName);
@@ -278,7 +296,8 @@ export default function ConsultStartScreen({ navigation, route }) {
                 hasImage ? { uri: lastImageRef.current } : null,
                 trimmed || undefined,
                 plant?.id,
-                sessionIdRef.current ?? undefined
+                sessionIdRef.current ?? undefined,
+                hasImage ? lastPartRef.current ?? undefined : undefined
             );
             sessionIdRef.current = result.session_id;
             setMessages((prev) =>
@@ -501,18 +520,55 @@ export default function ConsultStartScreen({ navigation, route }) {
 
                     <View style={styles.inputBox}>
                         {pendingImage && (
-                            <View style={styles.pendingImageRow}>
-                                <Image
-                                    source={{ uri: pendingImage }}
-                                    style={styles.pendingImageThumb}
-                                    resizeMode="cover"
-                                />
-                                <TouchableOpacity
-                                    style={styles.removeImageButton}
-                                    onPress={() => setPendingImage(null)}
-                                >
-                                    <Ionicons name="close-circle" size={18} color={Colors.textGray} />
-                                </TouchableOpacity>
+                            <View style={styles.pendingImageSection}>
+                                <View style={styles.pendingImageRow}>
+                                    <Image
+                                        source={{ uri: pendingImage }}
+                                        style={styles.pendingImageThumb}
+                                        resizeMode="cover"
+                                    />
+                                    <TouchableOpacity
+                                        style={styles.removeImageButton}
+                                        onPress={() => {
+                                            setPendingImage(null);
+                                            setSelectedPart(null);
+                                        }}
+                                    >
+                                        <Ionicons name="close-circle" size={18} color={Colors.textGray} />
+                                    </TouchableOpacity>
+                                </View>
+                                <Text style={styles.partPickerLabel}>어느 부위 사진인가요?</Text>
+                                <View style={styles.partChipGrid}>
+                                    {[0, 1].map((rowIndex) => (
+                                        <View key={rowIndex} style={styles.partChipRow}>
+                                            {PLANT_PART_OPTIONS.slice(rowIndex * 3, rowIndex * 3 + 3).map(
+                                                (option) => {
+                                                    const active = selectedPart === option.code;
+                                                    return (
+                                                        <TouchableOpacity
+                                                            key={option.label}
+                                                            style={[
+                                                                styles.partChip,
+                                                                active && styles.partChipActive,
+                                                            ]}
+                                                            onPress={() => setSelectedPart(option.code)}
+                                                            activeOpacity={0.75}
+                                                        >
+                                                            <Text
+                                                                style={[
+                                                                    styles.partChipText,
+                                                                    active && styles.partChipTextActive,
+                                                                ]}
+                                                            >
+                                                                {option.label}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    );
+                                                }
+                                            )}
+                                        </View>
+                                    ))}
+                                </View>
                             </View>
                         )}
                         <TextInput
@@ -782,6 +838,10 @@ const styles = StyleSheet.create({
         marginRight: Spacing.sm,
     },
 
+    pendingImageSection: {
+        marginBottom: Spacing.sm,
+    },
+
     pendingImageRow: {
         flexDirection: "row",
         alignItems: "flex-start",
@@ -800,6 +860,52 @@ const styles = StyleSheet.create({
         left: 56,
         backgroundColor: Colors.background,
         borderRadius: Radius.sm,
+    },
+
+    // 사진 첨부 시 나오는 "어느 부위 사진인가요?" 선택 — 상담창의 statusChip(식물 상태
+    // 업데이트 카드)과 같은 톤으로 맞춘다: 흰 배경 + 연녹 보더, 선택 시 primary로 채움.
+    partPickerLabel: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.deep,
+        marginBottom: Spacing.xs,
+    },
+
+    // flexWrap 대신 2행 x 3열 고정 그리드 — 화면 폭에 따라 4+2로 깨지지 않도록 항상 3개씩 묶는다.
+    partChipGrid: {
+        gap: Spacing.xs,
+    },
+
+    partChipRow: {
+        flexDirection: "row",
+        gap: Spacing.xs,
+    },
+
+    partChip: {
+        flex: 1,
+        flexBasis: 0,
+        alignItems: "center",
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xxs,
+        borderRadius: Radius.pill,
+        borderWidth: 1.5,
+        borderColor: GreenTint.line,
+        backgroundColor: Colors.white,
+    },
+
+    partChipActive: {
+        borderColor: Colors.primary,
+        backgroundColor: Colors.primary,
+    },
+
+    partChipText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.deep,
+    },
+
+    partChipTextActive: {
+        color: Colors.white,
     },
 
     input: {
