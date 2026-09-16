@@ -51,6 +51,9 @@ def load_mn(path: Path, images_dir: Path) -> pd.DataFrame:
     stems = df["file_name"].apply(lambda f: Path(f).stem)
     df["file_name"] = [find_disk_file(images_dir, stem) for stem in stems]
     df["suspected_cause"] = df["suspected_cause"].replace(MN_CAUSE_MAP)
+    # load_je와 동일하게 처리 — 빈 칸을 NaN인 채로 두면 Qdrant payload 직렬화 시 문제가 된다.
+    df["plant_species"] = df["plant_species"].fillna(NA_PLACEHOLDER)
+    df["plant_part"] = df["plant_part"].fillna(NA_PLACEHOLDER)
     return df[COLUMNS[1:]]
 
 
