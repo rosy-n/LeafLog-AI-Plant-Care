@@ -19,6 +19,7 @@ from functools import lru_cache
 
 from PIL import Image, ImageOps
 from qdrant_client import QdrantClient
+from qdrant_client.http import models as qmodels
 
 from .config import settings
 from . import image_formats  # noqa: F401 - PIL이 HEIC도 열도록 등록
@@ -227,18 +228,48 @@ def search_similar_cases(
     image_bytes: bytes,
     top_k: int = DEFAULT_TOP_K,
     min_score: float = MIN_SIMILARITY_SCORE,
+    plant_part: str | None = None,
 ) -> list[SimilarCase]:
+    """plant_part가 오면 그 부위(잎/줄기/열매/꽃/가지) 사례를 먼저 채우고, 자리가 남으면
+    부위 무관하게 나머지를 채운다 - docs/crop-data-plan.md의 "부위 교집합 우선" 설계를
+    houseplant 단일 컬렉션 안에서 먼저 구현한 것. crop 도메인이 합쳐지면 종/도메인 tier가
+    이 앞에 추가될 예정이라 여기서는 부위만 다룬다.
+    """
     if settings.app_role == "api":
         vector = inference_client.embed(image_bytes)
     else:
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         vector = _embed_image(image)
-    points = _qdrant().query_points(
-        collection_name=settings.qdrant_collection,
-        query=vector,
-        limit=top_k,
-        score_threshold=min_score,
-    ).points
+
+    points = []
+    if plant_part:
+        part_filter = qmodels.Filter(
+            must=[qmodels.FieldCondition(key="plant_part", match=qmodels.MatchValue(value=plant_part))]
+        )
+        points = _qdrant().query_points(
+            collection_name=settings.qdrant_collection,
+            query=vector,
+            limit=top_k,
+            score_threshold=min_score,
+            query_filter=part_filter,
+        ).points
+
+    if len(points) < top_k:
+        # 이미 뽑힌 사례는 제외하고 부위 무관하게 나머지 자리를 채운다.
+        exclude_filter = (
+            qmodels.Filter(must_not=[qmodels.HasIdCondition(has_id=[p.id for p in points])])
+            if points
+            else None
+        )
+        fallback_points = _qdrant().query_points(
+            collection_name=settings.qdrant_collection,
+            query=vector,
+            limit=top_k - len(points),
+            score_threshold=min_score,
+            query_filter=exclude_filter,
+        ).points
+        points = [*points, *fallback_points]
+
     return [
         SimilarCase(
             score=point.score,
@@ -438,6 +469,7 @@ def diagnose(
     image_bytes: bytes,
     *,
     plant_species: str | None = None,
+    plant_part: str | None = None,
     symptom_text: str | None = None,
     plant_care_context: str | None = None,
     weather_air_quality: WeatherAirQuality | None = None,
@@ -449,9 +481,10 @@ def diagnose(
 
     similar_cases도 함께 돌려주는 이유: 호출부(main.py)가 이 값을 응답에 실어 보내면
     앱에서 "RAG 검색 결과" 토글로 Qwen이 참고한 근거를 그대로 보여줄 수 있기 때문.
+    plant_part는 사용자가 사진 첨부 시 직접 고른 부위(잎/줄기/열매/꽃/가지) - 모르면 null.
     """
     image_bytes = model_image_jpeg(image_bytes)
-    similar_cases = search_similar_cases(image_bytes, top_k=top_k, min_score=min_score)
+    similar_cases = search_similar_cases(image_bytes, top_k=top_k, min_score=min_score, plant_part=plant_part)
     diagnosis_text = generate_diagnosis(
         image_bytes,
         similar_cases,

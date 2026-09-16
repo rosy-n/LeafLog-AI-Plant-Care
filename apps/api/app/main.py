@@ -2352,6 +2352,7 @@ def diagnose_plant_photo(
     request: Request,
     file: UploadFile | None = File(default=None),
     species: str | None = Form(default=None),
+    plant_part: str | None = Form(default=None),
     symptom_text: str | None = Form(default=None),
     plant_id: int | None = Form(default=None),
     session_id: int | None = Form(default=None),
@@ -2414,6 +2415,7 @@ def diagnose_plant_photo(
             diagnosis_text, similar_cases = diagnosis.diagnose(
                 image_bytes,
                 plant_species=species,
+                plant_part=plant_part,
                 symptom_text=symptom_text,
                 plant_care_context=plant_care_context,
                 weather_air_quality=weather_air_quality,
