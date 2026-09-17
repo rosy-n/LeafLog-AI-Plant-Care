@@ -304,11 +304,26 @@ class SoilSensorApiTests(unittest.TestCase):
         self.assertEqual(points[0]["raw_mv"], 2000)
         self.assertEqual(points[1]["raw_mv"], 1700)
 
-    def test_history_week_excludes_today(self):
-        """ASOS 일자료가 전일까지만 나와서 날씨 선은 오늘이 없다. 축을 맞춘다."""
+    def test_history_week_includes_today(self):
+        """센서를 갓 꽂으면 오늘 값밖에 없다. 오늘을 빼면 하루 종일 빈 화면이 된다."""
         _, device = self.register()
         self.send(device, [{"raw_mv": 1700, "measured_at": self.now.isoformat()}])
-        self.assertEqual(self.history("week"), [])
+
+        points = self.history("week")
+        self.assertEqual(len(points), 1, points)
+        self.assertEqual(points[0]["raw_mv"], 1700)
+
+    def test_history_week_window_is_seven_days(self):
+        """8일 전은 창 밖이다."""
+        _, device = self.register()
+        self.send(device, [
+            {"raw_mv": 1500, "measured_at": (self.now - timedelta(days=8)).isoformat()},
+            {"raw_mv": 1600, "measured_at": (self.now - timedelta(days=6)).isoformat()},
+        ])
+
+        days = [p["observed_at"] for p in self.history("week")]
+        self.assertEqual(len(days), 1, days)
+        self.assertEqual(self.history("week")[0]["raw_mv"], 1600)
 
     def test_history_rejects_unknown_period(self):
         response = self.client.get(
