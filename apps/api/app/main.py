@@ -3216,13 +3216,24 @@ def get_soil_status(
     return SoilStatus(
         plant_id=plant_id,
         sensor_id=reading.sensor_id,
-        measured_at=reading.measured_at.isoformat(),
+        measured_at=_korea_iso(reading.measured_at),
         raw_mv=reading.raw_mv,
         moisture_pct=soil.display_percent(reading.raw_mv, reading.dry_mv, reading.wet_mv),
         status=soil.status_for(reading.raw_mv, reading.dry_mv, reading.wet_mv),
         needs_water=soil.needs_water(reading.raw_mv, reading.dry_mv, reading.wet_mv),
         is_calibrated=soil.is_calibrated(reading.dry_mv, reading.wet_mv),
     )
+
+
+def _korea_iso(moment: datetime) -> str:
+    """저장된 UTC 시각을 한국 시각 문자열로 바꾼다.
+
+    앱 그래프는 토양 수분을 기온·습도와 같은 x축에 겹쳐 그리는데, 그쪽
+    observed_at 이 기상청 계열 그대로라 시간대 표기 없는 한국 시각이다.
+    UTC 로 내보내면 선이 9시간 밀려 엉뚱한 자리에 찍힌다.
+    """
+    aware = moment.replace(tzinfo=timezone.utc) if moment.tzinfo is None else moment
+    return aware.astimezone(KOREA_TIMEZONE).replace(tzinfo=None).isoformat()
 
 
 def _korea_midnight(day: date) -> datetime:
@@ -3261,7 +3272,7 @@ def get_soil_history(
         ).all()
         return [
             SoilHistoryPoint(
-                observed_at=row.measured_at.isoformat(),
+                observed_at=_korea_iso(row.measured_at),
                 raw_mv=row.raw_mv,
                 moisture_pct=soil.display_percent(row.raw_mv, row.dry_mv, row.wet_mv),
             )
