@@ -812,8 +812,13 @@ class SoilStatus(BaseModel):
 
 
 class SoilHistoryPoint(BaseModel):
-    """수분 추이 그래프의 점 하나."""
+    """수분 추이 그래프의 점 하나.
 
-    measured_at: str
+    키 이름과 의미를 WeatherHistoryPoint 에 맞춘다 — 같은 화면에서 기온·습도 선과
+    겹쳐 그리기 때문에 x축이 어긋나면 안 된다. period=day 면 observed_at 이 시각,
+    week/month 면 날짜(그날의 평균)다.
+    """
+
+    observed_at: str
     raw_mv: int
     moisture_pct: int
