@@ -781,7 +781,7 @@ class SoilReadingCreate(BaseModel):
 class SoilReadingBatch(BaseModel):
     """WiFi 가 끊겼다 복구되면 모아둔 값을 한 번에 올린다.
 
-    상한 288건 = 10분 주기로 이틀치. 그보다 오래 끊겼으면 오래된 것부터 버린다.
+    상한 288건 = 1시간 주기로 12일치. 그보다 오래 끊겼으면 오래된 것부터 버린다.
     """
 
     readings: list[SoilReadingCreate] = Field(min_length=1, max_length=288)
@@ -812,8 +812,13 @@ class SoilStatus(BaseModel):
 
 
 class SoilHistoryPoint(BaseModel):
-    """수분 추이 그래프의 점 하나."""
+    """수분 추이 그래프의 점 하나.
 
-    measured_at: str
+    키 이름과 의미를 WeatherHistoryPoint 에 맞춘다 — 같은 화면에서 기온·습도 선과
+    겹쳐 그리기 때문에 x축이 어긋나면 안 된다. period=day 면 observed_at 이 시각,
+    week/month 면 날짜(그날의 평균)다.
+    """
+
+    observed_at: str
     raw_mv: int
     moisture_pct: int

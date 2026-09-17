@@ -67,3 +67,6 @@ ai/diagnosis/*.pkl
 ai/diagnosis/.env
 # FastAPI가 실험 중 생성한 캐릭터 이미지
 apps/api/generated/
+
+# 펌웨어 기기 토큰·WiFi 비밀번호 (secrets.example.h 를 복사해서 만든다)
+apps/firmware/**/secrets.h
