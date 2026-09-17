@@ -852,8 +852,11 @@ CREATE TABLE soil_sensor (
     wet_mv              INTEGER CHECK (wet_mv BETWEEN 0 AND 3300),
     calibrated_at       TIMESTAMP,
 
-    -- 서버가 기기에 지시하는 전송 주기. 흙은 천천히 마르므로 기본 10분이면 충분하다.
-    report_interval_sec INTEGER NOT NULL DEFAULT 600 CHECK (report_interval_sec >= 60),
+    -- 서버가 기기에 지시하는 전송 주기.
+    -- 화분 흙은 하루 7~15% 정도 마른다 = 시간당 3~6mV 로, ADC 노이즈와 비슷한 폭이다.
+    -- 그보다 자주 재면 노이즈만 쌓이므로 1시간을 기본으로 한다. 기기는 이 값을
+    -- 측정값 응답으로 받아가므로, 바꿔도 펌웨어를 다시 굽지 않는다.
+    report_interval_sec INTEGER NOT NULL DEFAULT 3600 CHECK (report_interval_sec >= 60),
 
     -- 마지막으로 값이 들어온 시각. 이 값이 오래 멈춰 있으면 기기 오프라인으로 본다.
     last_seen_at        TIMESTAMP,
@@ -865,7 +868,7 @@ CREATE TABLE soil_sensor (
     CHECK (dry_mv IS NULL OR wet_mv IS NULL OR dry_mv <> wet_mv)
 );
 
--- 측정값 한 건. 10분 주기면 센서당 연 5만 행 규모라 열을 최소로 유지한다.
+-- 측정값 한 건. 1시간 주기로 센서당 연 8,760행 규모라 열을 최소로 유지한다.
 CREATE TABLE soil_reading (
     reading_id      BIGSERIAL PRIMARY KEY,
     sensor_id       BIGINT NOT NULL REFERENCES soil_sensor(sensor_id) ON DELETE CASCADE,

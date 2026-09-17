@@ -40,8 +40,8 @@ CREATE TABLE IF NOT EXISTS soil_sensor (
     wet_mv              INTEGER CHECK (wet_mv BETWEEN 0 AND 3300),
     calibrated_at       TIMESTAMP,
 
-    -- 서버가 기기에 지시하는 전송 주기 (기본 10분).
-    report_interval_sec INTEGER NOT NULL DEFAULT 600 CHECK (report_interval_sec >= 60),
+    -- 서버가 기기에 지시하는 전송 주기 (기본 1시간).
+    report_interval_sec INTEGER NOT NULL DEFAULT 3600 CHECK (report_interval_sec >= 60),
 
     last_seen_at        TIMESTAMP,
 
