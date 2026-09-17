@@ -1,4 +1,5 @@
 import hashlib
+import secrets
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -15,7 +16,7 @@ from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
-from . import affinity, air_quality, asos, diagnosis, environment, persona_chat, region_data, weather
+from . import affinity, air_quality, asos, diagnosis, environment, persona_chat, region_data, soil, weather
 from .character_types import CharacterGenerationJob
 from .config import settings
 from .database import Base, engine, get_db
@@ -52,6 +53,8 @@ from .models import (
     PlantSpecies,
     PlantSpeciesAlias,
     PlantSpeciesImage,
+    SoilReading,
+    SoilSensor,
     SpeciesSourceLink,
     UserSetting,
     WeatherLog,
@@ -101,6 +104,14 @@ from .schemas import (
     PlantUpdate,
     PlantRead,
     SignupRequest,
+    SoilCalibration,
+    SoilHistoryPoint,
+    SoilReadingAccepted,
+    SoilReadingBatch,
+    SoilSensorCreated,
+    SoilSensorRead,
+    SoilSensorRegister,
+    SoilStatus,
     SpeciesDetail,
     SpeciesListItem,
     UserRead,
@@ -2966,3 +2977,275 @@ def get_environment_history(
         pass
 
     return EnvironmentHistoryResponse(weather_points=weather_points, air_quality_points=air_quality_points)
+
+
+# ---------------------------------------------------------------------------
+# 토양 수분 센서 (ESP32-S3 + DFRobot SEN0308)
+#
+# 기기는 사용자 JWT 를 갖지 않는다. 등록할 때 발급한 기기 전용 토큰을
+# X-Device-Key + Authorization 두 헤더로 보내고, 서버는 device_key 로 행을 찾아
+# bcrypt 해시를 대조한다 — 사용자 토큰과 섞이지 않게 헤더를 나눴다.
+#
+# 수분 % 는 저장하지 않는다. soil_reading 에는 raw 전압만 들어가고 환산은
+# app/soil.py 가 한다 (자세한 배경은 docs/database-schema.sql "9. 토양 수분 센서").
+# ---------------------------------------------------------------------------
+
+# 기기 시계가 NTP 를 못 맞추면 1970 년이나 먼 미래가 들어온다. 측정값 자체는
+# 멀쩡하므로 버리지 않고 서버 수신 시각 기준으로 되돌려 채운다.
+SOIL_CLOCK_SKEW = timedelta(minutes=5)
+SOIL_EARLIEST_MEASURED_AT = datetime(2024, 1, 1, tzinfo=timezone.utc)
+
+
+def get_current_sensor(
+    x_device_key: str | None = Header(default=None, alias="X-Device-Key"),
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> SoilSensor:
+    """기기 인증 — 등록 때 받은 토큰으로 자기 자신을 증명한다."""
+    if not x_device_key or not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="기기 인증 정보가 필요합니다."
+        )
+
+    sensor = db.scalar(select(SoilSensor).where(SoilSensor.device_key == x_device_key))
+    # 없는 기기와 토큰이 틀린 기기를 같은 응답으로 돌려준다 (기기 존재 여부를 흘리지 않는다).
+    if sensor is None or not verify_password(authorization.split(" ", 1)[1], sensor.token_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="기기 인증에 실패했습니다."
+        )
+    return sensor
+
+
+def _soil_sensor_read(sensor: SoilSensor) -> SoilSensorRead:
+    return SoilSensorRead(
+        sensor_id=sensor.sensor_id,
+        plant_id=sensor.plant_id,
+        device_key=sensor.device_key,
+        device_label=sensor.device_label,
+        dry_mv=sensor.dry_mv,
+        wet_mv=sensor.wet_mv,
+        is_calibrated=soil.is_calibrated(sensor.dry_mv, sensor.wet_mv),
+        calibrated_at=sensor.calibrated_at.isoformat() if sensor.calibrated_at else None,
+        report_interval_sec=sensor.report_interval_sec,
+        last_seen_at=sensor.last_seen_at.isoformat() if sensor.last_seen_at else None,
+    )
+
+
+def _soil_measured_at(raw: str | None, fallback: datetime) -> datetime:
+    """기기가 보낸 측정 시각을 UTC 로 정규화한다. 못 믿을 값이면 fallback 을 쓴다."""
+    if not raw:
+        return fallback
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return fallback
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    parsed = parsed.astimezone(timezone.utc)
+    if parsed < SOIL_EARLIEST_MEASURED_AT or parsed > fallback + SOIL_CLOCK_SKEW:
+        return fallback
+    return parsed
+
+
+@app.post("/api/plants/{plant_id}/soil-sensor", response_model=SoilSensorCreated)
+def register_soil_sensor(
+    plant_id: int,
+    payload: SoilSensorRegister,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SoilSensorCreated:
+    """센서를 이 화분에 배정하고 기기 토큰을 발급한다.
+
+    같은 device_key 를 다시 올리면 새 화분으로 옮겨 달고 토큰을 다시 발급한다 —
+    기기를 다른 화분으로 옮기는 것이 정상 사용이라 중복 등록을 막지 않는다.
+    다만 화분이 바뀌면 보정값은 지운다: 흙과 꽂은 깊이가 달라져 옛 보정이 맞지 않는다.
+
+    평문 토큰은 이 응답에서 한 번만 나온다. 서버에는 해시만 남는다.
+    """
+    plant = _owned_plant_or_404(plant_id, current_user, db)
+
+    sensor = db.scalar(select(SoilSensor).where(SoilSensor.device_key == payload.device_key))
+    if sensor is not None and sensor.user_id != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="다른 사용자가 등록한 기기입니다."
+        )
+
+    device_token = secrets.token_urlsafe(32)
+    if sensor is None:
+        sensor = SoilSensor(
+            user_id=current_user.user_id,
+            plant_id=plant.plant_id,
+            device_key=payload.device_key,
+            device_label=payload.device_label,
+            token_hash=hash_password(device_token),
+        )
+        db.add(sensor)
+    else:
+        sensor.token_hash = hash_password(device_token)
+        sensor.device_label = payload.device_label
+        if sensor.plant_id != plant.plant_id:
+            sensor.plant_id = plant.plant_id
+            sensor.dry_mv = None
+            sensor.wet_mv = None
+            sensor.calibrated_at = None
+
+    db.commit()
+    db.refresh(sensor)
+    return SoilSensorCreated(
+        sensor_id=sensor.sensor_id,
+        device_key=sensor.device_key,
+        device_token=device_token,
+        report_interval_sec=sensor.report_interval_sec,
+    )
+
+
+@app.get("/api/plants/{plant_id}/soil-sensor", response_model=SoilSensorRead)
+def get_soil_sensor(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SoilSensorRead:
+    """이 화분에 꽂혀 있는 센서. 없으면 404."""
+    _owned_plant_or_404(plant_id, current_user, db)
+    sensor = db.scalar(select(SoilSensor).where(SoilSensor.plant_id == plant_id))
+    if sensor is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="등록된 센서가 없습니다."
+        )
+    return _soil_sensor_read(sensor)
+
+
+@app.patch("/api/soil-sensors/{sensor_id}/calibration", response_model=SoilSensorRead)
+def calibrate_soil_sensor(
+    sensor_id: int,
+    payload: SoilCalibration,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SoilSensorRead:
+    """2점 보정값을 넣는다 — 마른 흙에서 잰 mV 와 물 준 직후 잰 mV.
+
+    이후 들어오는 측정값이 이 값을 스냅샷으로 복사해 가므로, 보정을 다시 잡아도
+    과거 기록의 % 는 그대로 남는다.
+    """
+    sensor = db.get(SoilSensor, sensor_id)
+    if sensor is None or sensor.user_id != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="센서를 찾을 수 없습니다."
+        )
+
+    sensor.dry_mv = payload.dry_mv
+    sensor.wet_mv = payload.wet_mv
+    sensor.calibrated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(sensor)
+    return _soil_sensor_read(sensor)
+
+
+@app.post("/api/soil-readings", response_model=SoilReadingAccepted)
+def create_soil_readings(
+    payload: SoilReadingBatch,
+    sensor: SoilSensor = Depends(get_current_sensor),
+    db: Session = Depends(get_db),
+) -> SoilReadingAccepted:
+    """기기가 올리는 측정값. 여러 건을 한 번에 받는다.
+
+    WiFi 가 끊겼다 복구되면 모아둔 값이 한꺼번에 올라오고, 응답을 못 받은 기기가
+    같은 묶음을 다시 보내기도 한다. 중복은 UNIQUE(sensor_id, measured_at) 가
+    걸러내고 건수만 세어 돌려준다 — 한 건이 막혀도 나머지는 들어가야 하므로
+    행마다 SAVEPOINT 를 잡는다.
+    """
+    received_at = datetime.now(timezone.utc)
+    total = len(payload.readings)
+    accepted = 0
+    duplicated = 0
+
+    for index, item in enumerate(payload.readings):
+        # 시각을 못 믿을 때는 마지막 건이 지금이라고 보고 전송 주기만큼 거슬러 올라간다.
+        # 묶음 전체에 같은 시각을 주면 서로 중복으로 걸려 한 건만 남기 때문이다.
+        fallback = received_at - timedelta(
+            seconds=sensor.report_interval_sec * (total - 1 - index)
+        )
+        measured_at = _soil_measured_at(item.measured_at, fallback)
+        try:
+            with db.begin_nested():
+                db.add(
+                    SoilReading(
+                        sensor_id=sensor.sensor_id,
+                        plant_id=sensor.plant_id,
+                        measured_at=measured_at,
+                        raw_mv=item.raw_mv,
+                        dry_mv=sensor.dry_mv,
+                        wet_mv=sensor.wet_mv,
+                    )
+                )
+        except IntegrityError:
+            duplicated += 1
+            continue
+        accepted += 1
+
+    sensor.last_seen_at = received_at
+    db.commit()
+    return SoilReadingAccepted(
+        accepted=accepted,
+        duplicated=duplicated,
+        report_interval_sec=sensor.report_interval_sec,
+    )
+
+
+@app.get("/api/plants/{plant_id}/soil", response_model=SoilStatus)
+def get_soil_status(
+    plant_id: int,
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SoilStatus:
+    """이 화분의 가장 최근 측정값. 센서를 옮겨도 화분 기준으로 읽는다."""
+    _owned_plant_or_404(plant_id, current_user, db)
+
+    reading = db.scalar(
+        select(SoilReading)
+        .where(SoilReading.plant_id == plant_id)
+        .order_by(SoilReading.measured_at.desc())
+        .limit(1)
+    )
+    if reading is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="아직 측정값이 없습니다."
+        )
+
+    # 현재 보정값이 아니라 측정 당시 스냅샷으로 환산한다 — 재보정이 과거를 바꾸지 않게.
+    return SoilStatus(
+        plant_id=plant_id,
+        sensor_id=reading.sensor_id,
+        measured_at=reading.measured_at.isoformat(),
+        raw_mv=reading.raw_mv,
+        moisture_pct=soil.display_percent(reading.raw_mv, reading.dry_mv, reading.wet_mv),
+        status=soil.status_for(reading.raw_mv, reading.dry_mv, reading.wet_mv),
+        needs_water=soil.needs_water(reading.raw_mv, reading.dry_mv, reading.wet_mv),
+        is_calibrated=soil.is_calibrated(reading.dry_mv, reading.wet_mv),
+    )
+
+
+@app.get("/api/plants/{plant_id}/soil/history", response_model=list[SoilHistoryPoint])
+def get_soil_history(
+    plant_id: int,
+    hours: int = Query(24, ge=1, le=168, description="최근 몇 시간치를 볼지 (최대 1주)"),
+    current_user: AppUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[SoilHistoryPoint]:
+    """수분 추이 그래프용. 오래된 것부터 시간순으로 준다."""
+    _owned_plant_or_404(plant_id, current_user, db)
+
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    rows = db.scalars(
+        select(SoilReading)
+        .where(SoilReading.plant_id == plant_id, SoilReading.measured_at >= since)
+        .order_by(SoilReading.measured_at)
+    ).all()
+    return [
+        SoilHistoryPoint(
+            measured_at=row.measured_at.isoformat(),
+            raw_mv=row.raw_mv,
+            moisture_pct=soil.display_percent(row.raw_mv, row.dry_mv, row.wet_mv),
+        )
+        for row in rows
+    ]
