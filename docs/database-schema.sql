@@ -808,3 +808,91 @@ CREATE TABLE inquiry (
 -- (apps/api/scripts/add-inquiry-table.sql 도 같은 이름을 쓴다).
 CREATE INDEX ix_inquiry_created_at ON inquiry (created_at);
 CREATE INDEX ix_inquiry_user_id    ON inquiry (user_id);
+
+
+-- =========================================================
+-- 9. 토양 수분 센서
+-- =========================================================
+-- ESP32-S3 + 정전용량식 토양수분 센서(DFRobot SEN0308)가 주기적으로 올리는 값.
+-- 화분에 꽂아두고 실제 흙 상태를 재서, 지금까지 날짜 주기로만 돌던
+-- care_schedule(WATERING) 의 물주기 판단을 실측으로 바꾸는 것이 목적이다.
+--
+-- 저장 원칙: 센서가 보내는 raw 전압(mV)만 저장하고 수분 %는 저장하지 않는다.
+--   %는 dry_mv/wet_mv 보정값에 의존하는 파생값인데, 이 보정값은 화분 흙 종류와
+--   센서를 꽂은 깊이에 따라 달라져서 앞으로 계속 다시 잡게 된다. %만 저장해두면
+--   보정을 고치는 순간 과거 데이터를 되살릴 방법이 없다.
+--   환산 규칙은 app/soil.py 가 단일 출처다 (affinity_score ↔ app/affinity.py 와 같은 결).
+--
+-- DDL: apps/api/scripts/add-soil-sensor-tables.sql
+
+-- 등록된 센서 기기 한 대. 기기는 화분을 옮겨 다닐 수 있어 plant_id 는 현재 위치다.
+CREATE TABLE soil_sensor (
+    sensor_id           BIGSERIAL PRIMARY KEY,
+    user_id             BIGINT NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+
+    -- 지금 이 센서가 꽂혀 있는 화분. 화분을 지워도 기기는 남기고 재배정한다.
+    plant_id            BIGINT REFERENCES plant(plant_id) ON DELETE SET NULL,
+
+    -- 기기 고유 식별자 — ESP32 의 eFuse MAC 주소를 그대로 쓴다.
+    -- 펌웨어를 다시 구워도 바뀌지 않아 기기 재등록 없이 이어서 쓸 수 있다.
+    device_key          VARCHAR(64) NOT NULL,
+    device_label        VARCHAR(100),
+    model               VARCHAR(50) NOT NULL DEFAULT 'SEN0308',
+
+    -- 기기 인증 토큰의 bcrypt 해시. 평문은 등록 응답에서 한 번만 돌려주고
+    -- 펌웨어가 보관한다 — app/security.py 의 hash_password/verify_password 를 그대로 쓴다.
+    token_hash          VARCHAR(128) NOT NULL,
+
+    -- 2점 보정. dry_mv 가 0%, wet_mv 가 100% 가 된다.
+    -- SEN0308 은 젖을수록 전압이 내려가서 보통 wet_mv < dry_mv 지만, 센서 종류에 따라
+    -- 방향이 반대일 수 있어 대소 관계는 강제하지 않는다 (환산식이 방향과 무관하다).
+    -- 두 값이 같으면 0 으로 나누게 되므로 그것만 막는다.
+    -- 보정 전에는 NULL 이고, 이때 앱은 %를 숨기고 raw 값만 보여준다.
+    dry_mv              INTEGER CHECK (dry_mv BETWEEN 0 AND 3300),
+    wet_mv              INTEGER CHECK (wet_mv BETWEEN 0 AND 3300),
+    calibrated_at       TIMESTAMP,
+
+    -- 서버가 기기에 지시하는 전송 주기. 흙은 천천히 마르므로 기본 10분이면 충분하다.
+    report_interval_sec INTEGER NOT NULL DEFAULT 600 CHECK (report_interval_sec >= 60),
+
+    -- 마지막으로 값이 들어온 시각. 이 값이 오래 멈춰 있으면 기기 오프라인으로 본다.
+    last_seen_at        TIMESTAMP,
+
+    created_at          TIMESTAMP DEFAULT now(),
+    updated_at          TIMESTAMP DEFAULT now(),
+
+    UNIQUE (device_key),
+    CHECK (dry_mv IS NULL OR wet_mv IS NULL OR dry_mv <> wet_mv)
+);
+
+-- 측정값 한 건. 10분 주기면 센서당 연 5만 행 규모라 열을 최소로 유지한다.
+CREATE TABLE soil_reading (
+    reading_id      BIGSERIAL PRIMARY KEY,
+    sensor_id       BIGINT NOT NULL REFERENCES soil_sensor(sensor_id) ON DELETE CASCADE,
+
+    -- 측정 당시의 화분. soil_sensor.plant_id 를 따라가지 않고 여기에 박아둔다 —
+    -- 센서를 다른 화분으로 옮겨도 과거 기록은 원래 화분의 기록으로 남아야 한다.
+    plant_id        BIGINT REFERENCES plant(plant_id) ON DELETE SET NULL,
+
+    -- 기기가 잰 시각(NTP 로 맞춘 기기 시계). WiFi 가 끊겨 나중에 몰아 보내는 경우가
+    -- 있어서 서버 수신 시각(created_at)과 반드시 구분한다.
+    measured_at     TIMESTAMP NOT NULL,
+
+    -- ADC 실측 전압. 이 테이블의 유일한 원본 데이터다.
+    raw_mv          INTEGER NOT NULL CHECK (raw_mv BETWEEN 0 AND 3300),
+
+    -- 측정 시점에 적용되던 보정값의 스냅샷. soil_sensor 의 현재 값을 조인하지 않고
+    -- 행마다 복사해 둔다 — 보정을 다시 잡아도 과거 행의 % 가 흔들리지 않는다.
+    -- 열 2개(8바이트) 늘어나는 비용보다 "그때 그 값이 몇 %였나" 가 항상 맞는 쪽이 낫다.
+    dry_mv          INTEGER,
+    wet_mv          INTEGER,
+
+    created_at      TIMESTAMP DEFAULT now(),
+
+    -- 기기가 응답을 못 받고 재전송했을 때 같은 측정이 두 번 쌓이는 것을 막는다.
+    UNIQUE (sensor_id, measured_at)
+);
+
+-- 앱의 기본 조회는 "이 화분의 최근 수분 추이"다.
+CREATE INDEX ix_soil_reading_plant_measured ON soil_reading (plant_id, measured_at);
+CREATE INDEX ix_soil_sensor_plant_id        ON soil_sensor (plant_id);
