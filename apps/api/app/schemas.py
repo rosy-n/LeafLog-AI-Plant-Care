@@ -781,7 +781,7 @@ class SoilReadingCreate(BaseModel):
 class SoilReadingBatch(BaseModel):
     """WiFi 가 끊겼다 복구되면 모아둔 값을 한 번에 올린다.
 
-    상한 288건 = 10분 주기로 이틀치. 그보다 오래 끊겼으면 오래된 것부터 버린다.
+    상한 288건 = 1시간 주기로 12일치. 그보다 오래 끊겼으면 오래된 것부터 버린다.
     """
 
     readings: list[SoilReadingCreate] = Field(min_length=1, max_length=288)
