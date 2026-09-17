@@ -244,21 +244,57 @@ class SoilSensorApiTests(unittest.TestCase):
         response = self.client.get(f"/api/plants/{self.plant_id}/soil", headers=self.jwt)
         self.assertEqual(response.status_code, 404)
 
-    def test_history_is_oldest_first(self):
-        _, device = self.register()
-        self.send(
-            device,
-            [
-                {"raw_mv": 2040, "measured_at": (self.now - timedelta(hours=1)).isoformat()},
-                {"raw_mv": 1400, "measured_at": (self.now - timedelta(hours=3)).isoformat()},
-            ],
-        )
-        points = self.client.get(
-            f"/api/plants/{self.plant_id}/soil/history?hours=24", headers=self.jwt
+    def history(self, period):
+        return self.client.get(
+            f"/api/plants/{self.plant_id}/soil/history?period={period}", headers=self.jwt
         ).json()
-        self.assertEqual([point["measured_at"] for point in points], sorted(
-            point["measured_at"] for point in points
-        ))
+
+    def test_history_day_returns_each_reading(self):
+        """period=day 는 기상청 시간별 계열과 같은 축이라 원본을 그대로 준다."""
+        _, device = self.register()
+        # 지금 시각은 어떤 시간대에 돌려도 '한국 날짜의 오늘' 안에 있다.
+        self.send(device, [{"raw_mv": 1700, "measured_at": self.now.isoformat()}])
+
+        points = self.history("day")
+        self.assertEqual(len(points), 1, points)
+        self.assertIn("T", points[0]["observed_at"])  # 날짜가 아니라 시각
+        self.assertEqual(points[0]["raw_mv"], 1700)
+
+    def test_history_week_averages_per_day(self):
+        """period=week 는 하루 평균. 날짜 경계는 한국 기준으로 센다."""
+        sensor_id, device = self.register()
+        self.calibrate(sensor_id, DRY_2, WET_2)
+
+        # 이틀 전 2건, 사흘 전 1건 — 둘 다 '어제까지 7일' 안에 확실히 들어간다.
+        two = self.now - timedelta(days=2)
+        three = self.now - timedelta(days=3)
+        self.send(device, [
+            {"raw_mv": 1600, "measured_at": two.isoformat()},
+            {"raw_mv": 1800, "measured_at": (two + timedelta(hours=1)).isoformat()},
+            {"raw_mv": 2000, "measured_at": three.isoformat()},
+        ])
+
+        points = self.history("week")
+        self.assertEqual(len(points), 2, points)
+        self.assertNotIn("T", points[0]["observed_at"])  # 시각이 아니라 날짜
+        self.assertEqual([p["observed_at"] for p in points],
+                         sorted(p["observed_at"] for p in points))
+
+        # 사흘 전이 먼저, 이틀 전은 1600/1800 의 평균
+        self.assertEqual(points[0]["raw_mv"], 2000)
+        self.assertEqual(points[1]["raw_mv"], 1700)
+
+    def test_history_week_excludes_today(self):
+        """ASOS 일자료가 전일까지만 나와서 날씨 선은 오늘이 없다. 축을 맞춘다."""
+        _, device = self.register()
+        self.send(device, [{"raw_mv": 1700, "measured_at": self.now.isoformat()}])
+        self.assertEqual(self.history("week"), [])
+
+    def test_history_rejects_unknown_period(self):
+        response = self.client.get(
+            f"/api/plants/{self.plant_id}/soil/history?period=year", headers=self.jwt
+        )
+        self.assertEqual(response.status_code, 422)
 
     # -- 기기 이동 --------------------------------------------------------
 
