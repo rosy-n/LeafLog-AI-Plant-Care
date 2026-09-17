@@ -1,4 +1,9 @@
--- 토양 수분 센서(soil_sensor) / 측정값(soil_reading) 테이블.
+-- 토양 수분 센서(soil_sensor) / 측정값(soil_reading) 테이블. **로컬 개발용.**
+--
+-- 운영 RDS 에는 이 파일을 실행하지 않는다 — \connect 로 DB 를 다시 잡고
+-- 역할 이름이 로컬 전용(leaflog_user)이라 RDS(leaflog_app)에서는 GRANT 가 실패한다.
+-- RDS 에는 apps/api/migrations/20260918_soil_sensor_tables.sql 를 쓴다
+-- (docs/aws-team-handoff.md 0-1절: scripts/ SQL 을 RDS 에 그대로 실행하지 않음).
 --
 -- ESP32-S3 + DFRobot SEN0308 을 화분에 꽂아두고 주기적으로 올리는 값을 담는다.
 -- docs/database-schema.sql "9. 토양 수분 센서" 와 같은 정의다.
