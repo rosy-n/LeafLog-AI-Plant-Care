@@ -26,7 +26,7 @@ from .image_types import (
     ImagePreprocessingUnavailable,
     QualityMode,
 )
-from .korea_time import korea_day, today_in_korea
+from .korea_time import KOREA_TIMEZONE, korea_day, today_in_korea
 from .wikimedia import fetch_species_images
 from .wiki_names import (
     SRC_LABEL,
@@ -3225,27 +3225,75 @@ def get_soil_status(
     )
 
 
+def _korea_midnight(day: date) -> datetime:
+    """한국 날짜의 0시에 해당하는 UTC 시각.
+
+    measured_at 은 UTC 로 저장되므로 KST 를 그대로 넘기면 9시간 어긋난다.
+    """
+    return datetime(day.year, day.month, day.day, tzinfo=KOREA_TIMEZONE).astimezone(timezone.utc)
+
+
 @app.get("/api/plants/{plant_id}/soil/history", response_model=list[SoilHistoryPoint])
 def get_soil_history(
     plant_id: int,
-    hours: int = Query(24, ge=1, le=168, description="최근 몇 시간치를 볼지 (최대 1주)"),
+    period: str = Query(default="day", pattern="^(day|week|month)$"),
     current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[SoilHistoryPoint]:
-    """수분 추이 그래프용. 오래된 것부터 시간순으로 준다."""
+    """수분 추이. 같은 화면의 기온·습도 선과 겹쳐 그리므로 GET /api/environment/history
+    와 기간을 정확히 맞춘다.
+
+      day    오늘(한국 날짜)의 측정값을 그대로 — 기상청 초단기실황 시간별 계열과 같은 축
+      week   어제까지 7일, 하루 평균 — ASOS 일자료가 전일까지만 제공해서 오늘은 뺀다
+      month  어제까지 30일, 하루 평균
+
+    평균은 raw 전압이 아니라 % 를 평균낸다. 측정값마다 그때의 보정 스냅샷이 달릴 수
+    있어서, 전압을 먼저 평균내면 보정을 바꾼 날의 값이 어긋난다.
+    """
     _owned_plant_or_404(plant_id, current_user, db)
 
-    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    if period == "day":
+        start = _korea_midnight(today_in_korea())
+        rows = db.scalars(
+            select(SoilReading)
+            .where(SoilReading.plant_id == plant_id, SoilReading.measured_at >= start)
+            .order_by(SoilReading.measured_at)
+        ).all()
+        return [
+            SoilHistoryPoint(
+                observed_at=row.measured_at.isoformat(),
+                raw_mv=row.raw_mv,
+                moisture_pct=soil.display_percent(row.raw_mv, row.dry_mv, row.wet_mv),
+            )
+            for row in rows
+        ]
+
+    days = 7 if period == "week" else 30
+    end_date = today_in_korea() - timedelta(days=1)
+    start_date = end_date - timedelta(days=days - 1)
+
     rows = db.scalars(
         select(SoilReading)
-        .where(SoilReading.plant_id == plant_id, SoilReading.measured_at >= since)
+        .where(
+            SoilReading.plant_id == plant_id,
+            SoilReading.measured_at >= _korea_midnight(start_date),
+            SoilReading.measured_at < _korea_midnight(end_date + timedelta(days=1)),
+        )
         .order_by(SoilReading.measured_at)
     ).all()
+
+    # 하루 경계는 한국 날짜로 센다 (app/korea_time.py). UTC 로 묶으면 자정~오전 9시
+    # 측정값이 전날로 밀려 날씨 그래프와 하루씩 어긋난다.
+    by_day: dict[date, list[tuple[int, int]]] = {}
+    for row in rows:
+        pct = soil.display_percent(row.raw_mv, row.dry_mv, row.wet_mv)
+        by_day.setdefault(korea_day(row.measured_at), []).append((row.raw_mv, pct))
+
     return [
         SoilHistoryPoint(
-            measured_at=row.measured_at.isoformat(),
-            raw_mv=row.raw_mv,
-            moisture_pct=soil.display_percent(row.raw_mv, row.dry_mv, row.wet_mv),
+            observed_at=day.isoformat(),
+            raw_mv=round(sum(mv for mv, _ in items) / len(items)),
+            moisture_pct=round(sum(pct for _, pct in items) / len(items)),
         )
-        for row in rows
+        for day, items in sorted(by_day.items())
     ]
