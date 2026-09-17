@@ -927,3 +927,36 @@ export type EnvironmentHistoryResponse = {
 export function getEnvironmentHistory(period: "day" | "week" | "month" = "day") {
   return request<EnvironmentHistoryResponse>(`/api/environment/history?period=${period}`);
 }
+
+// CHECK = 센서가 흙 밖으로 나왔거나 보정 범위를 넘어 마름. 둘은 이 센서로 구분할 수
+// 없어서 서버가 하나로 합쳐 내려준다 — 어느 쪽이든 사용자가 화분을 봐야 한다.
+export type SoilMoistureStatus = "CHECK" | "VERY_DRY" | "DRY" | "OK" | "WET";
+
+export type SoilStatus = {
+  plant_id: number;
+  sensor_id: number;
+  measured_at: string;
+  raw_mv: number;
+  moisture_pct: number;
+  status: SoilMoistureStatus;
+  needs_water: boolean;
+  // false면 보정 전이라 서버 기본값으로 환산한 어림값이다.
+  is_calibrated: boolean;
+};
+
+export type SoilHistoryPoint = {
+  // 기온·습도와 같은 그래프에 겹쳐 그리므로 observed_at 의 의미와 시간대를
+  // WeatherHistoryPoint 와 맞춰 두었다 (day=한국 시각, week/month=날짜).
+  observed_at: string;
+  raw_mv: number;
+  moisture_pct: number;
+};
+
+// 센서를 안 꽂은 화분이거나 아직 측정값이 없으면 404 — 화면은 토양습도 없이 그린다.
+export function getSoilStatus(plantId: number) {
+  return request<SoilStatus>(`/api/plants/${plantId}/soil`);
+}
+
+export function getSoilHistory(plantId: number, period: "day" | "week" | "month" = "day") {
+  return request<SoilHistoryPoint[]>(`/api/plants/${plantId}/soil/history?period=${period}`);
+}
