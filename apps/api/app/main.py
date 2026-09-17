@@ -3255,8 +3255,13 @@ def get_soil_history(
     와 기간을 정확히 맞춘다.
 
       day    오늘(한국 날짜)의 측정값을 그대로 — 기상청 초단기실황 시간별 계열과 같은 축
-      week   어제까지 7일, 하루 평균 — ASOS 일자료가 전일까지만 제공해서 오늘은 뺀다
-      month  어제까지 30일, 하루 평균
+      week   오늘까지 7일, 하루 평균
+      month  오늘까지 30일, 하루 평균
+
+    날씨 쪽 week/month 는 ASOS 일자료가 전일까지만 나와서 어제에서 끝나지만,
+    토양은 우리 DB 라 오늘 것이 있다. 오늘을 빼면 센서를 갓 꽂은 사용자가
+    하루 종일 빈 화면을 보게 되므로 넣는다. 그래프는 x축을 날씨 점에서 만들어서
+    짝이 없는 오늘 값은 앱이 알아서 버리고, 평균 카드에는 반영된다.
 
     평균은 raw 전압이 아니라 % 를 평균낸다. 측정값마다 그때의 보정 스냅샷이 달릴 수
     있어서, 전압을 먼저 평균내면 보정을 바꾼 날의 값이 어긋난다.
@@ -3280,7 +3285,7 @@ def get_soil_history(
         ]
 
     days = 7 if period == "week" else 30
-    end_date = today_in_korea() - timedelta(days=1)
+    end_date = today_in_korea()
     start_date = end_date - timedelta(days=days - 1)
 
     rows = db.scalars(
