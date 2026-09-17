@@ -20,7 +20,7 @@ import PlantImage from "../components/PlantImage";
 import { getEnvironmentHistory, getPlant, getSoilHistory, getSoilStatus, getUserSettings } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint, Gauge, GaugeTint, Glass, Soil } from "../../constants/colors";
+import { Colors, GreenTint, Gauge, GaugeTint, Glass } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import { getPlantExpressionSource } from "../data/characterExpressions";
@@ -198,12 +198,12 @@ function LineChart({ tempData, humidityData, soilData, timestamps, periodKey }) 
             {/* 토양 수분 — 습도와 같은 0~100 축을 쓴다 */}
             {soilData && splitSegments(soilData, xOf, normHum).map((segment, i) => (
                 segment.length === 1 ? (
-                    <Circle key={`soil-${i}`} cx={segment[0].x} cy={segment[0].y} r={3} fill={Soil.peat} />
+                    <Circle key={`soil-${i}`} cx={segment[0].x} cy={segment[0].y} r={3} fill={Colors.soilMoisture} />
                 ) : (
                     <Polyline
                         key={`soil-${i}`}
                         points={segment.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}
-                        fill="none" stroke={Soil.peat} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
+                        fill="none" stroke={Colors.soilMoisture} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"
                     />
                 )
             ))}
@@ -216,7 +216,7 @@ function LineChart({ tempData, humidityData, soilData, timestamps, periodKey }) 
                     <Circle cx={xOf(di)} cy={normTemp(tempData[di])} r={3.5} fill={Gauge.warm} />
                     <Circle cx={xOf(di)} cy={normHum(humidityData[di])} r={3} fill={Gauge.cool} />
                     {soilData?.[di] != null && (
-                        <Circle cx={xOf(di)} cy={normHum(soilData[di])} r={3} fill={Soil.peat} />
+                        <Circle cx={xOf(di)} cy={normHum(soilData[di])} r={3.5} fill={Colors.soilMoisture} />
                     )}
                     <SvgText x={xOf(di)} y={CHART_H - 4} textAnchor="middle" fontSize={10} fill={GreenTint.deep}>
                         {formatAxisLabel(timestamps[di], periodKey)}
@@ -352,6 +352,10 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
     const soilData = alignSoilToTimestamps(soilPoints, timestamps, PERIOD_MAP[period]);
     const avgSoil = avg(soilPoints.map((p) => p.moisture_pct));
 
+    // 범례는 그릴 점이 있는지가 아니라 센서가 붙어 있는지로 판단한다. 기록이 아직
+    // 적어 선이 안 그려지는 기간에도 항목이 사라지면 기능이 없는 것처럼 보인다.
+    const hasSoilSensor = soilStatus != null || soilPoints.length > 0;
+
     const summaryTitle = period === "일" ? `${plant?.name ?? "식물"}의 하루 총평` : period === "주" ? `${plant?.name ?? "식물"}의 주 총평` : `${plant?.name ?? "식물"}의 월 총평`;
     const avgLabel = period === "일" ? "오늘 평균" : period === "주" ? "이번 주 평균" : "이번 달 평균";
 
@@ -436,9 +440,9 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
                                                 <View style={[styles.legendDot, { backgroundColor: Gauge.cool }]} />
                                                 <Text style={styles.legendText}>습도(%)</Text>
                                             </View>
-                                            {soilData && (
+                                            {hasSoilSensor && (
                                                 <View style={styles.legendItem}>
-                                                    <View style={[styles.legendDot, { backgroundColor: Soil.peat }]} />
+                                                    <View style={[styles.legendDot, { backgroundColor: Colors.soilMoisture }]} />
                                                     <Text style={styles.legendText}>토양습도(%)</Text>
                                                 </View>
                                             )}
