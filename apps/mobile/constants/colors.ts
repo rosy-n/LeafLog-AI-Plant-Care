@@ -28,6 +28,8 @@ export const Colors = {
   danger: '#D83226',         // 하트 · 삭제 · 경고
   nutrient: '#2FA352',       // 영양제(✚) 아이콘 등 솔리드 녹색 강조
   coin: '#F4B63F',           // 코인 · 재화 (골드)
+  soilMoisture: '#F4B63F',   // 토양 수분 (센서 그래프 선 · 범례) — soil_humidity_icon.png 의
+                             // 노랑(#F1BB3B)과 눈으로 구분되지 않아 coin 값을 그대로 쓴다
   remove: '#D4887A',         // 삭제 · 제거 액션 (코랄)
   weekendSun: '#D46060',     // 캘린더 일요일
   weekendSat: '#5A7AD4',     // 캘린더 토요일
