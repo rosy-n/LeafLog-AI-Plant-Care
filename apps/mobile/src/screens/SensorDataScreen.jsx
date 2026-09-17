@@ -352,6 +352,10 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
     const soilData = alignSoilToTimestamps(soilPoints, timestamps, PERIOD_MAP[period]);
     const avgSoil = avg(soilPoints.map((p) => p.moisture_pct));
 
+    // 범례는 그릴 점이 있는지가 아니라 센서가 붙어 있는지로 판단한다. 기록이 아직
+    // 적어 선이 안 그려지는 기간에도 항목이 사라지면 기능이 없는 것처럼 보인다.
+    const hasSoilSensor = soilStatus != null || soilPoints.length > 0;
+
     const summaryTitle = period === "일" ? `${plant?.name ?? "식물"}의 하루 총평` : period === "주" ? `${plant?.name ?? "식물"}의 주 총평` : `${plant?.name ?? "식물"}의 월 총평`;
     const avgLabel = period === "일" ? "오늘 평균" : period === "주" ? "이번 주 평균" : "이번 달 평균";
 
@@ -436,7 +440,7 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
                                                 <View style={[styles.legendDot, { backgroundColor: Gauge.cool }]} />
                                                 <Text style={styles.legendText}>습도(%)</Text>
                                             </View>
-                                            {soilData && (
+                                            {hasSoilSensor && (
                                                 <View style={styles.legendItem}>
                                                     <View style={[styles.legendDot, { backgroundColor: Colors.soilMoisture }]} />
                                                     <Text style={styles.legendText}>토양습도(%)</Text>
