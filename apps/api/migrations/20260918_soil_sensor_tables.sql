@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS public.soil_sensor (
     wet_mv              INTEGER,
     calibrated_at       TIMESTAMP,
 
+    -- 기본값은 뒤따르는 20260918_soil_sensor_interval_1h.sql 이 3600 으로 올린다.
     report_interval_sec INTEGER NOT NULL DEFAULT 600,
     last_seen_at        TIMESTAMP,
 

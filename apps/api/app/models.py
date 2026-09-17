@@ -888,9 +888,11 @@ class SoilSensor(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    # 서버가 기기에 지시하는 전송 주기. 측정값 응답에 실어 보낸다.
+    # 서버가 기기에 지시하는 전송 주기. 측정값 응답에 실어 보내므로 바꿔도
+    # 펌웨어를 다시 굽지 않는다. 흙이 마르는 속도(시간당 3~6mV)가 ADC 노이즈와
+    # 비슷해서 그보다 자주 재면 노이즈만 쌓인다 — 기본 1시간.
     report_interval_sec: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=600, server_default="600"
+        Integer, nullable=False, default=3600, server_default="3600"
     )
 
     # 마지막으로 값이 들어온 시각 — 오래 멈춰 있으면 기기 오프라인으로 본다.
