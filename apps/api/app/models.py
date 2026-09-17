@@ -10,6 +10,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     SmallInteger,
@@ -849,3 +850,107 @@ class Inquiry(Base):
         ),
     )
 
+
+
+class SoilSensor(Base):
+    """화분에 꽂아둔 토양 수분 센서 기기 한 대 (ESP32-S3 + DFRobot SEN0308).
+
+    기기는 화분 사이를 옮겨 다닐 수 있어 plant_id 는 "지금" 꽂혀 있는 화분이다.
+    과거 측정값이 어느 화분 것이었는지는 soil_reading.plant_id 가 따로 들고 있다.
+    """
+
+    __tablename__ = "soil_sensor"
+
+    sensor_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("app_user.user_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    plant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("plant.plant_id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    # ESP32 의 eFuse MAC 주소. 펌웨어를 다시 구워도 바뀌지 않아 재등록이 필요 없다.
+    device_key: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    device_label: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    model: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="SEN0308", server_default="SEN0308"
+    )
+
+    # 기기 인증 토큰의 bcrypt 해시 (security.hash_password).
+    # 평문은 등록 응답에서 한 번만 돌려주고 서버에 남기지 않는다.
+    token_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+
+    # 2점 보정 — dry_mv 가 0%, wet_mv 가 100%. 환산은 app/soil.py 가 한다.
+    # 대소 관계는 강제하지 않는다 (젖을 때 전압이 오르는 센서도 있다).
+    dry_mv: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    wet_mv: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    calibrated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # 서버가 기기에 지시하는 전송 주기. 측정값 응답에 실어 보낸다.
+    report_interval_sec: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=600, server_default="600"
+    )
+
+    # 마지막으로 값이 들어온 시각 — 오래 멈춰 있으면 기기 오프라인으로 본다.
+    last_seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+    __table_args__ = (
+        CheckConstraint("dry_mv BETWEEN 0 AND 3300", name="ck_soil_sensor_dry_mv"),
+        CheckConstraint("wet_mv BETWEEN 0 AND 3300", name="ck_soil_sensor_wet_mv"),
+        CheckConstraint(
+            "report_interval_sec >= 60", name="ck_soil_sensor_report_interval_sec"
+        ),
+        # 두 보정값이 같으면 환산에서 0 으로 나누게 된다.
+        CheckConstraint(
+            "dry_mv IS NULL OR wet_mv IS NULL OR dry_mv <> wet_mv",
+            name="ck_soil_sensor_calibration_span",
+        ),
+    )
+
+
+class SoilReading(Base):
+    """측정값 한 건. raw 전압만 원본이고 % 는 저장하지 않는다 (app/soil.py)."""
+
+    __tablename__ = "soil_reading"
+
+    reading_id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    sensor_id: Mapped[int] = mapped_column(
+        ForeignKey("soil_sensor.sensor_id", ondelete="CASCADE"), nullable=False
+    )
+
+    # 측정 당시의 화분. soil_sensor.plant_id 를 따라가지 않고 여기 박아둔다 —
+    # 센서를 옮겨도 과거 기록은 원래 화분의 기록으로 남아야 한다.
+    plant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("plant.plant_id", ondelete="SET NULL"), nullable=True
+    )
+
+    # 기기가 잰 시각. WiFi 가 끊겨 나중에 몰아 보내는 경우가 있어
+    # 서버 수신 시각(created_at)과 반드시 구분한다.
+    measured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    # ADC 실측 전압 — 이 테이블의 유일한 원본 데이터.
+    raw_mv: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # 측정 시점 보정값 스냅샷. 보정을 다시 잡아도 과거 행의 % 가 흔들리지 않게
+    # 현재값을 조인하지 않고 행마다 복사해 둔다.
+    dry_mv: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    wet_mv: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("raw_mv BETWEEN 0 AND 3300", name="ck_soil_reading_raw_mv"),
+        # 기기가 응답을 못 받고 재전송했을 때 같은 측정이 두 번 쌓이는 것을 막는다.
+        UniqueConstraint("sensor_id", "measured_at", name="uq_soil_reading_sensor_measured"),
+        # 앱의 기본 조회는 "이 화분의 최근 수분 추이"다.
+        Index("ix_soil_reading_plant_measured", "plant_id", "measured_at"),
+    )

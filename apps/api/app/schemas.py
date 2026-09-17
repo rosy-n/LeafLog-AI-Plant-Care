@@ -1,7 +1,9 @@
 import re
 from typing import Literal
 
-from pydantic import AliasChoices, BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
+
+from .soil import ADC_MAX_MV
 
 EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 NICKNAME_PATTERN = re.compile(r"^[가-힣A-Za-z0-9]{2,10}$")
@@ -705,3 +707,113 @@ class AirQualityHistoryPoint(BaseModel):
 class EnvironmentHistoryResponse(BaseModel):
     weather_points: list[WeatherHistoryPoint]
     air_quality_points: list[AirQualityHistoryPoint]
+
+
+# ---------------------------------------------------------------------------
+# 토양 수분 센서 — 환산 규칙은 app/soil.py 가 단일 출처다.
+# ---------------------------------------------------------------------------
+
+class SoilSensorRegister(BaseModel):
+    """센서를 화분에 배정한다.
+
+    device_key 는 ESP32 의 MAC 주소다. 이미 등록된 기기를 다시 올리면 새 화분으로
+    옮겨 달고 토큰을 다시 발급한다 (기기를 다른 화분으로 옮기는 경우).
+    """
+
+    device_key: str = Field(min_length=4, max_length=64)
+    device_label: str | None = Field(default=None, max_length=100)
+
+
+class SoilSensorCreated(BaseModel):
+    """등록 응답 — 평문 토큰은 여기서 한 번만 나온다.
+
+    서버에는 bcrypt 해시만 남아 다시 볼 수 없다. 잃어버리면 재등록해서
+    새로 발급받아야 한다.
+    """
+
+    sensor_id: int
+    device_key: str
+    device_token: str
+    report_interval_sec: int
+
+
+class SoilCalibration(BaseModel):
+    """2점 보정 — dry_mv 가 0%, wet_mv 가 100%.
+
+    대소 관계는 강제하지 않는다. 정전용량식 센서는 젖을수록 전압이 내려가
+    보통 wet_mv < dry_mv 지만, 반대인 센서로 바꿔도 환산식이 그대로 통한다.
+    같기만 하면 0 으로 나누게 되므로 그것만 막는다.
+    """
+
+    dry_mv: int = Field(ge=0, le=ADC_MAX_MV)
+    wet_mv: int = Field(ge=0, le=ADC_MAX_MV)
+
+    @model_validator(mode="after")
+    def validate_span(self) -> "SoilCalibration":
+        if self.dry_mv == self.wet_mv:
+            raise ValueError("마른 흙과 젖은 흙의 값이 같으면 수분을 환산할 수 없습니다.")
+        return self
+
+
+class SoilSensorRead(BaseModel):
+    """등록된 센서의 현재 상태 — 설정 화면에서 보여준다."""
+
+    sensor_id: int
+    plant_id: int | None = None
+    device_key: str
+    device_label: str | None = None
+    dry_mv: int | None = None
+    wet_mv: int | None = None
+    is_calibrated: bool
+    calibrated_at: str | None = None
+    report_interval_sec: int
+    last_seen_at: str | None = None
+
+
+class SoilReadingCreate(BaseModel):
+    """기기가 보내는 측정값 한 건."""
+
+    raw_mv: int = Field(ge=0, le=ADC_MAX_MV)
+    # 기기 시계(NTP) 기준 측정 시각. 비었거나 말이 안 되는 값이면 서버가 채운다.
+    measured_at: str | None = None
+
+
+class SoilReadingBatch(BaseModel):
+    """WiFi 가 끊겼다 복구되면 모아둔 값을 한 번에 올린다.
+
+    상한 288건 = 10분 주기로 이틀치. 그보다 오래 끊겼으면 오래된 것부터 버린다.
+    """
+
+    readings: list[SoilReadingCreate] = Field(min_length=1, max_length=288)
+
+
+class SoilReadingAccepted(BaseModel):
+    """기기에 돌려주는 응답 — 다음 전송 주기를 함께 알려준다."""
+
+    accepted: int
+    duplicated: int
+    report_interval_sec: int
+
+
+class SoilStatus(BaseModel):
+    """화분의 지금 토양 수분 — 앱 개체탭에서 쓴다."""
+
+    plant_id: int
+    sensor_id: int
+    measured_at: str
+    raw_mv: int
+    # 0~100 으로 자른 표시값. 보정 범위를 벗어났는지는 status 가 알려준다.
+    moisture_pct: int
+    # CHECK / VERY_DRY / DRY / OK / WET — app/soil.py 의 status_for()
+    status: str
+    needs_water: bool
+    # 보정 전이면 app/soil.py 의 기본값으로 환산한 어림값이라는 뜻이다.
+    is_calibrated: bool
+
+
+class SoilHistoryPoint(BaseModel):
+    """수분 추이 그래프의 점 하나."""
+
+    measured_at: str
+    raw_mv: int
+    moisture_pct: int
