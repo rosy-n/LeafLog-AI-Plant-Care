@@ -198,12 +198,12 @@ function LineChart({ tempData, humidityData, soilData, timestamps, periodKey }) 
             {/* 토양 수분 — 습도와 같은 0~100 축을 쓴다 */}
             {soilData && splitSegments(soilData, xOf, normHum).map((segment, i) => (
                 segment.length === 1 ? (
-                    <Circle key={`soil-${i}`} cx={segment[0].x} cy={segment[0].y} r={3} fill={Gauge.gold} />
+                    <Circle key={`soil-${i}`} cx={segment[0].x} cy={segment[0].y} r={3} fill={Colors.soilMoisture} />
                 ) : (
                     <Polyline
                         key={`soil-${i}`}
                         points={segment.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}
-                        fill="none" stroke={Gauge.gold} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
+                        fill="none" stroke={Colors.soilMoisture} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"
                     />
                 )
             ))}
@@ -216,7 +216,7 @@ function LineChart({ tempData, humidityData, soilData, timestamps, periodKey }) 
                     <Circle cx={xOf(di)} cy={normTemp(tempData[di])} r={3.5} fill={Gauge.warm} />
                     <Circle cx={xOf(di)} cy={normHum(humidityData[di])} r={3} fill={Gauge.cool} />
                     {soilData?.[di] != null && (
-                        <Circle cx={xOf(di)} cy={normHum(soilData[di])} r={3} fill={Gauge.gold} />
+                        <Circle cx={xOf(di)} cy={normHum(soilData[di])} r={3.5} fill={Colors.soilMoisture} />
                     )}
                     <SvgText x={xOf(di)} y={CHART_H - 4} textAnchor="middle" fontSize={10} fill={GreenTint.deep}>
                         {formatAxisLabel(timestamps[di], periodKey)}
@@ -438,7 +438,7 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
                                             </View>
                                             {soilData && (
                                                 <View style={styles.legendItem}>
-                                                    <View style={[styles.legendDot, { backgroundColor: Gauge.gold }]} />
+                                                    <View style={[styles.legendDot, { backgroundColor: Colors.soilMoisture }]} />
                                                     <Text style={styles.legendText}>토양습도(%)</Text>
                                                 </View>
                                             )}
