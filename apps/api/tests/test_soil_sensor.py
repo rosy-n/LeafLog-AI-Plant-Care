@@ -16,6 +16,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app import soil
 from app.database import Base, get_db
+from app.korea_time import KOREA_TIMEZONE
 from app.main import app
 from app.models import AppUser, Plant, SoilReading, SoilSensor
 from app.security import create_access_token, hash_password
@@ -259,6 +260,25 @@ class SoilSensorApiTests(unittest.TestCase):
         self.assertEqual(len(points), 1, points)
         self.assertIn("T", points[0]["observed_at"])  # 날짜가 아니라 시각
         self.assertEqual(points[0]["raw_mv"], 1700)
+
+    def test_timestamps_are_korea_time(self):
+        """앱은 기온·습도와 같은 x축에 겹쳐 그린다. 그쪽이 시간대 표기 없는
+        한국 시각이라, UTC 로 내보내면 선이 9시간 밀린다."""
+        _, device = self.register()
+        self.send(device, [{"raw_mv": 1700, "measured_at": self.now.isoformat()}])
+
+        expected = self.now.astimezone(KOREA_TIMEZONE).replace(tzinfo=None)
+
+        point = self.history("day")[0]["observed_at"]
+        self.assertEqual(datetime.fromisoformat(point).hour, expected.hour, point)
+
+        current = self.client.get(
+            f"/api/plants/{self.plant_id}/soil", headers=self.jwt
+        ).json()["measured_at"]
+        self.assertEqual(datetime.fromisoformat(current).hour, expected.hour, current)
+        # 시간대 표기가 붙으면 앱의 new Date() 가 다르게 읽는다
+        self.assertNotIn("+", current)
+        self.assertFalse(current.endswith("Z"))
 
     def test_history_week_averages_per_day(self):
         """period=week 는 하루 평균. 날짜 경계는 한국 기준으로 센다."""

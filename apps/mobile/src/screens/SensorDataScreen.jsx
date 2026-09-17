@@ -17,10 +17,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Line, Polyline, Circle, Text as SvgText } from "react-native-svg";
 
 import PlantImage from "../components/PlantImage";
-import { getEnvironmentHistory, getPlant, getUserSettings } from "../api";
+import { getEnvironmentHistory, getPlant, getSoilHistory, getSoilStatus, getUserSettings } from "../api";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint, Gauge, GaugeTint, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Gauge, GaugeTint, Glass, Soil } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import { getPlantExpressionSource } from "../data/characterExpressions";
@@ -41,13 +41,16 @@ const COMFORT_TAGS = {
     dry: { emoji: "🍂", text: "건조해요", color: Gauge.warmDeep, bg: GaugeTint.hotFaint, border: GaugeTint.hotSoft },
     humid: { emoji: "😊", text: "촉촉해요", color: Gauge.coolText, bg: GaugeTint.coolFaint, border: GaugeTint.coolSoft },
     comfortable: { emoji: "😄", text: "쾌적해요", color: Gauge.gold, bg: GaugeTint.goldFaint, border: GaugeTint.goldSoft },
+    soilDry: { emoji: "🌵", text: "목말라요", color: Gauge.warmDeep, bg: GaugeTint.hotFaint, border: GaugeTint.hotSoft },
+    soilWet: { emoji: "💧", text: "흙이 촉촉해요", color: Gauge.coolText, bg: GaugeTint.coolFaint, border: GaugeTint.coolSoft },
+    soilCheck: { emoji: "🔌", text: "센서를 확인해주세요", color: Gauge.gold, bg: GaugeTint.goldFaint, border: GaugeTint.goldSoft },
 };
 
 // 기온·습도 각각 독립적으로 판정해서, 둘 다 범위를 벗어나면 태그 2개를 함께
 // 반환한다(예: 추워요 + 건조해요). 어느 것도 범위를 벗어나지 않으면 "쾌적해요"
 // 하나만. 종 정보가 없거나(min/max 미설정) 실측치가 없으면 null.
-function classifyComfortTags(avgTemp, avgHumidity, plantDetail) {
-    if (avgTemp == null && avgHumidity == null) return null;
+function classifyComfortTags(avgTemp, avgHumidity, plantDetail, soilStatus) {
+    if (avgTemp == null && avgHumidity == null && !soilStatus) return null;
     const tempMin = plantDetail?.temp_min_c;
     const tempMax = plantDetail?.temp_max_c;
     const humidityMin = plantDetail?.humidity_min_pct;
@@ -62,7 +65,15 @@ function classifyComfortTags(avgTemp, avgHumidity, plantDetail) {
         if (humidityMin != null && avgHumidity < humidityMin) tags.push(COMFORT_TAGS.dry);
         else if (humidityMax != null && avgHumidity > humidityMax) tags.push(COMFORT_TAGS.humid);
     }
-    // TODO: 토양습도 센서 연동되면 여기에 세 번째 판정 추가 (최대 3개까지 지원됨)
+    // 토양습도는 종 적정 범위가 아니라 센서 보정값 기준이라 앱에서 다시 판정하지
+    // 않는다 — 서버가 준 status 를 그대로 쓴다(기준은 app/soil.py 가 단일 출처).
+    // 여기만 기간 평균이 아니라 최신 측정값인데, "지금 물 줘야 하나"가 판단의
+    // 목적이라 지난 주 평균으로 답할 수 있는 물음이 아니기 때문이다.
+    if (soilStatus) {
+        if (soilStatus.status === "CHECK") tags.push(COMFORT_TAGS.soilCheck);
+        else if (soilStatus.needs_water) tags.push(COMFORT_TAGS.soilDry);
+        else if (soilStatus.status === "WET") tags.push(COMFORT_TAGS.soilWet);
+    }
 
     if (tags.length === 0) tags.push(COMFORT_TAGS.comfortable);
     return tags;
@@ -101,6 +112,34 @@ function pickLabelIndices(n, maxLabels = 5) {
     ));
 }
 
+// 토양 수분 점은 날씨 점과 개수가 다를 수 있다 — 센서를 나중에 꽂았거나 그동안
+// 오프라인이었을 수 있다. 같은 시간 버킷끼리 맞춰 붙이고 없는 자리는 null 로 둔다.
+// 양쪽 observed_at 이 모두 한국 시각 기준이라 문자열 앞부분만 잘라도 맞는다.
+function alignSoilToTimestamps(soilPoints, timestamps, periodKey) {
+    if (!soilPoints?.length || !timestamps.length) return null;
+    const width = periodKey === "daily" ? 13 : 10;   // "YYYY-MM-DDTHH" | "YYYY-MM-DD"
+    const byBucket = new Map(soilPoints.map((p) => [p.observed_at.slice(0, width), p.moisture_pct]));
+    const aligned = timestamps.map((t) => byBucket.get(t.slice(0, width)) ?? null);
+    return aligned.some((v) => v != null) ? aligned : null;
+}
+
+// 값이 없는 구간은 선을 잇지 않고 끊는다 — 빈 자리를 0으로 채우면 흙이 바짝
+// 마른 것처럼 보여서 실제와 반대되는 인상을 준다.
+function splitSegments(data, xOf, normFn) {
+    const segments = [];
+    let current = [];
+    data.forEach((value, i) => {
+        if (value == null) {
+            if (current.length) segments.push(current);
+            current = [];
+            return;
+        }
+        current.push({ x: xOf(i), y: normFn(value) });
+    });
+    if (current.length) segments.push(current);
+    return segments;
+}
+
 function formatAxisLabel(isoString, periodKey) {
     const d = new Date(isoString);
     if (Number.isNaN(d.getTime())) return "";
@@ -108,7 +147,7 @@ function formatAxisLabel(isoString, periodKey) {
     return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-function LineChart({ tempData, humidityData, timestamps, periodKey }) {
+function LineChart({ tempData, humidityData, soilData, timestamps, periodKey }) {
     const chartWidth = SCREEN_WIDTH - 40;
     const plotWidth = chartWidth - PAD_L - PAD_R;
     const n = tempData.length;
@@ -156,6 +195,18 @@ function LineChart({ tempData, humidityData, timestamps, periodKey }) {
             <Line x1={PAD_L} y1={PAD_T + PLOT_H} x2={chartWidth - PAD_R} y2={PAD_T + PLOT_H} stroke={GreenTint.line} strokeWidth={1} />
 
             {/* Lines */}
+            {/* 토양 수분 — 습도와 같은 0~100 축을 쓴다 */}
+            {soilData && splitSegments(soilData, xOf, normHum).map((segment, i) => (
+                segment.length === 1 ? (
+                    <Circle key={`soil-${i}`} cx={segment[0].x} cy={segment[0].y} r={3} fill={Soil.peat} />
+                ) : (
+                    <Polyline
+                        key={`soil-${i}`}
+                        points={segment.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}
+                        fill="none" stroke={Soil.peat} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
+                    />
+                )
+            ))}
             <Polyline points={pts(humidityData, normHum)} fill="none" stroke={Gauge.cool} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
             <Polyline points={pts(tempData, normTemp)} fill="none" stroke={Gauge.warm} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
 
@@ -164,6 +215,9 @@ function LineChart({ tempData, humidityData, timestamps, periodKey }) {
                 <React.Fragment key={di}>
                     <Circle cx={xOf(di)} cy={normTemp(tempData[di])} r={3.5} fill={Gauge.warm} />
                     <Circle cx={xOf(di)} cy={normHum(humidityData[di])} r={3} fill={Gauge.cool} />
+                    {soilData?.[di] != null && (
+                        <Circle cx={xOf(di)} cy={normHum(soilData[di])} r={3} fill={Soil.peat} />
+                    )}
                     <SvgText x={xOf(di)} y={CHART_H - 4} textAnchor="middle" fontSize={10} fill={GreenTint.deep}>
                         {formatAxisLabel(timestamps[di], periodKey)}
                     </SvgText>
@@ -220,6 +274,8 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
     const [period, setPeriod] = useState("일");
     const [history, setHistory] = useState(null);
     const [plantDetail, setPlantDetail] = useState(null);
+    const [soilStatus, setSoilStatus] = useState(null);
+    const [soilPoints, setSoilPoints] = useState([]);
     const [locationName, setLocationName] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -230,6 +286,17 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
         getPlant(plant.id)
             .then(setPlantDetail)
             .catch(() => {});
+    }, [plant?.id]);
+
+    // 최신 토양 수분은 기간과 무관하다. 센서가 없거나 아직 측정값이 없으면 404 —
+    // 그건 오류가 아니라 "이 화분엔 센서가 없다"는 뜻이라 화면을 막지 않는다.
+    useEffect(() => {
+        if (!plant?.id) return;
+        let cancelled = false;
+        getSoilStatus(plant.id)
+            .then((result) => { if (!cancelled) setSoilStatus(result); })
+            .catch(() => { if (!cancelled) setSoilStatus(null); });
+        return () => { cancelled = true; };
     }, [plant?.id]);
 
     useEffect(() => {
@@ -243,10 +310,17 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
         setIsLoading(true);
         setError(null);
 
-        getEnvironmentHistory(PERIOD_QUERY[period])
-            .then((historyResult) => {
+        // 토양 추이는 실패해도 그래프를 막지 않는다 — 센서 없는 화분이 기본이다.
+        Promise.all([
+            getEnvironmentHistory(PERIOD_QUERY[period]),
+            plant?.id
+                ? getSoilHistory(plant.id, PERIOD_QUERY[period]).catch(() => [])
+                : Promise.resolve([]),
+        ])
+            .then(([historyResult, soilResult]) => {
                 if (cancelled) return;
                 setHistory(historyResult);
+                setSoilPoints(Array.isArray(soilResult) ? soilResult : []);
             })
             .catch((err) => {
                 if (cancelled) return;
@@ -259,13 +333,11 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
         return () => {
             cancelled = true;
         };
-    }, [period]);
+    }, [period, plant?.id]);
 
     const weatherPoints = history?.weather_points ?? [];
     const airQualityPoints = history?.air_quality_points ?? [];
 
-    // 아두이노 토양습도 센서가 연결된 식물이라면 weather_points에 soil_humidity_pct가
-    // 실려올 예정 — 아직 없으므로 지금은 기온/습도 2개 선만 그린다.
     const tempData = weatherPoints.map((p) => p.temperature_c ?? 0);
     const humidityData = weatherPoints.map((p) => p.humidity_pct ?? 0);
     const timestamps = weatherPoints.map((p) => p.observed_at);
@@ -276,10 +348,14 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
     const avgHumidity = avgHumidityStr !== null ? Number(avgHumidityStr) : null;
     const avgPm10 = avg(airQualityPoints.map((p) => p.pm10).filter((v) => v != null));
 
+    // 토양 수분은 화분별 센서에서 오므로 날씨(지역 단위)와 별도로 받아 축만 맞춘다.
+    const soilData = alignSoilToTimestamps(soilPoints, timestamps, PERIOD_MAP[period]);
+    const avgSoil = avg(soilPoints.map((p) => p.moisture_pct));
+
     const summaryTitle = period === "일" ? `${plant?.name ?? "식물"}의 하루 총평` : period === "주" ? `${plant?.name ?? "식물"}의 주 총평` : `${plant?.name ?? "식물"}의 월 총평`;
     const avgLabel = period === "일" ? "오늘 평균" : period === "주" ? "이번 주 평균" : "이번 달 평균";
 
-    const comfortTags = classifyComfortTags(avgTemp, avgHumidity, plantDetail);
+    const comfortTags = classifyComfortTags(avgTemp, avgHumidity, plantDetail, soilStatus);
     const comfortTagsWrap = comfortTags && comfortTags.length === 3;
     const tempRating = rateValue(avgTemp, plantDetail?.temp_min_c, plantDetail?.temp_max_c);
     const humidityRating = rateValue(avgHumidity, plantDetail?.humidity_min_pct, plantDetail?.humidity_max_pct);
@@ -345,6 +421,7 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
                                         <LineChart
                                             tempData={tempData}
                                             humidityData={humidityData}
+                                            soilData={soilData}
                                             timestamps={timestamps}
                                             periodKey={PERIOD_MAP[period]}
                                         />
@@ -359,6 +436,12 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
                                                 <View style={[styles.legendDot, { backgroundColor: Gauge.cool }]} />
                                                 <Text style={styles.legendText}>습도(%)</Text>
                                             </View>
+                                            {soilData && (
+                                                <View style={styles.legendItem}>
+                                                    <View style={[styles.legendDot, { backgroundColor: Soil.peat }]} />
+                                                    <Text style={styles.legendText}>토양습도(%)</Text>
+                                                </View>
+                                            )}
                                         </View>
                                     </>
                                 )}
@@ -470,10 +553,15 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
                                             }
                                         />
                                         <StatCard
-                                            icon={<Image source={require("../../assets/icons/soil_ humidity_icon.png")} style={styles.statIconImage} resizeMode="contain" />}
+                                            icon={<Image source={require("../../assets/icons/soil_humidity_icon.png")} style={styles.statIconImage} resizeMode="contain" />}
                                             label="평균 토양습도"
-                                            value="아직 센서가 없어요"
-                                            valueSize="placeholder"
+                                            value={
+                                                avgSoil !== null ? `${avgSoil}%`
+                                                    : soilStatus ? "아직 기록이 없어요"
+                                                        : "아직 센서가 없어요"
+                                            }
+                                            valueSize={avgSoil !== null ? undefined : "placeholder"}
+                                            indentValueWithLabel={avgSoil !== null}
                                         />
                                     </View>
                                 </View>
