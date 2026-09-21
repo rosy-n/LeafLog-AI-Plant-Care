@@ -7,6 +7,41 @@
 > 단, AWS 전환은 **1차 RAG(실내식물 191장)를 옮긴 것**이지 대량 농작물 데이터 처리까지 염두에 두고 구성된
 > 것은 아니다 — 아래 "재개 시 먼저 결정할 것" 절의 인프라 질문들은 이번에 새로 확인해야 한다.
 
+## 진행 상황 (2026-09-22 기준)
+
+**인프라**: 학교 PC(Windows+WSL, Tailscale IP는 팀 비공개 문서 참고, SSH 계정 `admin`)에서 작업 중.
+- 저장소: `~/leaflog-rag/repo` (별도 clone, `ai/diagnosis-rag-v2` 브랜치) — 원본 `~/LeafLog-AI-Plant-Care`는 다른 서비스가 쓰는 중이라 절대 건드리지 않음
+- conda 환경: `leaflog-diagnosis-rag` (`leaflog-api` 환경을 clone, torch/transformers 포함 — CPU만 씀, GPU 드라이버 버전 안 맞아서 안 됨. 프로덕션 worker도 CLIP은 CPU라 문제없음)
+- 다운로드 도구: `aihubshell` (AI-Hub 공식 CLI, `~/leaflog-rag/aihub-*/aihubshell`에 있음, API 키는 `export AIHUB_APIKEY=...`로 세션마다 재설정 필요)
+- 다운로드/작업은 항상 `tmux` 세션(`aihub`) 안에서 진행 — SSH 끊겨도 살아있음. 재접속 시 `tmux attach -t aihub`
+
+**아열대 데이터 (dataSetSn=71750)** — ✅ 완료
+- 올리브·레몬·무화과·한라봉만 채택(실제 국내 재배 관엽식물), Validation만 사용(Training은 안 받음)
+- 원본: `~/leaflog-rag/aihub-subtropical/066.국내_재배_아열대·열대_병해충_데이터/.../Validation/`
+- 결과: `~/leaflog-rag/repo/ai/diagnosis/data/crop_labels_subtropical.csv` — 10,900행 (레몬 3600/한라봉 3300/무화과 2100/올리브 1900)
+
+**525번 데이터 (dataSetSn=525, "식물 병 유발 통합 데이터")** — 🔄 진행 중
+- 6개 작물 중 **병해+생리장해만**, **Validation만** 채택 (정상·작물보호제처리반응 제외)
+- 우선순위(병징이 숙주 안 가리는 정도 순): 딸기·오이·토마토·파프리카(고신뢰) → 고추·시설포도(탄저병 섞여있어 상대적으로 낮은 신뢰도)
+- 원본: `~/leaflog-rag/aihub-525/104.식물_병_유발_통합_데이터/01.데이터/2.Validation/`
+- **완료**: 딸기(라벨51678,병해51702,생리장해51703), 오이(51680,51686,51687), 토마토(51681,51690,51691) — 다운로드+압축해제 완료
+- **진행 중**: 파프리카 (라벨51682, 병해51695, 생리장해51696) — 다운로드 명령 실행함, 결과 확인 전
+- **남음**: 고추(라벨51677, 병해51693, 생리장해51699), 시설포도(라벨51679, 병해51706, 생리장해51683)
+- 라벨 zip은 카테고리 구분 없이 작물 전체가 통짜라, json 개수가 jpg 개수보다 항상 많음(정상/작물보호제 라벨도 섞여있음) — **정상 현상**, `07_ingest_aihub_525.py`가 병명 코드로 알아서 걸러냄
+- **6개 작물 다운로드 다 끝난 뒤 `07_ingest_aihub_525.py`를 마지막에 딱 한 번만** 아래처럼 실행 (작물마다 실행하면 이전 결과가 덮어써짐):
+  ```bash
+  python ~/leaflog-rag/repo/ai/diagnosis/scripts/07_ingest_aihub_525.py \
+    --labels-dir ~/leaflog-rag/aihub-525/104.식물_병_유발_통합_데이터/01.데이터/2.Validation/라벨링데이터 \
+    --out ~/leaflog-rag/repo/ai/diagnosis/data/crop_labels_525.csv
+  ```
+
+**작업 시 주의사항 (실제로 겪은 문제들)**
+- 압축 해제 중 **Ctrl+C 절대 금지** — `while read` 반복문이라 현재 파일만 죽고 다음 파일로 조용히 넘어가서, 이미지가 일부만 풀린 채로 "완료"처럼 보임 (한 번 실제로 겪음). 항상 jpg/json 개수를 세서 재검증할 것
+- `find . -name "*.zip"`은 폴더 안 **모든** zip을 다시 처리하므로, 이미 처리된 작물도 매번 재처리됨(무해하지만 시간 소요) — 지운 적 없으면 계속 이럼
+- WSL에서 `/mnt/c/...` 경로에 있으면 안 됨(Windows C드라이브라 여유 250GB뿐) — 반드시 `~/leaflog-rag/...`(리눅스 네이티브 디스크, 900GB+ 여유)에서 작업
+- 스크립트 실행 시 `cd`로 폴더 이동하지 말고 **절대경로로 스크립트/입출력 지정** — 한 번 폴더를 안 돌아와서 다운로드가 엉뚱한 곳에 쌓인 적 있음
+- 4개 로컬 커밋을 만들어놓고 실제로 push하는 걸 잊은 적 있음 — 작업 커밋 후 `git push` 여부 항상 확인할 것
+
 ## 배경
 
 `ai/diagnosis`의 실내식물 병해충 이미지는 200장뿐이라, 대규모 농작물 병해충 데이터(AI-hub)를 섞어서
