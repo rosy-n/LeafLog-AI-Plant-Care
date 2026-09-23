@@ -269,10 +269,15 @@ function classifyPm10(value) {
 const PERIOD_MAP = { "일": "daily", "주": "weekly", "월": "monthly" };
 
 /*
-    총평 카드 왼쪽에 세울 캐릭터 — 이 화면이 보고 있는 개체가 아니라, 사용자가
-    등록한 개체 중 하나를 뽑는다. 앱을 켜 두는 동안에는 같은 개체가 계속 나오고
-    다시 실행하면 다른 개체가 나오도록 모듈 변수에 뽑은 개체를 담아 둔다
-    (모듈 변수는 JS 번들이 살아 있는 동안 = 앱 실행 한 번 동안만 유지된다).
+    총평 카드 왼쪽에 세울 캐릭터를 고를 때 쓴다.
+
+    이 화면은 두 갈래로 들어온다.
+      - 개체탭·추모정원: route.params.plant 로 개체를 받는다 → 그 개체를 세운다
+      - 홈 좌측 상단의 날씨/대기질 아이콘: 개체 없이 들어온다(지역 날씨만 보는
+        화면이라 대상 개체가 없다) → 등록한 개체 중 하나를 뽑아 세운다
+
+    뽑은 개체는 앱을 켜 두는 동안에는 그대로고 다시 실행하면 바뀌도록 모듈 변수에
+    담아 둔다 (모듈 변수는 JS 번들이 살아 있는 동안 = 앱 실행 한 번 동안만 유지된다).
 
     개체가 아니라 id 를 담는 이유: 캐릭터 이미지나 꾸미기가 바뀌면 최신 목록의
     값으로 그려야 하므로, 그릴 때마다 id 로 지금 목록에서 다시 찾는다.
@@ -298,8 +303,12 @@ function pickLaunchCharacter(plants) {
 
 export default function SensorDataScreen({ navigation, route, decorations = {}, plants = [] }) {
     const plant = route?.params?.plant;
-    // 등록된 개체가 아직 없으면(목록 로드 전 등) 보고 있는 개체를 그대로 세운다
-    const characterPlant = pickLaunchCharacter(plants) ?? plant;
+    /*
+        개체탭에서 들어왔으면 그 개체를, 홈의 날씨/대기질 아이콘에서 들어왔으면
+        등록한 개체 중 뽑은 하나를 세운다. 목록이 아직 비어 있으면(로드 전)
+        세울 개체가 없으니 PlantImage 의 번들 fallback 이 그려진다.
+    */
+    const characterPlant = plant ?? pickLaunchCharacter(plants);
     const [period, setPeriod] = useState("일");
 
     /*
