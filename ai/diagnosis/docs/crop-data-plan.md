@@ -39,7 +39,34 @@
 - 4개 로컬 커밋을 만들어놓고 실제로 push하는 걸 잊은 적 있음 — 작업 커밋 후 `git push` 여부 항상 확인할 것
 - **여러 작물을 한 폴더에 순차로 받는 데이터셋(525번, 아열대 둘 다)은, 마지막 작물까지 다운로드가 끝난 뒤 딱 한 번만 라벨 파싱 스크립트를 돌려야 함** — 중간에 돌린 결과를 최종본으로 착각해서 병합하면 일부 작물이 통째로 빠진 채로 병합됨(실제로 한 번 발생, 딸기만 담긴 파일로 병합했다가 재작업)
 
-**다음 단계 (아직 안 함)**
+**다음 단계 (2026-09-23 갱신)**
+- 153번은 이번 라운드 범위에서 명시적으로 제외 (525번+아열대만 진행)
+- CLIP 임베딩은 학교 PC에서 실행, Qdrant 업로드는 EC2 인접 환경에서 별도 실행하기로 확정
+  (Qdrant 6333은 EC2 루프백 전용이라 학교 PC에서 직접 접근 불가 — docs/aws-team-handoff.md 236행)
+- crop 원본(38,097행)을 그대로 다 임베딩하면 houseplant(221장)에 비해 압도적으로 많아 저장량·향후
+  통계가 crop 쪽으로 쏠림 — `10_sample_crop_labels.py` 추가: `plant_species x suspected_cause` 조합별
+  상한(기본 100장, 고정 시드 42)으로 층화추출해 `data/crop_labels_sampled.xlsx`를 만든 뒤 이걸
+  임베딩 대상으로 쓴다. 상한 이하인 조합은 그대로 다 쓰고, 넘는 조합만 무작위 추출(재현 가능)
+  (`python scripts/10_sample_crop_labels.py --in data/crop_labels.xlsx`)
+- `02_build_index.py`에 `--mode {full,embed,upload}` 추가 완료:
+  - 학교 PC: `python scripts/02_build_index.py --mode embed --path data/crop_labels_sampled.xlsx
+    --images-dir aihub_525=<525 Validation 경로>
+    --images-dir aihub_subtropical=<아열대 Validation 경로>
+    --collection leaflog-diagnosis-crop --out data/embeddings/leaflog-diagnosis-crop.jsonl`
+  - scp/rsync로 위 jsonl을 EC2 인접 환경으로 전송 (전송 방식은 스크립트 범위 밖, 수동 진행)
+  - EC2 인접 환경: `python scripts/02_build_index.py --mode upload
+    --in leaflog-diagnosis-crop.jsonl --collection <스테이징 컬렉션>`
+    (torch/transformers 불필요 — CLIP 관련 import를 함수 내부로 지연시켜둠)
+  - **주의**: apps/api/app/diagnosis.py의 SimilarCase.image_id가 int 전제라, crop(UUID id) 포인트를
+    프로덕션 컬렉션에 바로 올리면 검색 API가 깨질 수 있음 — tiered 검색 반영 전까지는 별도/스테이징
+    컬렉션에만 업로드할 것
+- houseplant 쪽 재구축(`images_cropped/` 기준)은 여전히 미실행 — `--mode` 기본값이 `full`이라 기존
+  명령(`--images-dir images_cropped --collection leaflog-diagnosis-cropped --recreate`) 그대로 사용 가능.
+  단, 로컬 `images/`·`data/leaflog_vr.xlsx`(JE)·`data/visual_rag_labels_MN.xlsx`(MN)에는 1차(191장,
+  2026-07) 이후 2026-09에 30장이 더 추가돼 있음(221장) — 프로덕션 Qdrant는 아직 191장 스냅샷 그대로라
+  재구축 시 이 30장도 함께 반영됨
+
+**다음 단계 (아직 안 함, 위 갱신 이전 기록)**
 - `crop_labels.xlsx`는 **라벨 테이블일 뿐, 아직 CLIP 임베딩·Qdrant 업로드 전**임 — 원본 이미지(딸기/오이/.../올리브 등 압축 해제된 jpg, 학교 PC `~/leaflog-rag/aihub-525/`, `~/leaflog-rag/aihub-subtropical/`에 실물로 있음)를 실제로 임베딩해서 넣는 작업이 남음
 - `02_build_index.py` 확장 필요: `domain` payload 필드, crop 도메인용 결정적 UUID(houseplant의 int `image_id`와 충돌 방지), 중첩 폴더(작물/부위/병명별) 이미지 찾기 로직 — 지금 스크립트는 houseplant처럼 이미지가 평평한 폴더 하나에 있는 걸 전제로 함
 - houseplant 쪽도 아직 재구축 안 함: `images_cropped/` 기준으로 `00→01→02_build_index.py --recreate` (준비는 다 됐고 실행만 하면 됨)
