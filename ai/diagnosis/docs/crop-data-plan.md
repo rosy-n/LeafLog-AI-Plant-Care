@@ -11,7 +11,14 @@
 
 **인프라**: 학교 PC(Windows+WSL, Tailscale IP는 팀 비공개 문서 참고, SSH 계정 `admin`)에서 작업 중.
 - 저장소: `~/leaflog-rag/repo` (별도 clone, `ai/diagnosis-rag-v2` 브랜치) — 원본 `~/LeafLog-AI-Plant-Care`는 다른 서비스가 쓰는 중이라 절대 건드리지 않음
-- conda 환경: `leaflog-diagnosis-rag` (`leaflog-api` 환경을 clone, torch/transformers 포함 — CPU만 씀, GPU 드라이버 버전 안 맞아서 안 됨. 프로덕션 worker도 CLIP은 CPU라 문제없음)
+- conda 환경: `leaflog-diagnosis-rag` (`leaflog-api` 환경을 clone, torch/transformers 포함 — CPU만 씀, GPU 드라이버 버전 안 맞아서 안 됨. 프로덕션 worker도 CLIP은 CPU라 문제없음).
+  설치 위치는 `~/miniforge3`이고 이 셸엔 conda init이 안 돼 있어 `conda activate`만 치면
+  `command not found`가 남 — 매 세션 아래 두 줄로 활성화할 것:
+  ```bash
+  source ~/miniforge3/etc/profile.d/conda.sh
+  conda activate leaflog-diagnosis-rag
+  ```
+  (다른 conda 환경도 같은 `~/miniforge3`에 있음: `leaflog-api`, `forge` — `conda env list`로 확인 가능)
 - 다운로드 도구: `aihubshell` (AI-Hub 공식 CLI, `~/leaflog-rag/aihub-*/aihubshell`에 있음, API 키는 `export AIHUB_APIKEY=...`로 세션마다 재설정 필요)
 - 다운로드/작업은 항상 `tmux` 세션(`aihub`) 안에서 진행 — SSH 끊겨도 살아있음. 재접속 시 `tmux attach -t aihub`
 
@@ -38,6 +45,8 @@
 - 스크립트 실행 시 `cd`로 폴더 이동하지 말고 **절대경로로 스크립트/입출력 지정** — 한 번 폴더를 안 돌아와서 다운로드가 엉뚱한 곳에 쌓인 적 있음
 - 4개 로컬 커밋을 만들어놓고 실제로 push하는 걸 잊은 적 있음 — 작업 커밋 후 `git push` 여부 항상 확인할 것
 - **여러 작물을 한 폴더에 순차로 받는 데이터셋(525번, 아열대 둘 다)은, 마지막 작물까지 다운로드가 끝난 뒤 딱 한 번만 라벨 파싱 스크립트를 돌려야 함** — 중간에 돌린 결과를 최종본으로 착각해서 병합하면 일부 작물이 통째로 빠진 채로 병합됨(실제로 한 번 발생, 딸기만 담긴 파일로 병합했다가 재작업)
+- `conda activate leaflog-diagnosis-rag`를 새 SSH 세션에서 바로 치면 `conda: command not found`가 남 —
+  위 "인프라" 절의 `source ~/miniforge3/etc/profile.d/conda.sh`를 먼저 실행할 것
 
 **다음 단계 (2026-09-23 갱신)**
 - 153번은 이번 라운드 범위에서 명시적으로 제외 (525번+아열대만 진행)
@@ -50,9 +59,11 @@
   (`python scripts/10_sample_crop_labels.py --in data/crop_labels.xlsx`)
 - `02_build_index.py`에 `--mode {full,embed,upload}` 추가 완료:
   - 학교 PC: `python scripts/02_build_index.py --mode embed --path data/crop_labels_sampled.xlsx
-    --images-dir aihub_525=<525 Validation 경로>
-    --images-dir aihub_subtropical=<아열대 Validation 경로>
+    --images-dir "aihub_525=/home/leaflog/leaflog-rag/aihub-525/104.식물_병_유발_통합_데이터/01.데이터/2.Validation/원천데이터"
+    --images-dir "aihub_subtropical=/home/leaflog/leaflog-rag/aihub-subtropical/066.국내_재배_아열대·열대_병해충_데이터/3.개방데이터/1.데이터/Validation/01.원천데이터"
     --collection leaflog-diagnosis-crop --out data/embeddings/leaflog-diagnosis-crop.jsonl`
+    (두 경로 모두 2026-09-23에 `find`로 실제 확인함 — 525는 원천데이터 밑에 작물/카테고리별 중첩,
+    아열대는 원천데이터 바로 밑에 평평한 구조. `02_build_index.py`는 `rglob`으로 재귀 탐색하니 둘 다 무관)
   - scp/rsync로 위 jsonl을 EC2 인접 환경으로 전송 (전송 방식은 스크립트 범위 밖, 수동 진행)
   - EC2 인접 환경: `python scripts/02_build_index.py --mode upload
     --in leaflog-diagnosis-crop.jsonl --collection <스테이징 컬렉션>`
