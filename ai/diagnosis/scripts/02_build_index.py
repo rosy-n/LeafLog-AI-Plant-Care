@@ -122,16 +122,21 @@ def parse_image_roots(values: list[str] | None, default_dir: Path) -> dict[str, 
 
 
 def build_image_index(root: Path) -> dict[str, Path]:
-    """root 아래를 재귀 탐색해 {파일명: 경로} 인덱스를 한 번에 만든다 (중첩 폴더 대응)."""
+    """root 아래를 재귀 탐색해 {파일명(소문자): 경로} 인덱스를 한 번에 만든다 (중첩 폴더 대응).
+
+    라벨(JSON) 필드의 확장자 대소문자가 실제 파일과 다른 경우가 있어(AI-Hub 525 일부 확인됨,
+    예: 라벨은 .JPG인데 실제 파일은 .jpg) 파일명을 소문자로 정규화해서 매칭한다.
+    """
     index: dict[str, Path] = {}
     collisions: dict[str, list[Path]] = {}
     for path in sorted(root.rglob("*")):
         if not path.is_file() or path.suffix.lower() in NON_IMAGE_SUFFIXES:
             continue
-        if path.name in index:
-            collisions.setdefault(path.name, [index[path.name]]).append(path)
+        key = path.name.lower()
+        if key in index:
+            collisions.setdefault(key, [index[key]]).append(path)
             continue
-        index[path.name] = path
+        index[key] = path
     for name, paths in collisions.items():
         preview = ", ".join(str(p) for p in paths)
         print(f"[경고] '{root}' 안에서 파일명 중복: {name} -> {preview} (먼저 찾은 경로만 사용)")
@@ -162,7 +167,7 @@ def validate_source_roots(df: pd.DataFrame, roots: dict[str, Path]) -> None:
 def resolve_image_path(row: pd.Series, indexes: dict[str, dict[str, Path]]) -> Path | None:
     source = row.get("source")
     key = source if pd.notna(source) else DEFAULT_IMAGE_KEY
-    return indexes.get(key, {}).get(row["file_name"])
+    return indexes.get(key, {}).get(row["file_name"].lower())
 
 
 def row_domain(row: pd.Series) -> str:
