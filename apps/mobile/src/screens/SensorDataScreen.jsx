@@ -268,10 +268,38 @@ function classifyPm10(value) {
 
 const PERIOD_MAP = { "일": "daily", "주": "weekly", "월": "monthly" };
 
+/*
+    총평 카드 왼쪽에 세울 캐릭터 — 이 화면이 보고 있는 개체가 아니라, 사용자가
+    등록한 개체 중 하나를 뽑는다. 앱을 켜 두는 동안에는 같은 개체가 계속 나오고
+    다시 실행하면 다른 개체가 나오도록 모듈 변수에 뽑은 개체를 담아 둔다
+    (모듈 변수는 JS 번들이 살아 있는 동안 = 앱 실행 한 번 동안만 유지된다).
+
+    개체가 아니라 id 를 담는 이유: 캐릭터 이미지나 꾸미기가 바뀌면 최신 목록의
+    값으로 그려야 하므로, 그릴 때마다 id 로 지금 목록에서 다시 찾는다.
+*/
+let launchCharacterPlantId = null;
+
+function pickLaunchCharacter(plants) {
+    // 떠나보낸 개체는 추모정원에 있으므로 세우지 않는다 — 전부 떠나보냈다면 그중에서 뽑는다
+    const alive = plants.filter((item) => !item.memorial);
+    const pool = alive.length > 0 ? alive : plants;
+    if (pool.length === 0) return null;
+
+    const picked = pool.find((item) => String(item.id) === launchCharacterPlantId);
+    if (picked) return picked;
+
+    // 아직 안 뽑았거나, 뽑아 둔 개체가 지워졌으면 다시 뽑는다
+    const next = pool[Math.floor(Math.random() * pool.length)];
+    launchCharacterPlantId = String(next.id);
+    return next;
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function SensorDataScreen({ navigation, route, decorations = {} }) {
+export default function SensorDataScreen({ navigation, route, decorations = {}, plants = [] }) {
     const plant = route?.params?.plant;
+    // 등록된 개체가 아직 없으면(목록 로드 전 등) 보고 있는 개체를 그대로 세운다
+    const characterPlant = pickLaunchCharacter(plants) ?? plant;
     const [period, setPeriod] = useState("일");
 
     /*
@@ -495,17 +523,21 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
                             >
                                 <View style={styles.summaryHeader}>
                                     <PlantImage
-                                        uri={plant?.imageUri}
-                                        imageKey={plant?.imageKey ?? "spaghetti"}
-                                        expressionSource={plant?.characterFaceRemoved ? getPlantExpressionSource(plant) : null}
-                                        expressionBounds={plant?.characterFaceBounds}
+                                        uri={characterPlant?.imageUri}
+                                        imageKey={characterPlant?.imageKey ?? "spaghetti"}
+                                        expressionSource={
+                                            characterPlant?.characterFaceRemoved
+                                                ? getPlantExpressionSource(characterPlant)
+                                                : null
+                                        }
+                                        expressionBounds={characterPlant?.characterFaceBounds}
                                         effectRemote={
-                                            decorations[String(plant?.id)]?.accessory?.spriteUrl
-                                                ? { uri: decorations[String(plant?.id)].accessory.spriteUrl }
+                                            decorations[String(characterPlant?.id)]?.accessory?.spriteUrl
+                                                ? { uri: decorations[String(characterPlant.id)].accessory.spriteUrl }
                                                 : null
                                         }
                                         effectFallback={accessorySpriteBundle(
-                                            decorations[String(plant?.id)]?.accessory?.key,
+                                            decorations[String(characterPlant?.id)]?.accessory?.key,
                                         )}
                                         width={48}
                                         height={48}
