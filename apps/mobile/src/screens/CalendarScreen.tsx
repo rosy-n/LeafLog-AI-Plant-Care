@@ -36,6 +36,7 @@ import {
     type Diary,
     type DiaryPhotoWrite,
 } from "../api";
+import { cacheKeys, peek, revalidate } from "../prefetch";
 // 캐릭터 이미지 fallback — PlantImage 와 같은 출처
 import { plantImages } from "../data/plants";
 
@@ -347,9 +348,11 @@ export default function CalendarScreen({
     useFocusEffect(
         useCallback(() => {
             let cancelled = false;
-            setDiaryLoading(true);
+            const diaryKey = cacheKeys.diaryMonth(viewYear, viewMonth + 1);
+            // 예열해 둔 달이면 스피너를 띄우지 않는다 — 값이 이미 있으니 바로 그린다
+            setDiaryLoading(peek(diaryKey) === undefined);
 
-            getDiaryMonth(viewYear, viewMonth + 1)
+            revalidate(diaryKey, () => getDiaryMonth(viewYear, viewMonth + 1))
                 .then(rows => {
                     if (cancelled) return;
                     setJournals(prev => ({
@@ -396,13 +399,33 @@ export default function CalendarScreen({
                 return;
             }
 
-            setCareLoading(true);
+            /*
+                예열된 기록(prefetch.ts)이 개체 × 종류 전부 있으면 그것으로 먼저 접어
+                그린다. 하나라도 비어 있으면 평소대로 스피너를 띄운다.
+            */
+            const cached = alivePlants.flatMap(plant =>
+                CARE_KINDS.map(kind => {
+                    const rows = peek<CareRecordItem[]>(
+                        cacheKeys.careRecords(Number(plant.id), kind.careType),
+                    );
+                    return rows ? { plant, field: kind.field, rows } : null;
+                }),
+            );
+            if (cached.every(entry => entry !== null)) {
+                setCareByDate(foldCareRecords(cached as Parameters<typeof foldCareRecords>[0]));
+                setCareFailed(false);
+                setCareLoading(false);
+            } else {
+                setCareLoading(true);
+            }
             let failed = false;
 
             Promise.all(
                 alivePlants.flatMap(plant =>
                     CARE_KINDS.map(kind =>
-                        getCareRecords(Number(plant.id), kind.careType)
+                        revalidate(cacheKeys.careRecords(Number(plant.id), kind.careType), () =>
+                            getCareRecords(Number(plant.id), kind.careType),
+                        )
                             .then(rows => ({ plant, field: kind.field, rows }))
                             .catch(() => {
                                 // 한 개체가 실패해도 나머지는 그린다 — 대신 안내를 남긴다

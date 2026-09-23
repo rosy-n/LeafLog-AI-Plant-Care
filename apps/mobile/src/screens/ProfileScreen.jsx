@@ -35,6 +35,7 @@ import {
 } from "../api";
 import { scheduleWateringReminder, cancelWateringReminder } from "../notifications";
 import { isMemorialPlant } from "../plantStatus";
+import { cacheKeys, peek, revalidate } from "../prefetch";
 import PlantImage from "../components/PlantImage";
 import { getPlantExpressionSource } from "../data/characterExpressions";
 import { accessorySpriteBundle } from "../data/decor";
@@ -88,8 +89,13 @@ function InfoLine({ label, value, note }) {
 
 export default function ProfileScreen({ navigation, route, decorations = {}, reloadPlants }) {
     const plant = route?.params?.plant;
-    const [detail, setDetail] = useState(null);
-    const [care, setCare] = useState(null);
+    // 예열된 상세·돌봄 일정이 있으면 그것으로 먼저 그린다 (prefetch.ts)
+    const [detail, setDetail] = useState(
+        () => (plant?.id ? peek(cacheKeys.plant(plant.id)) ?? null : null),
+    );
+    const [care, setCare] = useState(
+        () => (plant?.id ? peek(cacheKeys.plantCare(plant.id)) ?? null : null),
+    );
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState(null);
@@ -144,13 +150,15 @@ export default function ProfileScreen({ navigation, route, decorations = {}, rel
         if (!id) return;
         let mounted = true;
         // allSettled: 돌봄 일정 조회가 실패해도 프로필은 보여준다
-        Promise.allSettled([getPlant(Number(id)), getPlantCare(Number(id))]).then(
-            ([detailResult, careResult]) => {
-                if (!mounted) return;
-                setDetail(detailResult.status === "fulfilled" ? detailResult.value : null);
-                if (careResult.status === "fulfilled") setCare(careResult.value);
-            },
-        );
+        Promise.allSettled([
+            revalidate(cacheKeys.plant(id), () => getPlant(Number(id))),
+            revalidate(cacheKeys.plantCare(id), () => getPlantCare(Number(id))),
+        ]).then(([detailResult, careResult]) => {
+            if (!mounted) return;
+            // 실패하면 예열해 둔 값을 그대로 둔다 — null 로 지우면 화면이 비어 버린다
+            if (detailResult.status === "fulfilled") setDetail(detailResult.value);
+            if (careResult.status === "fulfilled") setCare(careResult.value);
+        });
         return () => {
             mounted = false;
         };

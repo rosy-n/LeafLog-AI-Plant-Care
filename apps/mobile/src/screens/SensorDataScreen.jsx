@@ -18,6 +18,7 @@ import Svg, { Line, Polyline, Circle, Text as SvgText } from "react-native-svg";
 
 import PlantImage from "../components/PlantImage";
 import { getEnvironmentHistory, getPlant, getSoilHistory, getSoilStatus, getUserSettings } from "../api";
+import { cacheKeys, peek, revalidate } from "../prefetch";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint, Gauge, GaugeTint, Glass } from "../../constants/colors";
@@ -272,18 +273,38 @@ const PERIOD_MAP = { "일": "daily", "주": "weekly", "월": "monthly" };
 export default function SensorDataScreen({ navigation, route, decorations = {} }) {
     const plant = route?.params?.plant;
     const [period, setPeriod] = useState("일");
-    const [history, setHistory] = useState(null);
-    const [plantDetail, setPlantDetail] = useState(null);
-    const [soilStatus, setSoilStatus] = useState(null);
-    const [soilPoints, setSoilPoints] = useState([]);
-    const [locationName, setLocationName] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
+
+    /*
+        기간 탭(일/주/월)은 셋 다 앱 시작 때 예열해 둔다(prefetch.ts). 그래서 탭을
+        누르면 캐시에 있는 값을 그대로 그려 기다림이 없고, 최신값은 뒤에서 받아
+        조용히 갈아끼운다. 캐시가 비어 있을 때만 스피너를 보여준다.
+    */
+    const cachedHistory = (periodKey) =>
+        peek(cacheKeys.environmentHistory(PERIOD_QUERY[periodKey])) ?? null;
+    const cachedSoil = (periodKey) => {
+        if (!plant?.id) return [];
+        const points = peek(cacheKeys.soilHistory(plant.id, PERIOD_QUERY[periodKey]));
+        return Array.isArray(points) ? points : [];
+    };
+
+    const [history, setHistory] = useState(() => cachedHistory("일"));
+    const [plantDetail, setPlantDetail] = useState(
+        () => (plant?.id ? peek(cacheKeys.plant(plant.id)) ?? null : null),
+    );
+    const [soilStatus, setSoilStatus] = useState(
+        () => (plant?.id ? peek(cacheKeys.soilStatus(plant.id)) ?? null : null),
+    );
+    const [soilPoints, setSoilPoints] = useState(() => cachedSoil("일"));
+    const [locationName, setLocationName] = useState(
+        () => peek(cacheKeys.userSettings())?.default_location ?? null,
+    );
+    const [isLoading, setIsLoading] = useState(() => cachedHistory("일") === null);
     const [error, setError] = useState(null);
 
     // 종별 적정 범위(temp_min_c 등)는 기간이 바뀌어도 그대로라 period와 무관하게 한 번만 불러온다.
     useEffect(() => {
         if (!plant?.id) return;
-        getPlant(plant.id)
+        revalidate(cacheKeys.plant(plant.id), () => getPlant(plant.id))
             .then(setPlantDetail)
             .catch(() => {});
     }, [plant?.id]);
@@ -293,28 +314,36 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
     useEffect(() => {
         if (!plant?.id) return;
         let cancelled = false;
-        getSoilStatus(plant.id)
+        revalidate(cacheKeys.soilStatus(plant.id), () => getSoilStatus(plant.id))
             .then((result) => { if (!cancelled) setSoilStatus(result); })
             .catch(() => { if (!cancelled) setSoilStatus(null); });
         return () => { cancelled = true; };
     }, [plant?.id]);
 
     useEffect(() => {
-        getUserSettings()
+        revalidate(cacheKeys.userSettings(), getUserSettings)
             .then((result) => setLocationName(result.default_location))
             .catch(() => {});
     }, []);
 
     useEffect(() => {
         let cancelled = false;
-        setIsLoading(true);
+        const query = PERIOD_QUERY[period];
+
+        // 캐시에 있으면 먼저 그려 둔다 — 탭을 누른 순간 빈 그래프가 보이지 않게
+        const cached = cachedHistory(period);
+        setHistory(cached);
+        setSoilPoints(cachedSoil(period));
+        setIsLoading(cached === null);
         setError(null);
 
         // 토양 추이는 실패해도 그래프를 막지 않는다 — 센서 없는 화분이 기본이다.
         Promise.all([
-            getEnvironmentHistory(PERIOD_QUERY[period]),
+            revalidate(cacheKeys.environmentHistory(query), () => getEnvironmentHistory(query)),
             plant?.id
-                ? getSoilHistory(plant.id, PERIOD_QUERY[period]).catch(() => [])
+                ? revalidate(cacheKeys.soilHistory(plant.id, query), () =>
+                      getSoilHistory(plant.id, query),
+                  ).catch(() => [])
                 : Promise.resolve([]),
         ])
             .then(([historyResult, soilResult]) => {
@@ -324,7 +353,10 @@ export default function SensorDataScreen({ navigation, route, decorations = {} }
             })
             .catch((err) => {
                 if (cancelled) return;
-                setError(err instanceof Error ? err.message : "데이터를 불러오지 못했어요.");
+                // 캐시로 이미 그려 둔 그래프가 있으면 굳이 오류 화면으로 바꾸지 않는다
+                if (cached === null) {
+                    setError(err instanceof Error ? err.message : "데이터를 불러오지 못했어요.");
+                }
             })
             .finally(() => {
                 if (!cancelled) setIsLoading(false);

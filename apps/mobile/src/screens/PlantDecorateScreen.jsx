@@ -29,6 +29,7 @@ import DecorImage from "../components/DecorImage";
 import PlantImage from "../components/PlantImage";
 import { getPlantExpressionSource } from "../data/characterExpressions";
 import { getPlantAffinity, setPlantBackground, setPlantDecoration } from "../api";
+import { cacheKeys, peek, revalidate } from "../prefetch";
 
 /*
     꾸미기 아이템 — 이름·requiredLevel("꽉 찬 하트 수")·이미지 모두 서버 item 테이블이
@@ -88,19 +89,22 @@ export default function PlantDecorateScreen({
 
     // 애정도 — 정원 목록에서 넘어온 값으로 먼저 그리고 서버 값으로 갱신한다.
     // 점수/하트/해금 단계와 다음 단계 기준은 모두 서버가 계산해서 내려준다.
-    const [affinity, setAffinity] = useState(() => ({
-        score: plant?.affinityScore ?? 0,
-        hearts: plant?.hearts ?? 0,
-        level: plant?.affinityLevel ?? 0,
-        next_level_score: null,
-        level_progress_pct: 0,
-    }));
+    const [affinity, setAffinity] = useState(
+        () =>
+            (plant?.id ? peek(cacheKeys.plantAffinity(plant.id)) : null) ?? {
+                score: plant?.affinityScore ?? 0,
+                hearts: plant?.hearts ?? 0,
+                level: plant?.affinityLevel ?? 0,
+                next_level_score: null,
+                level_progress_pct: 0,
+            },
+    );
 
     useEffect(() => {
         const id = plant?.id;
         if (!id) return;
         let active = true;
-        getPlantAffinity(Number(id))
+        revalidate(cacheKeys.plantAffinity(id), () => getPlantAffinity(Number(id)))
             .then((status) => {
                 if (active) setAffinity(status);
             })

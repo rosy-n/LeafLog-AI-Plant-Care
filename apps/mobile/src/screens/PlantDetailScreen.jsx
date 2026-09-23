@@ -40,6 +40,7 @@ import {
     petPlant,
     getPlant,
 } from "../api";
+import { cacheKeys, peek, revalidate, store } from "../prefetch";
 import { accessorySpriteBundle, backgroundSource } from "../data/decor";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import { Colors, GreenTint, Glass, Paper, Pink } from "../../constants/colors";
@@ -226,8 +227,12 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
     const togetherDays = daysSince(plant?.createdAt);
 
     // 물 준 후 지난 일수 → 좌측 상단 ResourceCounter(💧 D+N)에 표시
-    const [wateringDays, setWateringDays] = useState(null);
-    const [daysUntilWatering, setDaysUntilWatering] = useState(plant?.daysUntilWatering ?? null);
+    // 예열된 돌봄 상태가 있으면 D+N 표시를 처음부터 채운다 (prefetch.ts)
+    const cachedCare = plant?.id ? peek(cacheKeys.plantCare(plant.id)) ?? null : null;
+    const [wateringDays, setWateringDays] = useState(cachedCare?.days_since_watering ?? null);
+    const [daysUntilWatering, setDaysUntilWatering] = useState(
+        cachedCare?.days_until_watering ?? plant?.daysUntilWatering ?? null,
+    );
     const [plantStatus, setPlantStatus] = useState(plant?.status ?? "ALIVE");
     const [characterPresentation, setCharacterPresentation] = useState(() => ({
         imageUri: plant?.imageUri ?? null,
@@ -306,18 +311,19 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
     };
 
     // 영양제 준 후 지난 일수 → 좌측 상단 ResourceCounter(✚ D+N)에 표시
-    const [nutrientDays, setNutrientDays] = useState(null);
+    const [nutrientDays, setNutrientDays] = useState(cachedCare?.days_since_fertilizing ?? null);
 
     // 애정도 — 정원 목록에서 넘어온 값으로 먼저 그리고, 화면에 들어올 때 서버 값으로 갱신.
     // 물주기/영양제/분갈이 기록에서 서버가 계산한다 (app/affinity.py)
     const [affinity, setAffinity] = useState(() =>
-        plant?.hearts != null
+        (plant?.id ? peek(cacheKeys.plantAffinity(plant.id)) : null) ??
+        (plant?.hearts != null
             ? {
                 score: plant.affinityScore ?? 0,
                 hearts: plant.hearts,
                 level: plant.affinityLevel ?? 0,
             }
-            : null
+            : null)
     );
     // 방금 얻은 애정도 점수 — 하트 아래에 "+10" 으로 잠깐 떠오른다
     const [affinityGain, setAffinityGain] = useState(0);
@@ -501,7 +507,7 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
 
     // 페르소나(성격) — plant.persona가 아직 없으면(add-plant 단계에 선택 UI가 없어 null) 첫 대화 시도 시 선택 모달을 띄운다
     const [persona, setPersona] = useState(plant?.persona ?? null);
-    const [personaOptions, setPersonaOptions] = useState([]);
+    const [personaOptions, setPersonaOptions] = useState(() => peek(cacheKeys.personas()) ?? []);
     const [personaPickerVisible, setPersonaPickerVisible] = useState(false);
 
     // 개체 탭에 들어오는 순간 페르소나 대사 중 하나를 뽑아 고정 — 탭에 머무는 동안은 바뀌지 않는다.
@@ -519,7 +525,7 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
     const chatHistoryRef = useRef([]);
 
     useEffect(() => {
-        getPersonas()
+        revalidate(cacheKeys.personas(), getPersonas)
             .then(setPersonaOptions)
             .catch((e) => console.warn("페르소나 목록 로드 실패:", e?.message));
     }, []);
@@ -540,7 +546,7 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
             return;
         }
         let mounted = true;
-        getPlantCare(Number(id))
+        revalidate(cacheKeys.plantCare(id), () => getPlantCare(Number(id)))
             .then((care) => {
                 if (mounted) {
                     setWateringDays(care.days_since_watering);
@@ -569,12 +575,12 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
             if (!id || isTutorialDemo) return;
             reloadPlants?.();
             let active = true;
-            getPlantAffinity(Number(id))
+            revalidate(cacheKeys.plantAffinity(id), () => getPlantAffinity(Number(id)))
                 .then((status) => {
                     if (active) setAffinity(status);
                 })
                 .catch((e) => console.warn("애정도 조회 실패:", e?.message));
-            getPlant(Number(id))
+            revalidate(cacheKeys.plant(id), () => getPlant(Number(id)))
                 .then((detail) => {
                     if (!active) return;
                     setPlantStatus(detail.status);
@@ -585,7 +591,7 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                     });
                 })
                 .catch((e) => console.warn("식물 상태 조회 실패:", e?.message));
-            getPlantCare(Number(id))
+            revalidate(cacheKeys.plantCare(id), () => getPlantCare(Number(id)))
                 .then((care) => {
                     if (!active) return;
                     setWateringDays(care.days_since_watering);
@@ -736,7 +742,7 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                 const saved = await createCareRecord(Number(id), { care_type: "WATERING" });
                 setAffinity(saved.affinity);
                 showAffinityGain(saved.affinity_awarded);
-                const care = await getPlantCare(Number(id));
+                const care = store(cacheKeys.plantCare(id), await getPlantCare(Number(id)));
                 setWateringDays(care.days_since_watering);
                 setNutrientDays(care.days_since_fertilizing);
                 setDaysUntilWatering(care.days_until_watering);

@@ -24,6 +24,7 @@ import CalendarScreen from "./src/screens/CalendarScreen";
 import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
 import AddPlantNavigator from "./src/screens/AddPlantNavigator";
 import { getItems, getPlants } from "./src/api";
+import { cacheKeys, revalidate, warmUpAll } from "./src/prefetch";
 import { DEFAULT_BACKGROUND_KEY } from "./src/data/decor";
 import { syncWateringReminders } from "./src/notifications";
 import { buildCareNotices } from "./src/careNotices";
@@ -128,7 +129,8 @@ function MainAppContent({ user, onLogout }) {
 
     // DB에서 현재 사용자의 식물 목록 로드 (정원 진입 시 갱신도 이 함수 재사용)
     const loadPlants = useCallback(() => {
-        getPlants()
+        // 시작 화면에서 이미 같은 조회가 떠 있으면 그 요청에 합류한다 (prefetch.ts)
+        revalidate(cacheKeys.plants(), getPlants)
             .then((rows) => {
                 const mapped = rows.map(toGardenPlant);
                 setPlants(mapped);
@@ -165,6 +167,12 @@ function MainAppContent({ user, onLogout }) {
                         if (url) Image.prefetch(url).catch(() => {});
                     });
                 });
+                /*
+                    개체 목록이 있어야 개체별 조회를 걸 수 있으므로 여기서 예열을 시작한다.
+                    탭을 옮길 때 그제서야 조회가 시작되지 않도록 화면들이 쓸 응답을
+                    미리 캐시에 채운다 — 백그라운드라 홈 진입을 막지 않는다.
+                */
+                warmUpAll(mapped).catch(() => {});
             })
             .catch((error) => console.warn("식물 목록 로드 실패:", error?.message));
     }, []);
