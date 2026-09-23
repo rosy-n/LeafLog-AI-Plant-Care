@@ -20,10 +20,11 @@ import { Ionicons } from "@expo/vector-icons";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 import { Fonts, FontSizes } from "../../constants/fonts";
-import { Colors, Paper, GreenTint } from "../../constants/colors";
+import { Colors, Paper, GreenTint, Accent } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import ScreenHeader from "../components/ScreenHeader";
 import ActionButton from "../components/ActionButton";
+import PixelButton from "../components/PixelButton";
 import {
     getPlant,
     updatePlant,
@@ -93,6 +94,9 @@ export default function ProfileScreen({ navigation, route, decorations = {}, rel
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState(null);
     const [deleting, setDeleting] = useState(false);
+
+    // 추억으로 이동 확인창 — 추모정원의 '다시 함께하기' 확인창과 같은 픽셀 카드
+    const [memorialConfirmVisible, setMemorialConfirmVisible] = useState(false);
 
     // 식물종 다시 고르기 — 인식이 어긋났거나 종 마스터 도입 전에 등록한 개체용
     const [pickerOpen, setPickerOpen] = useState(false);
@@ -264,35 +268,28 @@ export default function ProfileScreen({ navigation, route, decorations = {}, rel
         else startEdit();
     };
 
-    // 추억으로 이동: 상태를 DEAD(떠나보냄)로 변경하고 DB 반영 후 추억 화면으로 이동
-    const moveToMemorial = () => {
-        Alert.alert(
-            "추억으로 이동",
-            `${name}을(를) 떠나보내고 추억 공간으로 옮길까요?`,
-            [
-                { text: "취소", style: "cancel" },
-                {
-                    text: "이동",
-                    style: "destructive",
-                    onPress: async () => {
-                        const id = plant?.id;
-                        try {
-                            if (id) {
-                                const updated = await updatePlant(Number(id), { status: "DEAD" });
-                                setDetail(updated);
-                                // 떠나보낸 개체에 물주기 알림이 오면 안 된다
-                                cancelWateringReminder(id).catch((err) =>
-                                    console.warn("물주기 알림 취소 실패:", err?.message),
-                                );
-                            }
-                            navigation.navigate("MemorialPlant", { plant });
-                        } catch (e) {
-                            Alert.alert("이동 실패", e?.message ?? "다시 시도해주세요.");
-                        }
-                    },
-                },
-            ]
-        );
+    /*
+        추억으로 이동: 상태를 DEAD(떠나보냄)로 변경하고 DB 반영 후 추억 화면으로 이동.
+        확인은 OS 기본 Alert 대신, 반대 동작인 추모정원의 '다시 함께하기'와
+        같은 픽셀 카드 모달로 받는다.
+    */
+    const confirmMoveToMemorial = async () => {
+        const id = plant?.id;
+        try {
+            if (id) {
+                const updated = await updatePlant(Number(id), { status: "DEAD" });
+                setDetail(updated);
+                // 떠나보낸 개체에 물주기 알림이 오면 안 된다
+                cancelWateringReminder(id).catch((err) =>
+                    console.warn("물주기 알림 취소 실패:", err?.message),
+                );
+            }
+            setMemorialConfirmVisible(false);
+            navigation.navigate("MemorialPlant", { plant });
+        } catch (e) {
+            setMemorialConfirmVisible(false);
+            Alert.alert("이동 실패", e?.message ?? "다시 시도해주세요.");
+        }
     };
 
     // 추모정원 개체인지 — 상세를 받았으면 서버 상태가, 아직이면 정원 스냅샷이 기준
@@ -594,10 +591,70 @@ export default function ProfileScreen({ navigation, route, decorations = {}, rel
                         color={Colors.primary}
                         shadow={false}
                         activeOpacity={0.85}
-                        onPress={moveToMemorial}
+                        onPress={() => setMemorialConfirmVisible(true)}
                         style={styles.memoryButton}
                     />
                 )}
+
+                {/* ── 추억으로 이동 확인 모달 (추모정원 '다시 함께하기'와 같은 픽셀 카드) ── */}
+                <Modal
+                    visible={memorialConfirmVisible}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setMemorialConfirmVisible(false)}
+                >
+                    <TouchableOpacity
+                        style={styles.confirmBackdrop}
+                        activeOpacity={1}
+                        onPress={() => setMemorialConfirmVisible(false)}
+                    >
+                        {/* 카드 안쪽 탭이 바깥 닫기로 새지 않게 한 겹 감싼다 */}
+                        <TouchableOpacity
+                            activeOpacity={1}
+                            onPress={() => {}}
+                            style={styles.confirmCardTouch}
+                        >
+                            <View style={styles.confirmCard}>
+                                {/* 아이콘 자리에 그 개체를 세운다 — 누구를 떠나보내는지 한눈에 */}
+                                <PlantImage
+                                    uri={plant?.imageUri}
+                                    imageKey={plant?.imageKey ?? "spaghetti"}
+                                    expressionSource={
+                                        plant?.characterFaceRemoved
+                                            ? getPlantExpressionSource(plant)
+                                            : null
+                                    }
+                                    expressionBounds={plant?.characterFaceBounds}
+                                    width={60}
+                                    height={60}
+                                    style={styles.confirmPlant}
+                                />
+
+                                <Text style={styles.confirmTitle}>추억으로 이동</Text>
+                                <Text style={styles.confirmMessage}>
+                                    {name}을(를) 떠나보내고{"\n"}추억 공간으로 옮길까요?
+                                </Text>
+
+                                <View style={styles.confirmButtonRow}>
+                                    <PixelButton
+                                        label="취소"
+                                        color={Colors.textGray}
+                                        onPress={() => setMemorialConfirmVisible(false)}
+                                        contentStyle={styles.confirmButtonContent}
+                                        style={styles.confirmButton}
+                                    />
+                                    <PixelButton
+                                        label="이동"
+                                        color={Accent.mauve}
+                                        onPress={confirmMoveToMemorial}
+                                        contentStyle={styles.confirmButtonContent}
+                                        style={styles.confirmButton}
+                                    />
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </Modal>
 
                 {/* 식물종 다시 고르기 */}
                 <Modal
@@ -970,5 +1027,70 @@ const styles = StyleSheet.create({
         textAlign: "center",
         paddingVertical: Spacing.xl,
         includeFontPadding: false,
+    },
+
+    /*
+        ── 추억으로 이동 확인 모달 ──────────────────────────
+        MemorialPlantScreen 의 '다시 함께하기' 확인창과 같은 뼈대(크림 카드 +
+        3px 각진 테두리 + 픽셀 버튼)를 쓴다. 두 창이 서로 반대 동작이라
+        같은 모양으로 맞췄고, 색은 옮겨갈 곳인 추모정원의 mauve 로 둔다.
+    */
+    confirmBackdrop: {
+        flex: 1,
+        backgroundColor: Colors.scrim,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: Spacing.xl,
+    },
+    confirmCardTouch: {
+        width: "100%",
+        maxWidth: 320,
+    },
+    confirmCard: {
+        width: "100%",
+        backgroundColor: Paper.cream,
+        borderWidth: 3,
+        borderColor: Accent.mauve,
+        paddingVertical: Spacing.lg,
+        paddingHorizontal: Spacing.lg,
+        alignItems: "center",
+    },
+    confirmPlant: {
+        marginBottom: Spacing.xs,
+    },
+    /*
+        도트 폰트는 글자 위아래로 빈 줄 상자가 넓게 잡힌다.
+        lineHeight 를 글자 크기에 맞춰 조이고 includeFontPadding 을 꺼야
+        marginBottom 을 줄인 만큼 실제로 붙는다.
+    */
+    confirmTitle: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.title,
+        lineHeight: 26,
+        includeFontPadding: false,
+        color: Accent.mauve,
+        marginBottom: Spacing.xs,
+    },
+    confirmMessage: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.bodyLarge,
+        lineHeight: 22,
+        includeFontPadding: false,
+        color: Colors.textBlack,
+        textAlign: "center",
+        marginBottom: Spacing.lg,
+    },
+    confirmButtonRow: {
+        flexDirection: "row",
+        gap: Spacing.md,
+        width: "100%",
+    },
+    confirmButton: {
+        flex: 1,
+    },
+    // 버튼 두 줄만으로 카드가 길어지지 않게 패딩을 한 단계 낮춘다
+    confirmButtonContent: {
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.sm,
     },
 });
