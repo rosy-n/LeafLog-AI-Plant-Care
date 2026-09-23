@@ -746,6 +746,14 @@ export default function PlantDetailScreen({ navigation, route, decorations, relo
                 setWateringDays(care.days_since_watering);
                 setNutrientDays(care.days_since_fertilizing);
                 setDaysUntilWatering(care.days_until_watering);
+                /*
+                    개체 목록도 다시 읽는다 — 홈의 물방울 말풍선·들판 배치, 정원 배지,
+                    돌봄 알림이 모두 App.js 의 plants(days_until_watering)에서 나온다.
+                    여기서 갱신하지 않으면 물을 주고 홈으로 나가도 말풍선이 그대로 남는다.
+                    이 화면은 포커스를 받을 때만 목록을 다시 읽어서, 이미 열려 있는
+                    지금은 물주기 결과가 목록에 반영되지 않기 때문.
+                */
+                reloadPlants?.();
                 // 물을 주면 다음 예정일이 밀리므로 알림도 다시 예약한다
                 scheduleWateringReminder(id, plantName, care.next_watering_date).catch(
                     (err) => console.warn("물주기 알림 예약 실패:", err?.message),
