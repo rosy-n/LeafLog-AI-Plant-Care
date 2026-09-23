@@ -24,6 +24,8 @@ import { Colors, GreenTint, Shadow } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import { getCareRecords, createCareRecord, deleteCareRecord } from "../api";
+import type { CareRecordItem } from "../api";
+import { cacheKeys, peek, revalidate } from "../prefetch";
 import { isMemorialPlant } from "../plantStatus";
 
 type NutrientRecord = {
@@ -81,7 +83,12 @@ export default function NutrientScreen({ navigation, route }: { navigation: any;
     const memorial = isMemorialPlant(plant);
 
     const [view, setView] = useState<ScreenView>("list");
-    const [records, setRecords] = useState<NutrientRecord[]>([]);
+    // 예열된 기록이 있으면 목록을 처음부터 채운다 (prefetch.ts)
+    const [records, setRecords] = useState<NutrientRecord[]>(() =>
+        (plantId ? peek<CareRecordItem[]>(cacheKeys.careRecords(plantId, "FERTILIZING")) ?? [] : []).map(
+            toRecord,
+        ),
+    );
     const [selectedRecord, setSelectedRecord] = useState<NutrientRecord | null>(null);
     const [showCharacterModal, setShowCharacterModal] = useState(false);
     // 이번 기록으로 얻은 애정도 (0이면 오늘 이미 영양제를 기록했거나 만점)
@@ -90,7 +97,9 @@ export default function NutrientScreen({ navigation, route }: { navigation: any;
     // DB에서 이 식물의 영양제(FERTILIZING) 기록 로드
     const loadRecords = useCallback(() => {
         if (!plantId) return;
-        getCareRecords(plantId, "FERTILIZING")
+        revalidate(cacheKeys.careRecords(plantId, "FERTILIZING"), () =>
+            getCareRecords(plantId, "FERTILIZING"),
+        )
             .then((items) => setRecords(items.map(toRecord)))
             .catch((e) => console.warn("영양제 기록 로드 실패:", e?.message));
     }, [plantId]);

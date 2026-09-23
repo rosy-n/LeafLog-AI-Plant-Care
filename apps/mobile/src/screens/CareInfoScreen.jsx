@@ -14,6 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import { getPlant } from "../api";
+import { cacheKeys, peek, revalidate } from "../prefetch";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint, Pink, Warm, Accent, Gauge } from "../../constants/colors";
@@ -255,9 +256,13 @@ export default function CareInfoScreen({ navigation, route }) {
     const plantParam = route?.params?.plant;
     const plantId = plantParam?.id;
 
-    const [species, setSpecies] = useState(null);
-    const [plantName, setPlantName] = useState(plantParam?.name ?? "");
-    const [loading, setLoading] = useState(Boolean(plantId));
+    // 예열된 개체 상세가 있으면 그것으로 먼저 그린다 (prefetch.ts)
+    const cachedDetail = plantId ? peek(cacheKeys.plant(plantId)) ?? null : null;
+    const [species, setSpecies] = useState(cachedDetail?.species ?? null);
+    const [plantName, setPlantName] = useState(
+        cachedDetail?.nickname ?? plantParam?.name ?? "",
+    );
+    const [loading, setLoading] = useState(Boolean(plantId) && cachedDetail === null);
     const [error, setError] = useState(null);
 
     useEffect(() => {
@@ -267,14 +272,15 @@ export default function CareInfoScreen({ navigation, route }) {
         }
         let cancelled = false;
 
-        getPlant(Number(plantId))
+        revalidate(cacheKeys.plant(plantId), () => getPlant(Number(plantId)))
             .then((detail) => {
                 if (cancelled) return;
                 setSpecies(detail.species ?? null);
                 setPlantName(detail.nickname ?? "");
             })
             .catch((err) => {
-                if (!cancelled) setError(err.message);
+                // 캐시로 이미 그려 둔 내용이 있으면 오류 화면으로 바꾸지 않는다
+                if (!cancelled && cachedDetail === null) setError(err.message);
             })
             .finally(() => {
                 if (!cancelled) setLoading(false);

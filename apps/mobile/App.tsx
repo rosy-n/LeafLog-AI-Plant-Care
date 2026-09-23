@@ -41,6 +41,7 @@ import {
 import { saveEnvironmentCache } from "./src/environmentCache";
 import { cancelAllWateringReminders } from "./src/notifications";
 import { preloadBundledImages } from "./src/data/assets";
+import { clearPrefetchCache, warmUpEverything } from "./src/prefetch";
 import MainApp from "./App.js";
 import AppButton from "./src/components/AppButton";
 import BackButton from "./src/components/BackButton";
@@ -263,6 +264,13 @@ export default function App() {
     let doneTimer: ReturnType<typeof setTimeout>;
     setEnvironmentStatus("loading");
     const startedAt = Date.now();
+    /*
+        화면들이 쓸 데이터 예열도 여기서 함께 시작한다 — 이 로딩 화면이 떠 있는
+        동안 미리 받아 두면 홈에 들어간 뒤 탭을 옮길 때 조회를 기다리지 않는다.
+        Promise.all 에 넣지 않는 것은 의도적이다: 개체 수만큼 요청이 늘어나므로
+        여기에 묶으면 개체가 많은 사용자의 시작이 그만큼 늦어진다.
+    */
+    warmUpEverything().catch(() => {});
     Promise.all([
       getCurrentEnvironment()
         .then((result) => {
@@ -354,6 +362,8 @@ export default function App() {
     }
     setAuthToken(null);
     clearStoredToken();
+    // 다음 사용자에게 앞사람의 개체·기록이 보이면 안 된다
+    clearPrefetchCache();
     setAuth(null);
     setLocationStatus("unknown");
     goHome();

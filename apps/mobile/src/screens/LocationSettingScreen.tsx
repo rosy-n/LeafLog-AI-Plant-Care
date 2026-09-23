@@ -18,16 +18,20 @@ import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import { getUserSettings, updateUserLocation } from "../api";
+import { cacheKeys, peek, revalidate } from "../prefetch";
 
 export default function LocationSettingScreen({ navigation }: { navigation: any }) {
-    const [currentLocation, setCurrentLocation] = useState<string | null>(null);
+    // 예열된 사용자 설정이 있으면 지역명을 처음부터 보여준다 (prefetch.ts)
+    const [currentLocation, setCurrentLocation] = useState<string | null>(
+        () => peek<{ default_location: string | null }>(cacheKeys.userSettings())?.default_location ?? null,
+    );
     const [isRequesting, setIsRequesting] = useState(false);
     const [error, setError] = useState<string | undefined>();
 
     useFocusEffect(
         useCallback(() => {
             let cancelled = false;
-            getUserSettings()
+            revalidate(cacheKeys.userSettings(), getUserSettings)
                 .then((result) => {
                     if (!cancelled) setCurrentLocation(result.default_location);
                 })
