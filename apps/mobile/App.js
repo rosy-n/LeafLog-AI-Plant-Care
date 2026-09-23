@@ -366,7 +366,10 @@ function MainAppContent({ user, onLogout }) {
                     options={{ headerShown: false }}
                 />
                 <Stack.Screen name="SensorData" options={{ headerShown: false }}>
-                    {(props) => <SensorDataScreen {...props} decorations={decorations} />}
+                    {/* plants: 총평 카드에 세울 캐릭터를 등록된 개체 중에서 뽑는다 */}
+                    {(props) => (
+                        <SensorDataScreen {...props} decorations={decorations} plants={plants} />
+                    )}
                 </Stack.Screen>
                 <Stack.Screen
                     name="Repotting"
