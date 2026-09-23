@@ -9,6 +9,8 @@ S3_BUCKET이 없는 개발 환경(학교 랩 PC 등)을 위해 로컬 디스크 
 from __future__ import annotations
 
 import re
+import threading
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -19,6 +21,29 @@ from botocore.exceptions import BotoCoreError, ClientError
 from .config import settings
 
 _client = None
+
+"""
+발급한 presigned URL 을 만료 전까지 재사용하기 위한 캐시.
+
+서명은 부를 때마다 X-Amz-Date/X-Amz-Signature 가 달라져서, 같은 이미지라도
+호출마다 URL 문자열이 바뀐다. 앱(React Native)의 이미지 캐시는 URL 문자열을
+키로 쓰기 때문에 그때마다 캐시가 빗나가 같은 그림을 다시 받는다 — 정원탭에
+들어올 때마다 캐릭터가 다시 로딩되던 원인이다. 그래서 같은 객체에는 만료가
+가까워지기 전까지 같은 URL 을 돌려준다.
+
+프로세스 안의 캐시라 워커마다 따로 가진다. 워커가 달라지면 URL 도 달라지지만,
+한 워커가 계속 같은 URL 을 주는 것만으로 재다운로드는 사라진다.
+"""
+_url_cache: dict[tuple[str, str], tuple[str, float]] = {}
+_url_cache_lock = threading.Lock()
+
+# 남은 수명이 이보다 짧으면 새로 서명한다 — 곧 만료될 URL 을 쥐여주지 않기 위해.
+# 앱은 만료 60초 전에 /api/media/refresh 로 새 URL 을 받으므로(useMediaSource),
+# 그보다 넉넉히 앞서 갱신해 둔다.
+_URL_CACHE_MIN_REMAINING = 600.0
+
+# 개체·아이템 이미지 수만큼만 쌓이지만, 오래 켜 둔 프로세스에서 무한정 늘지 않게 상한을 둔다.
+_URL_CACHE_MAX_ENTRIES = 5000
 
 # app/static/uploads/ — main.py가 이 경로를 "/static/uploads"로 그대로 서빙한다.
 # uploads/는 루트 .gitignore에 이미 등록돼 있어 커밋되지 않는다.
@@ -109,14 +134,38 @@ def presigned_get_url(object_key: str | None, bucket: str | None = None) -> str 
     target = bucket or settings.s3_bucket
     if not settings.s3_presign_enabled or not target or not object_key:
         return None
+
+    cache_key = (target, object_key)
+    now = time.monotonic()
+    with _url_cache_lock:
+        cached = _url_cache.get(cache_key)
+        if cached is not None and cached[1] - now > _URL_CACHE_MIN_REMAINING:
+            return cached[0]
+
     try:
-        return _s3().generate_presigned_url(
+        url = _s3().generate_presigned_url(
             "get_object",
             Params={"Bucket": target, "Key": object_key},
             ExpiresIn=settings.s3_presign_expire,
         )
     except (BotoCoreError, ClientError):
         return None
+
+    with _url_cache_lock:
+        if len(_url_cache) >= _URL_CACHE_MAX_ENTRIES:
+            # 만료된 것부터 버리고, 그래도 가득이면 통째로 비운다 (URL 은 다시 만들면 된다)
+            for key in [k for k, (_, exp) in _url_cache.items() if exp <= now]:
+                del _url_cache[key]
+            if len(_url_cache) >= _URL_CACHE_MAX_ENTRIES:
+                _url_cache.clear()
+        _url_cache[cache_key] = (url, now + settings.s3_presign_expire)
+    return url
+
+
+def clear_presigned_url_cache() -> None:
+    """발급해 둔 URL 을 모두 버린다 (테스트·설정 변경 후 재발급용)."""
+    with _url_cache_lock:
+        _url_cache.clear()
 
 
 def upload_bytes(data: bytes, object_key: str, content_type: str) -> str | None:
