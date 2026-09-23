@@ -31,6 +31,7 @@ import {
     updateMe,
     type Inquiry,
 } from "../api";
+import { cacheKeys, peek, revalidate } from "../prefetch";
 import {
     listScheduledReminders,
     syncWateringReminders,
@@ -141,11 +142,13 @@ export default function SettingsScreen({
     const [deletePassword, setDeletePassword] = useState("");
 
     // 위치 — 위치 변경 화면에서 돌아올 때마다 최신값으로 갱신
-    const [homeLocation, setHomeLocation] = useState<string | null>(null);
+    const [homeLocation, setHomeLocation] = useState<string | null>(
+        () => peek<{ default_location: string | null }>(cacheKeys.userSettings())?.default_location ?? null,
+    );
     useFocusEffect(
         useCallback(() => {
             let cancelled = false;
-            getUserSettings()
+            revalidate(cacheKeys.userSettings(), getUserSettings)
                 .then((result) => {
                     if (!cancelled) setHomeLocation(result.default_location);
                 })
@@ -186,11 +189,16 @@ export default function SettingsScreen({
     const [isSendingInquiry, setIsSendingInquiry] = useState(false);
 
     // 문의 내역 — 관리자가 답변을 달면 여기에 함께 실려 온다
-    const [inquiries, setInquiries] = useState<Inquiry[]>([]);
-    const [inquiriesLoaded, setInquiriesLoaded] = useState(false);
+    // 예열된 문의 내역이 있으면 펼치는 순간 바로 보인다 (prefetch.ts)
+    const [inquiries, setInquiries] = useState<Inquiry[]>(
+        () => peek<Inquiry[]>(cacheKeys.inquiries()) ?? [],
+    );
+    const [inquiriesLoaded, setInquiriesLoaded] = useState(
+        () => peek(cacheKeys.inquiries()) !== undefined,
+    );
 
     const refreshInquiries = useCallback(() => {
-        getInquiries()
+        revalidate(cacheKeys.inquiries(), getInquiries)
             .then((rows) => {
                 setInquiries(rows);
                 setInquiriesLoaded(true);

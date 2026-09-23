@@ -19,6 +19,7 @@ import ScreenHeader from "../components/ScreenHeader";
 import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { deleteConsultation as deleteConsultationRequest, listConsultations } from "../api";
+import { cacheKeys, peek, revalidate } from "../prefetch";
 
 const FALLBACK_TITLE = "상담 기록";
 
@@ -53,8 +54,13 @@ function formatRelativeTime(isoString) {
 export default function ConsultationHistoryScreen({ navigation, route }) {
     const plant = route?.params?.plant;
     const [searchQuery, setSearchQuery] = useState("");
-    const [consultations, setConsultations] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    // 예열된 상담 목록이 있으면 그것으로 먼저 그린다 (prefetch.ts)
+    const [consultations, setConsultations] = useState(
+        () => (plant?.id ? peek(cacheKeys.consultations(plant.id)) ?? [] : []),
+    );
+    const [isLoading, setIsLoading] = useState(
+        () => Boolean(plant?.id) && peek(cacheKeys.consultations(plant.id)) === undefined,
+    );
 
     const loadConsultations = useCallback(() => {
         const id = plant?.id;
@@ -63,10 +69,11 @@ export default function ConsultationHistoryScreen({ navigation, route }) {
             setIsLoading(false);
             return;
         }
-        setIsLoading(true);
-        listConsultations(Number(id))
+        // 캐시된 목록을 이미 그리고 있으면 스피너로 되돌리지 않는다 — 뒤에서 갱신만 한다
+        setIsLoading(peek(cacheKeys.consultations(id)) === undefined);
+        revalidate(cacheKeys.consultations(id), () => listConsultations(Number(id)))
             .then(setConsultations)
-            .catch(() => setConsultations([]))
+            .catch(() => {})
             .finally(() => setIsLoading(false));
     }, [plant?.id]);
 

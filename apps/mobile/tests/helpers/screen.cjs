@@ -70,6 +70,22 @@ function screen(relativePath, imports = {}, globals = {}) {
       }, [fn]),
     },
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
+    /*
+      예열 캐시(src/prefetch.ts)는 "캐시가 비어 있는 상태"로 세워 둔다 —
+      peek 은 늘 undefined 를, revalidate 는 넘겨받은 조회를 그대로 실행한다.
+      화면이 캐시 없이도 평소대로 서버를 다녀오는지를 테스트가 계속 보게 된다.
+      캐시가 찬 경우의 동작을 보려면 테스트가 '../prefetch' 를 직접 넘기면 된다.
+    */
+    '../prefetch': {
+      peek: () => undefined,
+      revalidate: (key, fetcher) => fetcher(),
+      store: (key, value) => value,
+      clearPrefetchCache: () => {},
+      warmUpAll: async () => {},
+      cacheKeys: new Proxy({}, {
+        get: (_target, name) => (...args) => [name, ...args].join(':'),
+      }),
+    },
   };
   const filename = path.resolve(__dirname, '../..', relativePath);
   const { outputText } = ts.transpileModule(readFileSync(filename, 'utf8'), {

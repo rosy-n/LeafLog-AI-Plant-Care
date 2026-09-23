@@ -28,6 +28,7 @@ import { Colors, GreenTint } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import { diagnosePlantPhoto, getConsultation, getPlant, updatePlant } from "../api";
+import { cacheKeys, peek, revalidate } from "../prefetch";
 
 const FALLBACK_TITLE = "상담 기록";
 
@@ -115,7 +116,9 @@ export default function ConsultationScreen({ navigation, route }) {
     const [newMessages, setNewMessages] = useState([]);
     const [pendingImage, setPendingImage] = useState(null);
     const [isSending, setIsSending] = useState(false);
-    const [plantDetail, setPlantDetail] = useState(null);
+    const [plantDetail, setPlantDetail] = useState(
+        () => (plant?.id ? peek(cacheKeys.plant(plant.id)) ?? null : null),
+    );
     // 카드마다 독립적으로: 아직 저장하지 않은 선택값(태그만 누른 상태) / 저장 완료된 결과
     const [selectedStatus, setSelectedStatus] = useState({});
     const [statusUpdates, setStatusUpdates] = useState({});
@@ -132,7 +135,7 @@ export default function ConsultationScreen({ navigation, route }) {
         const id = plant?.id;
         if (!id) return;
         let mounted = true;
-        getPlant(Number(id))
+        revalidate(cacheKeys.plant(id), () => getPlant(Number(id)))
             .then((detail) => {
                 if (mounted) setPlantDetail(detail);
             })
