@@ -2,6 +2,7 @@ import { Asset } from "expo-asset";
 
 import { plantImages } from "./plants";
 import { ACCESSORY_IMAGES, BACKGROUND_IMAGES } from "./decor";
+import { CHARACTER_EXPRESSIONS } from "./characterExpressions";
 
 /*
     앱이 쓰는 번들 이미지 목록 — 시작할 때 한 번에 캐시로 올린다.
@@ -20,6 +21,7 @@ import { ACCESSORY_IMAGES, BACKGROUND_IMAGES } from "./decor";
 const ICONS = [
     require("../../assets/icons/air_bad_icon.png"),
     require("../../assets/icons/air_good_icon.png"),
+    require("../../assets/icons/air_icon.png"),
     require("../../assets/icons/air_moderate_icon.png"),
     require("../../assets/icons/air_veryBad_icon.png"),
     require("../../assets/icons/all_icon.png"),
@@ -40,26 +42,55 @@ const ICONS = [
     require("../../assets/icons/halfheart_icon.png"),
     require("../../assets/icons/hamburger_icon.png"),
     require("../../assets/icons/home_icon.png"),
+    require("../../assets/icons/magnifier_icon.png"),
     require("../../assets/icons/notification_icon.png"),
     require("../../assets/icons/nutrients_icon.png"),
     require("../../assets/icons/rainy_icon.png"),
     require("../../assets/icons/revive_icon.png"),
+    require("../../assets/icons/settings_icon.png"),
     require("../../assets/icons/snow_icon.png"),
+    require("../../assets/icons/soil_humidity_icon.png"),
     require("../../assets/icons/sunny_icon.png"),
+    require("../../assets/icons/thermometer_icon.png"),
     require("../../assets/icons/water_icon.png"),
     require("../../assets/icons/watering_icon.png"),
+];
+
+// 홈 화면 날씨별 배경과 그 위에 얹는 그림 — 날씨가 바뀌면 배경도 바뀌므로 다 올려둔다
+const SCREEN_IMAGES = [
+    require("../../assets/images/home-bg-cloudy.png"),
+    require("../../assets/images/home-bg-rain.png"),
+    require("../../assets/images/home-bg-snow.png"),
+    require("../../assets/home-meadow.png"),
+    require("../../assets/home-plant.png"),
+];
+
+// 개체 추가 흐름(app/add-plant) 의 사진 가이드와 캐릭터 예시
+const ADD_PLANT_IMAGES = [
+    require("../../assets/guide-good.png"),
+    require("../../assets/guide-bad-1.png"),
+    require("../../assets/guide-bad-2.png"),
+    require("../../assets/guide-bad-3.png"),
+    require("../../assets/char-sample-1.png"),
+    require("../../assets/char-sample-2.png"),
+    require("../../assets/char-sample-3.png"),
+    require("../../assets/dot-character-placeholder.png"),
 ];
 
 // login-bg 는 로그인 전 랜딩에서 이미 로드되므로 여기 넣지 않는다
 
 export const BUNDLED_IMAGES = [
     ...ICONS,
+    ...SCREEN_IMAGES,
+    ...ADD_PLANT_IMAGES,
     // 꾸미기 아이템(카드 아이콘 + 캐릭터에 겹칠 이미지)과 배경 —
     // decor.js 가 단일 출처라 여기서 다시 적지 않는다
     ...Object.values(ACCESSORY_IMAGES).flatMap((images) => [images.card, images.plant]),
     ...Object.values(BACKGROUND_IMAGES),
     // 도트 캐릭터 fallback — plants.js 가 단일 출처라 여기서 다시 적지 않는다
     ...Object.values(plantImages),
+    // 캐릭터 표정 — characterExpressions.js 가 단일 출처라 여기서 다시 적지 않는다
+    ...Object.values(CHARACTER_EXPRESSIONS),
 ];
 
 /** 번들 이미지를 모두 캐시에 올린다. 하나가 실패해도 나머지는 계속 로드한다. */
