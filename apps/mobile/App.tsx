@@ -29,6 +29,7 @@ import {
   getUserSettings,
   login,
   setAuthToken,
+  setUnauthorizedHandler,
   signup,
   updateUserLocation,
   type AuthResponse,
@@ -368,6 +369,26 @@ export default function App() {
     setLocationStatus("unknown");
     goHome();
   }
+
+  /*
+    세션 중 토큰이 만료되면(기본 7일) 그 시점부터 모든 요청이 401 로 실패한다.
+    그대로 두면 화면마다 "요청 처리 중 오류" 만 뜨고 왜 안 되는지 알 수 없으므로,
+    한 번 알리고 로그인 화면으로 돌려보낸다.
+
+    authRef 로 현재 로그인 상태를 보는 이유: 이 핸들러는 한 번만 등록하는데,
+    등록 시점의 auth 를 가둬 두면(stale closure) 이미 로그아웃된 뒤에 도착한
+    401 에도 안내창이 또 뜬다.
+  */
+  const authRef = useRef(auth);
+  authRef.current = auth;
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      if (!authRef.current) return;
+      handleLogout();
+      Alert.alert("로그인이 만료됐어요", "다시 로그인해주세요.");
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   function goLogin() {
     resetAuthForms();
