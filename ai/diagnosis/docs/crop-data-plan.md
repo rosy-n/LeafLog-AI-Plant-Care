@@ -48,6 +48,18 @@
 - `conda activate leaflog-diagnosis-rag`를 새 SSH 세션에서 바로 치면 `conda: command not found`가 남 —
   위 "인프라" 절의 `source ~/miniforge3/etc/profile.d/conda.sh`를 먼저 실행할 것
 
+**houseplant 재구축 완료 (2026-09-24)** — ✅
+- 라벨 병합 중 확정 목록에 없는 원인 3개 발견(`가루이`, `진사진딧물 성충`, `진사진딧물 약충`,
+  지은/미나 2차 수집분 30장에서 나옴) → `진사진딧물 성충`/`약충`은 `진딧물`로 흡수 병합
+  (`scripts/00_merge_labels.py`의 `MN_CAUSE_MAP`), `가루이`는 별개 해충이라 새 원인으로 추가
+  (`config/cause_codes.json`, `CLAUDE.md` 확정 목록 23 → 24개)
+- 맥북에서 `--mode embed`로 221장(1차 191 + 2차 30) 임베딩 → jsonl(3.7MB)
+- 맥북→EC2 직접 scp도 포트 22가 모든 네트워크에서 막혀서, 맥북→학교 PC(Windows, scp)→EC2(Tailscale
+  경유 scp)로 우회 전송(crop 때와 동일 패턴)
+- EC2에서 `--mode upload --collection leaflog-diagnosis --recreate` 실행 →
+  **프로덕션 컬렉션이 191건 → 221건으로 갱신 완료 확인**(`points_count: 221`). houseplant는 정수
+  image_id를 그대로 쓰므로 스테이징 없이 프로덕션에 바로 반영(설계대로 — crop과 달리 안전함)
+
 **crop 임베딩·업로드 완료 (2026-09-24)** — ✅
 - `10_sample_crop_labels.py`로 조합당 100장 상한 샘플링: 38,097행 → 3,000행(30개 조합, 대부분 상한에 걸림)
 - 학교 PC에서 `--mode embed` 실행: 2,994건 성공(6건 스킵 — a11/시설포도탄저병 일부 원본 누락, 무시 가능한
@@ -66,41 +78,25 @@
 - 프로덕션 컬렉션(`leaflog-diagnosis`)이 아니라 스테이징 컬렉션(`leaflog-diagnosis-crop`)에 올렸음 —
   `apps/api/app/diagnosis.py`의 UUID id 처리가 아직 없어서 그대로 둠
 
-**다음 단계 (2026-09-23 갱신)**
-- 153번은 이번 라운드 범위에서 명시적으로 제외 (525번+아열대만 진행)
-- CLIP 임베딩은 학교 PC에서 실행, Qdrant 업로드는 EC2 인접 환경에서 별도 실행하기로 확정
-  (Qdrant 6333은 EC2 루프백 전용이라 학교 PC에서 직접 접근 불가 — docs/aws-team-handoff.md 236행)
-- crop 원본(38,097행)을 그대로 다 임베딩하면 houseplant(221장)에 비해 압도적으로 많아 저장량·향후
-  통계가 crop 쪽으로 쏠림 — `10_sample_crop_labels.py` 추가: `plant_species x suspected_cause` 조합별
-  상한(기본 100장, 고정 시드 42)으로 층화추출해 `data/crop_labels_sampled.xlsx`를 만든 뒤 이걸
-  임베딩 대상으로 쓴다. 상한 이하인 조합은 그대로 다 쓰고, 넘는 조합만 무작위 추출(재현 가능)
-  (`python scripts/10_sample_crop_labels.py --in data/crop_labels.xlsx`)
-- `02_build_index.py`에 `--mode {full,embed,upload}` 추가 완료:
-  - 학교 PC: `python scripts/02_build_index.py --mode embed --path data/crop_labels_sampled.xlsx
-    --images-dir "aihub_525=/home/leaflog/leaflog-rag/aihub-525/104.식물_병_유발_통합_데이터/01.데이터/2.Validation/원천데이터"
-    --images-dir "aihub_subtropical=/home/leaflog/leaflog-rag/aihub-subtropical/066.국내_재배_아열대·열대_병해충_데이터/3.개방데이터/1.데이터/Validation/01.원천데이터"
-    --collection leaflog-diagnosis-crop --out data/embeddings/leaflog-diagnosis-crop.jsonl`
-    (두 경로 모두 2026-09-23에 `find`로 실제 확인함 — 525는 원천데이터 밑에 작물/카테고리별 중첩,
-    아열대는 원천데이터 바로 밑에 평평한 구조. `02_build_index.py`는 `rglob`으로 재귀 탐색하니 둘 다 무관)
-  - scp/rsync로 위 jsonl을 EC2 인접 환경으로 전송 (전송 방식은 스크립트 범위 밖, 수동 진행)
-  - EC2 인접 환경: `python scripts/02_build_index.py --mode upload
-    --in leaflog-diagnosis-crop.jsonl --collection <스테이징 컬렉션>`
-    (torch/transformers 불필요 — CLIP 관련 import를 함수 내부로 지연시켜둠)
-  - **주의**: apps/api/app/diagnosis.py의 SimilarCase.image_id가 int 전제라, crop(UUID id) 포인트를
-    프로덕션 컬렉션에 바로 올리면 검색 API가 깨질 수 있음 — tiered 검색 반영 전까지는 별도/스테이징
-    컬렉션에만 업로드할 것
-- houseplant 쪽 재구축(`images_cropped/` 기준)은 여전히 미실행 — `--mode` 기본값이 `full`이라 기존
-  명령(`--images-dir images_cropped --collection leaflog-diagnosis-cropped --recreate`) 그대로 사용 가능.
-  단, 로컬 `images/`·`data/leaflog_vr.xlsx`(JE)·`data/visual_rag_labels_MN.xlsx`(MN)에는 1차(191장,
-  2026-07) 이후 2026-09에 30장이 더 추가돼 있음(221장) — 프로덕션 Qdrant는 아직 191장 스냅샷 그대로라
-  재구축 시 이 30장도 함께 반영됨
+**다음 단계 (2026-09-24 최신 — 이 문서에서 가장 정확한 현재 상태)**
 
-**다음 단계 (아직 안 함, 위 갱신 이전 기록)**
-- `crop_labels.xlsx`는 **라벨 테이블일 뿐, 아직 CLIP 임베딩·Qdrant 업로드 전**임 — 원본 이미지(딸기/오이/.../올리브 등 압축 해제된 jpg, 학교 PC `~/leaflog-rag/aihub-525/`, `~/leaflog-rag/aihub-subtropical/`에 실물로 있음)를 실제로 임베딩해서 넣는 작업이 남음
-- `02_build_index.py` 확장 필요: `domain` payload 필드, crop 도메인용 결정적 UUID(houseplant의 int `image_id`와 충돌 방지), 중첩 폴더(작물/부위/병명별) 이미지 찾기 로직 — 지금 스크립트는 houseplant처럼 이미지가 평평한 폴더 하나에 있는 걸 전제로 함
-- houseplant 쪽도 아직 재구축 안 함: `images_cropped/` 기준으로 `00→01→02_build_index.py --recreate` (준비는 다 됐고 실행만 하면 됨)
-- `apps/api/app/diagnosis.py`의 `search_similar_cases()`에 종 일치 tier + crop 도메인 가중치 추가 (지금은 부위 우선 tier만 구현됨)
-- `05_eval_retrieval.py`로 홀드아웃 검증 후 프로덕션 Qdrant 반영
+houseplant(221장, 프로덕션)·crop(3,000장 샘플, 스테이징) 임베딩·업로드 둘 다 완료(위 항목들 참고).
+남은 건 사실상 하나:
+
+- **`apps/api/app/diagnosis.py`의 `search_similar_cases()`에 종/도메인 tier + crop 가중치 검색 로직
+  구현** — "검색 아키텍처" 절에서 설계한 대로 (1) houseplant+종 일치 → (2) houseplant 전체 → (3) crop
+  전체(원인별 신뢰도 가중치 적용, 남은 자리만) 순으로 채우는 tiered 검색. 지금은 부위 우선 tier만
+  구현돼 있고 종/도메인 tier는 미착수. **이게 돼야 crop 데이터가 실제 진단 상담에 반영됨** — 지금은
+  Qdrant에 들어가 있을 뿐 앱 기능과 연결 안 된 상태.
+  - 구현 후 `05_eval_retrieval.py`로 "crop 섞기 전/후" 홀드아웃 검증 필요(아래 "검증 계획" 절)
+  - crop 포인트가 UUID id라 `SimilarCase.image_id: int`(`apps/api/app/diagnosis.py` 166/280행)가
+    `int(point.id)`에서 깨질 수 있음 — tier 로직에서 도메인별로 분기 처리 필요
+
+**보류 중(이번 라운드 범위 밖, 필요해지면 재검토)**
+- 153번(보강 소스) 데이터 추가
+- crop 데이터 상한(현재 조합당 100장)을 늘려서 재실행할지 여부
+- 학교 PC의 원본 이미지·`crop_labels.xlsx` 전체(38,097행) 정리 — 재현성 위해 당분간 보관 권장,
+  급한 디스크 압박 없음(900GB+ 여유)
 
 ## 배경
 
