@@ -48,6 +48,24 @@
 - `conda activate leaflog-diagnosis-rag`를 새 SSH 세션에서 바로 치면 `conda: command not found`가 남 —
   위 "인프라" 절의 `source ~/miniforge3/etc/profile.d/conda.sh`를 먼저 실행할 것
 
+**crop 임베딩·업로드 완료 (2026-09-24)** — ✅
+- `10_sample_crop_labels.py`로 조합당 100장 상한 샘플링: 38,097행 → 3,000행(30개 조합, 대부분 상한에 걸림)
+- 학교 PC에서 `--mode embed` 실행: 2,994건 성공(6건 스킵 — a11/시설포도탄저병 일부 원본 누락, 무시 가능한
+  수준). 중간에 525번 일부 라벨의 확장자 대소문자 불일치(`.JPG` 라벨 vs 실제 `.jpg` 파일)로 425건이
+  스킵되는 버그 발견 → `build_image_index`/`resolve_image_path`를 파일명 소문자 정규화하도록 수정해서 해결
+  (425건 스킵 → 6건 스킵)
+- jsonl(50MB)을 학교 PC → EC2로 전송: WSL 파일을 `/mnt/c/...`로 복사 후 scp(경로는 백슬래시 대신
+  슬래시 써야 함, Windows OpenSSH 특성)
+- EC2 접속은 직접 SSH(22번 포트)가 모든 네트워크(집 wifi/핫스팟/카페)에서 원인 불명으로 타임아웃 —
+  보안 그룹·NACL 다 정상인데도 안 됨(공유 학교 계정이라 우리가 못 보는 제약이 있을 가능성). **EC2
+  인스턴스 연결 엔드포인트**(EC2 Instance Connect Endpoint, 브라우저에서 HTTPS로 접속, 로컬 22번 포트
+  불필요)로 우회 성공 — `leaflog-ec2-sg`에 자기 참조 인바운드 규칙(소스=자기 자신, 22번) 추가가 필요했음
+- EC2에서 `~/leaflog-rag-index/repo`에 브랜치만 따로 clone, 가벼운 venv(`qdrant-client`, `pandas`,
+  `python-dotenv`, `tqdm`만 설치, torch/transformers 불필요)로 `--mode upload --collection
+  leaflog-diagnosis-crop --recreate` 실행 → **2,994건 업로드 확인**(`points_count: 2994`, 벡터 차원 768)
+- 프로덕션 컬렉션(`leaflog-diagnosis`)이 아니라 스테이징 컬렉션(`leaflog-diagnosis-crop`)에 올렸음 —
+  `apps/api/app/diagnosis.py`의 UUID id 처리가 아직 없어서 그대로 둠
+
 **다음 단계 (2026-09-23 갱신)**
 - 153번은 이번 라운드 범위에서 명시적으로 제외 (525번+아열대만 진행)
 - CLIP 임베딩은 학교 PC에서 실행, Qdrant 업로드는 EC2 인접 환경에서 별도 실행하기로 확정
