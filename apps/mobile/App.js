@@ -288,6 +288,7 @@ function MainAppContent({ user, onLogout }) {
                             plants={plants}
                             decorations={decorations}
                             hasUnread={notices.some((n) => n.urgent)}
+                            reloadPlants={loadPlants}
                         />
                     )}
                 </Stack.Screen>

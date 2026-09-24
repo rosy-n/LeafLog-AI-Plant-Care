@@ -130,72 +130,133 @@ class ApiError extends Error {
   }
 }
 
+/*
+  요청 제한 시간 — React Native 의 fetch 는 기본 타임아웃이 없다. 서버가 연결만
+  받고 응답을 주지 않으면 promise 가 영원히 끝나지 않아서, 그 응답을 기다리는
+  화면은 로딩 상태에서 빠져나오지 못한다(특히 App.tsx 의 시작 화면).
+  그래서 모든 요청에 상한을 두고, 오래 걸리는 것만 따로 늘린다.
+*/
+const DEFAULT_TIMEOUT_MS = 15_000;
+// 사진 업로드는 회선이 느리면 오래 걸린다
+const UPLOAD_TIMEOUT_MS = 60_000;
+// AI 진단·대화는 서버에서 모델을 돌리는 시간이 있다
+export const AI_TIMEOUT_MS = 120_000;
+
+/*
+  세션 중 토큰이 만료됐을 때 알려줄 자리 — App.tsx 가 로그아웃 처리를 등록한다.
+  등록해 두지 않으면 만료된 뒤 모든 요청이 오류 메시지만 내고 앱은 로그인
+  화면으로 돌아가지 않는다.
+*/
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
+
+/*
+  /auth/* 는 401 이 정상 응답인 곳들이다 — 로그인 실패, 계정 삭제 시 비밀번호
+  불일치, 시작할 때의 만료 토큰 확인. 이들은 호출부가 직접 처리하므로
+  전역 로그아웃을 부르지 않는다.
+*/
+function reportUnauthorized(path: string, status: number): void {
+  if (status !== 401 || !authToken || path.startsWith("/auth/")) return;
+  onUnauthorized?.();
+}
+
+const TIMEOUT_MESSAGE =
+  "서버 응답이 너무 늦어요. 네트워크 상태를 확인하고 잠시 후 다시 시도해주세요.";
+const OFFLINE_MESSAGE =
+  "서버 연결이 끊겼어요. 서버가 일시적으로 중단됐거나 네트워크 연결이 불안정할 수 있어요. 잠시 후 다시 시도해주세요.";
+
+/** 응답 본문까지 읽는 동안 상한을 걸어 둔다 — 본문이 오다 멈추는 경우도 막는다 */
+function withTimeout(timeoutMs: number) {
+  const controller = new AbortController();
+  const state = { timedOut: false };
+  const timer = setTimeout(() => {
+    state.timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  return { signal: controller.signal, state, done: () => clearTimeout(timer) };
+}
+
+function errorMessage(data: any, fallback: string): string {
+  const detail = data?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && typeof detail[0]?.msg === "string") {
+    return detail[0].msg.replace(/^Value error,\s*/, "");
+  }
+  return fallback;
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<T> {
-  let response: Response;
-
+  const { signal, state, done } = withTimeout(timeoutMs);
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-        ...(options.headers || {}),
-      },
-    });
-  } catch {
-    throw new Error(
-      "서버 연결이 끊겼어요. 서버가 일시적으로 중단됐거나 네트워크 연결이 불안정할 수 있어요. 잠시 후 다시 시도해주세요.",
-    );
+    let response: Response;
+
+    try {
+      response = await fetch(`${API_BASE_URL}${path}`, {
+        ...options,
+        signal,
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          ...(options.headers || {}),
+        },
+      });
+    } catch {
+      throw new Error(state.timedOut ? TIMEOUT_MESSAGE : OFFLINE_MESSAGE);
+    }
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      reportUnauthorized(path, response.status);
+      throw new ApiError(
+        errorMessage(data, "요청 처리 중 오류가 발생했어요."),
+        response.status,
+      );
+    }
+
+    return data as T;
+  } finally {
+    done();
   }
-
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const detail = data?.detail;
-    const message =
-      typeof detail === "string"
-        ? detail
-        : Array.isArray(detail) && typeof detail[0]?.msg === "string"
-          ? detail[0].msg.replace(/^Value error,\s*/, "")
-          : "요청 처리 중 오류가 발생했어요.";
-    throw new ApiError(message, response.status);
-  }
-
-  return data as T;
 }
 
-async function requestForm<T>(path: string, formData: FormData, headers: Record<string, string> = {}): Promise<T> {
+async function requestForm<T>(
+  path: string,
+  formData: FormData,
+  headers: Record<string, string> = {},
+  timeoutMs: number = UPLOAD_TIMEOUT_MS,
+): Promise<T> {
+  const { signal, state, done } = withTimeout(timeoutMs);
   let response: Response;
 
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       method: "POST",
       body: formData,
+      signal,
       headers: {
         ...headers,
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       },
     });
   } catch {
-    throw new Error(
-      "서버 연결이 끊겼어요. 서버가 일시적으로 중단됐거나 네트워크 연결이 불안정할 수 있어요. 잠시 후 다시 시도해주세요.",
-    );
+    done();
+    throw new Error(state.timedOut ? TIMEOUT_MESSAGE : OFFLINE_MESSAGE);
   }
 
   const data = await response.json().catch(() => null);
+  done();
 
   if (!response.ok) {
-    const detail = data?.detail;
-    const message =
-      typeof detail === "string"
-        ? detail
-        : Array.isArray(detail) && typeof detail[0]?.msg === "string"
-          ? detail[0].msg.replace(/^Value error,\s*/, "")
-          : "이미지 처리 중 오류가 발생했습니다.";
-    throw new Error(message);
+    reportUnauthorized(path, response.status);
+    throw new Error(errorMessage(data, "이미지 처리 중 오류가 발생했습니다."));
   }
 
   return data as T;
@@ -749,7 +810,7 @@ export function diagnosePlantPhoto(
   if (symptomText) formData.append("symptom_text", symptomText);
   if (plantId != null) formData.append("plant_id", String(plantId));
   if (sessionId != null) formData.append("session_id", String(sessionId));
-  return requestForm<DiagnosisResult>("/api/diagnosis", formData);
+  return requestForm<DiagnosisResult>("/api/diagnosis", formData, {}, AI_TIMEOUT_MS);
 }
 
 // 상담 기록(chat_session, session_type=DIAGNOSIS) 목록 카드용 — preview는 마지막 답변 일부
@@ -799,11 +860,10 @@ export function deleteConsultation(sessionId: number) {
 }
 
 export async function getCharacterGenerationAvailability(): Promise<{ enabled: boolean; message: string | null }> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
   try {
+    // 제한 시간은 request() 가 건다 — 여기서 AbortController 를 따로 들지 않는다
     const result = await request<{ enabled: boolean; message: string | null }>(
-      '/api/character-generations/availability', { signal: controller.signal },
+      '/api/character-generations/availability', {}, 12_000,
     );
     if (typeof result?.enabled !== 'boolean') throw new Error('생성 서버 상태를 확인하지 못했어요. 다시 시도해주세요.');
     return result;
@@ -811,8 +871,6 @@ export async function getCharacterGenerationAvailability(): Promise<{ enabled: b
     // Older school APIs do not expose the feature switch yet.
     if (error instanceof ApiError && error.status === 404) return { enabled: true, message: null };
     throw error;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -863,10 +921,11 @@ export function personaChat(
   message: string,
   history: PersonaChatTurn[] = [],
 ) {
-  return request<PersonaChatResult>(`/api/plants/${plantId}/persona-chat`, {
-    method: "POST",
-    body: JSON.stringify({ message, history }),
-  });
+  return request<PersonaChatResult>(
+    `/api/plants/${plantId}/persona-chat`,
+    { method: "POST", body: JSON.stringify({ message, history }) },
+    AI_TIMEOUT_MS,
+  );
 }
 
 export type UserSettingResponse = {
