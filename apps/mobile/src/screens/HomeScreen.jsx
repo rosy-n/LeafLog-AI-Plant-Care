@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ImageBackground,
     View,
@@ -10,6 +10,7 @@ import {
     Easing,
     PanResponder,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { hapticImpact, playSfx, tapFeedback } from "../feedback";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -348,7 +349,21 @@ export default function HomeScreen({
     plants = [],
     decorations = {},
     hasUnread = false,
+    reloadPlants,
 }) {
+    /*
+        홈으로 돌아올 때마다 개체 목록을 다시 읽는다.
+
+        들판에 세울 개체·물방울 말풍선·표정·이름이 모두 이 목록에서 나오는데,
+        목록을 바꾸는 동작(물주기·이름 수정·추억으로 이동·상담 중 상태 변경 등)은
+        다른 화면에서 일어난다. 정원탭과 개체탭은 진입할 때 스스로 다시 읽어서
+        맞춰지지만 홈은 그러지 않아, 홈에만 옛 값이 남아 있었다.
+    */
+    useFocusEffect(
+        useCallback(() => {
+            reloadPlants?.();
+        }, [reloadPlants]),
+    );
     const [environment, setEnvironment] = useState(null);
     // x/y 는 들판이 화면에서 시작하는 자리 — 들판 밖에 그리는 확대창의 좌표 변환에 쓴다
     const [fieldSize, setFieldSize] = useState({ x: 0, y: 0, width: 0, height: 0 });
