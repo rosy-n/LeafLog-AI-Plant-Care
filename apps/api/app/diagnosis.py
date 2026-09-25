@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import io
+import logging
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -33,8 +34,34 @@ from .persona_chat import (
     format_korean_date,
 )
 
+logger = logging.getLogger(__name__)
+
 CLIP_MODEL_NAME = "openai/clip-vit-large-patch14"
 DEFAULT_TOP_K = 5
+
+DOMAIN_HOUSEPLANT = "houseplant"
+DOMAIN_CROP = "crop"
+# crop 사례는 다른 숙주에서 찍힌 병징이라 원인별로 신뢰도를 다르게 본다(숙주 특이성이 낮을수록 1에 가깝게).
+# 일소현상/흰가루병/탄저병은 ai/diagnosis/docs/crop-data-plan.md에서 확정한 값이고, 나머지는 같은 문서의
+# 숙주 범위 근거로 정한 잠정값이다 — 실측(05_eval_retrieval.py) 후 조정할 것.
+CROP_CAUSE_WEIGHTS = {
+    "일소현상": 0.9,
+    "다량원소 결핍": 0.85,
+    "냉해피해": 0.85,
+    "흰가루병": 0.8,
+    "노균병": 0.8,
+    "잿빛곰팡이병": 0.8,
+    "그을음병": 0.8,
+    "총채벌레": 0.8,
+    "응애벌레": 0.8,
+    "탄저병": 0.65,
+    "점무늬병": 0.6,
+    "궤양병": 0.5,
+    "귤굴나방": 0.5,
+}
+CROP_DEFAULT_WEIGHT = 0.7
+# crop 3단계는 가중치로 순위가 바뀌므로, 남은 자리 수보다 넉넉히 가져온 뒤 재정렬한다.
+CROP_CANDIDATE_MULTIPLIER = 3
 # 코사인 유사도(L2-정규화 CLIP 임베딩, Qdrant Distance.COSINE) 컷오프 — 이 아래 사례는
 # 유사도가 낮아 근거로 부적합하다고 보고 프롬프트/응답에서 제외한다.
 # 실측 점수 분포 데이터가 아직 없는 잠정값이라, ai/diagnosis/scripts/03_search_similar.py로
@@ -161,11 +188,13 @@ class SimilarCase:
     symptom_group: str | None
     suspected_cause: str | None
     plant_part: str | None
-    # Qdrant 포인트 ID(02_build_index.py가 라벨 엑셀의 image_id를 그대로 씀) — 레퍼런스 이미지
-    # 조회 키. file_name/source_url은 인덱싱 시점 payload 원본 값(둘 다 참고용, 비어있을 수 있음).
-    image_id: int
+    # houseplant은 Qdrant 포인트 ID(02_build_index.py가 라벨 엑셀의 image_id를 그대로 씀) — 레퍼런스
+    # 이미지 조회 키. crop은 UUID 문자열 ID이고 이미지를 앱에 보여주지 않으므로(AI-Hub 재배포 금지)
+    # None. file_name/source_url은 인덱싱 시점 payload 원본 값(둘 다 참고용, 비어있을 수 있음).
+    image_id: int | None
     file_name: str | None
     source_url: str | None
+    domain: str = DOMAIN_HOUSEPLANT
 
 
 @dataclass(frozen=True)
@@ -207,8 +236,16 @@ def _qdrant() -> QdrantClient:
 @lru_cache(maxsize=1)
 def reference_dataset_size() -> int:
     """RAG 코퍼스 전체 크기 — "전체 N장 중 몇 건 매칭"을 앱에 보여주기 위함.
-    재인덱싱은 API 재시작을 동반하므로 프로세스 생애주기 동안 캐시해도 무방하다."""
-    return _qdrant().count(collection_name=settings.qdrant_collection, exact=True).count
+    재인덱싱은 API 재시작을 동반하므로 프로세스 생애주기 동안 캐시해도 무방하다.
+    crop 컬렉션이 켜져 있으면 검색 대상이 되는 만큼 함께 센다."""
+    total = _qdrant().count(collection_name=settings.qdrant_collection, exact=True).count
+    crop_collection = settings.qdrant_crop_collection.strip()
+    if crop_collection:
+        try:
+            total += _qdrant().count(collection_name=crop_collection, exact=True).count
+        except Exception:
+            logger.warning("crop 컬렉션 건수 조회 실패 — houseplant 건수만 사용", exc_info=True)
+    return total
 
 
 def _embed_image(image: Image.Image) -> list[float]:
@@ -224,16 +261,113 @@ def _embed_image(image: Image.Image) -> list[float]:
     return features[0].cpu().tolist()
 
 
+def _species_variants(species: str | None) -> list[str]:
+    """사용자 종 이름과 payload의 plant_species를 맞추기 위한 표기 변형 ('올리브나무' -> '올리브').
+
+    crop 라벨은 작물명(레몬/올리브)을 쓰고 마스터 종명은 '~나무'가 붙는 경우가 있어 둘 다 시도한다."""
+    name = (species or "").strip()
+    if not name:
+        return []
+    variants = [name]
+    if name.endswith("나무") and len(name) > 2:
+        variants.append(name[:-2])
+    return variants
+
+
+def _crop_weight(cause: str | None) -> float:
+    return CROP_CAUSE_WEIGHTS.get(cause or "", CROP_DEFAULT_WEIGHT)
+
+
+def _search(
+    collection: str,
+    vector: list[float],
+    *,
+    limit: int,
+    min_score: float,
+    species_variants: list[str] | None = None,
+    part: str | None = None,
+    exclude_ids: list | None = None,
+):
+    must = []
+    if species_variants:
+        must.append(
+            qmodels.FieldCondition(key="plant_species", match=qmodels.MatchAny(any=list(species_variants)))
+        )
+    if part:
+        must.append(qmodels.FieldCondition(key="plant_part", match=qmodels.MatchValue(value=part)))
+    must_not = [qmodels.HasIdCondition(has_id=list(exclude_ids))] if exclude_ids else []
+    query_filter = qmodels.Filter(must=must or None, must_not=must_not or None) if (must or must_not) else None
+    return _qdrant().query_points(
+        collection_name=collection,
+        query=vector,
+        limit=limit,
+        score_threshold=min_score,
+        query_filter=query_filter,
+    ).points
+
+
+def _part_first(
+    collection: str,
+    vector: list[float],
+    *,
+    limit: int,
+    min_score: float,
+    species_variants: list[str] | None = None,
+    part: str | None = None,
+    exclude_ids: list | None = None,
+) -> list[tuple[bool, object]]:
+    """한 컬렉션에서 부위(part) 일치 사례를 먼저, 모자라면 부위 무관 사례로 채운다. [(부위일치, point)]"""
+    exclude = list(exclude_ids or [])
+    found: list[tuple[bool, object]] = []
+    if part:
+        for point in _search(
+            collection, vector, limit=limit, min_score=min_score,
+            species_variants=species_variants, part=part, exclude_ids=exclude,
+        ):
+            found.append((True, point))
+    if len(found) < limit:
+        # 이미 뽑힌 사례는 제외하고 부위 무관하게 나머지 자리를 채운다.
+        taken = [*exclude, *(point.id for _, point in found)]
+        for point in _search(
+            collection, vector, limit=limit - len(found), min_score=min_score,
+            species_variants=species_variants, part=None, exclude_ids=taken,
+        ):
+            found.append((False, point))
+    return found
+
+
+def _to_case(point, domain: str) -> SimilarCase:
+    payload = point.payload or {}
+    return SimilarCase(
+        score=point.score,
+        plant_species=payload.get("plant_species"),
+        symptom_group=payload.get("symptom_group"),
+        suspected_cause=payload.get("suspected_cause"),
+        plant_part=payload.get("plant_part"),
+        # crop은 UUID 문자열 ID라 int로 못 바꾸고, 레퍼런스 이미지도 보여주지 않는다.
+        image_id=int(point.id) if domain == DOMAIN_HOUSEPLANT else None,
+        file_name=payload.get("file_name"),
+        source_url=payload.get("source_url"),
+        domain=domain,
+    )
+
+
 def search_similar_cases(
     image_bytes: bytes,
     top_k: int = DEFAULT_TOP_K,
     min_score: float = MIN_SIMILARITY_SCORE,
     plant_part: str | None = None,
+    plant_species: str | None = None,
 ) -> list[SimilarCase]:
-    """plant_part가 오면 그 부위(잎/줄기/열매/꽃/가지) 사례를 먼저 채우고, 자리가 남으면
-    부위 무관하게 나머지를 채운다 - docs/crop-data-plan.md의 "부위 교집합 우선" 설계를
-    houseplant 단일 컬렉션 안에서 먼저 구현한 것. crop 도메인이 합쳐지면 종/도메인 tier가
-    이 앞에 추가될 예정이라 여기서는 부위만 다룬다.
+    """도메인/종 tier로 top_k를 채운다 (ai/diagnosis/docs/crop-data-plan.md "검색 아키텍처").
+
+    1단계: 사용자 종과 일치하는 사례 — houseplant, 그리고 crop 중 같은 종(레몬/올리브 등,
+           같은 종의 진짜 사례라 가중치 할인 없음)을 합쳐 유사도순
+    2단계: 나머지 houseplant 사례
+    3단계: crop 사례 — 원인별 신뢰도 가중치로 순위를 보정하고 남은 자리만 채움
+    각 단계 안에서는 plant_part(잎/줄기/열매/꽃/가지) 일치 사례를 먼저 채운다.
+    반환되는 score는 가중치를 곱하기 전의 코사인 유사도다(가중치는 순위에만 쓴다).
+    QDRANT_CROP_COLLECTION이 비어 있으면 crop 단계는 건너뛰어 기존 동작과 같다.
     """
     if settings.app_role == "api":
         vector = inference_client.embed(image_bytes)
@@ -241,58 +375,87 @@ def search_similar_cases(
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         vector = _embed_image(image)
 
-    points = []
-    if plant_part:
-        part_filter = qmodels.Filter(
-            must=[qmodels.FieldCondition(key="plant_part", match=qmodels.MatchValue(value=plant_part))]
-        )
-        points = _qdrant().query_points(
-            collection_name=settings.qdrant_collection,
-            query=vector,
-            limit=top_k,
-            score_threshold=min_score,
-            query_filter=part_filter,
-        ).points
+    house = settings.qdrant_collection
+    crop = settings.qdrant_crop_collection.strip()
+    variants = _species_variants(plant_species)
+    selected: list[SimilarCase] = []
+    used_ids: dict[str, list] = {house: [], crop: []}
 
-    if len(points) < top_k:
-        # 이미 뽑힌 사례는 제외하고 부위 무관하게 나머지 자리를 채운다.
-        exclude_filter = (
-            qmodels.Filter(must_not=[qmodels.HasIdCondition(has_id=[p.id for p in points])])
-            if points
-            else None
-        )
-        fallback_points = _qdrant().query_points(
-            collection_name=settings.qdrant_collection,
-            query=vector,
-            limit=top_k - len(points),
-            score_threshold=min_score,
-            query_filter=exclude_filter,
-        ).points
-        points = [*points, *fallback_points]
+    def crop_part_first(limit: int, species_variants: list[str] | None):
+        try:
+            return _part_first(
+                crop, vector, limit=limit, min_score=settings.qdrant_crop_min_score,
+                species_variants=species_variants, part=plant_part, exclude_ids=used_ids[crop],
+            )
+        except Exception:
+            # crop은 부가 근거라 컬렉션 문제로 진단 자체가 실패하면 안 된다.
+            logger.warning("crop 컬렉션 검색 실패 — houseplant 결과만 사용", exc_info=True)
+            return []
 
-    return [
-        SimilarCase(
-            score=point.score,
-            plant_species=(point.payload or {}).get("plant_species"),
-            symptom_group=(point.payload or {}).get("symptom_group"),
-            suspected_cause=(point.payload or {}).get("suspected_cause"),
-            plant_part=(point.payload or {}).get("plant_part"),
-            image_id=int(point.id),
-            file_name=(point.payload or {}).get("file_name"),
-            source_url=(point.payload or {}).get("source_url"),
-        )
-        for point in points
-    ]
+    def pick(entries: list[tuple[bool, float, str, str, object]]) -> None:
+        # (부위일치, 순위점수, 도메인, 컬렉션, point) — 부위 일치 우선, 그다음 순위점수 내림차순
+        entries.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
+        for _, _, domain, collection, point in entries[: top_k - len(selected)]:
+            selected.append(_to_case(point, domain))
+            used_ids[collection].append(point.id)
+
+    # 1단계: 같은 종
+    if variants:
+        entries = [
+            (part_match, point.score, DOMAIN_HOUSEPLANT, house, point)
+            for part_match, point in _part_first(
+                house, vector, limit=top_k, min_score=min_score,
+                species_variants=variants, part=plant_part, exclude_ids=used_ids[house],
+            )
+        ]
+        if crop:
+            entries += [
+                (part_match, point.score, DOMAIN_CROP, crop, point)
+                for part_match, point in crop_part_first(top_k, variants)
+            ]
+        pick(entries)
+
+    # 2단계: 나머지 houseplant
+    remaining = top_k - len(selected)
+    if remaining > 0:
+        pick([
+            (part_match, point.score, DOMAIN_HOUSEPLANT, house, point)
+            for part_match, point in _part_first(
+                house, vector, limit=remaining, min_score=min_score,
+                part=plant_part, exclude_ids=used_ids[house],
+            )
+        ])
+
+    # 3단계: crop (가중치 보정)
+    remaining = top_k - len(selected)
+    if remaining > 0 and crop:
+        pick([
+            (
+                part_match,
+                point.score * _crop_weight((point.payload or {}).get("suspected_cause")),
+                DOMAIN_CROP,
+                crop,
+                point,
+            )
+            for part_match, point in crop_part_first(remaining * CROP_CANDIDATE_MULTIPLIER, None)
+        ])
+
+    return selected
 
 
 def _format_similar_cases(cases: list[SimilarCase]) -> str:
     if not cases:
         return "(유사 사례 없음)"
-    lines = [
-        f"{i}. plant_species={c.plant_species}, symptom_group={c.symptom_group}, "
-        f"suspected_cause={c.suspected_cause}, plant_part={c.plant_part}, similarity={c.score:.3f}"
-        for i, c in enumerate(cases, start=1)
-    ]
+    lines = []
+    for i, c in enumerate(cases, start=1):
+        line = (
+            f"{i}. plant_species={c.plant_species}, symptom_group={c.symptom_group}, "
+            f"suspected_cause={c.suspected_cause}, plant_part={c.plant_part}, similarity={c.score:.3f}"
+        )
+        if c.domain == DOMAIN_CROP:
+            # 재배 작물 사진 기반 사례라 실내식물과 병징이 다를 수 있음을 모델에 알려준다.
+            line += ", domain=crop(농작물 재배 사진 사례 - 실내식물과 병징이 다를 수 있어 참고만)"
+        lines.append(line)
     return "\n".join(lines)
 
 
@@ -484,7 +647,9 @@ def diagnose(
     plant_part는 사용자가 사진 첨부 시 직접 고른 부위(잎/줄기/열매/꽃/가지) - 모르면 null.
     """
     image_bytes = model_image_jpeg(image_bytes)
-    similar_cases = search_similar_cases(image_bytes, top_k=top_k, min_score=min_score, plant_part=plant_part)
+    similar_cases = search_similar_cases(
+        image_bytes, top_k=top_k, min_score=min_score, plant_part=plant_part, plant_species=plant_species
+    )
     diagnosis_text = generate_diagnosis(
         image_bytes,
         similar_cases,
