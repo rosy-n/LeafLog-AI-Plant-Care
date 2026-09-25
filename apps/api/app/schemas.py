@@ -532,7 +532,11 @@ class DiagnosisSimilarCase(BaseModel):
     suspected_cause: str | None = None
     plant_part: str | None = None
     # 레퍼런스 이미지가 media_asset에 아직 적재되지 않았으면 None — 그 경우 앱은 텍스트만 보여준다.
+    # 농작물(crop) 사례는 라이선스상 이미지를 보여주지 않으므로 항상 None.
     image_url: str | None = None
+    # 사례 출처 도메인: "houseplant"(실내식물 사례) / "crop"(농작물 재배 사진 사례).
+    # 이 필드 도입 전에 저장된 옛 rag_context 행은 값이 없어 기본값으로 복원된다.
+    domain: str = "houseplant"
 
 
 class DiagnosisResponse(BaseModel):
