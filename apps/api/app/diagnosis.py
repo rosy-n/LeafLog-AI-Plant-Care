@@ -589,7 +589,7 @@ def _call_ollama_with_language_retry(messages: list[dict]) -> str:
         if _detect_foreign_script(text):
             text = _strip_foreign_script(text)
 
-    return _strip_duplicate_list_bullet(text)
+    return _normalize_highlight_marks(_strip_duplicate_list_bullet(text))
 
 
 def generate_diagnosis(

@@ -253,3 +253,12 @@ class TieredSearchTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_normalize_highlight_marks_collapses_excess_equals():
+    from app.diagnosis import _normalize_highlight_marks
+
+    assert _normalize_highlight_marks("===시급===") == "==시급=="
+    assert _normalize_highlight_marks("====시급====") == "==시급=="
+    assert _normalize_highlight_marks("==정상==") == "==정상=="
+    assert _normalize_highlight_marks("a = b") == "a = b"
