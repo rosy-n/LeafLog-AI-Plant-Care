@@ -62,6 +62,11 @@ CROP_CAUSE_WEIGHTS = {
 CROP_DEFAULT_WEIGHT = 0.7
 # crop 3단계는 가중치로 순위가 바뀌므로, 남은 자리 수보다 넉넉히 가져온 뒤 재정렬한다.
 CROP_CANDIDATE_MULTIPLIER = 3
+# 같은 종 crop 사례(1단계 승격)는 그 종의 crop 원인이 적으면 원인과 무관하게 top_k를 통째로 채울 수 있다
+# (예: 올리브 crop은 탄저병뿐이라 과습 사진도 탄저병 5건이 됨). 그래서 원인별로 유사도가 가장 높은 1건만 남긴다.
+# 한 원인이 상위를 다 차지하면 유사도가 조금 낮은 다른 원인이 후보에서 빠지므로, 종당 crop이 100~400장뿐인
+# 점을 이용해 후보를 넉넉히 가져온 뒤 원인별로 줄인다.
+CROP_SAME_SPECIES_CANDIDATES = 200
 # 코사인 유사도(L2-정규화 CLIP 임베딩, Qdrant Distance.COSINE) 컷오프 — 이 아래 사례는
 # 유사도가 낮아 근거로 부적합하다고 보고 프롬프트/응답에서 제외한다.
 # 실측 점수 분포 데이터가 아직 없는 잠정값이라, ai/diagnosis/scripts/03_search_similar.py로
@@ -287,6 +292,7 @@ def _search(
     species_variants: list[str] | None = None,
     part: str | None = None,
     exclude_ids: list | None = None,
+    exclude_species: list[str] | None = None,
 ):
     must = []
     if species_variants:
@@ -296,6 +302,10 @@ def _search(
     if part:
         must.append(qmodels.FieldCondition(key="plant_part", match=qmodels.MatchValue(value=part)))
     must_not = [qmodels.HasIdCondition(has_id=list(exclude_ids))] if exclude_ids else []
+    if exclude_species:
+        must_not.append(
+            qmodels.FieldCondition(key="plant_species", match=qmodels.MatchAny(any=list(exclude_species)))
+        )
     query_filter = qmodels.Filter(must=must or None, must_not=must_not or None) if (must or must_not) else None
     return _qdrant().query_points(
         collection_name=collection,
@@ -315,6 +325,7 @@ def _part_first(
     species_variants: list[str] | None = None,
     part: str | None = None,
     exclude_ids: list | None = None,
+    exclude_species: list[str] | None = None,
 ) -> list[tuple[bool, object]]:
     """한 컬렉션에서 부위(part) 일치 사례를 먼저, 모자라면 부위 무관 사례로 채운다. [(부위일치, point)]"""
     exclude = list(exclude_ids or [])
@@ -323,6 +334,7 @@ def _part_first(
         for point in _search(
             collection, vector, limit=limit, min_score=min_score,
             species_variants=species_variants, part=part, exclude_ids=exclude,
+            exclude_species=exclude_species,
         ):
             found.append((True, point))
     if len(found) < limit:
@@ -331,6 +343,7 @@ def _part_first(
         for point in _search(
             collection, vector, limit=limit - len(found), min_score=min_score,
             species_variants=species_variants, part=None, exclude_ids=taken,
+            exclude_species=exclude_species,
         ):
             found.append((False, point))
     return found
@@ -352,6 +365,18 @@ def _to_case(point, domain: str) -> SimilarCase:
     )
 
 
+def _limit_same_species_crop(entries: list) -> list:
+    """같은 종 crop 사례를 원인별로 1건만 남긴다 (부위 일치 우선, 그다음 유사도가 가장 높은 것)."""
+    kept, seen_causes = [], set()
+    for entry in sorted(entries, key=lambda e: (e[0], e[1]), reverse=True):
+        cause = (entry[4].payload or {}).get("suspected_cause")
+        if cause in seen_causes:
+            continue
+        seen_causes.add(cause)
+        kept.append(entry)
+    return kept
+
+
 def search_similar_cases(
     image_bytes: bytes,
     top_k: int = DEFAULT_TOP_K,
@@ -362,9 +387,10 @@ def search_similar_cases(
     """도메인/종 tier로 top_k를 채운다 (ai/diagnosis/docs/crop-data-plan.md "검색 아키텍처").
 
     1단계: 사용자 종과 일치하는 사례 — houseplant, 그리고 crop 중 같은 종(레몬/올리브 등,
-           같은 종의 진짜 사례라 가중치 할인 없음)을 합쳐 유사도순
+           같은 종의 진짜 사례라 가중치 할인 없음)을 합쳐 유사도순. 같은 종 crop은 그 종의 crop 원인이
+           적으면 원인과 무관하게 자리를 다 채울 수 있어 원인별로 유사도가 가장 높은 1건만 남김
     2단계: 나머지 houseplant 사례
-    3단계: crop 사례 — 원인별 신뢰도 가중치로 순위를 보정하고 남은 자리만 채움
+    3단계: crop 사례(사용자 종 제외) — 원인별 신뢰도 가중치로 순위를 보정하고 남은 자리만 채움
     각 단계 안에서는 plant_part(잎/줄기/열매/꽃/가지) 일치 사례를 먼저 채운다.
     반환되는 score는 가중치를 곱하기 전의 코사인 유사도다(가중치는 순위에만 쓴다).
     QDRANT_CROP_COLLECTION이 비어 있으면 crop 단계는 건너뛰어 기존 동작과 같다.
@@ -381,11 +407,14 @@ def search_similar_cases(
     selected: list[SimilarCase] = []
     used_ids: dict[str, list] = {house: [], crop: []}
 
-    def crop_part_first(limit: int, species_variants: list[str] | None):
+    def crop_part_first(
+        limit: int, species_variants: list[str] | None, exclude_species: list[str] | None = None
+    ):
         try:
             return _part_first(
                 crop, vector, limit=limit, min_score=settings.qdrant_crop_min_score,
                 species_variants=species_variants, part=plant_part, exclude_ids=used_ids[crop],
+                exclude_species=exclude_species,
             )
         except Exception:
             # crop은 부가 근거라 컬렉션 문제로 진단 자체가 실패하면 안 된다.
@@ -409,10 +438,11 @@ def search_similar_cases(
             )
         ]
         if crop:
-            entries += [
+            crop_entries = [
                 (part_match, point.score, DOMAIN_CROP, crop, point)
-                for part_match, point in crop_part_first(top_k, variants)
+                for part_match, point in crop_part_first(CROP_SAME_SPECIES_CANDIDATES, variants)
             ]
+            entries += _limit_same_species_crop(crop_entries)
         pick(entries)
 
     # 2단계: 나머지 houseplant
@@ -437,7 +467,7 @@ def search_similar_cases(
                 crop,
                 point,
             )
-            for part_match, point in crop_part_first(remaining * CROP_CANDIDATE_MULTIPLIER, None)
+            for part_match, point in crop_part_first(remaining * CROP_CANDIDATE_MULTIPLIER, None, variants or None)
         ])
 
     return selected

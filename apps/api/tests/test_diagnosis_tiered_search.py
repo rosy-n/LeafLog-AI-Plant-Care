@@ -59,8 +59,14 @@ class FakeQdrant:
             elif value != cond.match.value:
                 return False
         for cond in query_filter.must_not or []:
-            if point.id in cond.has_id:
-                return False
+            if isinstance(cond, qmodels.HasIdCondition):
+                if point.id in cond.has_id:
+                    return False
+            else:  # FieldCondition (예: 사용자 종 제외)
+                value = point.payload.get(cond.key)
+                excluded = value in cond.match.any if isinstance(cond.match, qmodels.MatchAny) else value == cond.match.value
+                if excluded:
+                    return False
         return True
 
     def query_points(self, *, collection_name, query, limit, score_threshold, query_filter):
@@ -147,6 +153,60 @@ class TieredSearchTests(unittest.TestCase):
         self.assertEqual(cases[0].score, 0.97)
         # 다른 종 crop(딸기)은 여전히 3단계라 houseplant 뒤에 온다.
         self.assertEqual([c.domain for c in cases], ["crop", "houseplant", "houseplant", "crop"])
+
+    def test_same_species_crop_keeps_best_one_per_cause(self):
+        collections = {
+            HOUSE: [house_point(i, 0.80 - i / 100, "몬스테라") for i in range(1, 6)],
+            CROP: [
+                crop_point(0.95, "레몬", cause="귤굴나방"),
+                crop_point(0.94, "레몬", cause="귤굴나방"),   # 같은 원인 -> 가장 높은 것만 남김
+                crop_point(0.93, "레몬", cause="귤굴나방"),
+                crop_point(0.92, "레몬", cause="그을음병"),
+                crop_point(0.91, "레몬", cause="응애벌레"),
+            ],
+        }
+        cases = self.search(collections, plant_species="레몬나무", top_k=5)
+        crop_cases = [c for c in cases if c.domain == "crop"]
+        # 원인별 최고 유사도 1건씩 = 3건, 나머지 자리는 실내식물이 채운다
+        self.assertEqual([(c.suspected_cause, c.score) for c in crop_cases],
+                         [("귤굴나방", 0.95), ("그을음병", 0.92), ("응애벌레", 0.91)])
+        self.assertEqual(len(cases) - len(crop_cases), 2)
+
+    def test_lower_similarity_cause_is_not_crowded_out_by_dominant_cause(self):
+        # 한 원인(a)이 상위 후보를 훨씬 많이 차지해도 유사도가 조금 낮은 다른 원인(b)이 살아남는다.
+        collections = {
+            HOUSE: [],
+            CROP: [crop_point(0.99 - i / 1000, "레몬", cause="귤굴나방") for i in range(40)]
+            + [crop_point(0.85, "레몬", cause="그을음병")],
+        }
+        cases = self.search(collections, plant_species="레몬나무", top_k=5)
+        self.assertEqual({c.suspected_cause for c in cases}, {"귤굴나방", "그을음병"})
+
+    def test_single_cause_species_gets_only_one_crop_case(self):
+        # 올리브처럼 crop 원인이 하나뿐인 종은 과습 사진이어도 탄저병이 top-5를 통째로 채우면 안 된다.
+        collections = {
+            HOUSE: [house_point(i, 0.90 - i / 100, "로즈마리", cause="과습") for i in range(1, 6)],
+            CROP: [crop_point(0.95 - i / 100, "올리브", cause="탄저병") for i in range(8)],
+        }
+        cases = self.search(collections, plant_species="올리브나무", top_k=5)
+        self.assertEqual(sum(c.domain == "crop" for c in cases), 1)
+        self.assertEqual(sum(c.domain == "houseplant" for c in cases), 4)
+
+    def test_same_species_crop_not_reintroduced_by_third_tier(self):
+        # 실내식물이 모자라도 사용자 종 crop은 상한(1단계) 이상으로 3단계에서 다시 채워지지 않는다.
+        collections = {
+            HOUSE: [],
+            CROP: [
+                crop_point(0.95, "올리브", cause="탄저병"),
+                crop_point(0.94, "올리브", cause="탄저병"),
+                crop_point(0.93, "올리브", cause="탄저병"),
+                crop_point(0.85, "딸기", cause="흰가루병"),
+            ],
+        }
+        cases = self.search(collections, plant_species="올리브나무", top_k=5)
+        species = [c.plant_species for c in cases]
+        self.assertEqual(species.count("올리브"), 1)
+        self.assertEqual(species.count("딸기"), 1)
 
     def test_part_priority_applies_inside_each_tier(self):
         collections = {
