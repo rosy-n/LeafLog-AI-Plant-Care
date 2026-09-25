@@ -557,6 +557,16 @@ def _strip_duplicate_list_bullet(text: str) -> str:
     return DUPLICATE_LIST_BULLET_PATTERN.sub(r"\1", text)
 
 
+# 모델이 ==하이라이트== 대신 ===하이라이트===처럼 '='를 3개 이상 쓰는 경우가 있다.
+# 클라이언트의 markdown-it-mark는 홀수 길이의 '=' 연속을 하이라이트 표식으로 못 쓰고
+# 남는 '=' 하나를 글자로 내보내, 화면에 "=하이라이트="처럼 보인다.
+EXCESS_MARK_PATTERN = re.compile(r"={3,}")
+
+
+def _normalize_highlight_marks(text: str) -> str:
+    return EXCESS_MARK_PATTERN.sub("==", text)
+
+
 # Qwen 응답이 이미지 토큰 + 시스템 프롬프트(등록된 식물 정보·날씨 섹션 포함)만으로도
 # 기본 4096 컨텍스트를 넘기는 경우가 있어 (실측: 4663 토큰에서 400 에러), 여유 있게 늘려둔다.
 OLLAMA_NUM_CTX = 8192
