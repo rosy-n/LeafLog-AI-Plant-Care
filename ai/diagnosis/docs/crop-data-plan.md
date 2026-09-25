@@ -78,19 +78,34 @@
 - 프로덕션 컬렉션(`leaflog-diagnosis`)이 아니라 스테이징 컬렉션(`leaflog-diagnosis-crop`)에 올렸음 —
   `apps/api/app/diagnosis.py`의 UUID id 처리가 아직 없어서 그대로 둠
 
-**다음 단계 (2026-09-24 최신 — 이 문서에서 가장 정확한 현재 상태)**
+**tier 검색 구현 완료 (2026-09-25, 코드만 — 아직 EC2 미배포·crop 꺼진 상태)** — ✅
+- `apps/api/app/diagnosis.py`의 `search_similar_cases()`를 tier 검색으로 교체(`plant_species` 인자 추가):
+  1단계 사용자 종과 일치하는 사례(houseplant + crop 중 같은 종, 예: 레몬/올리브/무화과/한라봉은 할인 없이)
+  → 2단계 나머지 houseplant → 3단계 crop(원인별 가중치로 순위 보정, 남은 자리만). 각 단계 안에서는
+  기존 부위(plant_part) 우선 유지. 응답 score는 가중치 곱하기 전 코사인 유사도, 가중치는 순위에만 사용.
+- 종 매칭은 표기 변형을 함께 본다(`올리브나무` → `올리브`, `_species_variants`) — crop 라벨은 작물명만 씀
+- crop은 **`QDRANT_CROP_COLLECTION` 환경변수가 비어 있으면 검색 자체를 안 함**(기본 꺼짐) → 코드를 먼저
+  배포해도 EC2 `/etc/leaflog/api.env`에 값을 넣기 전까지 기존 동작 그대로. crop 컬렉션 조회 실패는
+  경고 로그만 남기고 houseplant 결과로 계속 진행(진단이 crop 때문에 실패하지 않게).
+- crop 사례는 `image_id=None`(UUID id라 int 변환 불가, 이미지도 라이선스상 안 보여줌), 응답 스키마
+  `DiagnosisSimilarCase`에 `domain`("houseplant"/"crop") 추가, 프롬프트의 유사 사례 줄에 crop 표시
+  ("실내식물과 병징이 다를 수 있어 참고만"), `reference_dataset_size`는 켜져 있으면 두 컬렉션 합산
+- 테스트: `apps/api/tests/test_diagnosis_tiered_search.py`(가짜 Qdrant 10건) + 진짜 qdrant-client
+  인메모리 스모크 테스트 통과. (전체 회귀 158건 중 실패 1건은 로컬 conda 환경에 `pillow_heif`가 없어서
+  생기는 기존 문제로 이번 변경과 무관)
 
-houseplant(221장, 프로덕션)·crop(3,000장 샘플, 스테이징) 임베딩·업로드 둘 다 완료(위 항목들 참고).
-남은 건 사실상 하나:
+**다음 단계 (2026-09-25 최신 — 이 문서에서 가장 정확한 현재 상태)**
+1. **crop 컷오프 실측** — `QDRANT_CROP_MIN_SCORE`(현재 기본 0.75, 잠정)를 정하려면 실제 houseplant 사진
+   vs crop 벡터의 유사도 분포를 봐야 함(crop jsonl은 학교 PC/EC2에만 있음)
+2. **EC2 배포 + 켜기** — 코드 배포 후 `/etc/leaflog/api.env`에 `QDRANT_CROP_COLLECTION=leaflog-diagnosis-crop`,
+   `QDRANT_CROP_MIN_SCORE=<실측값>` 추가하고 `leaflog-api` 재시작. 문제 생기면 값을 비우고 재시작하면 즉시
+   원복. 배포 순서상 코드가 먼저 반영돼야 함(현재 EC2 API는 UUID id를 못 다룸)
+3. `05_eval_retrieval.py`로 "crop 섞기 전/후" 홀드아웃 검증(아래 "검증 계획" 절)
+4. (선택) 앱의 "RAG 검색 결과" 토글에서 `domain`이 crop인 사례에 "농작물 사례" 표시
 
-- **`apps/api/app/diagnosis.py`의 `search_similar_cases()`에 종/도메인 tier + crop 가중치 검색 로직
-  구현** — "검색 아키텍처" 절에서 설계한 대로 (1) houseplant+종 일치 → (2) houseplant 전체 → (3) crop
-  전체(원인별 신뢰도 가중치 적용, 남은 자리만) 순으로 채우는 tiered 검색. 지금은 부위 우선 tier만
-  구현돼 있고 종/도메인 tier는 미착수. **이게 돼야 crop 데이터가 실제 진단 상담에 반영됨** — 지금은
-  Qdrant에 들어가 있을 뿐 앱 기능과 연결 안 된 상태.
-  - 구현 후 `05_eval_retrieval.py`로 "crop 섞기 전/후" 홀드아웃 검증 필요(아래 "검증 계획" 절)
-  - crop 포인트가 UUID id라 `SimilarCase.image_id: int`(`apps/api/app/diagnosis.py` 166/280행)가
-    `int(point.id)`에서 깨질 수 있음 — tier 로직에서 도메인별로 분기 처리 필요
+**설계상 알아둘 점**: 같은 종 crop 승격 때문에 사용자가 레몬/올리브 등을 등록한 경우 1단계가 crop 같은
+종 사례로 top_k를 다 채울 수 있음(houseplant에 그 종 사례가 없을 때). 의도된 동작이지만 crop 비중이
+너무 크다고 판단되면 1단계의 crop 몫에 상한을 두는 식으로 조정.
 
 **보류 중(이번 라운드 범위 밖, 필요해지면 재검토)**
 - 153번(보강 소스) 데이터 추가
@@ -200,14 +215,21 @@ Train/Validation을 둘 다 받는 이유: CLIP은 파인튜닝하지 않고 그
   3. crop 전체 — 원인(suspected_cause)별 신뢰도 가중치로 score 보정 후 남은 자리만 채움
 - crop 도메인 point ID는 houseplant의 `image_id`(int)와 충돌 방지를 위해 `domain:image_id` 조합의 결정적 UUID로 부여 (구현 시 결정)
 
-## 원인별 신뢰도 가중치 (초안, 실측 전까지 임시값)
+## 원인별 신뢰도 가중치 (crop 3단계 순위 보정용, 실측 전까지 잠정값)
 
-숙주 특이성이 낮을수록(=농작물 사례를 믿을 수 있을수록) 가중치를 1에 가깝게:
+숙주 특이성이 낮을수록(=농작물 사례를 믿을 수 있을수록) 가중치를 1에 가깝게. 코드는
+`apps/api/app/diagnosis.py`의 `CROP_CAUSE_WEIGHTS`(표에 없는 원인은 `CROP_DEFAULT_WEIGHT=0.7`).
+같은 종 crop 사례(1단계 승격)는 가중치를 적용하지 않는다.
 
-- 일소현상: ~0.9 (물리적 광 손상, 숙주 특이성 거의 없음)
-- 흰가루병: ~0.8 (숙주 범위 넓은 자낭균)
-- 노균병 / 잿빛곰팡이병 / 다량원소 결핍 / 냉해피해: 구현 시점에 판단 필요 (TODO)
-- 탄저병: ~0.65 (Colletotrichum은 숙주별 종이 다른 경우가 많음)
+| 원인 | 가중치 | 근거 |
+|---|---|---|
+| 일소현상 | 0.9 | 물리적 광 손상, 숙주 특이성 거의 없음 (확정) |
+| 다량원소 결핍 / 냉해피해 | 0.85 | 병원균이 아닌 생리장해라 종 무관 (2026-09-25 잠정) |
+| 흰가루병 | 0.8 | 숙주 범위 넓은 자낭균 (확정) |
+| 노균병 / 잿빛곰팡이병 / 그을음병 / 총채벌레 / 응애벌레 | 0.8 | 다범성 병원균·해충 (잠정) |
+| 탄저병 | 0.65 | Colletotrichum은 숙주별 종이 다른 경우가 많음 (확정) |
+| 점무늬병 | 0.6 | 특정 병원균이 아닌 포괄적 증상 범주 (잠정) |
+| 궤양병 / 귤굴나방 | 0.5 | 감귤속 전용 — 다른 숙주 사례로는 신뢰도 낮음 (잠정) |
 
 ## 525번 코드표 (데이터설명서·구축가이드라인 PDF 확인 완료, 2026-09-14)
 
