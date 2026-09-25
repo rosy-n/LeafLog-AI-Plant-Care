@@ -21,6 +21,8 @@ import * as Clipboard from "expo-clipboard";
 import Markdown from "react-native-markdown-display";
 import MarkdownIt from "markdown-it";
 import markdownItMark from "markdown-it-mark";
+import { normalizeHighlightMarks } from "../markdownText";
+import RagResultTable from "../components/RagResultTable";
 
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
@@ -314,7 +316,7 @@ export default function ConsultationScreen({ navigation, route }) {
                         rules={markdownRules}
                         markdownit={markdownItInstance}
                     >
-                        {item.text}
+                        {normalizeHighlightMarks(item.text)}
                     </Markdown>
                 </TouchableOpacity>
                 {copiedId === item.id && (
@@ -341,25 +343,7 @@ export default function ConsultationScreen({ navigation, route }) {
                             </Text>
                         </TouchableOpacity>
                         {expandedRagId[item.id] && (
-                            <View style={styles.ragList}>
-                                {item.similarCases.map((c, idx) => (
-                                    <View key={idx} style={styles.ragRow}>
-                                        {c.image_url ? (
-                                            <Image
-                                                source={{ uri: c.image_url }}
-                                                style={styles.ragThumb}
-                                                resizeMode="cover"
-                                            />
-                                        ) : null}
-                                        <Text style={styles.ragItemText}>
-                                            {idx + 1}. {c.plant_species ?? "종 미상"} · {c.symptom_group ?? "증상 미상"}
-                                            {c.suspected_cause ? ` · ${c.suspected_cause}` : ""}
-                                            {c.plant_part ? ` · ${c.plant_part}` : ""}
-                                            {"  "}(유사도 {Math.round(c.score * 100)}%)
-                                        </Text>
-                                    </View>
-                                ))}
-                            </View>
+                            <RagResultTable cases={item.similarCases} />
                         )}
                     </View>
                 )}
@@ -624,34 +608,6 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
         // FontSizes.small(12)보다 아주 약간 큼 — 본문(FontSizes.body, 14)보다는 계속 작게 유지.
         fontSize: 13,
-        color: Colors.textGray,
-    },
-
-    ragList: {
-        marginTop: Spacing.xs,
-        gap: Spacing.xs,
-        padding: Spacing.md,
-        borderRadius: Radius.lg,
-        backgroundColor: Colors.surfaceGrayTint,
-    },
-
-    ragRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: Spacing.xs,
-    },
-
-    ragThumb: {
-        width: 32,
-        height: 32,
-        borderRadius: Radius.sm,
-    },
-
-    ragItemText: {
-        flex: 1,
-        fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.small,
-        lineHeight: 17,
         color: Colors.textGray,
     },
 
