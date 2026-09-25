@@ -2463,7 +2463,10 @@ def diagnose_plant_photo(
             user_asset_id = media_asset.asset_id
 
     # 검색된 사례의 레퍼런스 이미지 URL을 한 번에 조회 — 아직 적재 안 된 사례는 image_url=None.
-    image_url_by_id = _rag_reference_image_urls([case.image_id for case in similar_cases], db)
+    # crop 사례는 image_id가 None(레퍼런스 이미지를 보여주지 않음) — 조회 대상에서 뺀다.
+    image_url_by_id = _rag_reference_image_urls(
+        [case.image_id for case in similar_cases if case.image_id is not None], db
+    )
     similar_cases_out = [
         DiagnosisSimilarCase(
             score=case.score,
@@ -2471,7 +2474,8 @@ def diagnose_plant_photo(
             symptom_group=case.symptom_group,
             suspected_cause=case.suspected_cause,
             plant_part=case.plant_part,
-            image_url=image_url_by_id.get(case.image_id),
+            image_url=image_url_by_id.get(case.image_id) if case.image_id is not None else None,
+            domain=case.domain,
         )
         for case in similar_cases
     ]
