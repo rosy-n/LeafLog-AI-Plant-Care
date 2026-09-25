@@ -63,8 +63,9 @@ class Settings:
     # 농작물(crop) 도메인 컬렉션 — 비어 있으면 crop 검색을 아예 하지 않는다(기존 동작 그대로).
     # 채우려면 ai/diagnosis/docs/crop-data-plan.md의 tier 검색 설계 참고.
     qdrant_crop_collection: str = os.getenv("QDRANT_CROP_COLLECTION", "")
-    # crop은 촬영 스타일이 달라 유사도 분포가 houseplant와 다를 수 있어 컷오프를 따로 둔다.
-    qdrant_crop_min_score: float = float(os.getenv("QDRANT_CROP_MIN_SCORE", "0.75"))
+    # crop은 촬영 스타일이 달라 컷오프를 따로 둔다. 0.80은 실내식물 221장 leave-one-out 실측으로 정함:
+    # 0.75는 원인 일치율 낮은 crop이 끼어 정밀도를 1~1.5%p 떨어뜨리고, 0.80 이상은 crop을 껐을 때와 같음.
+    qdrant_crop_min_score: float = float(os.getenv("QDRANT_CROP_MIN_SCORE", "0.80"))
 
     # SDXL 캐릭터 생성. FastAPI와 Forge가 같은 학교 WSL에서 실행되면 기본 URL을 그대로 쓴다.
     forge_api_url: str = os.getenv("FORGE_API_URL", "http://127.0.0.1:7860")
