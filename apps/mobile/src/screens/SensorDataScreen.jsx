@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     View,
     Text,
@@ -9,6 +9,7 @@ import {
     Dimensions,
     StatusBar,
     ActivityIndicator,
+    PanResponder,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -21,7 +22,7 @@ import { getEnvironmentHistory, getPlant, getSoilHistory, getSoilStatus, getUser
 import { cacheKeys, peek, revalidate } from "../prefetch";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint, Gauge, GaugeTint, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Gauge, GaugeTint, Glass, Shadow } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import { getPlantExpressionSource } from "../data/characterExpressions";
@@ -148,12 +149,62 @@ function formatAxisLabel(isoString, periodKey) {
     return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-function LineChart({ tempData, humidityData, soilData, timestamps, periodKey }) {
+const DOW_KO = ["일", "월", "화", "수", "목", "금", "토"];
+
+// 그래프를 짚었을 때 말풍선 제목 — 일 탭은 한 시간 단위, 주·월 탭은 하루 단위 점이다
+function formatScrubLabel(isoString, periodKey) {
+    const d = new Date(isoString);
+    if (Number.isNaN(d.getTime())) return "";
+    const date = `${d.getMonth() + 1}/${d.getDate()} (${DOW_KO[d.getDay()]})`;
+    if (periodKey === "daily") return `${date} ${String(d.getHours()).padStart(2, "0")}시`;
+    return date;
+}
+
+const formatValue = (value, unit) => (value == null ? "—" : `${Number(value).toFixed(1)}${unit}`);
+
+const SCRUB_TOOLTIP_W = 124;
+
+/*
+    그래프 짚어보기 — 손가락을 대고 있는 동안만 그 자리의 세부 수치를 보여주고,
+    떼면 사라진다. 짚는 동안에는 화면 스크롤을 잠가야 좌우로 훑을 수 있어서
+    onScrubChange 로 부모에 알린다.
+*/
+function LineChart({ tempData, humidityData, soilData, timestamps, periodKey, rawPoints, onScrubChange }) {
     const chartWidth = SCREEN_WIDTH - 40;
     const plotWidth = chartWidth - PAD_L - PAD_R;
     const n = tempData.length;
+    const [activeIdx, setActiveIdx] = useState(null);
 
     const xOf = (i) => (n <= 1 ? PAD_L + plotWidth / 2 : PAD_L + (i / (n - 1)) * plotWidth);
+
+    const responder = useMemo(() => {
+        const idxAt = (x) => {
+            if (n <= 1) return 0;
+            const ratio = (x - PAD_L) / plotWidth;
+            return Math.max(0, Math.min(n - 1, Math.round(ratio * (n - 1))));
+        };
+        const end = () => {
+            setActiveIdx(null);
+            onScrubChange?.(false);
+        };
+        return PanResponder.create({
+            onStartShouldSetPanResponder: () => n > 0,
+            onMoveShouldSetPanResponder: () => n > 0,
+            onPanResponderTerminationRequest: () => false,
+            onPanResponderGrant: (e) => {
+                onScrubChange?.(true);
+                setActiveIdx(idxAt(e.nativeEvent.locationX));
+            },
+            onPanResponderMove: (e) => setActiveIdx(idxAt(e.nativeEvent.locationX)),
+            onPanResponderRelease: end,
+            onPanResponderTerminate: end,
+        });
+    }, [n, plotWidth, onScrubChange]);
+
+    const active = activeIdx != null && activeIdx < n ? activeIdx : null;
+    const activeX = active != null ? xOf(active) : 0;
+    const activePoint = active != null ? rawPoints?.[active] : null;
+    const tooltipLeft = Math.max(0, Math.min(chartWidth - SCRUB_TOOLTIP_W, activeX - SCRUB_TOOLTIP_W / 2));
     const pts = (data, normFn) =>
         data.map((v, i) => `${xOf(i).toFixed(1)},${normFn(v).toFixed(1)}`).join(" ");
 
@@ -162,6 +213,9 @@ function LineChart({ tempData, humidityData, soilData, timestamps, periodKey }) 
     const labelIdx = pickLabelIndices(n);
 
     return (
+        <View style={{ width: chartWidth, height: CHART_H }} {...responder.panHandlers}>
+        {/* 터치 좌표(locationX)가 늘 바깥 View 기준이 되도록 그림은 터치를 받지 않는다 */}
+        <View pointerEvents="none">
         <Svg width={chartWidth} height={CHART_H}>
             {/* Grid */}
             {gridRows.map((pct, i) => {
@@ -224,7 +278,46 @@ function LineChart({ tempData, humidityData, soilData, timestamps, periodKey }) 
                     </SvgText>
                 </React.Fragment>
             ))}
+
+            {/* 짚은 자리 — 세로 기준선과 강조 점 */}
+            {active != null && (
+                <>
+                    <Line
+                        x1={activeX} y1={PAD_T}
+                        x2={activeX} y2={PAD_T + PLOT_H}
+                        stroke={GreenTint.half}
+                        strokeWidth={1}
+                    />
+                    <Circle cx={activeX} cy={normTemp(tempData[active])} r={5} fill={Gauge.warm} stroke={Colors.white} strokeWidth={2} />
+                    <Circle cx={activeX} cy={normHum(humidityData[active])} r={5} fill={Gauge.cool} stroke={Colors.white} strokeWidth={2} />
+                    {soilData?.[active] != null && (
+                        <Circle cx={activeX} cy={normHum(soilData[active])} r={5} fill={Colors.soilMoisture} stroke={Colors.white} strokeWidth={2} />
+                    )}
+                </>
+            )}
         </Svg>
+        </View>
+
+        {active != null && (
+            <View style={[styles.scrubTooltip, { left: tooltipLeft }]} pointerEvents="none">
+                <Text style={styles.scrubTitle}>{formatScrubLabel(timestamps[active], periodKey)}</Text>
+                <View style={styles.scrubRow}>
+                    <View style={[styles.legendDot, { backgroundColor: Gauge.warm }]} />
+                    <Text style={styles.scrubText}>기온 {formatValue(activePoint?.temperature_c, "°C")}</Text>
+                </View>
+                <View style={styles.scrubRow}>
+                    <View style={[styles.legendDot, { backgroundColor: Gauge.cool }]} />
+                    <Text style={styles.scrubText}>습도 {formatValue(activePoint?.humidity_pct, "%")}</Text>
+                </View>
+                {soilData && (
+                    <View style={styles.scrubRow}>
+                        <View style={[styles.legendDot, { backgroundColor: Colors.soilMoisture }]} />
+                        <Text style={styles.scrubText}>토양습도 {formatValue(soilData[active], "%")}</Text>
+                    </View>
+                )}
+            </View>
+        )}
+        </View>
     );
 }
 
@@ -338,6 +431,8 @@ export default function SensorDataScreen({ navigation, route, decorations = {}, 
     );
     const [isLoading, setIsLoading] = useState(() => cachedHistory("일") === null);
     const [error, setError] = useState(null);
+    // 그래프를 짚는 동안 화면 스크롤을 잠근다 — 좌우로 훑는 손가락을 스크롤이 가로채지 않게
+    const [scrubbing, setScrubbing] = useState(false);
 
     // 종별 적정 범위(temp_min_c 등)는 기간이 바뀌어도 그대로라 period와 무관하게 한 번만 불러온다.
     useEffect(() => {
@@ -442,6 +537,7 @@ export default function SensorDataScreen({ navigation, route, decorations = {}, 
                 <ScreenHeader title="센서 데이터" onBack={() => navigation.goBack()} />
 
                 <ScrollView
+                    scrollEnabled={!scrubbing}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                 >
@@ -497,6 +593,8 @@ export default function SensorDataScreen({ navigation, route, decorations = {}, 
                                             soilData={soilData}
                                             timestamps={timestamps}
                                             periodKey={PERIOD_MAP[period]}
+                                            rawPoints={weatherPoints}
+                                            onScrubChange={setScrubbing}
                                         />
 
                                         {/* Legend */}
@@ -742,6 +840,39 @@ const styles = StyleSheet.create({
     },
 
     // Y-axis unit row
+    // 그래프 짚어보기 말풍선 — 그래프 위쪽에 떠서 손가락을 따라 좌우로 움직인다
+    scrubTooltip: {
+        position: "absolute",
+        top: 0,
+        width: SCRUB_TOOLTIP_W,
+        paddingVertical: Spacing.xs,
+        paddingHorizontal: Spacing.sm,
+        borderRadius: Radius.sm,
+        borderWidth: 1,
+        borderColor: GreenTint.line,
+        backgroundColor: Glass.frost92,
+        gap: Spacing.xxs,
+        shadowColor: Shadow.color,
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 3,
+    },
+    scrubTitle: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.deep,
+    },
+    scrubRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: Spacing.xs,
+    },
+    scrubText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.caption,
+        color: Colors.textBlack,
+    },
     yAxisLabelRow: {
         flexDirection: "row",
         justifyContent: "space-between",
