@@ -1,3 +1,4 @@
+import calendar
 import hashlib
 import secrets
 from datetime import date, datetime, timedelta, timezone
@@ -2896,8 +2897,15 @@ def _region_for_current_user(current_user: AppUser, db: Session) -> region_data.
     return region
 
 
-# ASOS 일자료가 늦게 올라오는 걸 감안해 주/월 조회 때 더 받아두는 날 수
+# ASOS 일자료가 늦게 올라오는 걸 감안해 주 조회 때 더 받아두는 날 수
 ASOS_PUBLISH_LAG_DAYS = 2
+WEEK_DAYS = 7
+
+
+def _one_month_before(day: date) -> date:
+    """한 달 전 같은 날 — 그 달에 없는 날(3/31 → 2/31)이면 그 달 말일."""
+    year, month = (day.year, day.month - 1) if day.month > 1 else (day.year - 1, 12)
+    return day.replace(year=year, month=month, day=min(day.day, calendar.monthrange(year, month)[1]))
 
 
 @app.get("/api/environment/history", response_model=EnvironmentHistoryResponse)
@@ -2950,18 +2958,24 @@ def get_environment_history(
     # (ASOS 일자료는 한국 날짜 기준이라 서버 로컬 날짜가 아니라 한국 날짜로 센다)
     region = _region_for_current_user(current_user, db)
     stn_id = asos.nearest_station_id(region.lat, region.lng)
-    days = 7 if period == "week" else 30
-    end = today_in_korea() - timedelta(days=1)
-    # 어제 자료는 기상청이 다음 날 오전에야 올려서, 딱 days 일만 요청하면 오전 동안은
-    # 하루가 빠진다(주 6일·월 29일). 며칠 넉넉히 받아 실제로 온 날 중 최근 days 일을 쓴다.
-    fetch_start = end - timedelta(days=days - 1 + ASOS_PUBLISH_LAG_DAYS)
+    today = today_in_korea()
+    end = today - timedelta(days=1)
+    if period == "week":
+        # 어제 자료는 기상청이 다음 날 오전에야 올려서, 딱 7일만 요청하면 오전 동안은
+        # 6일만 그려진다. 며칠 넉넉히 받아 실제로 온 날 중 최근 7일을 쓴다.
+        fetch_start = end - timedelta(days=WEEK_DAYS - 1 + ASOS_PUBLISH_LAG_DAYS)
+    else:
+        # 월은 한 달 전 같은 날부터 — 9/28 이면 8/28 ~ 어제
+        fetch_start = _one_month_before(today)
 
     try:
         observations = asos.fetch_daily_series(stn_id, fetch_start, end)
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
-    observations = [o for o in observations if o.avg_temperature_c is not None][-days:]
+    observations = [o for o in observations if o.avg_temperature_c is not None]
+    if period == "week":
+        observations = observations[-WEEK_DAYS:]
     weather_points = [
         WeatherHistoryPoint(
             observed_at=observation.date.isoformat(),
@@ -2972,7 +2986,7 @@ def get_environment_history(
         for observation in observations
     ]
     # 대기질 기간도 실제로 그린 날씨 점에 맞춘다
-    start = observations[0].date if observations else end - timedelta(days=days - 1)
+    start = observations[0].date if observations else fetch_start
     if observations:
         end = observations[-1].date
     # 대기질도 DB 누적이 아니라 에어코리아를 라이브로 조회한다 — 날씨(ASOS)와 같은 이유.
@@ -3272,7 +3286,7 @@ def get_soil_history(
 
       day    오늘(한국 날짜)의 측정값을 그대로 — 기상청 초단기실황 시간별 계열과 같은 축
       week   오늘까지 7일, 하루 평균
-      month  오늘까지 30일, 하루 평균
+      month  한 달 전 같은 날부터 오늘까지, 하루 평균
 
     날씨 쪽 week/month 는 ASOS 일자료가 전일까지만 나와서 어제에서 끝나지만,
     토양은 우리 DB 라 오늘 것이 있다. 오늘을 빼면 센서를 갓 꽂은 사용자가
@@ -3300,9 +3314,11 @@ def get_soil_history(
             for row in rows
         ]
 
-    days = 7 if period == "week" else 30
     end_date = today_in_korea()
-    start_date = end_date - timedelta(days=days - 1)
+    if period == "week":
+        start_date = end_date - timedelta(days=WEEK_DAYS - 1)
+    else:
+        start_date = _one_month_before(end_date)
 
     rows = db.scalars(
         select(SoilReading)
