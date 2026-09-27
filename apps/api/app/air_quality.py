@@ -181,27 +181,19 @@ def fetch_realtime_measurements(station_name: str) -> list[AirQualityRecord]:
     return records
 
 
-_daily_cache: dict[tuple[str, date, date], tuple[float, list[DailyAirQualityObservation]]] = {}
+# 측정소별 한 달치 날짜별 평균 — 주/월 탭이 같은 원자료(dataTerm=MONTH)를 잘라 쓰므로
+# 기간이 아니라 측정소로 캐시한다. 기간 키로 두면 날짜가 바뀌거나 기간 계산을 고칠 때마다
+# 캐시가 비어 느린 원자료 조회를 다시 맞는다.
+_daily_cache: dict[str, tuple[float, list[DailyAirQualityObservation]]] = {}
+
+# MONTH 원자료(약 743행)는 보통 1~2초면 오지만 가끔 20초 넘게 응답이 없다. 앱의 요청 제한
+# (15초) 안에 날씨라도 먼저 돌려주려고 짧게 끊고, 실패하면 이전 캐시로 대신한다.
+DAILY_SERIES_REQUEST_TIMEOUT_SECONDS = 8
+MONTH_ROWS = 1000
 
 
-DAILY_SERIES_REQUEST_TIMEOUT_SECONDS = 15  # MONTH 구간은 페이로드가 커서 realtime 조회보다 오래 걸리고, 가끔 504도 난다
-
-
-def fetch_daily_series(station_name: str, start: date, end: date) -> list[DailyAirQualityObservation]:
-    """start~end(포함) 구간의 날짜별 평균 pm10/pm25. ASOS와 달리 에어코리아 실시간
-    측정 API는 일별 집계를 직접 안 주므로, dataTerm=MONTH로 시간별 원시값을 받아
-    날짜별로 묶어 평균 낸다. 주/월 탭 모두 30일 이내라 MONTH 한 번 조회로 충분하다."""
-    cache_key = (station_name, start, end)
-    cached = _daily_cache.get(cache_key)
-    if cached is not None:
-        cached_at, records = cached
-        if time.monotonic() - cached_at <= CACHE_TTL_SECONDS:
-            return records
-        del _daily_cache[cache_key]
-
-    # 필요한 구간만큼만 요청 — "주" 탭인데 굳이 한 달치(743행)를 다 받아올 필요는 없다.
-    num_of_rows = min(1000, ((end - start).days + 1) * 24 + 48)
-
+def _fetch_month_daily(station_name: str) -> list[DailyAirQualityObservation]:
+    """측정소의 최근 한 달 시간별 원시값을 받아 날짜별 평균으로 묶는다."""
     try:
         response = requests.get(
             REALTIME_URL,
@@ -211,7 +203,7 @@ def fetch_daily_series(station_name: str, start: date, end: date) -> list[DailyA
                 "stationName": station_name,
                 "dataTerm": "MONTH",
                 "ver": "1.3",
-                "numOfRows": num_of_rows,
+                "numOfRows": MONTH_ROWS,
                 "pageNo": 1,
             },
             timeout=DAILY_SERIES_REQUEST_TIMEOUT_SECONDS,
@@ -242,8 +234,6 @@ def fetch_daily_series(station_name: str, start: date, end: date) -> list[DailyA
             obs_date = datetime.strptime(raw_time, "%Y-%m-%d %H:%M").date()
         except ValueError:
             continue
-        if obs_date < start or obs_date > end:
-            continue
         pm10_value = _to_float(item.get("pm10Value"))
         pm25_value = _to_float(item.get("pm25Value"))
         if pm10_value is not None:
@@ -252,7 +242,7 @@ def fetch_daily_series(station_name: str, start: date, end: date) -> list[DailyA
             pm25_by_date[obs_date].append(pm25_value)
 
     all_dates = sorted(set(pm10_by_date) | set(pm25_by_date))
-    records = [
+    return [
         DailyAirQualityObservation(
             date=d,
             avg_pm10=sum(pm10_by_date[d]) / len(pm10_by_date[d]) if d in pm10_by_date else None,
@@ -261,5 +251,22 @@ def fetch_daily_series(station_name: str, start: date, end: date) -> list[DailyA
         for d in all_dates
     ]
 
-    _daily_cache[cache_key] = (time.monotonic(), records)
-    return records
+
+def fetch_daily_series(station_name: str, start: date, end: date) -> list[DailyAirQualityObservation]:
+    """start~end(포함) 구간의 날짜별 평균 pm10/pm25. ASOS와 달리 에어코리아 실시간
+    측정 API는 일별 집계를 직접 안 주므로, dataTerm=MONTH로 시간별 원시값을 받아
+    날짜별로 묶어 평균 낸다. 주/월 탭 모두 한 달 이내라 MONTH 한 번 조회로 충분하다."""
+    cached = _daily_cache.get(station_name)
+    if cached is not None and time.monotonic() - cached[0] <= CACHE_TTL_SECONDS:
+        records = cached[1]
+    else:
+        try:
+            records = _fetch_month_daily(station_name)
+        except AirQualityFetchError:
+            if cached is None:
+                raise
+            records = cached[1]  # 에어코리아가 느리거나 실패하면 지난 캐시로 대신한다
+        else:
+            _daily_cache[station_name] = (time.monotonic(), records)
+
+    return [r for r in records if start <= r.date <= end]
