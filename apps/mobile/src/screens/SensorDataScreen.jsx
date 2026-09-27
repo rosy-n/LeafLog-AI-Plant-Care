@@ -93,8 +93,9 @@ function rateValue(value, min, max) {
 // ─── Chart ──────────────────────────────────────────────────────────────────
 
 const CHART_H = 210;
-const PAD_L = 42;
-const PAD_R = 38;
+// 좌우 눈금 칸을 같은 폭으로 둬야 그래프가 카드 가운데에 놓인다
+const PAD_L = 32;
+const PAD_R = 32;
 const PAD_T = 14;
 const PAD_B = 28;
 const PLOT_H = CHART_H - PAD_T - PAD_B;
@@ -170,7 +171,9 @@ const SCRUB_TOOLTIP_W = 124;
     onScrubChange 로 부모에 알린다.
 */
 function LineChart({ tempData, humidityData, soilData, timestamps, periodKey, rawPoints, onScrubChange }) {
-    const chartWidth = SCREEN_WIDTH - 40;
+    // 그래프 폭은 카드 안쪽 실제 폭을 재서 쓴다 — 화면 폭으로 어림하면 카드 여백만큼 넘쳐
+    // 오른쪽으로 쏠리고 습도 눈금이 잘린다. 첫 프레임은 화면 여백·카드 여백을 뺀 어림값.
+    const [chartWidth, setChartWidth] = useState(SCREEN_WIDTH - 40 - Spacing.lg * 2);
     const plotWidth = chartWidth - PAD_L - PAD_R;
     const n = tempData.length;
     const [activeIdx, setActiveIdx] = useState(null);
@@ -213,7 +216,11 @@ function LineChart({ tempData, humidityData, soilData, timestamps, periodKey, ra
     const labelIdx = pickLabelIndices(n);
 
     return (
-        <View style={{ width: chartWidth, height: CHART_H }} {...responder.panHandlers}>
+        <View
+            style={styles.chartTouchArea}
+            onLayout={(e) => setChartWidth(e.nativeEvent.layout.width)}
+            {...responder.panHandlers}
+        >
         {/* 터치 좌표(locationX)가 늘 바깥 View 기준이 되도록 그림은 터치를 받지 않는다 */}
         <View pointerEvents="none">
         <Svg width={chartWidth} height={CHART_H}>
@@ -872,6 +879,11 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.neoDunggeunmo,
         fontSize: FontSizes.caption,
         color: Colors.textBlack,
+    },
+    // 그래프를 짚는 영역 — 카드 안쪽 폭을 다 쓴다 (폭은 onLayout 으로 재서 그래프에 넘긴다)
+    chartTouchArea: {
+        alignSelf: "stretch",
+        height: CHART_H,
     },
     yAxisLabelRow: {
         flexDirection: "row",
