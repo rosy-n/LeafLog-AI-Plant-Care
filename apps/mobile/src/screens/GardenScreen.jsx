@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { updatePlant } from "../api";
 import PlantImage from "../components/PlantImage";
+import GardenGenerationCard from "../components/GardenGenerationCard";
 import HeartsRow from "../components/HeartsRow";
 import LiquidGlassButton from "../components/LiquidGlassButton";
 import { Fonts, FontSizes } from "../../constants/fonts";
@@ -26,6 +27,9 @@ import { getPlantExpressionSource } from "../data/characterExpressions";
 import { accessorySpriteBundle } from "../data/decor";
 import { useTutorial, TutorialBubbleGroup, TutorialNextButton, TutorialSkipButton } from "../TutorialContext";
 import { TUTORIAL_DEMO_GARDEN_PLANTS } from "../data/tutorialDemoPlant";
+import { useAddPlantFlow } from "../AddPlantFlowContext";
+import { registrationResumeScreen } from "../registrationStorage";
+import { registrationProgressView } from "../registrationProgress";
 
 // 튜토리얼 정원탭에 뜨는 스파 크기 — 홈화면(280)보다 살짝 작게
 const TUTORIAL_SPA_SIZE = 190;
@@ -124,6 +128,17 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
     const [displayPlants, setDisplayPlants] = useState(() =>
         applySortFilter(plants, "favorite", "")
     );
+
+    /* 생성 중인 등록이 있으면 목록 맨 끝에 한 칸을 더 보여준다. 등록이 끝나면(createdPlantId)
+       실제 개체 카드가 그 자리를 대신하므로 사라진다. */
+    const { draft, generation } = useAddPlantFlow();
+    const progressView = registrationProgressView(draft, generation);
+    const pendingCard = progressView && sortKey !== "memorial" ? {
+        id: `pending-${progressView.jobId}`,
+        pendingRegistration: true,
+        progress: progressView,
+    } : null;
+    const listData = pendingCard ? [...displayPlants, pendingCard] : displayPlants;
 
     const isFirstFocusRef = useRef(true);
 
@@ -355,7 +370,7 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
 
                 <FlatList
                     style={{ flex: 1 }}
-                    data={isTutorialGardenStep ? TUTORIAL_DEMO_GARDEN_PLANTS : displayPlants}
+                    data={isTutorialGardenStep ? TUTORIAL_DEMO_GARDEN_PLANTS : listData}
                     keyExtractor={(item) => item.id}
                     numColumns={3}
                     showsVerticalScrollIndicator={false}
@@ -371,6 +386,25 @@ export default function GardenScreen({ navigation, plants, setPlants, username, 
                         </View>
                     }
                     renderItem={({ item }) => {
+                        /* 생성 중인 개체가 들어올 자리 — 알림을 놓쳐도 여기서 이어서 진행한다. */
+                        if (item.pendingRegistration) {
+                            return (
+                                <View style={[styles.card, styles.pendingCard]}>
+                                    <GardenGenerationCard
+                                        progress={item.progress}
+                                        onPress={() => {
+                                            if (tutorial.active) return;
+                                            const screen = registrationResumeScreen(draft);
+                                            navigation.navigate("AddPlant", {
+                                                screen,
+                                                params: screen === "CharacterResult"
+                                                    ? { resumeGeneration: "true" } : undefined,
+                                            });
+                                        }}
+                                    />
+                                </View>
+                            );
+                        }
                         const accessory = decorations[String(item.id)]?.accessory ?? null;
                         return (
                             <View style={styles.card}>
@@ -661,6 +695,11 @@ const styles = StyleSheet.create({
         width: "33.333%",
         alignItems: "center",
         marginBottom: Spacing.section,
+    },
+    pendingCard: {
+        paddingHorizontal: Spacing.xs,
+        // 식물 이미지의 투명 여백과 아래 이름 영역을 고려해 중심을 맞춘다.
+        paddingTop: Spacing.lg,
     },
     // 물 줄 때가 지난 개체 배지 — 캐릭터 이미지 우상단
     wateringBadge: {

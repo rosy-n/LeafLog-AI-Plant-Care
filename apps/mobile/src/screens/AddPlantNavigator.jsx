@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +14,10 @@ import CharacterScreen      from '../../app/add-plant/character';
 import NameScreen           from '../../app/add-plant/name';
 import InfoScreen           from '../../app/add-plant/info';
 import PersonaScreen        from '../../app/add-plant/persona';
+import { useAddPlantFlow } from '../AddPlantFlowContext';
+import { registrationResumeScreen } from '../registrationStorage';
+import { useRouter } from '../hooks/useAddPlantRouter';
+import { ensureNotificationPermission } from '../notifications';
 
 import BackButton from '../components/BackButton';
 import { Colors } from '../../constants/colors';
@@ -40,6 +45,8 @@ function AddPlantHeader() {
   const route      = useRoute();
   const { top }    = useSafeAreaInsets();
   const step       = STEP_MAP[route.name] ?? 1;
+  const { draft, backgroundGeneration } = useAddPlantFlow();
+  const router = useRouter();
 
   return (
     <View style={[styles.header, { paddingTop: top }]}>
@@ -52,14 +59,29 @@ function AddPlantHeader() {
       </View>
 
       <Text style={styles.stepLabel}>{step}/{TOTAL}</Text>
+      {draft.generationJobId && !draft.createdPlantId ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="저장하고 나가기"
+          onPress={() => {
+            backgroundGeneration();
+            router.leaveToHome();
+            ensureNotificationPermission().catch(() => {});
+          }}
+          style={styles.closeBtn}
+        >
+          <Ionicons name="close" size={22} color={Colors.primary} />
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
 
 export default function AddPlantNavigator() {
+  const { draft } = useAddPlantFlow();
   return (
     <Stack.Navigator
-      initialRouteName="Character"
+      initialRouteName={registrationResumeScreen(draft)}
       /*
         gestureEnabled: 좌→우 스와이프로 되돌아가는 제스처(iOS)를 끈다.
         단계가 정해진 등록 흐름이라 뒤로가기는 헤더 버튼으로만 받는다
@@ -78,7 +100,7 @@ export default function AddPlantNavigator() {
       <Stack.Screen name="PlantResults"        component={PlantResultsScreen} />
       <Stack.Screen name="AddPlantPlantDetail" component={AddPlantPlantDetail} />
       <Stack.Screen name="Info"                component={InfoScreen} />
-      <Stack.Screen name="CharacterResult"     component={CharacterScreen} />
+      <Stack.Screen name="CharacterResult"     component={CharacterScreen} initialParams={{ resumeGeneration: 'true' }} />
       <Stack.Screen name="Name"                component={NameScreen} />
       <Stack.Screen name="Persona"             component={PersonaScreen} />
     </Stack.Navigator>
@@ -86,6 +108,7 @@ export default function AddPlantNavigator() {
 }
 
 const styles = StyleSheet.create({
+  closeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   header: {
     backgroundColor: Colors.background,
     flexDirection: 'row',

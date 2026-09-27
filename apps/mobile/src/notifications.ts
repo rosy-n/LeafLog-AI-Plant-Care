@@ -206,8 +206,13 @@ export async function syncWateringReminders(): Promise<WateringSyncResult> {
  * 돌아가는 동작은 App.js의 알림 응답 리스너가 처리한다(kind: "CHARACTER_READY").
  * 권한이 없으면 조용히 넘어간다 — 사용자가 직접 앱으로 돌아와 확인할 수 있다.
  */
-export async function notifyCharacterGenerationReady(success: boolean): Promise<void> {
-  if (!(await ensureNotificationPermission())) return;
+export async function notifyCharacterGenerationReady(
+  success: boolean,
+  identity: { jobId: string; scope: string },
+): Promise<void> {
+  // Background polling must not open a permission dialog. Ask before leaving the screen.
+  if (!(await Notifications.getPermissionsAsync()).granted) return;
+  await prepareNotifications();
 
   await Notifications.scheduleNotificationAsync({
     content: {
@@ -215,7 +220,7 @@ export async function notifyCharacterGenerationReady(success: boolean): Promise<
       body: success
         ? "눌러서 마음에 드는 친구를 골라주세요."
         : "눌러서 등록 화면으로 돌아가 다시 시도해주세요.",
-      data: { kind: "CHARACTER_READY" },
+      data: { kind: "CHARACTER_READY", ...identity },
     },
     trigger:
       Platform.OS === "android"

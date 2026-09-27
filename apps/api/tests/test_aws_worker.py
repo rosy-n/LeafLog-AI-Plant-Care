@@ -805,6 +805,46 @@ class BoundaryTests(unittest.TestCase):
                                    json={"model": MODEL_NAME, "messages": [{"role": "user", "content": "hi"}]})
         self.assertEqual(response.status_code, 502)
 
+    def test_heic_limits_are_checked_before_decoding_or_uploading(self):
+        from app import image_formats
+        buffer = io.BytesIO()
+        Image.new("RGB", (640, 480), "green").save(buffer, format="HEIF")
+        service = jobs.CharacterJobService(session_factory=Mock(), s3=FakeS3(), sqs=FakeSQS())
+        with patch.object(image_formats, "MAX_IMAGE_PIXELS", 100_000), \
+             patch.object(image_formats.ImageOps, "exif_transpose") as decode, \
+             patch.object(jobs, "require_generation_enabled"):
+            with self.assertRaises(HTTPException) as caught:
+                service.create_job(1, buffer.getvalue())
+        self.assertEqual(caught.exception.status_code, 413)
+        decode.assert_not_called()
+        service.sessions.assert_not_called()
+        self.assertFalse(service.s3.objects)
+
+    def test_heic_byte_limit_is_checked_before_opening(self):
+        from app import image_formats
+        with patch.object(image_formats, "MAX_IMAGE_BYTES", 5), \
+             patch.object(image_formats.Image, "open") as opened:
+            with self.assertRaises(image_formats.ImageInputLimitError):
+                image_formats.heif_to_jpeg(b"123456")
+        opened.assert_not_called()
+
+    def test_diagnosis_image_limits_precede_full_decode(self):
+        from app import diagnosis, image_formats
+        with patch.object(image_formats, "MAX_IMAGE_PIXELS", 100_000), \
+             patch.object(image_formats.ImageOps, "exif_transpose") as decode:
+            with self.assertRaises(image_formats.ImageInputLimitError):
+                diagnosis.model_image_jpeg(png(size=640))
+        decode.assert_not_called()
+
+    def test_multi_frame_heic_is_rejected_before_conversion(self):
+        from app import image_formats
+        opened = Mock(format="HEIF", width=640, height=480, n_frames=2)
+        with patch.object(image_formats.Image, "open", return_value=nullcontext(opened)), \
+             patch.object(image_formats.ImageOps, "exif_transpose") as decode:
+            with self.assertRaises(image_formats.ImageInputLimitError):
+                image_formats.heif_to_jpeg(b"heic")
+        decode.assert_not_called()
+
     def test_remote_busy_is_clear_and_does_not_leak_response(self):
         with patch.object(inference_client.requests, "post", return_value=Mock(status_code=503)):
             with self.assertRaises(inference_client.InferenceUnavailable):

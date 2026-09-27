@@ -257,6 +257,18 @@ export const styles = StyleSheet.create({
     color: Colors.primary,
     textDecorationLine: 'underline',
   },
+  giveUpBtn: {
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    alignItems: 'center',
+  },
+  giveUpBtnText: {
+    fontFamily: Fonts.neoDunggeunmo,
+    fontSize: FontSizes.small,
+    color: Colors.textGray,
+    textDecorationLine: 'underline',
+  },
+
 
   // ── Result (후보 3종 선택) ──────────────────────────────────────────────────
 

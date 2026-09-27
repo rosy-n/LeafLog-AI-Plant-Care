@@ -31,7 +31,8 @@ export default function NameScreen() {
   const characterSource = draft.characterImageUrl
     ? { uri: draft.characterImageUrl }
     : getCharacterImageSource(draft.characterId ?? undefined);
-  const [nickname, setNickname] = useState('');
+  const nickname = draft.nickname ?? '';
+  const setNickname = (value: string) => updateDraft({ nickname: value });
   const scrollRef = useRef<ScrollView>(null);
   const [kbHeight, setKbHeight] = useState(0);
 

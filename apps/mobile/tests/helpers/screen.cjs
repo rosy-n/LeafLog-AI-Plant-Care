@@ -14,6 +14,7 @@ function screen(relativePath, imports = {}, globals = {}) {
   let timerId = 0;
   const same = (a, b) => a && b && a.length === b.length && a.every((v, i) => Object.is(v, b[i]));
   const react = {
+    createContext: () => ({ Provider: 'Provider' }),
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
     useState(initial) {
       const i = cursor++;
@@ -44,6 +45,7 @@ function screen(relativePath, imports = {}, globals = {}) {
     },
   };
   const alerts = [];
+  const appStateListeners = new Set();
   const native = Object.fromEntries([
     'View', 'Text', 'TextInput', 'Image', 'ScrollView', 'TouchableOpacity', 'Pressable',
     'KeyboardAvoidingView', 'ActivityIndicator', 'StatusBar', 'Modal',
@@ -56,7 +58,10 @@ function screen(relativePath, imports = {}, globals = {}) {
       Value: class { setValue() {} interpolate() { return 0; } },
       timing: () => ({ start() {} }),
     },
-    AppState: { addEventListener: () => ({ remove() {} }) },
+    AppState: { currentState: 'active', addEventListener: (_event, fn) => {
+      appStateListeners.add(fn);
+      return { remove() { appStateListeners.delete(fn); } };
+    } },
   });
   const defaults = {
     react: { __esModule: true, default: react, ...react },
@@ -69,7 +74,7 @@ function screen(relativePath, imports = {}, globals = {}) {
         return () => { effect.cleanup?.(); focusEffects.delete(effect); };
       }, [fn]),
     },
-    'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
+    'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView', useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }) },
     /*
       예열 캐시(src/prefetch.ts)는 "캐시가 비어 있는 상태"로 세워 둔다 —
       peek 은 늘 undefined 를, revalidate 는 넘겨받은 조회를 그대로 실행한다.
@@ -97,7 +102,7 @@ function screen(relativePath, imports = {}, globals = {}) {
   };
   const module = { exports: {} };
   vm.runInNewContext(outputText, {
-    module, exports: module.exports, console,
+    module, exports: module.exports, console, AbortController,
     setTimeout(fn, delay) { timers.set(++timerId, { fn, delay }); return timerId; },
     clearTimeout(id) { timers.delete(id); },
     ...globals,
@@ -110,9 +115,9 @@ function screen(relativePath, imports = {}, globals = {}) {
   }, { filename });
   return {
     alerts, timers, native, exports: module.exports,
-    render(props = {}) {
+    render(props = {}, exportName = 'default') {
       cursor = 0;
-      const tree = module.exports.default(props);
+      const tree = module.exports[exportName](props);
       pending.splice(0).forEach((fn) => fn());
       return tree;
     },
@@ -125,6 +130,7 @@ function screen(relativePath, imports = {}, globals = {}) {
     dispose() { hooks.forEach((hook) => hook?.cleanup?.()); },
     blur() { focusEffects.forEach((effect) => { effect.cleanup?.(); effect.cleanup = undefined; }); },
     focus() { focusEffects.forEach((effect) => { effect.cleanup = effect.fn(); }); },
+    setAppState(state) { native.AppState.currentState = state; appStateListeners.forEach(fn => fn(state)); },
   };
 }
 

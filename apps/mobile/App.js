@@ -3,6 +3,7 @@ import { AppState, Image } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import * as Notifications from "expo-notifications";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 
 import HomeScreen from "./src/screens/HomeScreen";
 import GardenScreen from "./src/screens/GardenScreen";
@@ -23,46 +24,28 @@ import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
 import MemorialPlantScreen from "./src/screens/MemorialPlantScreen";
 import AddPlantNavigator from "./src/screens/AddPlantNavigator";
-import { getItems, getPlants } from "./src/api";
+import { getItems, getPlants, registrationScope } from "./src/api";
 import { cacheKeys, revalidate, warmUpAll } from "./src/prefetch";
 import { DEFAULT_BACKGROUND_KEY } from "./src/data/decor";
 import { syncWateringReminders } from "./src/notifications";
 import { buildCareNotices } from "./src/careNotices";
 import { BackgroundMusicProvider } from "./src/backgroundMusic";
 import { AddPlantFlowProvider, useAddPlantFlow } from "./src/AddPlantFlowContext";
+import RegistrationNotificationListener from "./src/RegistrationNotificationListener";
+import GenerationStatusBar from "./src/GenerationStatusBar";
 import {
     TutorialProvider,
     TutorialBubbleOverlay,
     TutorialCompletionToast,
-    useTutorial,
 } from "./src/TutorialContext";
 
-/*
-    AddPlant 화면이 루트 스택에서 빠질 때(취소든 등록 완료든) draft를 초기화한다.
-    Provider가 이제 NavigationContainer 바깥(앱 최상위)에 있어 화면 unmount로는 더 이상
-    자동 초기화되지 않기 때문에 필요하다.
-
-    단, 아래 두 경우엔 구조적으로 같은 "AddPlant가 스택에서 빠지는" 이벤트라도
-    초기화를 건너뛴다 — 둘 다 등록을 끝내거나 취소하는 게 아니라 잠시 다른 화면을
-    보러 나가는 것뿐이라, 돌아왔을 때 진행 중이던 생성 작업(generationJobId)이
-    남아있어야 한다.
-      - tutorial.active: 튜토리얼이 "홈 둘러보기"를 위해 일부러 빼낼 때
-      - draft.generationBackgrounded: 캐릭터 생성 대기 화면에서 "나중에 확인할게요"로
-        스스로 나갈 때 (character.tsx handleBackground)
-*/
+// 화면을 닫는 것과 등록을 포기하는 것은 다르다. 접수된 작업은 계속 보관한다.
 function AddPlantScreenWrapper({ navigation }) {
-    const { draft, resetDraft } = useAddPlantFlow();
-    const tutorial = useTutorial();
-    const tutorialActiveRef = useRef(tutorial.active);
-    tutorialActiveRef.current = tutorial.active;
-    const generationBackgroundedRef = useRef(draft.generationBackgrounded);
-    generationBackgroundedRef.current = draft.generationBackgrounded;
+    const { handleRegistrationExit } = useAddPlantFlow();
 
     useEffect(() => {
-        return navigation.addListener("beforeRemove", () => {
-            if (!tutorialActiveRef.current && !generationBackgroundedRef.current) resetDraft();
-        });
-    }, [navigation, resetDraft]);
+        return navigation.addListener("beforeRemove", handleRegistrationExit);
+    }, [navigation, handleRegistrationExit]);
 
     return <AddPlantNavigator />;
 }
@@ -122,6 +105,10 @@ function MainAppContent({ user, onLogout }) {
 
     // 알림 탭 처리에 필요 — 리스너는 한 번만 등록하므로 최신 값을 ref 로 참조한다
     const navigationRef = useRef(null);
+    // 등록 화면 안에서는 대기 화면이 같은 진행 상황을 보여주므로 하단 알림을 숨긴다.
+    const [activeRootRoute, setActiveRootRoute] = useState(null);
+    const [navigationReady, setNavigationReady] = useState(false);
+    const draftScope = registrationScope(user.id);
     const plantsRef = useRef(plants);
     useEffect(() => {
         plantsRef.current = plants;
@@ -239,18 +226,11 @@ function MainAppContent({ user, onLogout }) {
         return () => sub.remove();
     }, []);
 
-    // 알림을 누르면 해당 개체 화면으로, 캐릭터 생성 완료 알림이면 등록 화면의
-    // 결과 단계(CharacterResult)로 이동 — 진행 중이던 작업(generationJobId)은
-    // AddPlantFlowProvider의 draft에 남아있으므로(AddPlantScreenWrapper 참고)
-    // 그 화면이 다시 마운트되면 완료된 job을 곧바로 불러와 후보 3개를 보여준다.
+    // 물주기 알림. 생성 알림은 계정·작업 번호를 검증하는 별도 리스너에서 처리한다.
     useEffect(() => {
         const sub = Notifications.addNotificationResponseReceivedListener((response) => {
             const data = response.notification.request.content.data;
             if (data?.kind === "CHARACTER_READY") {
-                navigationRef.current?.navigate("AddPlant", {
-                    screen: "CharacterResult",
-                    params: { resumeGeneration: "true" },
-                });
                 return;
             }
             const plantId = data?.plantId;
@@ -262,9 +242,13 @@ function MainAppContent({ user, onLogout }) {
     }, []);
 
     return (
-        <AddPlantFlowProvider isFirstPlant={plants.length === 0}>
+        <AddPlantFlowProvider key={draftScope} scope={draftScope} isFirstPlant={plants.length === 0}>
             <TutorialProvider navigationRef={navigationRef}>
-                <NavigationContainer ref={navigationRef}>
+                <NavigationContainer
+                    ref={navigationRef}
+                    onReady={() => setNavigationReady(true)}
+                    onStateChange={(state) => setActiveRootRoute(state?.routes?.[state.index ?? 0]?.name ?? null)}
+                >
                     <Stack.Navigator
                         id="MainStack"
                         initialRouteName="Home"
@@ -465,6 +449,11 @@ function MainAppContent({ user, onLogout }) {
                 <TutorialBubbleOverlay />
                 <TutorialCompletionToast />
             </TutorialProvider>
+            <RegistrationNotificationListener navigationRef={navigationRef} ready={navigationReady} />
+            <GenerationStatusBar
+                navigation={navigationReady ? navigationRef.current : null}
+                hidden={!navigationReady || activeRootRoute === "AddPlant"}
+            />
         </AddPlantFlowProvider>
     );
 }
@@ -476,8 +465,10 @@ function MainAppContent({ user, onLogout }) {
 */
 export default function MainApp(props) {
     return (
-        <BackgroundMusicProvider>
-            <MainAppContent {...props} />
-        </BackgroundMusicProvider>
+        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+            <BackgroundMusicProvider>
+                <MainAppContent {...props} />
+            </BackgroundMusicProvider>
+        </SafeAreaProvider>
     );
 }

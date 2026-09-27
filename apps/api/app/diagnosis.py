@@ -657,10 +657,16 @@ def model_image_jpeg(image_bytes: bytes) -> bytes:
     PIL로 열리는 사진이면 방향(EXIF)을 바로잡아 JPEG로 바꾸고, 긴 변을 줄여 전송량도 줄인다.
     원본 사진 저장(상담 기록)은 호출부가 따로 하므로 여기서 바꾸는 건 모델 입력뿐이다.
     """
+    image_formats.check_image_bytes(image_bytes)
     try:
         with Image.open(io.BytesIO(image_bytes)) as opened:
+            image_formats.check_image_dimensions(opened)
             image = ImageOps.exif_transpose(opened).convert("RGB")
-    except (OSError, ValueError, Image.DecompressionBombError) as exc:
+    except image_formats.ImageInputLimitError:
+        raise
+    except Image.DecompressionBombError as exc:
+        raise image_formats.ImageInputLimitError("사진 해상도가 너무 커요. 크기를 줄여 다시 올려주세요.") from exc
+    except (OSError, ValueError) as exc:
         raise UnsupportedDiagnosisImage("사진을 읽을 수 없어요. JPG, PNG, WebP, HEIC 사진으로 다시 시도해주세요.") from exc
     image.thumbnail((MODEL_IMAGE_MAX_SIDE, MODEL_IMAGE_MAX_SIDE))
     buffer = io.BytesIO()
