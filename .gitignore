@@ -70,3 +70,6 @@ apps/api/generated/
 
 # 펌웨어 기기 토큰·WiFi 비밀번호 (secrets.example.h 를 복사해서 만든다)
 apps/firmware/**/secrets.h
+
+# Claude Code personal settings
+**/.claude/settings.local.json
