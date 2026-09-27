@@ -207,9 +207,17 @@ function noteFontSize(text: string): number {
     return FontSizes.caption;
 }
 
-// 그날 일지에 함께 세워둘 개체를 랜덤으로 하나 고른다. 리렌더(타이핑 등)마다
-// 캐릭터가 바뀌지 않도록 날짜 문자열을 시드로 쓴 고정 랜덤이다.
-function pickBuddy(dateStr: string, plants: Plant[]): Plant | null {
+/*
+    그날 일지에 함께 세워둘 개체.
+    사진에 라벨을 붙였으면 그 개체 — 둘 다 붙였으면 위쪽 사진 쪽이다.
+    라벨이 없으면 랜덤으로 하나 고르되, 리렌더(타이핑 등)마다 캐릭터가
+    바뀌지 않도록 날짜 문자열을 시드로 쓴 고정 랜덤이다.
+*/
+function pickBuddy(dateStr: string, plants: Plant[], slots: PhotoSlot[]): Plant | null {
+    for (const slot of slots) {
+        const tagged = slot.plantId && plants.find(p => p.id === slot.plantId);
+        if (tagged) return tagged;
+    }
     if (plants.length === 0) return null;
     let h = 7;
     for (let i = 0; i < dateStr.length; i++) h = (h * 31 + dateStr.charCodeAt(i)) % 9973;
@@ -489,7 +497,7 @@ export default function CalendarScreen({
 
     const wateredChars    = plantsByIds(care?.wateredPlants ?? [], alivePlants);
     const fertilizedChars = plantsByIds(care?.fertilizedPlants ?? [], alivePlants);
-    const buddy           = selected ? pickBuddy(selected, alivePlants) : null;
+    const buddy           = selected ? pickBuddy(selected, alivePlants, slots) : null;
 
     function selectDate(dateStr: string | null) {
         if (!dateStr) return;
@@ -899,7 +907,7 @@ export default function CalendarScreen({
                                         />
                                     </Pressable>
 
-                                    {/* ⑤ 좌측 — 왼쪽으로 15도 기운 틀 + ⑦ 오른쪽에 랜덤 개체 */}
+                                    {/* ⑤ 좌측 — 왼쪽으로 15도 기운 틀 + ⑦ 오른쪽에 라벨 붙인 개체(없으면 랜덤) */}
                                     {showLowerFrame ? (
                                         <View style={styles.frameRowLeft}>
                                             <View style={styles.lowerFrameWrap}>
