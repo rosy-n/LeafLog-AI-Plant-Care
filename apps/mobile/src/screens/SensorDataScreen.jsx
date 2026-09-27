@@ -430,7 +430,6 @@ export default function SensorDataScreen({ navigation, route, decorations = {}, 
     const avgLabel = period === "일" ? "오늘 평균" : period === "주" ? "이번 주 평균" : "이번 달 평균";
 
     const comfortTags = classifyComfortTags(avgTemp, avgHumidity, plantDetail, soilStatus);
-    const comfortTagsWrap = comfortTags && comfortTags.length === 3;
     const tempRating = rateValue(avgTemp, plantDetail?.temp_min_c, plantDetail?.temp_max_c);
     const humidityRating = rateValue(avgHumidity, plantDetail?.humidity_min_pct, plantDetail?.humidity_max_pct);
 
@@ -552,31 +551,27 @@ export default function SensorDataScreen({ navigation, route, decorations = {}, 
                                         width={48}
                                         height={48}
                                     />
-                                    <Text style={[styles.cardTitle, styles.summaryTitleText]}>{summaryTitle}</Text>
-                                    {comfortTags && !comfortTagsWrap && comfortTags.map((tag, idx) => (
-                                        <View
-                                            key={idx}
-                                            style={[styles.conditionBoxInline, { backgroundColor: tag.bg, borderColor: tag.border }]}
-                                        >
-                                            <Text style={styles.conditionBoxEmoji}>{tag.emoji}</Text>
-                                            <Text style={[styles.conditionBoxText, { color: tag.color }]}>{tag.text}</Text>
+                                    <Text
+                                        style={[styles.cardTitle, styles.summaryTitleText]}
+                                        numberOfLines={1}
+                                    >
+                                        {summaryTitle}
+                                    </Text>
+                                    {/* 태그는 작은 칩으로 줄여 제목 오른쪽에 나란히 — 제목이 칩 폭을 빼앗기지 않게 칩을 줄였다 */}
+                                    {comfortTags && (
+                                        <View style={styles.conditionStack}>
+                                            {comfortTags.map((tag, idx) => (
+                                                <View
+                                                    key={idx}
+                                                    style={[styles.conditionBoxInline, { backgroundColor: tag.bg, borderColor: tag.border }]}
+                                                >
+                                                    <Text style={styles.conditionBoxEmoji}>{tag.emoji}</Text>
+                                                    <Text style={[styles.conditionBoxText, { color: tag.color }]}>{tag.text}</Text>
+                                                </View>
+                                            ))}
                                         </View>
-                                    ))}
+                                    )}
                                 </View>
-                                {/* 태그가 3개(최대치)면 헤더 옆이 아니라 아래 별도 행에 나열 */}
-                                {comfortTagsWrap && (
-                                    <View style={styles.conditionRowWrap}>
-                                        {comfortTags.map((tag, idx) => (
-                                            <View
-                                                key={idx}
-                                                style={[styles.conditionBoxInline, { backgroundColor: tag.bg, borderColor: tag.border }]}
-                                            >
-                                                <Text style={styles.conditionBoxEmoji}>{tag.emoji}</Text>
-                                                <Text style={[styles.conditionBoxText, { color: tag.color }]}>{tag.text}</Text>
-                                            </View>
-                                        ))}
-                                    </View>
-                                )}
                                 {!comfortTags && (
                                     <Text style={styles.emptyText}>
                                         {plant?.id
@@ -787,35 +782,33 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: Spacing.md,
     },
-    // 제목이 남는 폭을 다 차지해서, 총평 태그가 자연스럽게 오른쪽 끝에 붙는다
+    // 캐릭터 옆 남는 폭을 다 쓰고, 이름이 길면 한 줄에서 말줄임
     summaryTitleText: {
         flex: 1,
     },
-    // 총평 헤더 한 줄에 같이 들어가는 압축된 버전 — flex:1로 늘어나지 않고 내용만큼만.
-    // marginRight로 카드 오른쪽 테두리에 바짝 붙지 않게 여백을 둔다.
+    // 총평 태그 묶음 — 헤더 오른쪽 끝에 가로로 나란히, 3개라 넘치면 다음 줄로
+    conditionStack: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "flex-end",
+        gap: Spacing.xxs,
+    },
+    // 총평 태그 한 개 — 제목 옆에 붙을 수 있게 작게 줄인 칩
     conditionBoxInline: {
         flexDirection: "row",
         alignItems: "center",
-        borderRadius: Radius.lg,
+        borderRadius: Radius.md,
         borderWidth: 1,
-        paddingVertical: Spacing.xs,
-        paddingHorizontal: Spacing.sm,
-        marginRight: Spacing.xs,
-        gap: Spacing.xs,
-    },
-    // 태그가 3개(최대치)라 헤더 옆에 다 못 넣을 때, 헤더 아래 별도 행에 나열
-    conditionRowWrap: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: Spacing.xs,
-        marginTop: Spacing.sm,
+        paddingVertical: Spacing.xxs,
+        paddingHorizontal: Spacing.xs,
+        gap: Spacing.xxs,
     },
     conditionBoxEmoji: {
-        fontSize: FontSizes.body,
+        fontSize: FontSizes.small,
     },
     conditionBoxText: {
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.small,
+        fontSize: FontSizes.caption,
         color: Colors.textBlack,
     },
 
