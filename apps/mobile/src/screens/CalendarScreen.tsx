@@ -37,8 +37,8 @@ import {
     type DiaryPhotoWrite,
 } from "../api";
 import { cacheKeys, peek, revalidate } from "../prefetch";
-// 캐릭터 이미지 fallback — PlantImage 와 같은 출처
-import { plantImages } from "../data/plants";
+import PlantImage from "../components/PlantImage";
+import { getPlantExpressionSource } from "../data/characterExpressions";
 
 const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 const DOW_KO    = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
@@ -53,6 +53,11 @@ type Plant = {
     imageUri?: string | null;
     imageKey?: string;
     memorial?: boolean;
+    // 표정 합성용 — 얼굴을 지운 캐릭터면 PlantImage 가 표정을 얹는다
+    characterFaceRemoved?: boolean;
+    characterFaceBounds?: [number, number, number, number] | null;
+    status?: string;
+    daysUntilWatering?: number | null;
 };
 
 // 하루치 돌봄 기록 — 그날 물/영양제를 받은 개체 id. 서버 기록에서 채운다.
@@ -189,13 +194,18 @@ function plantsByIds(ids: string[], plants: Plant[]): Plant[] {
         .filter((p): p is Plant => !!p);
 }
 
-// 캐릭터 이미지 해석은 PlantImage 와 같은 규칙 — S3 URL 이 있으면 원격, 없으면 번들
-// (plantImages 는 JS 모듈이라 키 타입이 리터럴로 좁혀져 있어서 문자열 조회로 넓힌다)
-const BUNDLED_PLANT_IMAGES = plantImages as Record<string, any>;
-
-function plantSource(plant: Plant) {
-    if (plant.imageUri) return { uri: plant.imageUri };
-    return BUNDLED_PLANT_IMAGES[plant.imageKey ?? "spaghetti"];
+// 캐릭터 — 정원·홈과 같이 PlantImage 로 그려서, 얼굴을 지운 캐릭터에는 지금 상태의 표정을 얹는다
+function PlantCharacter({ plant, size }: { plant: Plant; size: number }) {
+    return (
+        <PlantImage
+            uri={plant.imageUri ?? null}
+            imageKey={plant.imageKey}
+            expressionSource={plant.characterFaceRemoved ? getPlantExpressionSource(plant) : null}
+            expressionBounds={plant.characterFaceBounds ?? null}
+            width={size}
+            height={size}
+        />
+    );
 }
 
 // 포스트잇은 3~4줄 높이로 고정이므로, 글자 수에 따라 폰트를 줄여 칸 안에
@@ -207,9 +217,17 @@ function noteFontSize(text: string): number {
     return FontSizes.caption;
 }
 
-// 그날 일지에 함께 세워둘 개체를 랜덤으로 하나 고른다. 리렌더(타이핑 등)마다
-// 캐릭터가 바뀌지 않도록 날짜 문자열을 시드로 쓴 고정 랜덤이다.
-function pickBuddy(dateStr: string, plants: Plant[]): Plant | null {
+/*
+    그날 일지에 함께 세워둘 개체.
+    사진에 라벨을 붙였으면 그 개체 — 둘 다 붙였으면 위쪽 사진 쪽이다.
+    라벨이 없으면 랜덤으로 하나 고르되, 리렌더(타이핑 등)마다 캐릭터가
+    바뀌지 않도록 날짜 문자열을 시드로 쓴 고정 랜덤이다.
+*/
+function pickBuddy(dateStr: string, plants: Plant[], slots: PhotoSlot[]): Plant | null {
+    for (const slot of slots) {
+        const tagged = slot.plantId && plants.find(p => p.id === slot.plantId);
+        if (tagged) return tagged;
+    }
     if (plants.length === 0) return null;
     let h = 7;
     for (let i = 0; i < dateStr.length; i++) h = (h * 31 + dateStr.charCodeAt(i)) % 9973;
@@ -489,7 +507,7 @@ export default function CalendarScreen({
 
     const wateredChars    = plantsByIds(care?.wateredPlants ?? [], alivePlants);
     const fertilizedChars = plantsByIds(care?.fertilizedPlants ?? [], alivePlants);
-    const buddy           = selected ? pickBuddy(selected, alivePlants) : null;
+    const buddy           = selected ? pickBuddy(selected, alivePlants, slots) : null;
 
     function selectDate(dateStr: string | null) {
         if (!dateStr) return;
@@ -835,11 +853,7 @@ export default function CalendarScreen({
                                         </View>
                                         {wateredChars.map(p => (
                                             <View key={p.id} style={styles.careCircle}>
-                                                <Image
-                                                    source={plantSource(p)}
-                                                    style={styles.careCircleImg}
-                                                    resizeMode="contain"
-                                                />
+                                                <PlantCharacter plant={p} size={30} />
                                             </View>
                                         ))}
                                     </View>
@@ -853,11 +867,7 @@ export default function CalendarScreen({
                                         </View>
                                         {fertilizedChars.map(p => (
                                             <View key={p.id} style={styles.careCircle}>
-                                                <Image
-                                                    source={plantSource(p)}
-                                                    style={styles.careCircleImg}
-                                                    resizeMode="contain"
-                                                />
+                                                <PlantCharacter plant={p} size={30} />
                                             </View>
                                         ))}
                                     </View>
@@ -899,7 +909,7 @@ export default function CalendarScreen({
                                         />
                                     </Pressable>
 
-                                    {/* ⑤ 좌측 — 왼쪽으로 15도 기운 틀 + ⑦ 오른쪽에 랜덤 개체 */}
+                                    {/* ⑤ 좌측 — 왼쪽으로 15도 기운 틀 + ⑦ 오른쪽에 라벨 붙인 개체(없으면 랜덤) */}
                                     {showLowerFrame ? (
                                         <View style={styles.frameRowLeft}>
                                             <View style={styles.lowerFrameWrap}>
@@ -912,11 +922,7 @@ export default function CalendarScreen({
                                                 />
                                                 {buddy && (
                                                     <View style={styles.buddyWrap} pointerEvents="none">
-                                                        <Image
-                                                            source={plantSource(buddy)}
-                                                            style={styles.buddyImg}
-                                                            resizeMode="contain"
-                                                        />
+                                                        <PlantCharacter plant={buddy} size={112} />
                                                     </View>
                                                 )}
                                             </View>
@@ -924,11 +930,7 @@ export default function CalendarScreen({
                                     ) : buddy ? (
                                         // 아래 틀이 사라진 날 — 기댈 틀이 없으니 개체만 따로 세운다
                                         <View style={styles.buddyOnlyRow} pointerEvents="none">
-                                            <Image
-                                                source={plantSource(buddy)}
-                                                style={styles.buddyImg}
-                                                resizeMode="contain"
-                                            />
+                                            <PlantCharacter plant={buddy} size={112} />
                                         </View>
                                     ) : null}
                                 </View>
@@ -973,11 +975,7 @@ export default function CalendarScreen({
                                     onPress={() => pickerIdx !== null && assignPlant(pickerIdx, p.id)}
                                     activeOpacity={0.8}
                                 >
-                                    <Image
-                                        source={plantSource(p)}
-                                        style={styles.pickerImg}
-                                        resizeMode="contain"
-                                    />
+                                    <PlantCharacter plant={p} size={40} />
                                     <Text style={styles.pickerName}>{p.name}</Text>
                                     {pickerIdx !== null && editSlots[pickerIdx]?.plantId === p.id && (
                                         <Ionicons name="checkmark" size={18} color={Colors.primary} />
@@ -1195,10 +1193,6 @@ const styles = StyleSheet.create({
         borderColor: GreenTint.line,
         overflow: "hidden",
     },
-    careCircleImg: {
-        width: 30,
-        height: 30,
-    },
 
     // 캘린더 카드 하단의 로딩·실패 안내
     calStatusRow: {
@@ -1294,10 +1288,6 @@ const styles = StyleSheet.create({
         position: "absolute",
         right: -Spacing.section,
         bottom: -Spacing.md,
-    },
-    buddyImg: {
-        width: 112,
-        height: 112,
     },
     // 아래 사진 틀이 없는 날 — 개체가 기댈 틀이 없으니 포스트잇 아래에 그대로 세운다
     buddyOnlyRow: {

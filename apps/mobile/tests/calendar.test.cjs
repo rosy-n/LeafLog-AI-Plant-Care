@@ -14,7 +14,8 @@ function setup() {
     '../../constants/layout': { screenContent: {} },
     '../components/ScreenHeader': { __esModule: true, default: 'ScreenHeader' },
     '../components/ActionButton': { __esModule: true, default: 'ActionButton' },
-    '../data/plants': { plantImages: {} },
+    '../components/PlantImage': { __esModule: true, default: 'PlantImage' },
+    '../data/characterExpressions': { getPlantExpressionSource: () => null },
     '../api': { getCareRecords: () => care.promise, getDiaryMonth: async () => [] },
     'expo-image-picker': { launchImageLibraryAsync: () => picker.promise },
   }, { Date: Clock });

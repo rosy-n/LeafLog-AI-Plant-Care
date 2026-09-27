@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     View,
     Text,
@@ -9,6 +9,7 @@ import {
     Dimensions,
     StatusBar,
     ActivityIndicator,
+    PanResponder,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -21,7 +22,7 @@ import { getEnvironmentHistory, getPlant, getSoilHistory, getSoilStatus, getUser
 import { cacheKeys, peek, revalidate } from "../prefetch";
 import { Fonts, FontSizes } from "../../constants/fonts";
 import ScreenHeader from "../components/ScreenHeader";
-import { Colors, GreenTint, Gauge, GaugeTint, Glass } from "../../constants/colors";
+import { Colors, GreenTint, Gauge, GaugeTint, Glass, Shadow } from "../../constants/colors";
 import { Spacing, Radius } from "../../constants/spacing";
 import { screenContent } from "../../constants/layout";
 import { getPlantExpressionSource } from "../data/characterExpressions";
@@ -92,8 +93,9 @@ function rateValue(value, min, max) {
 // ─── Chart ──────────────────────────────────────────────────────────────────
 
 const CHART_H = 210;
-const PAD_L = 42;
-const PAD_R = 38;
+// 좌우 눈금 칸을 같은 폭으로 둬야 그래프가 카드 가운데에 놓인다
+const PAD_L = 32;
+const PAD_R = 32;
 const PAD_T = 14;
 const PAD_B = 28;
 const PLOT_H = CHART_H - PAD_T - PAD_B;
@@ -148,12 +150,64 @@ function formatAxisLabel(isoString, periodKey) {
     return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-function LineChart({ tempData, humidityData, soilData, timestamps, periodKey }) {
-    const chartWidth = SCREEN_WIDTH - 40;
+const DOW_KO = ["일", "월", "화", "수", "목", "금", "토"];
+
+// 그래프를 짚었을 때 말풍선 제목 — 일 탭은 한 시간 단위, 주·월 탭은 하루 단위 점이다
+function formatScrubLabel(isoString, periodKey) {
+    const d = new Date(isoString);
+    if (Number.isNaN(d.getTime())) return "";
+    const date = `${d.getMonth() + 1}/${d.getDate()} (${DOW_KO[d.getDay()]})`;
+    if (periodKey === "daily") return `${date} ${String(d.getHours()).padStart(2, "0")}시`;
+    return date;
+}
+
+const formatValue = (value, unit) => (value == null ? "—" : `${Number(value).toFixed(1)}${unit}`);
+
+const SCRUB_TOOLTIP_W = 124;
+
+/*
+    그래프 짚어보기 — 손가락을 대고 있는 동안만 그 자리의 세부 수치를 보여주고,
+    떼면 사라진다. 짚는 동안에는 화면 스크롤을 잠가야 좌우로 훑을 수 있어서
+    onScrubChange 로 부모에 알린다.
+*/
+function LineChart({ tempData, humidityData, soilData, timestamps, periodKey, rawPoints, onScrubChange }) {
+    // 그래프 폭은 카드 안쪽 실제 폭을 재서 쓴다 — 화면 폭으로 어림하면 카드 여백만큼 넘쳐
+    // 오른쪽으로 쏠리고 습도 눈금이 잘린다. 첫 프레임은 화면 여백·카드 여백을 뺀 어림값.
+    const [chartWidth, setChartWidth] = useState(SCREEN_WIDTH - 40 - Spacing.lg * 2);
     const plotWidth = chartWidth - PAD_L - PAD_R;
     const n = tempData.length;
+    const [activeIdx, setActiveIdx] = useState(null);
 
     const xOf = (i) => (n <= 1 ? PAD_L + plotWidth / 2 : PAD_L + (i / (n - 1)) * plotWidth);
+
+    const responder = useMemo(() => {
+        const idxAt = (x) => {
+            if (n <= 1) return 0;
+            const ratio = (x - PAD_L) / plotWidth;
+            return Math.max(0, Math.min(n - 1, Math.round(ratio * (n - 1))));
+        };
+        const end = () => {
+            setActiveIdx(null);
+            onScrubChange?.(false);
+        };
+        return PanResponder.create({
+            onStartShouldSetPanResponder: () => n > 0,
+            onMoveShouldSetPanResponder: () => n > 0,
+            onPanResponderTerminationRequest: () => false,
+            onPanResponderGrant: (e) => {
+                onScrubChange?.(true);
+                setActiveIdx(idxAt(e.nativeEvent.locationX));
+            },
+            onPanResponderMove: (e) => setActiveIdx(idxAt(e.nativeEvent.locationX)),
+            onPanResponderRelease: end,
+            onPanResponderTerminate: end,
+        });
+    }, [n, plotWidth, onScrubChange]);
+
+    const active = activeIdx != null && activeIdx < n ? activeIdx : null;
+    const activeX = active != null ? xOf(active) : 0;
+    const activePoint = active != null ? rawPoints?.[active] : null;
+    const tooltipLeft = Math.max(0, Math.min(chartWidth - SCRUB_TOOLTIP_W, activeX - SCRUB_TOOLTIP_W / 2));
     const pts = (data, normFn) =>
         data.map((v, i) => `${xOf(i).toFixed(1)},${normFn(v).toFixed(1)}`).join(" ");
 
@@ -162,6 +216,13 @@ function LineChart({ tempData, humidityData, soilData, timestamps, periodKey }) 
     const labelIdx = pickLabelIndices(n);
 
     return (
+        <View
+            style={styles.chartTouchArea}
+            onLayout={(e) => setChartWidth(e.nativeEvent.layout.width)}
+            {...responder.panHandlers}
+        >
+        {/* 터치 좌표(locationX)가 늘 바깥 View 기준이 되도록 그림은 터치를 받지 않는다 */}
+        <View pointerEvents="none">
         <Svg width={chartWidth} height={CHART_H}>
             {/* Grid */}
             {gridRows.map((pct, i) => {
@@ -224,7 +285,46 @@ function LineChart({ tempData, humidityData, soilData, timestamps, periodKey }) 
                     </SvgText>
                 </React.Fragment>
             ))}
+
+            {/* 짚은 자리 — 세로 기준선과 강조 점 */}
+            {active != null && (
+                <>
+                    <Line
+                        x1={activeX} y1={PAD_T}
+                        x2={activeX} y2={PAD_T + PLOT_H}
+                        stroke={GreenTint.half}
+                        strokeWidth={1}
+                    />
+                    <Circle cx={activeX} cy={normTemp(tempData[active])} r={5} fill={Gauge.warm} stroke={Colors.white} strokeWidth={2} />
+                    <Circle cx={activeX} cy={normHum(humidityData[active])} r={5} fill={Gauge.cool} stroke={Colors.white} strokeWidth={2} />
+                    {soilData?.[active] != null && (
+                        <Circle cx={activeX} cy={normHum(soilData[active])} r={5} fill={Colors.soilMoisture} stroke={Colors.white} strokeWidth={2} />
+                    )}
+                </>
+            )}
         </Svg>
+        </View>
+
+        {active != null && (
+            <View style={[styles.scrubTooltip, { left: tooltipLeft }]} pointerEvents="none">
+                <Text style={styles.scrubTitle}>{formatScrubLabel(timestamps[active], periodKey)}</Text>
+                <View style={styles.scrubRow}>
+                    <View style={[styles.legendDot, { backgroundColor: Gauge.warm }]} />
+                    <Text style={styles.scrubText}>기온 {formatValue(activePoint?.temperature_c, "°C")}</Text>
+                </View>
+                <View style={styles.scrubRow}>
+                    <View style={[styles.legendDot, { backgroundColor: Gauge.cool }]} />
+                    <Text style={styles.scrubText}>습도 {formatValue(activePoint?.humidity_pct, "%")}</Text>
+                </View>
+                {soilData && (
+                    <View style={styles.scrubRow}>
+                        <View style={[styles.legendDot, { backgroundColor: Colors.soilMoisture }]} />
+                        <Text style={styles.scrubText}>토양습도 {formatValue(soilData[active], "%")}</Text>
+                    </View>
+                )}
+            </View>
+        )}
+        </View>
     );
 }
 
@@ -273,8 +373,9 @@ const PERIOD_MAP = { "일": "daily", "주": "weekly", "월": "monthly" };
 
     이 화면은 두 갈래로 들어온다.
       - 개체탭·추모정원: route.params.plant 로 개체를 받는다 → 그 개체를 세운다
-      - 홈 좌측 상단의 날씨/대기질 아이콘: 개체 없이 들어온다(지역 날씨만 보는
-        화면이라 대상 개체가 없다) → 등록한 개체 중 하나를 뽑아 세운다
+      - 홈 좌측 상단의 날씨/대기질 아이콘: 정해 둔 개체(HomeScreen 의
+        HOME_SENSOR_PLANT_NAME)가 있으면 그 개체를 넘겨 위와 같이 들어오고,
+        없으면 개체 없이 들어온다 → 등록한 개체 중 하나를 뽑아 세운다
 
     뽑은 개체는 앱을 켜 두는 동안에는 그대로고 다시 실행하면 바뀌도록 모듈 변수에
     담아 둔다 (모듈 변수는 JS 번들이 살아 있는 동안 = 앱 실행 한 번 동안만 유지된다).
@@ -337,6 +438,8 @@ export default function SensorDataScreen({ navigation, route, decorations = {}, 
     );
     const [isLoading, setIsLoading] = useState(() => cachedHistory("일") === null);
     const [error, setError] = useState(null);
+    // 그래프를 짚는 동안 화면 스크롤을 잠근다 — 좌우로 훑는 손가락을 스크롤이 가로채지 않게
+    const [scrubbing, setScrubbing] = useState(false);
 
     // 종별 적정 범위(temp_min_c 등)는 기간이 바뀌어도 그대로라 period와 무관하게 한 번만 불러온다.
     useEffect(() => {
@@ -429,7 +532,6 @@ export default function SensorDataScreen({ navigation, route, decorations = {}, 
     const avgLabel = period === "일" ? "오늘 평균" : period === "주" ? "이번 주 평균" : "이번 달 평균";
 
     const comfortTags = classifyComfortTags(avgTemp, avgHumidity, plantDetail, soilStatus);
-    const comfortTagsWrap = comfortTags && comfortTags.length === 3;
     const tempRating = rateValue(avgTemp, plantDetail?.temp_min_c, plantDetail?.temp_max_c);
     const humidityRating = rateValue(avgHumidity, plantDetail?.humidity_min_pct, plantDetail?.humidity_max_pct);
 
@@ -442,6 +544,7 @@ export default function SensorDataScreen({ navigation, route, decorations = {}, 
                 <ScreenHeader title="센서 데이터" onBack={() => navigation.goBack()} />
 
                 <ScrollView
+                    scrollEnabled={!scrubbing}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                 >
@@ -497,6 +600,8 @@ export default function SensorDataScreen({ navigation, route, decorations = {}, 
                                             soilData={soilData}
                                             timestamps={timestamps}
                                             periodKey={PERIOD_MAP[period]}
+                                            rawPoints={weatherPoints}
+                                            onScrubChange={setScrubbing}
                                         />
 
                                         {/* Legend */}
@@ -551,31 +656,27 @@ export default function SensorDataScreen({ navigation, route, decorations = {}, 
                                         width={48}
                                         height={48}
                                     />
-                                    <Text style={[styles.cardTitle, styles.summaryTitleText]}>{summaryTitle}</Text>
-                                    {comfortTags && !comfortTagsWrap && comfortTags.map((tag, idx) => (
-                                        <View
-                                            key={idx}
-                                            style={[styles.conditionBoxInline, { backgroundColor: tag.bg, borderColor: tag.border }]}
-                                        >
-                                            <Text style={styles.conditionBoxEmoji}>{tag.emoji}</Text>
-                                            <Text style={[styles.conditionBoxText, { color: tag.color }]}>{tag.text}</Text>
+                                    <Text
+                                        style={[styles.cardTitle, styles.summaryTitleText]}
+                                        numberOfLines={1}
+                                    >
+                                        {summaryTitle}
+                                    </Text>
+                                    {/* 태그는 작은 칩으로 줄여 제목 오른쪽에 나란히 — 제목이 칩 폭을 빼앗기지 않게 칩을 줄였다 */}
+                                    {comfortTags && (
+                                        <View style={styles.conditionStack}>
+                                            {comfortTags.map((tag, idx) => (
+                                                <View
+                                                    key={idx}
+                                                    style={[styles.conditionBoxInline, { backgroundColor: tag.bg, borderColor: tag.border }]}
+                                                >
+                                                    <Text style={styles.conditionBoxEmoji}>{tag.emoji}</Text>
+                                                    <Text style={[styles.conditionBoxText, { color: tag.color }]}>{tag.text}</Text>
+                                                </View>
+                                            ))}
                                         </View>
-                                    ))}
+                                    )}
                                 </View>
-                                {/* 태그가 3개(최대치)면 헤더 옆이 아니라 아래 별도 행에 나열 */}
-                                {comfortTagsWrap && (
-                                    <View style={styles.conditionRowWrap}>
-                                        {comfortTags.map((tag, idx) => (
-                                            <View
-                                                key={idx}
-                                                style={[styles.conditionBoxInline, { backgroundColor: tag.bg, borderColor: tag.border }]}
-                                            >
-                                                <Text style={styles.conditionBoxEmoji}>{tag.emoji}</Text>
-                                                <Text style={[styles.conditionBoxText, { color: tag.color }]}>{tag.text}</Text>
-                                            </View>
-                                        ))}
-                                    </View>
-                                )}
                                 {!comfortTags && (
                                     <Text style={styles.emptyText}>
                                         {plant?.id
@@ -746,6 +847,44 @@ const styles = StyleSheet.create({
     },
 
     // Y-axis unit row
+    // 그래프 짚어보기 말풍선 — 그래프 위쪽에 떠서 손가락을 따라 좌우로 움직인다
+    scrubTooltip: {
+        position: "absolute",
+        top: 0,
+        width: SCRUB_TOOLTIP_W,
+        paddingVertical: Spacing.xs,
+        paddingHorizontal: Spacing.sm,
+        borderRadius: Radius.sm,
+        borderWidth: 1,
+        borderColor: GreenTint.line,
+        backgroundColor: Glass.frost92,
+        gap: Spacing.xxs,
+        shadowColor: Shadow.color,
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 3,
+    },
+    scrubTitle: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.small,
+        color: GreenTint.deep,
+    },
+    scrubRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: Spacing.xs,
+    },
+    scrubText: {
+        fontFamily: Fonts.neoDunggeunmo,
+        fontSize: FontSizes.caption,
+        color: Colors.textBlack,
+    },
+    // 그래프를 짚는 영역 — 카드 안쪽 폭을 다 쓴다 (폭은 onLayout 으로 재서 그래프에 넘긴다)
+    chartTouchArea: {
+        alignSelf: "stretch",
+        height: CHART_H,
+    },
     yAxisLabelRow: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -786,35 +925,33 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: Spacing.md,
     },
-    // 제목이 남는 폭을 다 차지해서, 총평 태그가 자연스럽게 오른쪽 끝에 붙는다
+    // 캐릭터 옆 남는 폭을 다 쓰고, 이름이 길면 한 줄에서 말줄임
     summaryTitleText: {
         flex: 1,
     },
-    // 총평 헤더 한 줄에 같이 들어가는 압축된 버전 — flex:1로 늘어나지 않고 내용만큼만.
-    // marginRight로 카드 오른쪽 테두리에 바짝 붙지 않게 여백을 둔다.
+    // 총평 태그 묶음 — 헤더 오른쪽 끝에 가로로 나란히, 3개라 넘치면 다음 줄로
+    conditionStack: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "flex-end",
+        gap: Spacing.xxs,
+    },
+    // 총평 태그 한 개 — 제목 옆에 붙을 수 있게 작게 줄인 칩
     conditionBoxInline: {
         flexDirection: "row",
         alignItems: "center",
-        borderRadius: Radius.lg,
+        borderRadius: Radius.md,
         borderWidth: 1,
-        paddingVertical: Spacing.xs,
-        paddingHorizontal: Spacing.sm,
-        marginRight: Spacing.xs,
-        gap: Spacing.xs,
-    },
-    // 태그가 3개(최대치)라 헤더 옆에 다 못 넣을 때, 헤더 아래 별도 행에 나열
-    conditionRowWrap: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: Spacing.xs,
-        marginTop: Spacing.sm,
+        paddingVertical: Spacing.xxs,
+        paddingHorizontal: Spacing.xs,
+        gap: Spacing.xxs,
     },
     conditionBoxEmoji: {
-        fontSize: FontSizes.body,
+        fontSize: FontSizes.small,
     },
     conditionBoxText: {
         fontFamily: Fonts.neoDunggeunmo,
-        fontSize: FontSizes.small,
+        fontSize: FontSizes.caption,
         color: Colors.textBlack,
     },
 

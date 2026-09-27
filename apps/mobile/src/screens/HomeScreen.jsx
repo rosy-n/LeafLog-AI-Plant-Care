@@ -99,6 +99,19 @@ const needsWatering = (plant) =>
     plant.daysUntilWatering != null && plant.daysUntilWatering <= 0;
 
 /*
+    홈의 날씨/대기질 아이콘으로 여는 센서 데이터탭의 대상 개체.
+
+    센서 데이터탭은 개체를 받으면 그 개체의 이름·캐릭터·토양 수분으로 그리고,
+    못 받으면 지역 날씨만 보여준다. 홈에서도 이 개체의 탭으로 열리도록 이름으로
+    찾아 넘긴다. 이 이름의 개체가 없거나 떠나보냈으면 예전처럼 개체 없이 연다.
+*/
+const HOME_SENSOR_PLANT_NAME = "야야";
+
+function findHomeSensorPlant(plants) {
+    return plants.find((plant) => !plant.memorial && plant.name === HOME_SENSOR_PLANT_NAME) ?? null;
+}
+
+/*
     들판에 세울 개체를 고른다 — 최대 MAX_FIELD_PLANTS 마리.
 
     우선순위는 물주기 > 즐겨찾기 > 일반. 홈을 열었을 때 손이 필요한 식물이 먼저
@@ -507,6 +520,11 @@ export default function HomeScreen({
         return true;
     };
 
+    const openSensorData = () => {
+        const plant = findHomeSensorPlant(plants);
+        navigation.navigate("SensorData", plant ? { plant } : undefined);
+    };
+
     useEffect(() => {
         let cancelled = false;
 
@@ -566,7 +584,7 @@ export default function HomeScreen({
                         highlighted={tutorial.currentTargetId === "home-weather"}
                         onPress={() => {
                             if (tutorial.active) return;
-                            navigation.navigate("SensorData");
+                            openSensorData();
                         }}
                     >
                         {weatherIconSource && (
@@ -583,7 +601,7 @@ export default function HomeScreen({
                         highlighted={tutorial.currentTargetId === "home-weather"}
                         onPress={() => {
                             if (tutorial.active) return;
-                            navigation.navigate("SensorData");
+                            openSensorData();
                         }}
                     >
                         {airQualityIconSource && (
