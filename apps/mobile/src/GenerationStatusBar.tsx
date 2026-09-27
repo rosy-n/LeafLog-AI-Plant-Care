@@ -34,6 +34,8 @@ export default function GenerationStatusBar({ navigation, hidden = false }: Prop
   if (hidden || !view || dismissedKey === dismissKey) return null;
   const { percent, title, hint } = view;
   const failed = view.outcome === 'failed';
+  const compactTitle = failed ? '캐릭터 생성 실패'
+    : view.outcome === 'completed' ? '캐릭터 완성!' : '캐릭터 생성 중';
 
   return (
     <View style={[styles.wrap, { bottom: insets.bottom + Spacing.section }]} pointerEvents="box-none">
@@ -52,7 +54,7 @@ export default function GenerationStatusBar({ navigation, hidden = false }: Prop
         }}
       >
         <View style={styles.row}>
-          <Text style={styles.title} numberOfLines={2} maxFontSizeMultiplier={1.3}>{title}</Text>
+          <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={1.2}>{compactTitle}</Text>
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel="알림 닫기"
@@ -60,7 +62,7 @@ export default function GenerationStatusBar({ navigation, hidden = false }: Prop
             onPress={(event) => { event?.stopPropagation(); setDismissedKey(dismissKey); }}
             style={styles.close}
           >
-            <Ionicons name="close" size={18} color={Colors.textGray} />
+            <Ionicons name="close" size={16} color={Colors.textGray} />
           </TouchableOpacity>
         </View>
 
@@ -71,7 +73,7 @@ export default function GenerationStatusBar({ navigation, hidden = false }: Prop
           />
         </View>
 
-        <Text style={styles.hint} numberOfLines={1}>{hint}</Text>
+        <Text style={styles.hint} numberOfLines={1} maxFontSizeMultiplier={1.2}>{hint}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -80,17 +82,18 @@ export default function GenerationStatusBar({ navigation, hidden = false }: Prop
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    // 좌우 하단 버튼: left/right 20 + 크기 54 = 74. 여유 12를 더해 겹치지 않게 한다.
-    left: 86,
-    right: 86,
-    alignItems: 'stretch',
+    // 홈의 가장 큰 하단 버튼: 좌우 여백 20 + 지름 70 + 간격 4.
+    left: 94,
+    right: 94,
+    alignItems: 'center',
   },
   card: {
     width: '100%',
+    maxWidth: 248,
     paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: Radius.md,
-    borderWidth: 2,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
     borderColor: GreenTint.line,
     // 배경색(FAFFF0) 위에 살짝 비치는 유리 느낌 — 뒤 화면이 흐리게 보인다.
     backgroundColor: 'rgba(250,255,240,0.92)',
@@ -103,17 +106,20 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: FontSizes.body,
+    fontSize: FontSizes.small,
+    lineHeight: 16,
+    includeFontPadding: false,
     color: Colors.primary,
   },
   close: {
-    width: 24,
-    height: 32,
-    alignItems: 'flex-end',
+    width: 20,
+    height: 20,
+    marginLeft: Spacing.xs,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   track: {
-    height: 8,
+    height: 4,
     marginTop: Spacing.xs,
     borderRadius: Radius.sm,
     backgroundColor: GreenTint.wash,
@@ -130,6 +136,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     fontFamily: Fonts.neoDunggeunmo,
     fontSize: FontSizes.caption,
+    lineHeight: 12,
+    includeFontPadding: false,
     color: Colors.textMid,
   },
 });

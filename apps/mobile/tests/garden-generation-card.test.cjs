@@ -53,8 +53,8 @@ test('garden status keeps the same frame for progress, completion and failure', 
     const { app, tree } = card(outcome, outcome === 'working' ? 99 : 100);
     const style = tree.props.style;
     assert.equal(style.width, '100%');
-    assert.equal(style.maxWidth, 118);
-    assert.equal(style.height, 118);
+    assert.equal(style.maxWidth, 100);
+    assert.equal(style.aspectRatio, 1);
     frame ??= JSON.stringify(style);
     assert.equal(JSON.stringify(style), frame);
     // 320px screen: 40px gutter, three columns, 8px gap per pending slot.

@@ -38,7 +38,7 @@ function statusBar(context, props = {}) {
 test('the status bar shows live progress and opens the registration flow', () => {
   const draft = { generationJobId: 'job-1', createdPlantId: null, generationOutcome: null };
   const view = statusBar({ draft, generation: { jobId: 'job-1', status: 'generating', progress: 42, message: '후보 2/3' } });
-  assert.ok(view.texts.includes('도트 캐릭터를 만들고 있어요'));
+  assert.ok(view.texts.includes('캐릭터 생성 중'));
   assert.ok(view.texts.includes('후보 2/3'));
   assert.ok(view.bars.some(bar => bar.props.style.some(s => s && s.width === '42%')));
   nodes(view.rendered).find(n => n.type === 'TouchableOpacity').props.onPress();
@@ -50,7 +50,7 @@ test('the status bar shows live progress and opens the registration flow', () =>
 test('a finished job shows the result invitation even without live progress', () => {
   const draft = { generationJobId: 'job-1', createdPlantId: null, generationOutcome: 'completed' };
   const view = statusBar({ draft, generation: null });
-  assert.ok(view.texts.includes('도트 캐릭터가 완성됐어요!'));
+  assert.ok(view.texts.includes('캐릭터 완성!'));
   assert.ok(view.bars.some(bar => bar.props.style.some(s => s && s.width === '100%')));
   view.app.dispose();
 });
@@ -58,7 +58,7 @@ test('a finished job shows the result invitation even without live progress', ()
 test('a failed job invites a retry instead of showing progress', () => {
   const draft = { generationJobId: 'job-1', createdPlantId: null, generationOutcome: 'failed' };
   const view = statusBar({ draft, generation: null });
-  assert.ok(view.texts.includes('캐릭터를 만들지 못했어요'));
+  assert.ok(view.texts.includes('캐릭터 생성 실패'));
   assert.ok(view.texts.includes('눌러서 다시 시도하기'));
   view.app.dispose();
 });
@@ -96,7 +96,7 @@ test('dismissing hides the bar until the job finishes', () => {
   draft.generationOutcome = 'completed';
   const reopened = app.render(props);
   assert.ok(reopened);
-  assert.ok(nodes(reopened).some(n => n.type === 'Text' && n.props.children === '도트 캐릭터가 완성됐어요!'));
+  assert.ok(nodes(reopened).some(n => n.type === 'Text' && n.props.children === '캐릭터 완성!'));
 
   // 다음 생성도 다시 보여야 한다
   draft.generationJobId = 'job-2';

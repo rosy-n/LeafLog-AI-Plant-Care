@@ -31,7 +31,7 @@ export default function GardenGenerationCard({ progress, onPress }: Props) {
           </Text>
         ) : (
           <Ionicons name={failed ? 'alert-circle-outline' : 'checkmark-circle-outline'}
-            size={28} color={failed ? Colors.textMid : Colors.primary} />
+            size={24} color={failed ? Colors.textMid : Colors.primary} />
         )}
       </View>
       <View style={styles.labelSlot}>
@@ -51,8 +51,8 @@ export default function GardenGenerationCard({ progress, onPress }: Props) {
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    maxWidth: 118,
-    height: 118,
+    maxWidth: 100,
+    aspectRatio: 1,
     padding: Spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
@@ -63,27 +63,28 @@ const styles = StyleSheet.create({
     backgroundColor: GreenTint.faint,
   },
   value: {
-    height: 34,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
   },
   percent: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: FontSizes.title,
+    fontSize: FontSizes.subtitle,
+    lineHeight: 24,
     color: Colors.primary,
     textAlign: 'center',
     includeFontPadding: false,
     letterSpacing: 0,
   },
   labelSlot: {
-    height: 44,
+    height: 28,
     width: '100%',
     justifyContent: 'center',
   },
   label: {
     fontFamily: Fonts.neoDunggeunmo,
-    fontSize: FontSizes.body,
-    lineHeight: 18,
+    fontSize: FontSizes.small,
+    lineHeight: 16,
     color: GreenTint.deep,
     textAlign: 'center',
     includeFontPadding: false,

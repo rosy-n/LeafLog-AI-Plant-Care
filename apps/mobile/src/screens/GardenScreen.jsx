@@ -698,8 +698,9 @@ const styles = StyleSheet.create({
     },
     pendingCard: {
         paddingHorizontal: Spacing.xs,
-        // 식물 이미지의 투명 여백과 아래 이름 영역을 고려해 중심을 맞춘다.
-        paddingTop: Spacing.lg,
+        // 이미지와 이름·하트까지 포함한 한 칸의 중심에 맞춘다.
+        minHeight: 118 + Spacing.huge,
+        justifyContent: "center",
     },
     // 물 줄 때가 지난 개체 배지 — 캐릭터 이미지 우상단
     wateringBadge: {
