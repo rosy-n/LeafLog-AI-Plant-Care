@@ -208,8 +208,6 @@ function LineChart({ tempData, humidityData, soilData, timestamps, periodKey, ra
     const activeX = active != null ? xOf(active) : 0;
     const activePoint = active != null ? rawPoints?.[active] : null;
     const tooltipLeft = Math.max(0, Math.min(chartWidth - SCRUB_TOOLTIP_W, activeX - SCRUB_TOOLTIP_W / 2));
-    const pts = (data, normFn) =>
-        data.map((v, i) => `${xOf(i).toFixed(1)},${normFn(v).toFixed(1)}`).join(" ");
 
     const gridRows = [0, 25, 50, 75, 100];
     const tempYLabels = [40, 30, 20, 10, 0];
@@ -269,14 +267,39 @@ function LineChart({ tempData, humidityData, soilData, timestamps, periodKey, ra
                     />
                 )
             ))}
-            <Polyline points={pts(humidityData, normHum)} fill="none" stroke={Gauge.cool} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-            <Polyline points={pts(tempData, normTemp)} fill="none" stroke={Gauge.warm} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+            {/* 기온·습도도 자료가 아직 없는 날(예: 오전의 어제)은 선을 끊는다 */}
+            {splitSegments(humidityData, xOf, normHum).map((segment, i) => (
+                segment.length === 1 ? (
+                    <Circle key={`hum-${i}`} cx={segment[0].x} cy={segment[0].y} r={3} fill={Gauge.cool} />
+                ) : (
+                    <Polyline
+                        key={`hum-${i}`}
+                        points={segment.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}
+                        fill="none" stroke={Gauge.cool} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
+                    />
+                )
+            ))}
+            {splitSegments(tempData, xOf, normTemp).map((segment, i) => (
+                segment.length === 1 ? (
+                    <Circle key={`temp-${i}`} cx={segment[0].x} cy={segment[0].y} r={3.5} fill={Gauge.warm} />
+                ) : (
+                    <Polyline
+                        key={`temp-${i}`}
+                        points={segment.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}
+                        fill="none" stroke={Gauge.warm} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"
+                    />
+                )
+            ))}
 
             {/* Dots + x labels at labeled positions */}
             {labelIdx.map((di) => (
                 <React.Fragment key={di}>
-                    <Circle cx={xOf(di)} cy={normTemp(tempData[di])} r={3.5} fill={Gauge.warm} />
-                    <Circle cx={xOf(di)} cy={normHum(humidityData[di])} r={3} fill={Gauge.cool} />
+                    {tempData[di] != null && (
+                        <Circle cx={xOf(di)} cy={normTemp(tempData[di])} r={3.5} fill={Gauge.warm} />
+                    )}
+                    {humidityData[di] != null && (
+                        <Circle cx={xOf(di)} cy={normHum(humidityData[di])} r={3} fill={Gauge.cool} />
+                    )}
                     {soilData?.[di] != null && (
                         <Circle cx={xOf(di)} cy={normHum(soilData[di])} r={3.5} fill={Colors.soilMoisture} />
                     )}
@@ -295,8 +318,12 @@ function LineChart({ tempData, humidityData, soilData, timestamps, periodKey, ra
                         stroke={GreenTint.half}
                         strokeWidth={1}
                     />
-                    <Circle cx={activeX} cy={normTemp(tempData[active])} r={5} fill={Gauge.warm} stroke={Colors.white} strokeWidth={2} />
-                    <Circle cx={activeX} cy={normHum(humidityData[active])} r={5} fill={Gauge.cool} stroke={Colors.white} strokeWidth={2} />
+                    {tempData[active] != null && (
+                        <Circle cx={activeX} cy={normTemp(tempData[active])} r={5} fill={Gauge.warm} stroke={Colors.white} strokeWidth={2} />
+                    )}
+                    {humidityData[active] != null && (
+                        <Circle cx={activeX} cy={normHum(humidityData[active])} r={5} fill={Gauge.cool} stroke={Colors.white} strokeWidth={2} />
+                    )}
                     {soilData?.[active] != null && (
                         <Circle cx={activeX} cy={normHum(soilData[active])} r={5} fill={Colors.soilMoisture} stroke={Colors.white} strokeWidth={2} />
                     )}
@@ -351,9 +378,11 @@ function StatCard({ icon, label, value, rating, valueSize, indentValueWithLabel 
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+// 값 없는 칸(null)은 빼고 평균낸다 — 자료가 아직 없는 날을 0으로 세면 평균이 끌려 내려간다
 function avg(values) {
-    if (values.length === 0) return null;
-    return (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
+    const present = values.filter((v) => v != null);
+    if (present.length === 0) return null;
+    return (present.reduce((a, b) => a + b, 0) / present.length).toFixed(1);
 }
 
 // 미세먼지(PM10) 등급 기준 — 에어코리아/기상청이 공통으로 쓰는 구간
@@ -510,8 +539,10 @@ export default function SensorDataScreen({ navigation, route, decorations = {}, 
     const weatherPoints = history?.weather_points ?? [];
     const airQualityPoints = history?.air_quality_points ?? [];
 
-    const tempData = weatherPoints.map((p) => p.temperature_c ?? 0);
-    const humidityData = weatherPoints.map((p) => p.humidity_pct ?? 0);
+    // 자료가 아직 없는 날은 null 로 둔다 (0 으로 채우면 영하·바싹 마른 것처럼 보인다)
+    const tempData = weatherPoints.map((p) => p.temperature_c ?? null);
+    const humidityData = weatherPoints.map((p) => p.humidity_pct ?? null);
+    const hasWeatherData = tempData.some((v) => v != null);
     const timestamps = weatherPoints.map((p) => p.observed_at);
 
     const avgTempStr = avg(tempData);
@@ -580,7 +611,7 @@ export default function SensorDataScreen({ navigation, route, decorations = {}, 
                                     <ActivityIndicator color={Colors.primary} style={styles.chartLoading} />
                                 ) : error ? (
                                     <Text style={styles.emptyText}>{error}</Text>
-                                ) : tempData.length === 0 ? (
+                                ) : !hasWeatherData ? (
                                     <Text style={styles.emptyText}>
                                         {period === "일"
                                             ? "아직 오늘 관측된 데이터가 없어요."
