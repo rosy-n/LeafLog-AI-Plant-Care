@@ -2896,6 +2896,10 @@ def _region_for_current_user(current_user: AppUser, db: Session) -> region_data.
     return region
 
 
+# ASOS 일자료가 늦게 올라오는 걸 감안해 주/월 조회 때 더 받아두는 날 수
+ASOS_PUBLISH_LAG_DAYS = 2
+
+
 @app.get("/api/environment/history", response_model=EnvironmentHistoryResponse)
 def get_environment_history(
     period: str = Query(default="day", pattern="^(day|week|month)$"),
@@ -2948,13 +2952,16 @@ def get_environment_history(
     stn_id = asos.nearest_station_id(region.lat, region.lng)
     days = 7 if period == "week" else 30
     end = today_in_korea() - timedelta(days=1)
-    start = end - timedelta(days=days - 1)
+    # 어제 자료는 기상청이 다음 날 오전에야 올려서, 딱 days 일만 요청하면 오전 동안은
+    # 하루가 빠진다(주 6일·월 29일). 며칠 넉넉히 받아 실제로 온 날 중 최근 days 일을 쓴다.
+    fetch_start = end - timedelta(days=days - 1 + ASOS_PUBLISH_LAG_DAYS)
 
     try:
-        observations = asos.fetch_daily_series(stn_id, start, end)
+        observations = asos.fetch_daily_series(stn_id, fetch_start, end)
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
+    observations = [o for o in observations if o.avg_temperature_c is not None][-days:]
     weather_points = [
         WeatherHistoryPoint(
             observed_at=observation.date.isoformat(),
@@ -2963,8 +2970,11 @@ def get_environment_history(
             weather_status=None,
         )
         for observation in observations
-        if observation.avg_temperature_c is not None
     ]
+    # 대기질 기간도 실제로 그린 날씨 점에 맞춘다
+    start = observations[0].date if observations else end - timedelta(days=days - 1)
+    if observations:
+        end = observations[-1].date
     # 대기질도 DB 누적이 아니라 에어코리아를 라이브로 조회한다 — 날씨(ASOS)와 같은 이유.
     # 날씨 그래프까지 막지 않도록 실패 시 조용히 빈 목록으로 낮춘다.
     air_quality_points: list[AirQualityHistoryPoint] = []
