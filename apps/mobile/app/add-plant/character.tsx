@@ -59,14 +59,15 @@ const GUIDE_BAD_ITEMS = [
 export default function CharacterScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ resumeGeneration?: string }>();
-  const { draft, updateDraft, isFirstPlant } = useAddPlantFlow();
+  const { draft, updateDraft, isFirstPlant, backgroundGeneration, reportGeneration, cancelGeneration } = useAddPlantFlow();
   const tutorial = useTutorial();
   const resumeGeneration = params.resumeGeneration === 'true';
   // 첫 식물 등록 중 생성 로딩 화면에 튜토리얼 인트로 카드를 한 번 띄운다.
   // "건너뛰기"를 누르면 이 세션에서는 다시 보이지 않는다.
   const [introDismissed, setIntroDismissed] = useState(false);
   const showTutorialIntro =
-    isFirstPlant && !resumeGeneration && !introDismissed && !tutorial.active;
+    isFirstPlant && resumeGeneration && Boolean(draft.generationJobId) && !introDismissed && !tutorial.active;
+  const leavingRef = useRef(false);
 
   const [screenState, setScreenState] = useState<ScreenState>(
     resumeGeneration ? 'generating' : 'intro',
@@ -111,6 +112,16 @@ export default function CharacterScreen() {
       }).start();
       setPhase(job.status === 'queued' || job.status === 'preprocessing' ? 1 : 2);
       setGenerationMessage(job.message);
+      // 정원 목록·하단 알림이 같은 진행 상황을 쓰도록 공유한다.
+      reportGeneration({
+        jobId: job.id,
+        status: job.status,
+        progress: Number.isFinite(job.progress) ? job.progress : 0,
+        message: job.message || '',
+      });
+      if (job.status === 'completed' || job.status === 'failed') {
+        updateDraft({ generationOutcome: job.status, notifiedJobId: job.id });
+      }
 
       if (job.status === 'failed') {
         throw new Error(job.error || '캐릭터 생성에 실패했어요.');
@@ -128,6 +139,8 @@ export default function CharacterScreen() {
           throw new Error('생성된 캐릭터 3개를 모두 불러오지 못했어요.');
         }
         setCandidates(generatedCandidates);
+        setSelectedCandidateId(generatedCandidates.some(candidate => candidate.id === draft.characterId)
+          ? draft.characterId : null);
         completedJobRef.current = job.id;
         progressAnim.setValue(1);
         setScreenState('result');
@@ -141,11 +154,15 @@ export default function CharacterScreen() {
   };
 
   useFocusEffect(useCallback(() => {
+    leavingRef.current = false;
     setCheckingAvailability(false);
     const stopWatching = () => {
       generationRunRef.current += 1;
       submittingRef.current = false;
       availabilityCheckRef.current = false;
+      if (resumeGeneration && draft.generationJobId) {
+        updateDraft({ generationBackgrounded: completedJobRef.current !== draft.generationJobId });
+      }
     };
     if (!resumeGeneration) {
       if (draft.generationJobId && draft.capturedPhotoUri) {
@@ -154,7 +171,6 @@ export default function CharacterScreen() {
       }
       return stopWatching;
     }
-    if (draft.generationJobId && completedJobRef.current === draft.generationJobId) return stopWatching;
     if (!draft.generationJobId) {
       setScreenState('guide');
       if (intentionalRetryRef.current) {
@@ -194,6 +210,8 @@ export default function CharacterScreen() {
     updateDraft({
       generationJobId: null,
       generationBackgrounded: false,
+      generationOutcome: null,
+      notifiedJobId: null,
       characterId: null,
       characterImageUrl: null,
       characterChecksum: '',
@@ -202,6 +220,22 @@ export default function CharacterScreen() {
     setSelectedCandidateId(null);
     setCandidates([]);
     setScreenState('guide');
+  };
+
+  // 후보 화면의 "다시 만들기" — 3~4분 걸려 만든 캐릭터 3개를 버리는 동작이라 먼저 확인받는다.
+  const confirmRetry = () => {
+    if (candidates.length === 0) {
+      handleRetry();
+      return;
+    }
+    Alert.alert(
+      '다시 만들까요?',
+      '지금 만든 캐릭터 3개가 사라져요. 사진 촬영부터 다시 시작해요.',
+      [
+        { text: '그대로 고르기', style: 'cancel' },
+        { text: '다시 만들기', style: 'destructive', onPress: handleRetry },
+      ],
+    );
   };
 
   // ── camera ────────────────────────────────────────────────────────────────
@@ -301,16 +335,21 @@ export default function CharacterScreen() {
       if (generationRunRef.current !== runId) return;
       updateDraft({
         generationJobId: job.id,
+        generationBackgrounded: !resumeGeneration || !draft.commonNameKo || !draft.info,
+        generationOutcome: null,
+        notifiedJobId: null,
         capturedPhotoUri: photoUri,
         characterId: null,
         characterImageUrl: null,
         characterChecksum: '',
       });
 
-      if (resumeGeneration) {
-        setGenerationMessage(job.message);
-      } else {
+      if (!resumeGeneration || !draft.commonNameKo) {
         router.push('/add-plant');
+      } else if (!draft.info) {
+        router.push('/add-plant/info');
+      } else {
+        setGenerationMessage(job.message);
       }
     } catch (error: any) {
       if (generationRunRef.current !== runId) return;
@@ -321,19 +360,51 @@ export default function CharacterScreen() {
     }
   };
 
+  // "그만두기" — 보관한 등록 내용을 지우고 홈으로 나간다. 접수된 생성 작업 자체는
+  // 학교 GPU에서 그대로 끝나지만, 앱은 더 이상 그 작업을 이어받지 않는다.
+  const handleGiveUp = () => {
+    Alert.alert(
+      '등록을 그만둘까요?',
+      '입력한 내용과 만들던 캐릭터가 사라져요. 다시 시작하려면 사진부터 다시 찍어야 해요.',
+      [
+        { text: '계속 진행', style: 'cancel' },
+        {
+          text: '그만두기',
+          style: 'destructive',
+          onPress: () => {
+            generationRunRef.current += 1;
+            cancelGeneration();
+            router.leaveToHome();
+          },
+        },
+      ],
+    );
+  };
+
   // "나중에 확인할게요" — 생성 대기 화면을 벗어나 홈으로 돌아가되, 진행 중인
   // 작업(generationJobId)은 draft에 남겨 AddPlantFlowProvider가 대신 폴링하게 한다.
   // 완료되면 로컬 알림이 뜨고, 눌러서 이 화면(CharacterResult)으로 바로 돌아온다.
-  const handleBackground = async () => {
-    updateDraft({ generationBackgrounded: true });
-    const granted = await ensureNotificationPermission();
-    if (!granted) {
-      Alert.alert(
-        '알림 권한 없음',
-        '완료 알림을 받을 수 없어요. 나중에 직접 이 화면으로 돌아와 확인해주세요.',
-      );
+  const handleBackground = async (startTutorial = false) => {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    const runId = generationRunRef.current;
+    try {
+      const granted = await ensureNotificationPermission();
+      if (generationRunRef.current !== runId) return;
+      if (!granted) {
+        Alert.alert('알림 권한 없음', '등록 내용은 보관돼요. 정원의 + 버튼에서 이어서 확인해주세요.');
+      }
+      backgroundGeneration();
+      if (startTutorial) {
+        setIntroDismissed(true);
+        tutorial.start('first-plant');
+      }
+      router.leaveToHome();
+    } catch {
+      Alert.alert('화면 이동 실패', '잠시 후 다시 시도해주세요. 등록 내용은 유지돼요.');
+    } finally {
+      leavingRef.current = false;
     }
-    router.leaveToHome();
   };
 
   const handleNext = () => {
@@ -492,14 +563,21 @@ export default function CharacterScreen() {
           {resumeGeneration && (
             <>
               <Text style={styles.waitHint}>
-                입력한 식물 정보는 보관되어 있어요.{`\n`}이 화면을 나가도 완료되면 알림으로 알려드려요.
+                입력한 식물 정보는 보관되어 있어요.{`\n`}앱에서 다른 화면을 보는 동안 완료 알림을 받을 수 있어요.
               </Text>
               <TouchableOpacity
                 style={styles.backgroundBtn}
-                onPress={handleBackground}
+                onPress={() => handleBackground()}
                 activeOpacity={0.8}
               >
                 <Text style={styles.backgroundBtnText}>나중에 확인할게요</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.giveUpBtn}
+                onPress={handleGiveUp}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.giveUpBtnText}>그만두기</Text>
               </TouchableOpacity>
             </>
           )}
@@ -522,11 +600,7 @@ export default function CharacterScreen() {
               <TouchableOpacity
                 style={styles.tutorialStartBtn}
                 activeOpacity={0.85}
-                onPress={() => {
-                  setIntroDismissed(true);
-                  tutorial.start('first-plant');
-                  tutorial.navigateRoot('Home');
-                }}
+                onPress={() => handleBackground(true)}
               >
                 <Text style={styles.tutorialStartBtnText}>튜토리얼 시작</Text>
               </TouchableOpacity>
@@ -576,7 +650,11 @@ export default function CharacterScreen() {
               <TouchableOpacity
                 key={candidate.id}
                 style={[styles.candidateCard, isSelected && styles.candidateCardSelected]}
-                onPress={() => setSelectedCandidateId(candidate.id)}
+                onPress={() => {
+                  setSelectedCandidateId(candidate.id);
+                  updateDraft({ characterId: candidate.id, characterImageUrl: candidate.imageUrl ?? null,
+                    characterChecksum: candidate.checksum ?? '' });
+                }}
                 activeOpacity={0.8}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: isSelected }}
@@ -606,7 +684,7 @@ export default function CharacterScreen() {
         <View style={styles.rowBtns}>
           <TouchableOpacity
             style={[styles.btn, styles.outlineBtn]}
-            onPress={handleRetry}
+            onPress={confirmRetry}
             activeOpacity={0.8}
           >
             <Text style={styles.outlineBtnText}>다시 만들기</Text>

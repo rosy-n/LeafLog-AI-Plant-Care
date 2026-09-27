@@ -124,6 +124,10 @@ function resolveApiBaseUrl(): string {
 
 const API_BASE_URL = resolveApiBaseUrl();
 
+export function registrationScope(userId: number | string): string {
+  return `${API_BASE_URL}|${userId}`;
+}
+
 class ApiError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -892,10 +896,20 @@ export function refreshMediaUrl(url: string) {
   });
 }
 
-export function getCharacterGeneration(jobId: string) {
-  return request<CharacterGenerationJob>(
-    `/api/character-generations/${encodeURIComponent(jobId)}`,
-  );
+export async function getCharacterGeneration(jobId: string, signal?: AbortSignal) {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  signal?.addEventListener('abort', abort, { once: true });
+  if (signal?.aborted) controller.abort();
+  const timer = setTimeout(abort, 12000);
+  try {
+    return await request<CharacterGenerationJob>(
+      `/api/character-generations/${encodeURIComponent(jobId)}`, { signal: controller.signal },
+    );
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', abort);
+  }
 }
 
 export type PersonaOption = {

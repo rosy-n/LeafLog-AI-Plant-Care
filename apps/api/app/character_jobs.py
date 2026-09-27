@@ -21,7 +21,7 @@ from botocore.config import Config
 from .character_types import CharacterCandidate, CharacterGenerationJob
 from .config import settings
 from .database import SessionLocal
-from .image_formats import heif_to_jpeg
+from .image_formats import ImageInputLimitError, heif_to_jpeg
 from .models import CharacterJob
 from .storage import _s3
 
@@ -135,7 +135,10 @@ class CharacterJobService:
         require_generation_enabled()
         # 학교 worker는 HEIC를 못 읽는다 — 입력 원본을 JPEG로 저장해 worker 쪽은 그대로 둔다.
         # 같은 HEIC는 같은 JPEG가 되므로 input_sha256 기반 중복 판단도 유지된다.
-        image_bytes, _ = heif_to_jpeg(image_bytes)
+        try:
+            image_bytes, _ = heif_to_jpeg(image_bytes)
+        except ImageInputLimitError as exc:
+            raise HTTPException(413, str(exc)) from exc
         content_type = validate_image(image_bytes)
         digest = hashlib.sha256(image_bytes).hexdigest()
         if idempotency_key and (len(idempotency_key) > 100 or not idempotency_key.isascii()):

@@ -21,7 +21,7 @@ from . import affinity, air_quality, asos, diagnosis, environment, persona_chat,
 from .character_types import CharacterGenerationJob
 from .config import settings
 from .database import Base, engine, get_db
-from .image_formats import heif_to_jpeg
+from .image_formats import ImageInputLimitError, heif_to_jpeg
 from .image_types import (
     ImagePreprocessingError,
     ImagePreprocessingUnavailable,
@@ -2372,7 +2372,10 @@ def diagnose_plant_photo(
     photo_content_type = (file.content_type or "image/jpeg") if file is not None else None
     if image_bytes is not None:
         # 아이폰 HEIC는 모델도, 상담 기록을 다시 여는 다른 기기도 못 읽으니 저장 전에 JPEG로 바꾼다.
-        image_bytes, converted = heif_to_jpeg(image_bytes)
+        try:
+            image_bytes, converted = heif_to_jpeg(image_bytes)
+        except ImageInputLimitError as exc:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc)) from exc
         if converted:
             photo_content_type = "image/jpeg"
 
@@ -2431,6 +2434,8 @@ def diagnose_plant_photo(
                 conversation_history=conversation_history,
             )
             similar_cases = []
+    except ImageInputLimitError as exc:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc)) from exc
     except diagnosis.UnsupportedDiagnosisImage as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except RuntimeError as exc:

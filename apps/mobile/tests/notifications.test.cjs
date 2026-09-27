@@ -7,7 +7,7 @@ function setup(platform, enabled = true) {
   const notifications = {
     setNotificationHandler() {},
     AndroidImportance: { DEFAULT: 3 },
-    SchedulableTriggerInputTypes: { DATE: 'date' },
+    SchedulableTriggerInputTypes: { DATE: 'date', TIME_INTERVAL: 'timeInterval' },
     setNotificationChannelAsync: async (id) => calls.push(['channel', id]),
     getPermissionsAsync: async () => ({ granted: false, canAskAgain: true }),
     requestPermissionsAsync: async () => { calls.push(['permission']); return { granted: true }; },
@@ -20,7 +20,7 @@ function setup(platform, enabled = true) {
     './api': {},
     './notificationSettings': { loadNotificationSettings: async () => ({ enabled, hour: 9, minute: 30 }) },
   });
-  return { calls, api: app.exports };
+  return { calls, api: app.exports, notifications };
 }
 
 test('Android creates its channel before permission and attaches it to the trigger', async () => {
@@ -49,4 +49,17 @@ test('disabled reminders only cancel the previous schedule', async () => {
   const { api, calls } = setup('android', false);
   assert.equal(await api.scheduleWateringReminder(42, 'plant', '2099-01-01'), false);
   assert.deepEqual(calls, [['cancel', 'watering-42']]);
+});
+
+test('generation notifications carry account and job identity without asking permission in background', async () => {
+  const { api, calls, notifications } = setup('android');
+  await api.notifyCharacterGenerationReady(true, { jobId: 'job-1', scope: 'account-1' });
+  assert.equal(calls.length, 0);
+  notifications.getPermissionsAsync = async () => ({ granted: true });
+  await api.notifyCharacterGenerationReady(true, { jobId: 'job-1', scope: 'account-1' });
+  assert.ok(!calls.some(([kind]) => kind === 'permission'));
+  const request = calls.find(([kind]) => kind === 'schedule')[1];
+  assert.equal(request.content.data.jobId, 'job-1');
+  assert.equal(request.content.data.scope, 'account-1');
+  assert.equal(request.trigger.channelId, 'character-ready');
 });

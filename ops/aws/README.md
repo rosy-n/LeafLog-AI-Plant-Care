@@ -3,13 +3,13 @@
 실행 절차는 [AWS 이전 작업 가이드](../../docs/aws-team-handoff.md)에 통합.
 담당 업무, AWS 준비, 백업·복원, 환경 설정, 학교 연결, 폰 테스트, 오류 대응, 전환·복구 순서까지 해당 문서 기준으로 진행.
 
-작업 브랜치: `feature/aws-migration`. develop `3245298` 변경과 생성 중지·오류 처리 보강을 이 브랜치에 반영. 인증 발급 전까지 검증한 작업의 보관 단계이며 서버 자동 배포나 이전 완료를 뜻하지 않음. EC2 내부 API, S3·SQS 발신 검사, Qdrant 191건 대조, 이미지 19건 이전, 테스트 RDS 스키마 보완 완료. 9월 8일 학교 테스트 worker와 Ollama 응답 확인. 9월 10일 HTTPS 외부 접속·접근 보호·자동 갱신 모의 실행 통과. 외부 API 키 3종은 비공개 설정에 반영. 9월 10일 재점검에서 학교 worker 연결 시간 초과. 학교 재연결·SQS 인증·실제 생성·휴대폰 검증이 남음. 최종 배포 SHA는 별도 확정.
+2026-09-11 AWS 운영 전환 완료. 9월 12일 점검 기준 API·학교 worker 실행 코드는 develop `855f53f`이며, 이후 문서·주석 정리는 실행 코드 변경과 구분한다. 최신 운영 현황은 작업 가이드 **0절**을 기준으로 확인한다.
 
-추가 보강은 로컬 검사 완료·서버 미배포: 메시지 전달 지연 0초 명시, 학교 SQS 인증 오류 재시도, 수신·삭제·가시성 연장 상태 점검. 백엔드 143개·모바일 53개 테스트와 타입 검사 통과. 자세한 상태 구분은 작업 가이드 9-6절 참고.
+9월 12일 읽기 전용 점검: AWS HTTPS API 정상, RDS 운영 DB `leaflog` 연결 정상, Qdrant 191건 정상. 학교 worker는 IAM Roles Anywhere로 SQS를 수신하며 상태는 `ready`. API와 worker 모두 생성 활성화·자동시작 상태다. 이전 학교 API는 중지·자동시작 해제되어 있다.
 
-IAM·SQS 준비 전 테스트는 API와 worker의 `CHARACTER_GENERATION_ENABLED=false`로 진행. 새 생성 요청과 큐 소비만 중지하며 로그인·기존 기록·상담·진단은 각 서비스의 연결 상태에 따라 검증 가능. 필요한 설정과 재개 순서는 가이드의 **0-1절** 참고.
+템플릿의 `CHARACTER_GENERATION_ENABLED=false`는 **새 환경 설치 중** 검증 전 큐 소비를 막는 기본값이다. 현재 운영 설정이 false라는 뜻은 아니다. 작업 가이드 0-1절의 권한 승인 전 절차는 과거 준비 기록이며 운영 환경에 그대로 재적용하지 않는다.
 
-학교 CLIP 캐시 준비 및 합성 이미지로 EC2 → 학교 임베딩 → EC2 Qdrant 검색 확인 완료. 이 연결 검사와 실제 식물 진단 정확도·모바일 화면 검증은 구분.
+학교 인증서는 2026-12-31 만료 예정. 12월 초 갱신 절차를 협의한다. EC2 재부팅 복구는 확인했고, 학교 Windows 재부팅 복구는 현장 시험이 남아 있다. 신규 코드의 로컬 테스트 통과와 운영 배포·휴대폰 검증은 별도로 기록한다.
 
 ## 파일 구성
 
@@ -22,17 +22,17 @@ IAM·SQS 준비 전 테스트는 API와 worker의 `CHARACTER_GENERATION_ENABLED=
 | [작업 테이블 SQL](../../apps/api/migrations/20260907_character_jobs.sql) | 복원한 RDS에 character_job 추가 |
 | [이미지 이전 도구](../../apps/api/scripts/migrate_media.py) | 계획 → 업로드 → 검증 → DB 반영 |
 | [EC2 접근 점검](../../apps/api/scripts/check_aws_access.py) | 역할 선택 확인. 명시적 옵션으로만 S3·SQS 테스트 쓰기 |
-| [학교 SQS 정책 예시](iam/school-worker-policy.example.json) | 처리 큐 하나의 수신·삭제·가시성 갱신 권한. 인증 수단은 별도 발급 필요 |
+| [학교 SQS 정책 예시](iam/school-worker-policy.example.json) | 처리 큐 하나의 수신·삭제·가시성 갱신 권한. 운영 인증은 IAM Roles Anywhere 사용 |
 | [도메인 없는 HTTPS](https/README.md) | 기존 공인 IP의 무료 인증서, Nginx 설정, 4시간 갱신 점검. Caddy와 선택 적용 |
-| [테스트 RDS 스키마 보완](../../apps/api/migrations/20260908_rehearsal_develop_schema.sql) | 종 사진 테이블·앱 권한·BATHROOM 위치. 백업·승인 후 테스트 RDS 적용 완료. 운영 DB는 별도 검수 |
+| [테스트 RDS 스키마 보완](../../apps/api/migrations/20260908_rehearsal_develop_schema.sql) | 이전 당시 스키마 보완 기록. 운영 DB에 재실행하지 않음 |
 
 ## 적용 기준
 
 - 실제 주소·비밀번호·토큰은 비공개 환경 파일에만 기록.
 - 서비스 템플릿의 실행 계정·코드·Python 경로는 설치 환경에 맞게 변경.
-- worker 템플릿의 `AI_WORKER_HOST=127.0.0.1`은 WSL 루프백 연결 기준. 현재 학교 테스트는 Windows Tailscale 전용 18010 → localhost 8010 전달과 EC2 출발지 제한 사용. Serve 중복 설정 금지.
-- 테스트 worker는 생성 중지·자동시작 비활성. 최종 전환 시 기존 학교 GPU 작업과의 중복 방지, 자동시작·복구 검증 필요.
+- worker 템플릿의 `AI_WORKER_HOST=127.0.0.1`은 WSL 루프백 연결 기준. 학교 운영 환경은 Windows Tailscale 전용 18010 → localhost 8010 전달과 EC2 출발지 제한 사용. Serve 중복 설정 금지.
+- 현재 `leaflog-ai-worker`는 자동시작 활성화 상태. 기존 학교 `leaflog-api`를 다시 켜지 않음.
 - 별도 내부 인터페이스에 직접 연결하는 환경은 네트워크 담당자가 주소·바인드·방화벽을 함께 검증.
 - 기존 `APP_ROLE=standalone` 설정과 새 API·worker 설정을 혼합하지 않음.
 - 기존 학교 DB에는 새 SQL을 적용하지 않음. 새 테스트 RDS에서 먼저 검증.
-- 통합 테스트 통과와 팀 승인 후 develop 병합·운영 전환.
+- 기능 브랜치에서 검증하고 팀 승인 후 develop 병합·배포. GitHub 병합만으로 서버 코드가 자동 교체되지는 않음.

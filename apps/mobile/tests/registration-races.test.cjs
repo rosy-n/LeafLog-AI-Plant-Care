@@ -13,7 +13,7 @@ function setupSearch() {
     '../../src/hooks/useAddPlantRouter': { useRouter: () => ({ push: (to) => navigation.push(to) }) },
     '../../src/AddPlantFlowContext': { useAddPlantFlow: () => ({ draft, updateDraft(patch) { updates.push(patch); Object.assign(draft, patch); } }) },
     'expo-image-picker': {},
-    '../../src/api': { searchSpecies(query) {
+    '../../src/api': { speciesDisplayName: species => species.alias_ko ?? species.common_name_ko, searchSpecies(query) {
       const request = { query, ...deferred() };
       requests.push(request);
       return request.promise;
@@ -80,29 +80,35 @@ test('cancelling search clears the pending debounce and loading indicator', () =
   assert.ok(!nodes(app.render()).some((n) => n.type === 'ActivityIndicator'));
 });
 
-function setupCharacter(resume = false, availability = async () => ({ enabled: true, message: null })) {
+function setupCharacter(resume = false, availability = async () => ({ enabled: true, message: null }), options = {}) {
   const job = deferred();
   const polls = [];
   const progress = [];
   const navigation = [];
   const updates = [];
   const uploads = [];
+  const reported = [];
+  const cancelled = [];
   const draft = { capturedPhotoUri: null, generationJobId: resume ? 'job-1' : null };
   const app = screen('app/add-plant/character.tsx', {
     '../../constants/colors': { Colors: {} },
     './styles/character.styles': { styles: {} },
     './styles/common.styles': { common: {} },
     '../../src/hooks/useAddPlantRouter': {
-      useRouter: () => ({ push: (path) => navigation.push(path), replace: (path) => navigation.push(path) }),
+      useRouter: () => ({ push: (path) => navigation.push(path), replace: (path) => navigation.push(path), leaveToHome: () => navigation.push('Home') }),
       useLocalSearchParams: () => resume ? { resumeGeneration: 'true' } : {},
     },
     '../../src/AddPlantFlowContext': {
-      useAddPlantFlow: () => ({ draft, updateDraft: (v) => { updates.push(v); Object.assign(draft, v); } }),
+      useAddPlantFlow: () => ({ draft, isFirstPlant: options.first ?? false,
+        backgroundGeneration: () => { draft.generationBackgrounded = true; },
+        reportGeneration: (value) => { reported.push(value); },
+        cancelGeneration: () => { cancelled.push(true); Object.assign(draft, { generationJobId: null }); },
+        updateDraft: (v) => { updates.push(v); Object.assign(draft, v); } }),
     },
     '../../src/components/PlantImage': { __esModule: true, default: 'PlantImage' },
     '../../src/data/characterExpressions': { hasFaceRemovedChecksum: () => false },
-    '../../src/TutorialContext': { useTutorial: () => ({ active: false, start() {}, navigateRoot() {} }) },
-    '../../src/notifications': { ensureNotificationPermission: async () => true },
+    '../../src/TutorialContext': { useTutorial: () => ({ active: false, start() { navigation.push('tutorial'); } }) },
+    '../../src/notifications': { ensureNotificationPermission: options.permission ?? (async () => true) },
     '../../src/api': {
       getCharacterGenerationAvailability: availability,
       startCharacterGeneration: (photo) => { uploads.push(photo); return job.promise; },
@@ -117,6 +123,8 @@ function setupCharacter(resume = false, availability = async () => ({ enabled: t
       launchCameraAsync: async () => ({ canceled: false, assets: [{ uri: 'file:///plant.jpg' }] }),
     },
   });
+  app.reported = reported;
+  app.cancelled = cancelled;
   app.native.Animated.timing = (_value, options) => ({ start() { progress.push(options.toValue); } });
   async function begin() {
     function button(label) {
@@ -264,10 +272,16 @@ test('back navigation from the name screen keeps the selected completed characte
   app.render();
   app.blur();
   app.focus();
+  app.polls.at(-1).resolve({ id: 'job-1', status: 'completed', progress: 100,
+    candidates: [1, 2, 3].map(id => ({ id: String(id), image_url: `https://example.test/${id}.png?fresh=1` })) });
+  await flush();
   const chosen = nodes(app.render()).filter((n) => n.props.accessibilityRole === 'radio'
     && n.props.accessibilityState.selected);
   assert.equal(chosen.length, 1);
   assert.equal(chosen[0].props.accessibilityLabel, '1번 도트 캐릭터');
+  assert.equal(app.draft.characterId, '1');
+  assert.equal(app.polls.length, 2, 'reopening refreshes expired signed candidate URLs');
+  app.dispose();
 });
 
 test('photo identification choices keep camera, library and cancel available within the Android limit', () => {
@@ -336,5 +350,107 @@ test('late poll after leaving cannot update progress or open the result', async 
   await flush();
   assert.equal(app.progress.at(-1), .5);
   assert.equal(app.alerts.length, 0);
+  app.dispose();
+});
+
+test('first registration cannot leave for a tutorial before upload acceptance', async () => {
+  const app = setupCharacter(false, undefined, { first: true });
+  const pending = app.begin();
+  await flush();
+  assert.ok(!nodes(app.render()).some(n => n.type === 'Text' && n.props.children === '튜토리얼 시작'));
+  app.job.resolve({ id: 'job-1', status: 'queued', message: 'queued' });
+  await pending;
+  assert.equal(app.draft.generationJobId, 'job-1');
+  assert.deepEqual(app.navigation, ['/add-plant']);
+  app.dispose();
+});
+
+test('tutorial starts at the result wait and preserves the accepted job', async () => {
+  const app = setupCharacter(true, undefined, { first: true });
+  app.render();
+  app.job.resolve({ id: 'job-1', status: 'generating', progress: 40, message: 'sampling' });
+  await flush();
+  const start = nodes(app.render()).find(n => n.type === 'TouchableOpacity'
+    && nodes(n).some(child => child.type === 'Text' && child.props.children === '튜토리얼 시작'));
+  assert.ok(start);
+  await start.props.onPress();
+  assert.equal(app.draft.generationJobId, 'job-1');
+  assert.equal(app.draft.generationBackgrounded, true);
+  assert.deepEqual(app.navigation, ['tutorial', 'Home']);
+  app.dispose();
+});
+
+test('leaving while permission is pending cannot start a tutorial or navigate later', async () => {
+  const permission = deferred();
+  const app = setupCharacter(true, undefined, { first: true, permission: () => permission.promise });
+  app.render();
+  const start = nodes(app.render()).find(n => n.type === 'TouchableOpacity'
+    && nodes(n).some(child => child.type === 'Text' && child.props.children === '튜토리얼 시작'));
+  const pending = start.props.onPress();
+  app.blur();
+  permission.resolve(true);
+  await pending;
+  assert.equal(app.navigation.length, 0);
+  assert.equal(app.draft.generationBackgrounded, true, 'leaving still hands polling back to the provider');
+  app.job.resolve({ status: 'queued' });
+  await flush();
+  app.dispose();
+});
+
+test('giving up asks first, then clears the saved registration and leaves', async () => {
+  const app = setupCharacter(true);
+  app.render();
+  app.job.resolve({ id: 'job-1', status: 'generating', progress: 30, message: '후보 1/3' });
+  await flush();
+  // 진행 상황은 정원 목록·하단 알림과 공유된다
+  assert.deepEqual({ ...app.reported.at(-1) }, { jobId: 'job-1', status: 'generating', progress: 30, message: '후보 1/3' });
+
+  const giveUp = nodes(app.render()).find((n) => n.type === 'TouchableOpacity'
+    && nodes(n).some((child) => child.type === 'Text' && child.props.children === '그만두기'));
+  giveUp.props.onPress();
+  const [title, , buttons] = app.alerts.at(-1);
+  assert.equal(title, '등록을 그만둘까요?');
+  assert.equal(app.cancelled.length, 0, '확인 전에는 지우지 않는다');
+
+  buttons.find((b) => b.text === '그만두기').onPress();
+  assert.equal(app.cancelled.length, 1);
+  assert.equal(app.draft.generationJobId, null);
+  assert.equal(app.navigation.at(-1), 'Home');
+  app.dispose();
+});
+
+test('a finished job is remembered so other screens can show the result', async () => {
+  const app = setupCharacter(true);
+  app.render();
+  app.job.resolve({ id: 'job-1', status: 'completed', progress: 100, message: '완료', candidates: [
+    { id: 'c1', image_url: 'https://test/1.png', checksum: 'a', face_bounds: null },
+    { id: 'c2', image_url: 'https://test/2.png', checksum: 'b', face_bounds: null },
+    { id: 'c3', image_url: 'https://test/3.png', checksum: 'c', face_bounds: null },
+  ] });
+  await flush();
+  assert.ok(app.updates.some((patch) => patch.generationOutcome === 'completed'));
+  assert.equal(app.reported.at(-1).status, 'completed');
+  app.dispose();
+});
+
+test('re-generating asks before throwing away finished candidates', async () => {
+  const app = setupCharacter(true);
+  app.render();
+  app.job.resolve({ id: 'job-1', status: 'completed', progress: 100, message: '완료', candidates: [
+    { id: 'c1', image_url: 'https://test/1.png', checksum: 'a', face_bounds: null },
+    { id: 'c2', image_url: 'https://test/2.png', checksum: 'b', face_bounds: null },
+    { id: 'c3', image_url: 'https://test/3.png', checksum: 'c', face_bounds: null },
+  ] });
+  await flush();
+
+  const retry = nodes(app.render()).find((n) => n.type === 'TouchableOpacity'
+    && nodes(n).some((child) => child.type === 'Text' && child.props.children === '다시 만들기'));
+  retry.props.onPress();
+  const [title, , buttons] = app.alerts.at(-1);
+  assert.equal(title, '다시 만들까요?');
+  assert.equal(app.draft.generationJobId, 'job-1', '확인 전에는 작업을 버리지 않는다');
+
+  buttons.find((b) => b.text === '다시 만들기').onPress();
+  assert.equal(app.draft.generationJobId, null);
   app.dispose();
 });

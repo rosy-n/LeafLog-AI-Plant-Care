@@ -29,8 +29,12 @@ export default function AddPlantIndexScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useAddPlantFlow();
 
-  const [mode, setMode] = useState<Mode>('initial');
-  const [searchText, setSearchText] = useState('');
+  const [mode, setMode] = useState<Mode>(draft.speciesSearch ? 'search' : 'initial');
+  const [searchText, setLocalSearchText] = useState(draft.speciesSearch ?? '');
+  const setSearchText = (text: string) => {
+    setLocalSearchText(text);
+    updateDraft({ speciesSearch: text });
+  };
   const [searchResults, setSearchResults] = useState<SpeciesListItem[]>([]);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
@@ -214,6 +218,7 @@ export default function AddPlantIndexScreen() {
               onChangeText={handleSearchChange}
               onFocus={handleSearchFocus}
               returnKeyType="search"
+              onSubmitEditing={() => handleSearchChange(searchText)}
             />
             {isSearchLoading && (
               <ActivityIndicator style={styles.searchSpinner} size="small" />

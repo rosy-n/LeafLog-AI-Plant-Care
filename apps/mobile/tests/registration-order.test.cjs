@@ -9,11 +9,16 @@ function button(app, label) {
 
 test('registration starts with the photo step and header steps follow the new order', () => {
   let routeName = 'Character';
+  const draft = {};
+  let exits = 0, preserves = 0;
   const imports = {
     '@react-navigation/native-stack': { createNativeStackNavigator: () => ({ Navigator: 'Navigator', Screen: 'Screen' }) },
     '@react-navigation/native': { useNavigation: () => ({ goBack() {} }), useRoute: () => ({ name: routeName }) },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0 }) },
-    '../AddPlantFlowContext': { AddPlantFlowProvider: 'FlowProvider' },
+    '../AddPlantFlowContext': { useAddPlantFlow: () => ({ draft, backgroundGeneration: () => preserves++ }) },
+    '../registrationStorage': { registrationResumeScreen: () => 'Character' },
+    '../hooks/useAddPlantRouter': { useRouter: () => ({ leaveToHome() { exits++; } }) },
+    '../notifications': { ensureNotificationPermission: async () => true },
     '../components/BackButton': { __esModule: true, default: 'BackButton' },
     '../../constants/colors': { Colors: {} },
     '../../constants/spacing': { Spacing: {}, Radius: {} },
@@ -31,6 +36,37 @@ test('registration starts with the photo step and header steps follow the new or
     const label = nodes(header.type()).find((node) => node.type === 'Text');
     assert.equal([label.props.children].flat().join(''), `${step}/5`);
   }
+  draft.generationJobId = 'job-1';
+  for (const route of ['AddPlantIndex', 'Info', 'CharacterResult', 'Name']) {
+    routeName = route;
+    const header = navigator.props.screenOptions.header();
+    nodes(header.type()).find(n => n.props.accessibilityLabel === '저장하고 나가기').props.onPress();
+  }
+  assert.equal(exits, 4);
+  assert.equal(preserves, 4);
+  app.dispose();
+});
+
+test('partially entered details persist immediately and restore without marking the step complete', () => {
+  const draft = { generationJobId: 'job-1', commonNameKo: 'plant' };
+  const create = () => screen('app/add-plant/info.tsx', {
+    '../../constants/colors': { Colors: {} }, './styles/info.styles': { styles: {} },
+    '../../src/hooks/useAddPlantRouter': { useRouter: () => ({ push() {} }) },
+    '../../src/AddPlantFlowContext': { useAddPlantFlow: () => ({ draft, updateDraft: patch => Object.assign(draft, patch) }) },
+  });
+  let app = create();
+  button(app, '거실').props.onPress();
+  nodes(app.render()).find(n => n.type === 'TextInput' && n.props.multiline).props.onChangeText('분갈이흙');
+  assert.equal(draft.infoInput.soilNote, '분갈이흙');
+  assert.equal(draft.info, null);
+  app.dispose();
+  app = create();
+  assert.equal(button(app, '다음').props.disabled, true);
+  assert.equal(nodes(app.render()).find(n => n.type === 'TextInput' && n.props.multiline).props.value, '분갈이흙');
+  button(app, '간접광').props.onPress();
+  button(app, '다음').props.onPress();
+  assert.equal(draft.info.location, 'LIVING_ROOM');
+  assert.equal(draft.info.soilNote, '분갈이흙');
   app.dispose();
 });
 
@@ -43,8 +79,11 @@ test('confirming a species goes directly to details and preserves the photo gene
       useRouter: () => ({ push: (to) => navigation.push(to) }),
       useLocalSearchParams: () => ({ speciesId: '12', commonNameKo: 'test species' }),
     },
-    '../../src/AddPlantFlowContext': { useAddPlantFlow: () => ({ draft, updateDraft: (patch) => Object.assign(draft, patch) }) },
-    '../../src/api': { getSpecies: async () => ({ common_name_ko: 'test species', scientific_name: 'Test plant' }) },
+    '../../src/AddPlantFlowContext': { useAddPlantFlow: () => ({ draft, updateDraft: (patch) => Object.assign(draft, patch), reportGeneration() {}, cancelGeneration() {} }) },
+    '../../src/api': {
+      getSpecies: async () => ({ common_name_ko: 'test species', scientific_name: 'Test plant' }),
+      speciesDisplayName: species => species.alias_ko ?? species.common_name_ko,
+    },
   });
   app.render();
   await flush();
@@ -63,7 +102,7 @@ test('details stay editable until Next and then open the existing job result', a
     '../../constants/colors': { Colors: {} },
     './styles/info.styles': { styles: {} },
     '../../src/hooks/useAddPlantRouter': { useRouter: () => ({ push: (to) => navigation.push(to) }) },
-    '../../src/AddPlantFlowContext': { useAddPlantFlow: () => ({ draft, updateDraft: (patch) => Object.assign(draft, patch) }) },
+    '../../src/AddPlantFlowContext': { useAddPlantFlow: () => ({ draft, updateDraft: (patch) => Object.assign(draft, patch), reportGeneration() {}, cancelGeneration() {} }) },
   });
   assert.equal(button(app, '다음').props.disabled, true);
   button(app, '거실').props.onPress();

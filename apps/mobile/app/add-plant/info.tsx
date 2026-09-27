@@ -12,7 +12,7 @@ import {
 import { Colors } from '../../constants/colors';
 import { useState } from 'react';
 import { useRouter } from '../../src/hooks/useAddPlantRouter';
-import { useAddPlantFlow } from '../../src/AddPlantFlowContext';
+import { useAddPlantFlow, type AddPlantInfoInput } from '../../src/AddPlantFlowContext';
 
 import { styles } from './styles/info.styles';
 
@@ -150,19 +150,37 @@ export default function InfoScreen() {
   const router = useRouter();
   const { draft, updateDraft } = useAddPlantFlow();
 
-  // Form state
-  const [location, setLocation] = useState<string | null>(null);
-  const [lightLevel, setLightLevel] = useState<string | null>(null);
-  const [plantHeight, setPlantHeight] = useState('');
-  const [potDiameter, setPotDiameter] = useState('');
-  const [potType, setPotType] = useState<string | null>(null);
   const todayDate = new Date();
-  const [lastWatered, setLastWatered] = useState<MonthDay>({
-    month: todayDate.getMonth() + 1,
-    day: todayDate.getDate(),
-  });
-  const [lastRepotted, setLastRepotted] = useState<MonthDay>(null);
-  const [soilNote, setSoilNote] = useState('');
+  const fromISO = (value?: string | null): MonthDay => {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : { month: date.getUTCMonth() + 1, day: date.getUTCDate() };
+  };
+  const form: AddPlantInfoInput = draft.infoInput ?? {
+    location: Object.keys(LOCATION_CODES).find(key => LOCATION_CODES[key] === draft.info?.location) ?? null,
+    lightLevel: LIGHT_OPTIONS.find(option => option.code === draft.info?.lightLevel)?.label ?? null,
+    plantHeight: draft.info?.plantHeight ? String(draft.info.plantHeight) : '',
+    potDiameter: draft.info?.potDiameter ? String(draft.info.potDiameter) : '',
+    potType: draft.info?.potType || null,
+    soilNote: draft.info?.soilNote ?? '',
+    lastWatered: fromISO(draft.info?.lastWateredAt) ?? { month: todayDate.getMonth() + 1, day: todayDate.getDate() },
+    lastRepotted: fromISO(draft.info?.lastRepottedAt),
+  };
+  // Persist each edit; a partially completed form is not a submitted info step.
+  function field<K extends keyof AddPlantInfoInput>(key: K) {
+    return [form[key], (value: AddPlantInfoInput[K] | ((old: AddPlantInfoInput[K]) => AddPlantInfoInput[K])) => {
+      const next = typeof value === 'function' ? value(form[key]) : value;
+      updateDraft({ infoInput: { ...form, [key]: next }, info: null });
+    }] as const;
+  }
+  const [location, setLocation] = field('location');
+  const [lightLevel, setLightLevel] = field('lightLevel');
+  const [plantHeight, setPlantHeight] = field('plantHeight');
+  const [potDiameter, setPotDiameter] = field('potDiameter');
+  const [potType, setPotType] = field('potType');
+  const [lastWatered, setLastWatered] = field('lastWatered');
+  const [lastRepotted, setLastRepotted] = field('lastRepotted');
+  const [soilNote, setSoilNote] = field('soilNote');
 
   // Picker modal state
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
@@ -175,18 +193,20 @@ export default function InfoScreen() {
   const handlePickerSelect = (value: number) => {
     if (!pickerTarget) return;
     if (pickerTarget === 'water-month') {
-      setLastWatered((prev) => ({ month: value, day: prev?.day ?? 1 }));
+      setLastWatered((prev) => ({ month: value, day: Math.min(prev?.day ?? 1, new Date(todayDate.getFullYear(), value, 0).getDate()) }));
     } else if (pickerTarget === 'water-day') {
       setLastWatered((prev) => ({ month: prev?.month ?? new Date().getMonth() + 1, day: value }));
     } else if (pickerTarget === 'repot-month') {
-      setLastRepotted((prev) => ({ month: value, day: prev?.day ?? 1 }));
+      setLastRepotted((prev) => ({ month: value, day: Math.min(prev?.day ?? 1, new Date(todayDate.getFullYear(), value, 0).getDate()) }));
     } else if (pickerTarget === 'repot-day') {
       setLastRepotted((prev) => ({ month: prev?.month ?? new Date().getMonth() + 1, day: value }));
     }
     closePicker();
   };
 
-  const pickerItems = pickerTarget?.endsWith('month') ? MONTHS : DAYS;
+  const pickerDate = pickerTarget?.startsWith('water') ? lastWatered : lastRepotted;
+  const pickerItems = pickerTarget?.endsWith('month') ? MONTHS
+    : DAYS.slice(0, new Date(todayDate.getFullYear(), pickerDate?.month ?? todayDate.getMonth() + 1, 0).getDate());
   const pickerTitle = pickerTarget?.endsWith('month') ? '월 선택' : '일 선택';
 
   const getSelectedPickerValue = (): number | null => {
