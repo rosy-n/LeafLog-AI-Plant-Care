@@ -19,7 +19,7 @@ POST https://my-api.plantnet.org/v2/identify/{project}?api-key={KEY}&lang=en&inc
 // multipart/form-data
 // - images: File (최대 5장, 현재는 1장)
 // - organs: 'leaf' | 'flower' | 'fruit' | 'bark' | 'auto'
-//   → 사용자가 부위 선택. "잘 모르겠어요" 선택 시 'auto'
+//   → 사용자가 부위 선택. "식물 전체" 선택 시 'auto'
 ```
 
 ### 응답 → 앱 타입 매핑

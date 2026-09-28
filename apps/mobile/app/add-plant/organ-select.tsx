@@ -12,7 +12,7 @@ import { common } from './styles/common.styles';
 import { styles } from './styles/organ-select.styles';
 
 const ORGANS = ['잎', '꽃', '열매', '줄기'] as const;
-const AUTO_ORGAN = '잘 모르겠어요' as const;
+const AUTO_ORGAN = '식물 전체' as const;
 type Organ = typeof ORGANS[number] | typeof AUTO_ORGAN;
 
 const ORGAN_EMOJI: Record<Organ, string> = {
@@ -20,7 +20,7 @@ const ORGAN_EMOJI: Record<Organ, string> = {
   '꽃': '🌸',
   '열매': '🍎',
   '줄기': '🌱',
-  '잘 모르겠어요': '❓',
+  '식물 전체': '🪴',
 };
 
 const ORGAN_API_MAP: Record<Organ, string> = {
@@ -28,7 +28,7 @@ const ORGAN_API_MAP: Record<Organ, string> = {
   '꽃': 'flower',
   '열매': 'fruit',
   '줄기': 'bark',
-  '잘 모르겠어요': 'auto',
+  '식물 전체': 'auto',
 };
 
 export default function OrganSelectScreen() {
@@ -135,9 +135,9 @@ export default function OrganSelectScreen() {
           <Text style={styles.organChipEmoji}>{ORGAN_EMOJI[AUTO_ORGAN]}</Text>
           <View>
             <Text style={[styles.organChipText, currentOrgan === AUTO_ORGAN && styles.organChipTextActive]}>
-              잘 모르겠어요
+              {AUTO_ORGAN}
             </Text>
-            <Text style={styles.organChipSub}>AI가 부위를 식별해요</Text>
+            <Text style={styles.organChipSub}>부위를 고르기 어려우면 AI가 알아서 판별해요</Text>
           </View>
         </TouchableOpacity>
       </View>
