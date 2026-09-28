@@ -20,9 +20,11 @@ export const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
 
-  // 사용자 촬영 사진 (전체 너비, aspectRatio는 런타임에 설정)
+  // 사용자 촬영 사진 — 전체 너비 4:3 칸에 채워 자른다.
+  // 사진 크기를 읽어 비율을 맞추면 로드 후 세로 사진(3:4)에서 칸이 길어져 화면을 가득 채운다.
   heroPhoto: {
     width: '100%',
+    aspectRatio: 4 / 3,
     marginBottom: Spacing.xl,
     backgroundColor: Colors.primaryLight,
   },

@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
 // PlantNet 이 준 학명으로 우리 종 마스터를 찾는다 (검색이 학명도 대상으로 함).
@@ -30,13 +30,6 @@ export default function PlantResultsScreen() {
   const userPhotos: string[] = JSON.parse(photoUris ?? '[]');
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
   const [modalImage, setModalImage] = useState<string | null>(null);
-  const [heroRatio, setHeroRatio] = useState<number>(4 / 3);
-
-  useEffect(() => {
-    if (userPhotos[0]) {
-      Image.getSize(userPhotos[0], (w, h) => setHeroRatio(w / h), () => {});
-    }
-  }, []);
 
   const handleSelect = async (item: PlantNetResult, index: number) => {
     setLoadingIndex(index);
@@ -95,8 +88,8 @@ export default function PlantResultsScreen() {
         {userPhotos[0] && (
           <Image
             source={{ uri: userPhotos[0] }}
-            style={[styles.heroPhoto, { aspectRatio: heroRatio }]}
-            resizeMode="contain"
+            style={styles.heroPhoto}
+            resizeMode="cover"
           />
         )}
 
