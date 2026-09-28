@@ -49,6 +49,10 @@ const WEATHER_BACKGROUNDS = {
 // 말풍선 안에 넣는 물방울 — 앱 전체가 쓰는 도트 물방울 아이콘
 const WATER_DROP_ICON = require("../../assets/icons/water_icon.png");
 
+// 데모 촬영용: 홈 배경/날씨 아이콘을 이 순서로 5초마다 순환한다 (실제 날씨 대신)
+const DEMO_WEATHERS = ["맑음", "흐림", "비", "눈"];
+const DEMO_WEATHER_INTERVAL_MS = 5000;
+
 const AIR_QUALITY_ICONS = {
     "좋음": require("../../assets/icons/air_good_icon.png"),
     "보통": require("../../assets/icons/air_moderate_icon.png"),
@@ -547,16 +551,23 @@ export default function HomeScreen({
         };
     }, []);
 
-    // environment가 아직 없으면(로딩 중이거나 위치 미설정 등으로 실패) 기본 아이콘을
-    // 보여주지 않는다 — "흐림"이 실제 날씨처럼 오해될 수 있어서, 값이 있을 때만 표시.
-    const weatherIconSource = environment
-        ? WEATHER_ICONS[environment.weather_status] ?? WEATHER_ICONS["흐림"]
-        : null;
+    const [demoWeatherIndex, setDemoWeatherIndex] = useState(0);
+    useEffect(() => {
+        const timer = setInterval(
+            () => setDemoWeatherIndex((i) => (i + 1) % DEMO_WEATHERS.length),
+            DEMO_WEATHER_INTERVAL_MS
+        );
+        return () => clearInterval(timer);
+    }, []);
+    const demoWeatherStatus = DEMO_WEATHERS[demoWeatherIndex];
+
+    // 데모: 실제 날씨 대신 순환 중인 날씨로 아이콘/배경을 고른다 (API 실패해도 아이콘 표시)
+    const weatherIconSource = WEATHER_ICONS[demoWeatherStatus];
     const airQualityIconSource = environment
         ? AIR_QUALITY_ICONS[environment.air_quality_status] ?? AIR_QUALITY_ICONS["보통"]
         : null;
     const homeBackgroundSource =
-        WEATHER_BACKGROUNDS[environment?.weather_status] ?? BACKGROUND_IMAGES[HOME_BACKGROUND_KEY];
+        WEATHER_BACKGROUNDS[demoWeatherStatus] ?? BACKGROUND_IMAGES[HOME_BACKGROUND_KEY];
 
     return (
         <View style={styles.root}>
