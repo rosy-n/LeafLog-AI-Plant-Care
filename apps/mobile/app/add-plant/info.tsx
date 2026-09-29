@@ -15,6 +15,7 @@ import { useRouter } from '../../src/hooks/useAddPlantRouter';
 import { useAddPlantFlow, type AddPlantInfoInput } from '../../src/AddPlantFlowContext';
 
 import { styles } from './styles/info.styles';
+import { remoteImageSource } from '../../src/remoteImageSource';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -263,7 +264,7 @@ export default function InfoScreen() {
         {/* Plant header */}
         <View style={styles.plantHeader}>
           {headerImageUri ? (
-            <Image source={{ uri: headerImageUri }} style={styles.plantHeaderImage} resizeMode="cover" />
+            <Image source={remoteImageSource(headerImageUri)} style={styles.plantHeaderImage} resizeMode="cover" />
           ) : (
             <View style={styles.plantHeaderImage} />
           )}
