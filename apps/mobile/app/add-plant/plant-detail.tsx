@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from '../../src/hooks/useAddPlantRouter';
 
 import { getSpecies, speciesDisplayName, type SpeciesDetail } from '../../src/api';
+import { remoteImageSource } from '../../src/remoteImageSource';
 import { useAddPlantFlow } from '../../src/AddPlantFlowContext';
 import { styles } from './styles/plant-detail.styles';
 
@@ -120,6 +121,8 @@ export default function PlantDetailScreen() {
           style={styles.plantImage}
           onLayout={(e) => setPageWidth(e.nativeEvent.layout.width)}
         >
+          {/* 사진은 Wikimedia 에서 바로 받아 몇 초 걸릴 수 있다 — 뜨기 전까지 빈 칸 대신 로딩 표시 */}
+          {totalPhotos > 0 && <ActivityIndicator style={styles.plantImageLoading} />}
           {totalPhotos > 0 && pageWidth > 0 && (
             <ScrollView
               ref={scrollRef}
@@ -131,7 +134,7 @@ export default function PlantDetailScreen() {
               {images.map((uri, i) => (
                 <Image
                   key={i}
-                  source={{ uri }}
+                  source={remoteImageSource(uri)}
                   style={{ width: pageWidth, height: pageWidth }}
                   resizeMode="cover"
                 />

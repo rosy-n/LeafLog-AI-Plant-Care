@@ -53,6 +53,7 @@ test('partially entered details persist immediately and restore without marking 
     '../../constants/colors': { Colors: {} }, './styles/info.styles': { styles: {} },
     '../../src/hooks/useAddPlantRouter': { useRouter: () => ({ push() {} }) },
     '../../src/AddPlantFlowContext': { useAddPlantFlow: () => ({ draft, updateDraft: patch => Object.assign(draft, patch) }) },
+    '../../src/remoteImageSource': { remoteImageSource: (uri) => ({ uri }) },
   });
   let app = create();
   button(app, '거실').props.onPress();
@@ -80,6 +81,7 @@ test('confirming a species goes directly to details and preserves the photo gene
       useLocalSearchParams: () => ({ speciesId: '12', commonNameKo: 'test species' }),
     },
     '../../src/AddPlantFlowContext': { useAddPlantFlow: () => ({ draft, updateDraft: (patch) => Object.assign(draft, patch), reportGeneration() {}, cancelGeneration() {} }) },
+    '../../src/remoteImageSource': { remoteImageSource: (uri) => ({ uri }) },
     '../../src/api': {
       getSpecies: async () => ({ common_name_ko: 'test species', scientific_name: 'Test plant' }),
       speciesDisplayName: species => species.alias_ko ?? species.common_name_ko,
@@ -103,6 +105,7 @@ test('details stay editable until Next and then open the existing job result', a
     './styles/info.styles': { styles: {} },
     '../../src/hooks/useAddPlantRouter': { useRouter: () => ({ push: (to) => navigation.push(to) }) },
     '../../src/AddPlantFlowContext': { useAddPlantFlow: () => ({ draft, updateDraft: (patch) => Object.assign(draft, patch), reportGeneration() {}, cancelGeneration() {} }) },
+    '../../src/remoteImageSource': { remoteImageSource: (uri) => ({ uri }) },
   });
   assert.equal(button(app, '다음').props.disabled, true);
   button(app, '거실').props.onPress();

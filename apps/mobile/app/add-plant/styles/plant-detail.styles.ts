@@ -34,6 +34,14 @@ export const styles = StyleSheet.create({
     backgroundColor: Colors.primaryLight,
     overflow: 'hidden',
   },
+  // 사진 뒤에 깔리는 로딩 표시 — 사진이 뜨면 그 위를 덮는다
+  plantImageLoading: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
   navBtn: {
     width: 36,
     height: 36,
