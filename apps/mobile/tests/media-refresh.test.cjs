@@ -72,3 +72,29 @@ test('repeated failures do not create an image refresh loop', async () => {
   assert.equal(count, 1);
   app.dispose();
 });
+
+test('a failed image load is retried a few times with a growing delay, then stops', async () => {
+  // 서명 없는 주소 — 만료 시각 타이머가 섞이지 않게
+  const plainUrl = 'https://another.test/plant.png';
+  const { app } = setup(async () => { throw new Error('offline'); });
+  const delays = [];
+  for (let i = 0; i < 7; i += 1) {
+    const image = app.render({ uri: plainUrl });
+    image.onError();
+    const timer = [...app.timers.values()][0];
+    if (!timer) break;
+    delays.push(timer.delay);
+    app.runTimer(timer.delay);
+    await flush();
+  }
+  assert.deepEqual(delays, [3000, 10000, 30000, 30000, 30000]);
+  assert.equal(app.render({ uri: plainUrl }).reloadKey, 5);
+});
+
+test('a pending image retry is cancelled when the screen goes away', () => {
+  const { app } = setup(async () => { throw new Error('offline'); });
+  app.render({ uri: 'https://another.test/plant.png' }).onError();
+  assert.ok([...app.timers.values()].some((t) => t.delay === 3000));
+  app.dispose();
+  assert.equal(app.timers.size, 0);
+});

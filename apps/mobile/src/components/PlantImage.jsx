@@ -34,7 +34,10 @@ export default function PlantImage({
                                        style = null,
                                    }) {
     // 원격 URL(S3 등)이 있으면 우선 사용, 없으면 번들 기본 이미지로 fallback
-    const { source, refresh } = useMediaSource(explicitSource ?? (uri ? { uri } : plantImages[imageKey]));
+    const { source, refresh, onError = refresh, reloadKey = 0 } =
+        useMediaSource(explicitSource ?? (uri ? { uri } : plantImages[imageKey]));
+    // 로드 실패 후 다시 불러올 때마다 reloadKey 가 올라 Image 를 새로 그린다
+    const imageKeyForLoad = `${Image.resolveAssetSource(source)?.uri ?? imageKey}#${reloadKey}`;
 
     const expressionStyle = expressionSource && expressionBounds
         ? createExpressionStyle(expressionSource, expressionBounds)
@@ -46,12 +49,12 @@ export default function PlantImage({
     if (expressionStyle || effectSource || safeEffectRemote || effectFallback) {
         return (
             <LayeredPlantImage
-                key={Image.resolveAssetSource(source)?.uri ?? imageKey}
+                key={imageKeyForLoad}
                 source={source}
                 width={width}
                 height={height}
                 style={style}
-                onError={refresh}
+                onError={onError}
             >
                 {expressionStyle ? (
                     <Image
@@ -82,8 +85,9 @@ export default function PlantImage({
 
     return (
         <Image
+            key={imageKeyForLoad}
             source={source}
-            onError={refresh}
+            onError={onError}
             style={[
                 styles.image,
                 {
