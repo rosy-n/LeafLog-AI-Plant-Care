@@ -516,16 +516,42 @@ def _rag_reference_image_urls(image_ids: list[int], db: Session) -> dict[int, st
     }
 
 
-def _parse_rag_context(raw: object) -> tuple[list[DiagnosisSimilarCase], int | None]:
-    """chat_message.rag_context(JSON)를 복원. {"cases": [...], "dataset_size": N} 형태가 현재 스키마인데,
+def _rag_context_cases(raw: object) -> list[dict]:
+    """chat_message.rag_context(JSON)의 사례 목록. {"cases": [...], "dataset_size": N} 형태가 현재 스키마인데,
     reference_dataset_size 도입 전(사례 배열만 저장하던 시절)에 저장된 옛 행은 raw 자체가 리스트라
     두 형태를 다 처리한다."""
     if isinstance(raw, dict):
-        cases = [DiagnosisSimilarCase(**case) for case in raw.get("cases", [])]
-        return cases, raw.get("dataset_size")
+        return raw.get("cases", [])
     if isinstance(raw, list):
-        return [DiagnosisSimilarCase(**case) for case in raw], None
-    return [], None
+        return raw
+    return []
+
+
+def _rag_case_image_id(case: dict) -> int | None:
+    """rag_context에 굳혀둔 사례의 레퍼런스 image_id. image_id를 같이 저장하기 전의 옛 행은
+    저장된 URL 경로(_rag_reference_object_key 규칙)에서 꺼낸다."""
+    image_id = case.get("image_id")
+    if isinstance(image_id, int):
+        return image_id
+    path = urlparse(case.get("image_url") or "").path
+    prefix = path.rpartition("/rag-reference/")[2]
+    stem = prefix.removesuffix(".jpg")
+    return int(stem) if prefix != path and stem.isdigit() else None
+
+
+def _parse_rag_context(
+    raw: object, image_url_by_id: dict[int, str]
+) -> tuple[list[DiagnosisSimilarCase], int | None]:
+    """chat_message.rag_context(JSON)를 복원하면서 레퍼런스 이미지 URL은 지금 발급한 값으로 바꾼다.
+    저장된 image_url은 응답 시점의 presigned URL이라 S3_PRESIGN_EXPIRE_SECONDS(최대 1시간)가
+    지나면 만료돼, 과거 상담을 다시 열면 이미지가 빈 칸으로 보인다."""
+    cases = []
+    for case in _rag_context_cases(raw):
+        image_id = _rag_case_image_id(case)
+        image_url = image_url_by_id.get(image_id) if image_id is not None else None
+        cases.append(DiagnosisSimilarCase(**{**case, "image_url": image_url}))
+    dataset_size = raw.get("dataset_size") if isinstance(raw, dict) else None
+    return cases, dataset_size
 
 
 @app.on_event("startup")
@@ -2525,7 +2551,11 @@ def diagnose_plant_photo(
             # 토글에 쓸 수 있게 한다. 검색 자체를 안 한 턴(사진 없음)은 None.
             rag_context=(
                 {
-                    "cases": [case.model_dump() for case in similar_cases_out],
+                    # image_id는 응답 스키마엔 없지만, 다시 열 때 이미지 URL을 새로 발급하려고 같이 남긴다.
+                    "cases": [
+                        {**out.model_dump(), "image_id": case.image_id}
+                        for out, case in zip(similar_cases_out, similar_cases)
+                    ],
                     "dataset_size": reference_dataset_size,
                 }
                 if image_bytes is not None
@@ -2608,9 +2638,18 @@ def get_consultation(
         for asset in db.scalars(select(MediaAsset).where(MediaAsset.asset_id.in_(asset_ids))).all():
             asset_url_map[asset.asset_id] = presigned_get_url(asset.object_key, asset.bucket_name) or asset.file_url
 
+    # RAG 근거 이미지도 대화 전체 분량을 한 번에 다시 발급 (저장된 URL은 만료됐을 수 있다)
+    rag_image_ids = {
+        image_id
+        for row in rows
+        for case in _rag_context_cases(row.rag_context)
+        if (image_id := _rag_case_image_id(case)) is not None
+    }
+    rag_image_url_by_id = _rag_reference_image_urls(sorted(rag_image_ids), db)
+
     messages = []
     for row in rows:
-        similar_cases, reference_dataset_size = _parse_rag_context(row.rag_context)
+        similar_cases, reference_dataset_size = _parse_rag_context(row.rag_context, rag_image_url_by_id)
         messages.append(
             ConsultationMessage(
                 id=row.message_id,
