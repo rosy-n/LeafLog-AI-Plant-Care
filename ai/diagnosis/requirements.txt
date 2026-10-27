@@ -1,7 +1,6 @@
 torch
 transformers
 qdrant-client
-anthropic
 pandas
 openpyxl
 pillow
@@ -10,4 +9,3 @@ requests
 tqdm
 umap-learn
 scikit-learn
-flask

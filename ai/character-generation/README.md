@@ -19,8 +19,6 @@
 - [v1 학습 기록](TRAINING_V1.md)
 - [추론 재현](INFERENCE.md)
 - [모델과 백업 파일](ARTIFACTS.md)
-- [RunPod 인계 기록](RUNPOD_HANDOFF.md)
-- [작업 이력](WORK_LOG.md)
 - [환경 스냅샷](environment/README.md)
 
 ## 저장소 정책

@@ -1,9 +1,8 @@
 """Qwen(Ollama)으로 답변 생성 (5단계 포맷).
 
-04_diagnose_claude.py와 검색 로직(03_search_similar.py)·SYSTEM_PROMPT·5단계 포맷을 그대로 공유하고,
-생성 호출부만 Claude API -> 학교 PC Ollama(qwen3.5:9b)로 바꾼 버전이다.
-persona-chat이 이미 쓰고 있는 모델(apps/api/app/persona_chat.py)을 그대로 재사용한다 —
-Qwen2.5-VL-7B-Instruct를 별도로 올리면 학교 PC(DB+Ollama+SD/LoRA 동시 구동 중) 리소스 부담이 커진다.
+03_search_similar.py로 유사 사례를 검색하고, 이미지와 증상 설명을 함께
+Ollama(qwen3.5:9b)에 전달해 5단계 상담 답변을 생성한다.
+페르소나 대화와 같은 모델을 사용해 GPU 서버의 추가 모델 적재를 줄인다.
 """
 import argparse
 import base64
@@ -47,8 +46,7 @@ def _load_search_module():
 
 
 def encode_image_base64(image_bytes: bytes) -> str:
-    # Ollama /api/chat의 images 필드는 media_type 없이 순수 base64 문자열만 받는다
-    # (Claude API처럼 image/png 등을 별도로 명시하지 않음).
+    # Ollama /api/chat의 images 필드는 미디어 유형 없이 순수 base64 문자열만 받는다.
     with Image.open(__import__("io").BytesIO(image_bytes)) as img:
         img.verify()  # 손상된 이미지를 여기서 미리 걸러낸다
     return base64.standard_b64encode(image_bytes).decode("utf-8")

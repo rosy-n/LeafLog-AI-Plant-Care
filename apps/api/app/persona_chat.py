@@ -5,7 +5,7 @@ FastAPI 엔드포인트(main.py)와 로컬 테스트 CLI(ai/persona-chat/test_pe
 이 모듈을 공유해서 프롬프트/검증 규칙이 두 곳에서 따로 관리되지 않게 한다.
 
 프롬프트 원본(ai/persona-chat/prompts/)은 옮기지 않고 그 자리에 그대로 둔다 —
-ai/persona-chat/CLAUDE.md의 절대 규칙과 파일 구조 설명이 그 경로를 가정하고 있다.
+이 모듈과 CLI 도구가 해당 경로의 공통 프롬프트를 읽는다.
 """
 
 from __future__ import annotations

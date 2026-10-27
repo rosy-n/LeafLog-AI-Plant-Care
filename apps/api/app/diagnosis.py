@@ -2,7 +2,7 @@
 
 ai/diagnosis/scripts/03_search_similar.py, 04_diagnose_qwen.py의 CLI 프로토타입 로직을
 API 엔드포인트용으로 옮긴 것이다. 5단계 답변 포맷과 시스템 프롬프트는
-ai/diagnosis/CLAUDE.md에 정의된 것과 동일하게 유지한다 (그쪽 문서가 포맷의 기준).
+이 모듈의 시스템 프롬프트와 ai/diagnosis/config/cause_codes.json을 기준으로 유지한다.
 
 생성 모델은 persona_chat.py가 이미 쓰는 로컬 Ollama(qwen3.5:9b)를 그대로 재사용한다 —
 Qwen2.5-VL을 별도로 올리면 학교 PC(DB+Ollama+SD/LoRA 동시 구동 중) 리소스 부담이 커진다.

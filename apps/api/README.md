@@ -142,7 +142,7 @@ python scripts/reframe-characters.py --apply --backup-dir ~/leaflog-backups/char
    자동으로 `ANSWERED` 가 되고 사용자 앱에 즉시 보인다. 다시 호출하면 수정된다.
 
 관리자는 `app_user.role = 'ADMIN'` 인 계정뿐이다. 일반 계정은 403.
-현재 관리자는 `bbb@gmail.com` 이다. 바꾸려면 (관리자는 한 명만 두는 것을 권한다):
+관리자 계정은 설치 환경에서 지정한다. 아래 예시를 사용할 때 실제 관리 계정으로 변경한다:
 
 ```sql
 UPDATE app_user SET role = 'USER'  WHERE role = 'ADMIN' AND email <> '바꿀주소@example.com';

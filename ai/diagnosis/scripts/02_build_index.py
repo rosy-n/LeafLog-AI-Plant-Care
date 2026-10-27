@@ -25,7 +25,7 @@ DEFAULT_LABELS_PATH = DIAGNOSIS_DIR / "data" / "labels.xlsx"
 DEFAULT_IMAGES_DIR = DIAGNOSIS_DIR / "images"
 CLIP_MODEL_NAME = "openai/clip-vit-large-patch14"
 DEFAULT_IMAGE_KEY = "__default__"
-# 실제 이미지 확장자는 png/jpg/jpeg/webp 등 원본 그대로 섞여 있을 수 있다(CLAUDE.md 참고) -
+# 실제 이미지 확장자는 png/jpg/jpeg/webp 등 원본 그대로 섞여 있을 수 있다(데이터셋 원본 형식 기준) -
 # 허용 목록 대신, 같은 폴더에 섞여 있는 라벨용 비이미지 파일만 제외한다.
 NON_IMAGE_SUFFIXES = {".json", ".txt", ".xml", ".csv"}
 # 결정론적 crop point id용 네임스페이스. 저장소에 기존 관례가 없어 표준 라이브러리 고정 상수를 채택.

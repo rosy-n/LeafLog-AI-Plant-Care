@@ -48,7 +48,7 @@ GPIO33~37(N16R8 의 옥타 PSRAM)도 피해야 해서 ADC1 의 GPIO4 를 쓴다.
 
    curl -s -X POST https://<API>/api/plants/<화분id>/soil-sensor \
      -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-     -d '{"device_key":"44:1B:F6:FF:07:60","device_label":"거실 몬스테라"}'
+     -d '{"device_key":"02:00:00:00:00:01","device_label":"거실 몬스테라"}'
    ```
 
 3. `secrets.example.h` 를 `secrets.h` 로 복사해 WiFi 와 `device_token` 을 채우고 다시 굽는다.

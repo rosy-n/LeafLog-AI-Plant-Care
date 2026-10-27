@@ -5,7 +5,7 @@
 "소스 3" 절이 기준.
 
 그을음병/검은점무늬병/점무늬병/궤양병/귤굴나방 5개는 2026-09-14 웹서칭 근거로 확정 추가됨
-(CLAUDE.md "확정된 원인 23개" 절, config/cause_codes.json 참고) - 더 이상 제안 단계 아님.
+(config/cause_codes.json의 원인 코드 목록 참고) - 더 이상 제안 단계 아님.
 """
 from __future__ import annotations
 
